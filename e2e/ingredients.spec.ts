@@ -23,7 +23,7 @@ test('a first ingredient save creates a guest shelf and shows its count at signu
 	await page.getByRole('menuitem', { name: 'create an account' }).click()
 	await expect(
 		page.getByText(
-			'Keep your 1 ingredient on any device when you create an account.',
+			'keep your 1 ingredient on any device once you have an account.',
 		),
 	).toBeVisible()
 })

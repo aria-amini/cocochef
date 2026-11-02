@@ -3,10 +3,8 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { GoogleAuthButton } from '@/components/google-auth-button'
+import { AuthField, AuthShell } from '@/components/auth-form'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import { redirectAuthenticatedUsers } from '@/lib/auth/functions'
 
@@ -39,50 +37,47 @@ function Login() {
 			if (result.error) toast.error(result.error.message)
 			else await navigate({ to: search.redirect ?? '/' })
 		} catch {
-			toast.error('Could not sign you in. Try again.')
+			toast.error("couldn't sign you in — try again")
 		} finally {
 			setPending(false)
 		}
 	}
 
 	return (
-		<main className="grid min-h-dvh place-items-center p-6">
-			<Card className="w-full max-w-md">
-				<CardContent>
-					<div className="space-y-6">
-						<h1 className="text-3xl font-bold">Sign in</h1>
-						<GoogleAuthButton
-							fallbackRedirect={search.redirect ?? '/recipes'}
-							className="w-full"
-						/>
-						<form onSubmit={submit} className="space-y-4">
-							<Input
-								required
-								type="email"
-								placeholder="you@example.com"
-								value={email}
-								onChange={(event) => setEmail(event.target.value)}
-							/>
-							<Input
-								required
-								type="password"
-								placeholder="Password"
-								value={password}
-								onChange={(event) => setPassword(event.target.value)}
-							/>
-							<Button type="submit" className="w-full" disabled={pending}>
-								{pending ? 'Signing in…' : 'Sign in'}
-							</Button>
-						</form>
-						<p className="text-sm">
-							New here?{' '}
-							<Link to="/auth/signup" className="underline">
-								Create an account
-							</Link>
-						</p>
-					</div>
-				</CardContent>
-			</Card>
-		</main>
+		<AuthShell
+			title="sign in"
+			googleRedirect={search.redirect ?? '/recipes'}
+			footer={
+				<>
+					new here?{' '}
+					<Link to="/auth/signup" className="font-semibold underline">
+						create an account
+					</Link>
+				</>
+			}
+		>
+			<form onSubmit={submit} className="flex flex-col gap-4">
+				<AuthField
+					label="email"
+					required
+					type="email"
+					autoComplete="email"
+					placeholder="you@example.com"
+					value={email}
+					onChange={(event) => setEmail(event.target.value)}
+				/>
+				<AuthField
+					label="password"
+					required
+					type="password"
+					autoComplete="current-password"
+					value={password}
+					onChange={(event) => setPassword(event.target.value)}
+				/>
+				<Button type="submit" size="lg" className="w-full" disabled={pending}>
+					{pending ? 'signing in…' : 'sign in'}
+				</Button>
+			</form>
+		</AuthShell>
 	)
 }

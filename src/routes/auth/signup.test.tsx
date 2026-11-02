@@ -23,7 +23,7 @@ describe('guest signup', () => {
 		await expect
 			.element(
 				screen.getByText(
-					'Keep your 2 recipes and 3 ingredients on any device when you create an account.',
+					'keep your 2 recipes and 3 ingredients on any device once you have an account.',
 				),
 			)
 			.toBeVisible()
