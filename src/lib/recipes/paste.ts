@@ -25,6 +25,21 @@ const bullet = /^\s*[-•*–·▢□]\s*/
 // "for the sauce:" inside an ingredient list names a group, not a food.
 const groupLabel = /^(?:for (?:the )?)?[^\d:]{1,40}:$/i
 
+// A line as it goes on the ingredient list: without its bullet, and a group
+// label ("for the sauce:") as a section heading.
+function ingredientFromPaste(line: string) {
+	const item = line.trim().replace(bullet, '')
+
+	return groupLabel.test(item)
+		? formatIngredientHeading(item.replace(/:$/, ''))
+		: item
+}
+
+// A list pasted into the ingredients, one line per row.
+export function pastedIngredients(text: string) {
+	return text.split(/\r?\n/).map(ingredientFromPaste).filter(Boolean)
+}
+
 // Starts with an amount, or is short enough to be one on a list.
 function looksLikeIngredient(line: string) {
 	if (parseIngredientLine(line).quantity !== undefined) return true
@@ -70,8 +85,7 @@ export function parsePastedRecipe(text: string): PastedRecipe {
 
 		const item = line.replace(bullet, '')
 
-		if (groupLabel.test(item))
-			ingredients.push(formatIngredientHeading(item.replace(/:$/, '')))
+		if (groupLabel.test(item)) ingredients.push(ingredientFromPaste(item))
 		else if (
 			section !== 'ingredients' &&
 			(leadingNumber.test(line) || !looksLikeIngredient(item))

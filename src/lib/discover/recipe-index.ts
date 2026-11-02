@@ -111,3 +111,54 @@ export function searchRecipeLinks(
 
 	return results
 }
+
+function hashOf(text: string) {
+	let hash = 2166136261
+
+	for (const char of text) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+
+	return hash >>> 0
+}
+
+// A handful of pictured recipes from across the sites, the same all day and
+// different the next. Sites take turns so no one site fills the row.
+export function featuredRecipeLinks(
+	links: readonly RecipeLink[],
+	limit: number,
+	day: number,
+) {
+	const bySite = new Map<string, { link: RecipeLink; rank: number }[]>()
+
+	for (const link of links) {
+		if (!link.imageUrl) continue
+
+		const ranked = { link, rank: hashOf(`${day}:${link.url}`) }
+		const site = bySite.get(link.siteId)
+
+		if (site) site.push(ranked)
+		else bySite.set(link.siteId, [ranked])
+	}
+
+	const queues = [...bySite.values()].map((site) =>
+		site.sort((a, b) => a.rank - b.rank),
+	)
+
+	const picked: RecipeLink[] = []
+	const seen = new Set<string>()
+
+	for (let round = 0; picked.length < limit; round++) {
+		const row = queues.flatMap((queue) => queue[round] ?? [])
+
+		if (row.length === 0) break
+
+		for (const { link } of row) {
+			if (picked.length === limit) break
+
+			if (seen.has(link.title)) continue
+			seen.add(link.title)
+			picked.push(link)
+		}
+	}
+
+	return picked
+}

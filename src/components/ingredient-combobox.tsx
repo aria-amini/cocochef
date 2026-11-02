@@ -22,6 +22,14 @@ function suggest(query: string): string[] {
 		.slice(0, 6)
 }
 
+// A whole ingredient line ("2 cloves garlic") is completed by its name alone.
+export type LineCompletion = {
+	// The part of the value suggestions match against.
+	query: (value: string) => string
+	// The value with that part swapped for the picked suggestion.
+	apply: (value: string, suggestion: string) => string
+}
+
 export function IngredientCombobox({
 	id,
 	value,
@@ -32,6 +40,8 @@ export function IngredientCombobox({
 	label,
 	compact = false,
 	bare = false,
+	maxLength = 80,
+	completion,
 	inputRef,
 	onKeyDown,
 	onPaste,
@@ -47,30 +57,33 @@ export function IngredientCombobox({
 	// Drops the field's own border and fill and anchors the suggestions to the
 	// nearest positioned ancestor, for a field that lives inside a row.
 	bare?: boolean
-	inputRef?: React.Ref<HTMLInputElement>
+	maxLength?: number
+	completion?: LineCompletion | undefined
+	inputRef?: React.Ref<HTMLTextAreaElement>
 	// Runs for keys the suggestion list does not handle.
-	onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
-	onPaste?: React.ClipboardEventHandler<HTMLInputElement>
+	onKeyDown?: React.KeyboardEventHandler<HTMLTextAreaElement>
+	onPaste?: React.ClipboardEventHandler<HTMLTextAreaElement>
 }) {
 	const listboxId = useId()
 	const blurTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
 	const [open, setOpen] = useState(false)
 	const [activeIndex, setActiveIndex] = useState(-1)
-	const suggestions = suggest(value)
+	const query = completion ? completion.query(value) : value
+	const suggestions = suggest(query)
 
 	// A lone suggestion the field already spells out has nothing left to offer.
 	const settled =
-		suggestions.length === 1 && suggestions[0] === value.trim().toLowerCase()
+		suggestions.length === 1 && suggestions[0] === query.trim().toLowerCase()
 
 	const expanded = open && suggestions.length > 0 && !settled
 
 	function pick(suggestion: string) {
-		onChange(suggestion)
+		onChange(completion ? completion.apply(value, suggestion) : suggestion)
 		setOpen(false)
 		setActiveIndex(-1)
 	}
 
-	function handleListKey(event: React.KeyboardEvent<HTMLInputElement>) {
+	function handleListKey(event: React.KeyboardEvent<HTMLTextAreaElement>) {
 		if (event.key === 'ArrowDown') {
 			event.preventDefault()
 			setActiveIndex((index) => Math.min(index + 1, suggestions.length - 1))
@@ -92,13 +105,16 @@ export function IngredientCombobox({
 
 	return (
 		<div className={bare ? undefined : 'relative'}>
-			<input
+			{/* A textarea so a long line wraps where it can be read; it never
+			    takes a line break. */}
+			<textarea
 				ref={inputRef}
+				rows={1}
 				id={id}
 				name={name}
 				required={required}
 				aria-label={label}
-				maxLength={80}
+				maxLength={maxLength}
 				value={value}
 				role="combobox"
 				aria-expanded={expanded}
@@ -112,7 +128,7 @@ export function IngredientCombobox({
 				autoComplete="off"
 				placeholder={placeholder}
 				onChange={(event) => {
-					onChange(event.target.value)
+					onChange(event.target.value.replaceAll(/\s*\n\s*/g, ' '))
 					setOpen(true)
 					setActiveIndex(-1)
 				}}
@@ -139,9 +155,9 @@ export function IngredientCombobox({
 					if (!event.defaultPrevented) onKeyDown?.(event)
 				}}
 				className={cn(
-					'w-full',
+					'field-sizing-content block w-full resize-none',
 					bare
-						? 'bg-transparent px-3 py-2.5 text-sm font-semibold outline-none'
+						? 'bg-transparent px-3 py-2.5 text-base font-medium outline-none'
 						: 'border-input bg-card focus-visible:outline-kitchen-eggplant rounded-xl border focus-visible:outline-2 focus-visible:outline-offset-2',
 					placeholderClassName,
 					!bare &&
@@ -155,7 +171,7 @@ export function IngredientCombobox({
 					id={listboxId}
 					role="listbox"
 					aria-label="Ingredient suggestions"
-					className="bg-card absolute inset-x-0 top-full z-10 mt-1.5 overflow-hidden rounded-xl shadow-md"
+					className="bg-card border-foreground/30 absolute inset-x-0 top-full z-10 mt-1.5 overflow-hidden rounded-xl border shadow-md"
 				>
 					{suggestions.map((suggestion, index) => (
 						<li

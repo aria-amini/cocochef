@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import { isPastedRecipe, parsePastedRecipe } from './paste'
+import { isPastedRecipe, parsePastedRecipe, pastedIngredients } from './paste'
 
 describe('parsePastedRecipe', () => {
 	test('splits on ingredients and method headings', () => {
@@ -65,4 +65,10 @@ test('isPastedRecipe needs more than one line', () => {
 	expect(isPastedRecipe('dal')).toBe(false)
 	expect(isPastedRecipe('  dal\n')).toBe(false)
 	expect(isPastedRecipe('dal\n1 cup lentils')).toBe(true)
+})
+
+test('pastedIngredients keeps group labels as sections and drops bullets', () => {
+	expect(
+		pastedIngredients('- 2 cups flour\n\nfor the topping:\n• 1 tbsp sugar\n'),
+	).toEqual(['2 cups flour', '## for the topping', '1 tbsp sugar'])
 })

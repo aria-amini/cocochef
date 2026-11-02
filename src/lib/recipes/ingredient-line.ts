@@ -8,7 +8,7 @@ export type IngredientParts = {
 
 // `value` is what the line stores. `aliases` are the spellings that notes and
 // typed lines use for it.
-export const ingredientUnits = [
+const ingredientUnits = [
 	{ value: 'tsp', aliases: ['tsp', 'teaspoon', 'teaspoons'] },
 	{ value: 'tbsp', aliases: ['tbsp', 'tablespoon', 'tablespoons'] },
 	{ value: 'cup', aliases: ['cup', 'cups'] },
@@ -43,18 +43,6 @@ const FRACTIONS = new Map([
 
 const FRACTION_GLYPHS = [...FRACTIONS.keys()].join('')
 
-export function formatQuantity(quantity: number) {
-	const whole = Math.floor(quantity)
-	const rest = quantity - whole
-
-	if (rest < 0.001) return String(whole)
-
-	for (const [glyph, value] of FRACTIONS)
-		if (Math.abs(rest - value) < 0.01) return whole ? `${whole}${glyph}` : glyph
-
-	return String(Math.round(quantity * 100) / 100)
-}
-
 function quantityFrom(text: string) {
 	let total = 0
 
@@ -73,7 +61,7 @@ function quantityFrom(text: string) {
 
 // ===== Lines =====
 
-const QUANTITY = `\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d*\\.\\d+|\\d+[${FRACTION_GLYPHS}]?|[${FRACTION_GLYPHS}]`
+const QUANTITY = `\\d+\\s+[${FRACTION_GLYPHS}]|\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d*\\.\\d+|\\d+[${FRACTION_GLYPHS}]?|[${FRACTION_GLYPHS}]`
 
 // A quantity ends at a space, a letter ("200g") or a bracket, so "2-3 eggs" and
 // "100% cocoa" stay as written.
@@ -93,20 +81,6 @@ export function parseIngredientLine(line: string): IngredientParts {
 	return unit
 		? { quantity, unit, name: rest.join(' ') }
 		: { quantity, unit: '', name: (match[2] ?? '').trim() }
-}
-
-export function formatIngredientLine({
-	quantity,
-	unit,
-	name,
-}: IngredientParts) {
-	const trimmed = name.trim()
-
-	if (!trimmed) return ''
-
-	return [quantity ? formatQuantity(quantity) : '', unit, trimmed]
-		.filter(Boolean)
-		.join(' ')
 }
 
 // ===== Section headings =====

@@ -60,11 +60,12 @@ daemon auto-start alone does not register the proxy URL.
 ## Local URLs
 
 Caddy terminates TLS on the Tailscale IP at 443 and proxies to the pitchfork
-proxy on loopback 9443. URLs are portless: `https://<slug>.lvh.ariaamini.com`
-(`.dev.` aliases `.lvh.`). Worktree slugs flatten to `<app>-<worktree>`, for
-example `dutch-oven-my-task`. Nested hostnames (`worktree.app.lvh…`) and direct
-`:9443` access do not work: the wildcard cert covers one level, and the proxy
-binds loopback only.
+proxy on loopback 9443. URLs are portless: `https://<slug>.dev.ariaamini.com`.
+Caddy only holds a certificate for `*.dev.ariaamini.com`, so other domains fail
+TLS. Worktree slugs flatten to `<app>-<worktree>`, for example
+`dutch-oven-my-task`. Nested hostnames (`worktree.app.dev…`) and direct `:9443`
+access do not work: the wildcard cert covers one level, and the proxy binds
+loopback only.
 
 `mise run bootstrap` registers the workspace slug and writes `BASE_URL`. Never
 run `pitchfork proxy setup` here — it would grab port 443 from the global Caddy
@@ -93,6 +94,42 @@ Nitro bundles app code into `.output`, and Railway prunes devDependencies after
 the build. Add packages as devDependencies. Keep `dependencies` to what runs
 outside the bundle: Varlock for `start`, and `drizzle-orm` and `pg` for
 migrations.
+
+## PR review follow-through
+
+“Full send” includes publishing, triggering CodeRabbit when automatic reviews
+are disabled, addressing findings, and monitoring checks and reviews on the
+latest head. Green CI and resolved threads alone do not mean the latest head has
+been reviewed. Keep monitoring while a requested review or retry remains
+outstanding; report that state without calling the work complete. Do not dismiss
+an outstanding review or bypass branch protections just to finish.
+
+When CodeRabbit is rate-limited:
+
+- Post `@coderabbitai rate limit` as a top-level PR comment. This checks review
+  availability without spending a review. Prefer its reported retry time over a
+  guess. Review allowances refill on a rolling basis and can vary with usage; do
+  not assume the top of the hour or hardcode a plan's allowance.
+- If no exact retry time is available and the bot reports one review per hour,
+  estimate the last successful review's completion time plus 60 minutes, with a
+  2-minute buffer. Label this an estimate: other reviews by the same developer
+  may affect availability. Record UTC and the user's local time.
+- Use T3's persistent scheduler to wake this thread at the retry time. PR
+  watching reports changes but does not wake on quota expiration. For a one-time
+  retry implemented with a recurring timer, disable that timer as soon as it
+  fires. Keep one pending retry per PR; reschedule it if newer quota information
+  arrives. At wake-up, check that the PR still needs review and that no review
+  is already running before posting `@coderabbitai review`.
+- Do not use a long shell sleep, a polling loop, or a larger tool timeout as a
+  substitute for a scheduled retry. A tool's wait timeout is not CodeRabbit's
+  quota cooldown. If still limited, use the new retry time and keep monitoring.
+- Batch fixes into one push before requesting another incremental review. Stop
+  monitoring only after the current head's checks/review are settled and the
+  work is handed back, or when the user asks to stop. A skipped/rate-limited
+  review is not approval.
+
+Reference: https://docs.coderabbit.ai/management/rate-limits and
+https://docs.coderabbit.ai/reference/review-commands.
 
 ## Tests
 

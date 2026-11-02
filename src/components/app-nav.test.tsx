@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
 
 vi.mock('@/lib/recipes/server', () => ({
+	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
 	getRecipe: vi.fn(),
 	createRecipe: vi.fn(),
@@ -41,7 +42,7 @@ const guest = {
 const isPhone = () => window.innerWidth < 768
 
 describe('app nav', () => {
-	test('keeps three destinations and opens the shelf from the root', async () => {
+	test('opens WIP pages for unfinished destinations and opens the shelf from the root', async () => {
 		const { screen, router } = await renderRoute({ path: '/', session: member })
 
 		const nav = screen.getByRole('navigation', { name: 'Primary' })
@@ -50,10 +51,10 @@ describe('app nav', () => {
 			.toHaveAttribute('aria-current', 'page')
 		await expect
 			.element(nav.getByRole('link', { name: 'ingredients' }))
-			.toBeVisible()
+			.toHaveAttribute('href', '/coming-soon/ingredients')
 		await expect
 			.element(nav.getByRole('link', { name: 'groceries' }))
-			.toHaveAttribute('href', '/groceries')
+			.toHaveAttribute('href', '/coming-soon/groceries')
 		expect(router.state.location.pathname).toBe('/recipes')
 		expect(
 			nav
@@ -63,6 +64,29 @@ describe('app nav', () => {
 				.filter((label) => label !== 'dutch-oven' && label !== 'add'),
 		).toEqual(['recipes', 'ingredients', 'groceries'])
 	})
+
+	test.each(['ingredients', 'groceries'])(
+		'opens the %s WIP page from navigation',
+		async (label) => {
+			const { screen } = await renderRoute({
+				path: '/recipes',
+				session: member,
+			})
+
+			await screen
+				.getByRole('navigation', { name: 'Primary' })
+				.getByRole('link', { name: label })
+				.click()
+			await expect
+				.element(screen.getByRole('heading', { name: label, exact: true }))
+				.toBeVisible()
+			await expect.element(screen.getByText('work in progress')).toBeVisible()
+			await screen.getByRole('link', { name: 'back to recipes' }).click()
+			await expect
+				.element(screen.getByRole('button', { name: /find a recipe/ }))
+				.toBeVisible()
+		},
+	)
 
 	test('puts profile and sign out in the account menu', async () => {
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
@@ -125,7 +149,7 @@ describe('app nav', () => {
 				.toBeVisible()
 			// The round add belongs to the recipes shelf alone.
 			await expect
-				.element(screen.getByRole('link', { name: 'add recipe' }))
+				.element(screen.getByRole('button', { name: 'add recipe' }))
 				.not.toBeInTheDocument()
 		} else {
 			expect(position()).toBe('sticky')
@@ -137,10 +161,7 @@ describe('app nav', () => {
 
 		if (!isPhone()) return
 
-		const add = screen.getByRole('link', { name: 'add recipe' })
-
-		await expect.element(add).toHaveAttribute('href', '/recipes/new')
-
+		const add = screen.getByRole('button', { name: 'add recipe' })
 		const box = add.element().getBoundingClientRect()
 
 		expect(box.width).toBe(box.height)
@@ -150,9 +171,22 @@ describe('app nav', () => {
 			.element(
 				screen
 					.getByRole('navigation', { name: 'Primary' })
-					.getByRole('link', { name: 'add recipe' }),
+					.getByRole('button', { name: 'add recipe' }),
 			)
 			.not.toBeInTheDocument()
+
+		// Every way to start lives in the finder.
+		await add.click()
+		const sheet = screen.getByRole('dialog', { name: 'find a recipe' })
+		await expect
+			.element(sheet.getByRole('combobox', { name: 'find a recipe' }))
+			.toHaveFocus()
+		await expect
+			.element(sheet.getByRole('option', { name: /blank recipe/ }))
+			.toBeVisible()
+		await expect
+			.element(sheet.getByRole('option', { name: /import link/ }))
+			.toBeVisible()
 	})
 
 	test('leaves the tab bar off screens that pin their own actions', async () => {
@@ -183,7 +217,7 @@ describe('app nav', () => {
 		// Hidden elements drop out of the role tree.
 		await expect.element(nav).not.toBeInTheDocument()
 		await expect
-			.element(screen.getByRole('link', { name: 'add recipe' }))
+			.element(screen.getByRole('button', { name: 'add recipe' }))
 			.not.toBeInTheDocument()
 		field.remove()
 	})

@@ -26,3 +26,10 @@ export const getRouter = () => {
 
 	return router
 }
+
+declare module '@tanstack/react-router' {
+	interface HistoryState {
+		// A whole recipe pasted into the one box, for the new recipe page to sort.
+		pasted?: string
+	}
+}

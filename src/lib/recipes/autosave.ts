@@ -109,6 +109,10 @@ export function createAutosaver({
 			detached = true
 			clearTimeout(timer)
 		},
+		// The persisted copy was removed; identical content must save again.
+		forget: () => {
+			saved = undefined
+		},
 		savedSnapshot: () => saved,
 	}
 }

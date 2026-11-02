@@ -2,8 +2,6 @@ import { describe, expect, test } from 'vite-plus/test'
 
 import {
 	formatIngredientHeading,
-	formatIngredientLine,
-	formatQuantity,
 	ingredientHeading,
 	parseIngredientLine,
 } from './ingredient-line'
@@ -30,25 +28,6 @@ describe('parseIngredientLine', () => {
 		['salt to taste', { quantity: undefined, unit: '', name: 'salt to taste' }],
 	])('parses %s', (line, expected) => {
 		expect(parseIngredientLine(line)).toEqual(expected)
-	})
-})
-
-describe('formatIngredientLine', () => {
-	test('joins quantity, unit, and name', () => {
-		expect(
-			formatIngredientLine({ quantity: 1.5, unit: 'cup', name: ' flour ' }),
-		).toBe('1½ cup flour')
-	})
-
-	test('drops a row with no name', () => {
-		expect(formatIngredientLine({ quantity: 2, unit: 'g', name: ' ' })).toBe('')
-	})
-
-	test('formats quantities as fractions when they match', () => {
-		expect(formatQuantity(0.25)).toBe('¼')
-		expect(formatQuantity(2.75)).toBe('2¾')
-		expect(formatQuantity(200)).toBe('200')
-		expect(formatQuantity(0.4)).toBe('0.4')
 	})
 })
 

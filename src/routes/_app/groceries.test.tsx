@@ -22,7 +22,7 @@ describe('groceries', () => {
 			.toBeVisible()
 	})
 
-	test('is a tab, highlighted while you are on it', async () => {
+	test('links its navigation to a WIP page', async () => {
 		const { screen } = await renderRoute({ path: '/groceries', session })
 
 		await expect
@@ -31,7 +31,7 @@ describe('groceries', () => {
 					.getByRole('navigation', { name: 'Primary' })
 					.getByRole('link', { name: 'groceries' }),
 			)
-			.toHaveAttribute('aria-current', 'page')
+			.toHaveAttribute('href', '/coming-soon/groceries')
 	})
 
 	test('links back to recipes', async () => {

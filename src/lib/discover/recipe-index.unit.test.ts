@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vite-plus/test'
 
 import {
+	featuredRecipeLinks,
 	parseSitemap,
 	searchRecipeLinks,
 	titleFromUrl,
@@ -124,5 +125,52 @@ describe('searchRecipeLinks', () => {
 
 	test('returns nothing for a blank query', () => {
 		expect(searchRecipeLinks(links, '  ')).toEqual([])
+	})
+})
+
+describe('featuredRecipeLinks', () => {
+	const link = (siteId: string, slug: string, imageUrl?: string) => ({
+		url: `https://${siteId}.example/${slug}`,
+		title: slug.replaceAll('-', ' '),
+		siteId,
+		imageUrl,
+	})
+
+	const links: RecipeLink[] = [
+		...['dal', 'soup', 'stew', 'pie'].map((slug) =>
+			link('a', slug, `https://a.example/${slug}.jpg`),
+		),
+		link('b', 'tacos', 'https://b.example/tacos.jpg'),
+		link('b', 'no-picture'),
+		link('c', 'dal', 'https://c.example/dal.jpg'),
+	]
+
+	test('takes only pictured recipes, with sites taking turns', () => {
+		const picked = featuredRecipeLinks(links, 3, 1)
+
+		expect(new Set(picked.map((item) => item.siteId))).toEqual(
+			new Set(['a', 'b', 'c']),
+		)
+		expect(picked.every((item) => item.imageUrl)).toBe(true)
+	})
+
+	test('stays the same within a day and skips repeated titles', () => {
+		const today = featuredRecipeLinks(links, 10, 20_000)
+
+		expect(featuredRecipeLinks(links, 10, 20_000)).toEqual(today)
+		expect(today.map((item) => item.title)).not.toContain('no picture')
+		expect(today.filter((item) => item.title === 'dal')).toHaveLength(1)
+		expect(today).toHaveLength(5)
+	})
+
+	test('changes from one day to the next', () => {
+		const days = new Set(
+			Array.from(
+				{ length: 6 },
+				(_, day) => featuredRecipeLinks(links, 1, day)[0]?.url,
+			),
+		)
+
+		expect(days.size).toBeGreaterThan(1)
 	})
 })

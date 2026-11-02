@@ -19,21 +19,21 @@ const shelfState = vi.hoisted<ShelfState>(() => ({
 	collections: [],
 }))
 
-type SearchReply = {
-	warming: boolean
-	results: { title: string; url: string; siteName: string }[]
-}
-
 const discovery = vi.hoisted(() => ({
 	search: vi.fn(),
+	popular: vi.fn(),
 	import: vi.fn(),
 }))
 
-vi.mock('@/lib/discover/server', () => ({ searchRecipes: discovery.search }))
+vi.mock('@/lib/discover/server', () => ({
+	searchRecipes: discovery.search,
+	popularRecipes: discovery.popular,
+}))
 
 vi.mock('@/lib/import/server', () => ({ importRecipe: discovery.import }))
 
 vi.mock('@/lib/recipes/server', () => ({
+	saveRecipe: () => Promise.resolve(null),
 	listShelf: () =>
 		Promise.resolve({
 			recipes: shelfState.recipes,
@@ -52,6 +52,8 @@ vi.mock('@/lib/recipes/server', () => ({
 	moveRecipe: () => Promise.resolve(),
 	updateRecipe: () => Promise.resolve(),
 }))
+
+const isPhone = () => window.innerWidth < 768
 
 const testSession = {
 	user: { id: 'user-1', name: 'Test User', email: 'test@example.com' },
@@ -104,10 +106,17 @@ describe('recipes shelf', () => {
 					title: 'online ramen',
 					url: 'https://example.com/ramen',
 					siteName: 'Example',
+					saved: false,
+					draft: false,
+					ingredientMatches: [],
 					siteId: 'example',
 				},
 			],
 			warming: false,
+		})
+		discovery.popular.mockReset().mockResolvedValue({
+			warming: false,
+			results: [],
 		})
 		discovery.import
 			.mockReset()
@@ -123,6 +132,10 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByText('save your first recipe', { exact: false }))
 			.toBeVisible()
+		await screen.getByRole('button', { name: /save your first recipe/ }).click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
+			.toHaveFocus()
 	})
 
 	test('shows only search and the recipe cards', async () => {
@@ -135,18 +148,202 @@ describe('recipes shelf', () => {
 
 		await expect.element(screen.getByText('miso butter pasta')).toBeVisible()
 		await expect.element(screen.getByText('dal')).toBeVisible()
-		// Desktop shows the page's link; phones show the tab bar's round action,
-		// which carries the same name.
+
+		// The add action opens the finder on desktop and phones.
+		if (isPhone())
+			await expect
+				.element(screen.getByRole('button', { name: 'add recipe' }))
+				.toBeVisible()
+		else {
+			await expect
+				.element(screen.getByRole('button', { name: 'add recipe' }))
+				.toBeVisible()
+			await expect
+				.element(screen.getByRole('button', { name: 'import link' }))
+				.toBeVisible()
+		}
+
 		await expect
-			.element(screen.getByRole('link', { name: 'add recipe' }))
-			.toHaveAttribute('href', '/recipes/new')
-		await expect.element(screen.getByLabelText('Search recipes')).toBeVisible()
+			.element(screen.getByRole('button', { name: /find a recipe/ }))
+			.toBeVisible()
 
 		for (const name of ['start a meal', 'newest', 'most cooked']) {
 			await expect
 				.element(screen.getByText(name, { exact: true }))
 				.not.toBeInTheDocument()
 		}
+	})
+
+	test('shows popular recipes under your own and opens them', async () => {
+		shelfState.recipes = [dal]
+		discovery.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				{
+					recipeId: misoButterPasta.id,
+					title: 'shared miso pasta',
+					siteName: 'dutch-oven',
+					saved: false,
+					draft: false,
+					ingredientMatches: [],
+				},
+				{
+					url: 'https://example.com/ramen',
+					title: 'site ramen',
+					siteName: 'Example',
+					saved: false,
+					draft: false,
+					ingredientMatches: [],
+				},
+			],
+		})
+		discovery.import.mockResolvedValue({ id: dal.id, title: 'dal' })
+
+		const { screen, router } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const yours = screen.getByRole('region', { name: 'your recipes' })
+		const popular = screen.getByRole('region', { name: 'discover recipes' })
+
+		await expect.element(yours.getByText('dal')).toBeVisible()
+		await expect
+			.element(popular.getByRole('link', { name: /shared miso pasta/ }))
+			.toHaveAttribute('href', '/recipes/recipe-1')
+
+		await popular.getByRole('button', { name: 'browse more recipes' }).click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
+			.toHaveFocus()
+		await userEvent.keyboard('{Escape}')
+
+		await popular.getByRole('button', { name: /site ramen/ }).click()
+		await expect
+			.poll(() => router.state.location.pathname)
+			.toBe('/recipes/recipe-2')
+		// Looking at a recipe from a site leaves it off the shelf.
+		expect(discovery.import).toHaveBeenCalledWith({
+			data: { url: 'https://example.com/ramen', keep: false },
+		})
+	})
+
+	test('keeps discovery to one compact row within the screen', async () => {
+		shelfState.recipes = [dal]
+		discovery.popular.mockResolvedValue({
+			warming: false,
+			results: Array.from({ length: 12 }, (_, index) => ({
+				recipeId: 'popular-' + index,
+				title: 'popular recipe ' + index,
+				siteName: 'Example',
+				saved: false,
+				draft: false,
+				ingredientMatches: [],
+			})),
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const yours = screen.getByRole('region', { name: 'your recipes' })
+		const discover = screen.getByRole('region', { name: 'discover recipes' })
+		const first = discover.getByRole('link', { name: /popular recipe 0/ })
+		await expect.element(first).toBeVisible()
+		const ownBounds = yours.getByRole('link').element().getBoundingClientRect()
+		const foundBounds = first.element().getBoundingClientRect()
+		expect(foundBounds.left).toBe(ownBounds.left)
+		expect(foundBounds.height).toBeLessThan(ownBounds.height)
+
+		if (!isPhone()) {
+			expect(
+				Math.abs(
+					discover.element().getBoundingClientRect().right -
+						screen
+							.getByRole('button', { name: 'add recipe', exact: true })
+							.element()
+							.getBoundingClientRect().right,
+				),
+			).toBeLessThan(1)
+		}
+
+		const visible = [...discover.element().querySelectorAll('a')].filter(
+			(node) => getComputedStyle(node).display !== 'none',
+		)
+
+		expect(visible.length).toBe(isPhone() ? 2 : 4)
+
+		for (const tile of visible)
+			expect(tile.getBoundingClientRect().top).toBe(foundBounds.top)
+
+		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+			window.innerWidth,
+		)
+	})
+
+	test('holds the popular row with placeholders while it loads', async () => {
+		discovery.popular.mockReturnValue(new Promise(() => {}))
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await expect
+			.element(screen.getByRole('region', { name: 'discover recipes' }))
+			.toHaveAttribute('aria-busy', 'true')
+	})
+
+	test('ends the shelf cleanly when popular recipes fail to load', async () => {
+		discovery.popular.mockRejectedValue(new Error('offline'))
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await expect
+			.element(screen.getByText('save your first recipe', { exact: false }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('region', { name: 'discover recipes' }))
+			.not.toBeInTheDocument()
+	})
+
+	test('imports a link from the button beside the search', async () => {
+		if (isPhone()) return
+		discovery.import.mockResolvedValue({ id: dal.id, title: 'dal' })
+		shelfState.recipes = [dal]
+
+		const { screen, router } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await screen.getByRole('button', { name: 'import link' }).click()
+		const field = screen.getByRole('textbox', { name: 'recipe link' })
+
+		await expect.element(field).toHaveFocus()
+
+		await field.fill('not a link')
+		await screen.getByRole('button', { name: 'import', exact: true }).click()
+		await expect
+			.element(
+				screen.getByText('that doesn’t look like a link', { exact: false }),
+			)
+			.toBeVisible()
+		expect(discovery.import).not.toHaveBeenCalled()
+
+		// Links copied without their https:// still work.
+		await field.fill('example.com/dal')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.poll(() => router.state.location.pathname)
+			.toBe('/recipes/recipe-2')
+		expect(discovery.import).toHaveBeenCalledWith({
+			data: { url: 'https://example.com/dal', keep: true },
+		})
 	})
 
 	test('puts the title beside a recipe photo, not over it', async () => {
@@ -166,275 +363,6 @@ describe('recipes shelf', () => {
 		expect(photo.getBoundingClientRect().bottom).toBeLessThanOrEqual(
 			title.getBoundingClientRect().top + 1,
 		)
-	})
-
-	test('searches recipes by name', async () => {
-		shelfState.recipes = [
-			misoButterPasta,
-			dal,
-			{ ...dal, id: 'recipe-3', title: 'Red Lentil Dal' },
-		]
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByLabelText('Search recipes').fill('dal')
-		await expect
-			.element(screen.getByRole('link', { name: 'Red Lentil Dal' }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByRole('link', { name: 'dal', exact: true }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByText('miso butter pasta'))
-			.not.toBeInTheDocument()
-
-		await screen.getByLabelText('Search recipes').fill('ramen')
-		await expect
-			.element(screen.getByText('no recipes match', { exact: false }))
-			.toBeVisible()
-	})
-	test('suggests shelf recipes as you type and opens one', async () => {
-		shelfState.recipes = [misoButterPasta, dal]
-
-		const { screen, router } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByLabelText('Search recipes').fill('mis')
-		await expect.element(screen.getByText('on your shelf')).toBeVisible()
-		await expect
-			.element(screen.getByRole('option', { name: /not cooked yet/ }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByRole('option', { name: /dal/ }))
-			.not.toBeInTheDocument()
-		await screen.getByRole('option', { name: /miso butter pasta/ }).click()
-		await expect
-			.poll(() => router.state.location.pathname)
-			.toBe('/recipes/recipe-1')
-	})
-
-	test('moves through suggestions with the keyboard', async () => {
-		shelfState.recipes = [misoButterPasta, dal]
-
-		const { screen, router } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByLabelText('Search recipes').fill('a')
-		await expect
-			.element(screen.getByRole('option', { name: /dal/ }))
-			.toBeVisible()
-		await userEvent.keyboard('{ArrowDown}')
-		await expect
-			.element(screen.getByRole('option', { name: /miso butter pasta/ }))
-			.toHaveAttribute('aria-selected', 'true')
-		await userEvent.keyboard('{ArrowDown}')
-		await expect
-			.element(screen.getByRole('option', { name: /dal/ }))
-			.toHaveAttribute('aria-selected', 'true')
-		await userEvent.keyboard('{Enter}')
-		await expect
-			.poll(() => router.state.location.pathname)
-			.toBe('/recipes/recipe-2')
-	})
-
-	test('closes the suggestions with escape', async () => {
-		shelfState.recipes = [dal]
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByLabelText('Search recipes').fill('dal')
-		await expect.element(screen.getByRole('listbox')).toBeVisible()
-		await userEvent.keyboard('{Escape}')
-		await expect.element(screen.getByRole('listbox')).not.toBeInTheDocument()
-	})
-
-	test('keeps a recipe color when filtering', async () => {
-		shelfState.recipes = [misoButterPasta, dal]
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		const color = screen
-			.getByRole('link', { name: 'dal', exact: true })
-			.element().className
-
-		await screen.getByLabelText('Search recipes').fill('dal')
-		await expect
-			.element(screen.getByText('miso butter pasta'))
-			.not.toBeInTheDocument()
-		expect(
-			screen.getByRole('link', { name: 'dal', exact: true }).element()
-				.className,
-		).toBe(color)
-	})
-
-	test('offers to write a recipe it cannot find', async () => {
-		shelfState.recipes = [dal]
-
-		const { screen, router } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByLabelText('Search recipes').fill('ramen')
-		await screen.getByRole('option', { name: /write “ramen”/ }).click()
-		await expect.poll(() => router.state.location.pathname).toBe('/recipes/new')
-		expect(router.state.location.search).toEqual({ title: 'ramen' })
-		await expect
-			.element(screen.getByRole('textbox', { name: 'name', exact: true }))
-			.toHaveValue('ramen')
-	})
-
-	test('gets a pasted link with enter and opens it', async () => {
-		discovery.import.mockResolvedValue({ id: dal.id })
-		shelfState.recipes = [dal]
-
-		const { screen, router } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen
-			.getByLabelText('Search recipes')
-			.fill('https://example.com/dal')
-		await expect
-			.element(screen.getByRole('option', { name: /get this recipe/ }))
-			.toBeVisible()
-		await userEvent.keyboard('{Enter}')
-		await expect
-			.poll(() => router.state.location.pathname)
-			.toBe('/recipes/recipe-2')
-		expect(discovery.import).toHaveBeenCalledWith({
-			data: { url: 'https://example.com/dal' },
-		})
-		expect(discovery.search).not.toHaveBeenCalled()
-	})
-
-	test('lists recipes anyone can save below your shelf', async () => {
-		shelfState.recipes = [dal]
-		discovery.search.mockResolvedValue({
-			warming: false,
-			results: [
-				{ recipeId: dal.id, title: 'dal', siteName: 'Example' },
-				{ recipeId: 'shared-1', title: 'dal makhani', siteName: 'Example' },
-			],
-		})
-
-		const { screen, router } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByLabelText('Search recipes').fill('dal')
-		await expect.element(screen.getByText('on your shelf')).toBeVisible()
-		await expect.element(screen.getByText('more recipes')).toBeVisible()
-		await expect
-			.poll(() => screen.getByRole('option', { name: /^dal/ }).elements())
-			.toHaveLength(2)
-		expect(discovery.search).toHaveBeenCalledWith({ data: { q: 'dal' } })
-
-		await screen.getByRole('option', { name: /dal makhani/ }).click()
-		await expect
-			.poll(() => router.state.location.pathname)
-			.toBe('/recipes/shared-1')
-	})
-
-	test('brings in a recipe-site page on pick, and says when it fails', async () => {
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByLabelText('Search recipes').fill('ramen')
-		await screen.getByRole('option', { name: /online ramen/ }).click()
-		await expect
-			.element(screen.getByRole('alert'))
-			.toHaveTextContent('Import failed. Please retry.')
-		expect(discovery.import).toHaveBeenCalledWith({
-			data: { url: 'https://example.com/ramen' },
-		})
-	})
-
-	test('keeps the highlighted option when results arrive after it', async () => {
-		let arrive: (value: SearchReply) => void = () => {}
-
-		discovery.search.mockReturnValue(
-			new Promise((resolve) => (arrive = resolve)),
-		)
-
-		const { screen, router } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByLabelText('Search recipes').fill('ramen')
-		await screen.getByRole('option', { name: /write/ }).hover()
-
-		arrive({
-			warming: false,
-			results: [
-				{
-					title: 'online ramen',
-					url: 'https://example.com/ramen',
-					siteName: 'Example',
-				},
-			],
-		})
-
-		await expect
-			.element(screen.getByRole('option', { name: /online ramen/ }))
-			.toBeVisible()
-		await userEvent.keyboard('{Enter}')
-
-		await expect.poll(() => router.state.location.pathname).toBe('/recipes/new')
-		expect(discovery.import).not.toHaveBeenCalled()
-	})
-
-	test('ignores options while an import is under way', async () => {
-		shelfState.recipes = [dal]
-		discovery.import.mockReturnValue(new Promise(() => {}))
-		discovery.search.mockResolvedValue({
-			warming: false,
-			results: [
-				{
-					title: 'online dal',
-					url: 'https://example.com/dal',
-					siteName: 'Example',
-				},
-			],
-		})
-
-		const { screen, router } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		const started: string[] = []
-
-		// Typing updates the query on /recipes; only a move to a recipe counts.
-		router.subscribe('onBeforeNavigate', (event) => {
-			if (event.toLocation.pathname !== '/recipes')
-				started.push(event.toLocation.pathname)
-		})
-
-		await screen.getByLabelText('Search recipes').fill('dal')
-		await screen.getByRole('option', { name: /online dal/ }).click()
-		await screen.getByRole('option', { name: /^dal/ }).click({ force: true })
-
-		expect(started).toEqual([])
-		expect(router.state.location.pathname).toBe('/recipes')
 	})
 
 	test('draws a draft dashed, with a label', async () => {

@@ -168,8 +168,10 @@ boxes.
 ## Elevation & Depth
 
 Resting surfaces are flat: depth comes from a hairline and a card-cream fill.
-Floating things (menus, listboxes, toasts, a dragged row) get one soft shadow
-and no border. A border under a wide shadow is never combined.
+Floating panels (menus, listboxes, popovers, toasts, sheets) get the Float
+shadow over a 1px border of ink at 30%: on the cream ground a shadow alone let
+them melt into the page (user decision, 2026-11-01). A dragged row keeps the
+shadow alone.
 
 ### Shadow Vocabulary
 
@@ -180,10 +182,11 @@ and no border. A border under a wide shadow is never combined.
 
 ### Named Rules
 
-**The Declare-Once Rule.** A surface is elevated by a hairline or by a shadow,
-never both. No hard offset shadows anywhere. The one exception is a recipe
-tile's hover lift: the Float shadow fades in over its hairline to show it can be
-picked up, and fades out again.
+**The Declare-Once Rule.** A resting surface is elevated by a hairline or by a
+shadow, never both. No hard offset shadows anywhere. Two exceptions: floating
+panels, which carry both so they hold their edge, and a recipe tile's hover
+lift, where the Float shadow fades in over its hairline to show it can be picked
+up, and fades out again.
 
 ## Shapes
 
@@ -220,26 +223,40 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 ### Search
 
-- One search field for every recipe, one dropdown (Float shadow, no border,
-  14px). Typing lists your shelf first ("on your shelf": match in bold, how
-  often each was cooked, a tinted thumbnail), then "more recipes" anyone can
-  save (shared recipes open at once; recipe-site pages are brought in on pick),
-  then a closing "write “x”" row above a hairline that starts your own. A pasted
-  link becomes one "get this recipe" row, picked by Enter. Under the field, a
-  quiet line of the importer's site logos (14px, 80% opacity) ends "& most
-  recipe sites". Arrow keys move a yolk 30% highlight, Enter picks, Escape
-  closes. The highlight follows mouse movement, never a resting pointer.
+- The shelf's search control opens the global finder dialog, also available
+  through ⌘K and the round add button. It offers blank recipe, import link, and
+  paste text, followed by drafts, shelf recipes, and popular suggestions.
+- Typing matches names and ingredients, showing shelf results before more
+  recipes. A pasted URL offers “import this recipe”; a whole recipe opens the
+  editor already sorted with an Undo action.
+- Arrow keys and pointer movement highlight results. Desktop hover previews show
+  a thumbnail, ingredient sections, and recipe steps without actions. Selecting
+  a result fills the dialog with that preview and a pinned bottom “open recipe”
+  action; Back restores the results. Desktop dialogs leave 32px above and below;
+  phones use the full screen. Previewing and opening results defer saving to the
+  recipe page; explicit link imports save before navigation.
+
+### Popular Recipes
+
+- The empty shelf's first-recipe card opens the finder.
+- Discovery follows the user's shelf, separated by space and a hairline. The
+  “discover recipes” heading is small and muted, without a colored underline.
+- One row of compact cards uses full-color photos, readable titles and muted
+  source names. More cards fit at wider breakpoints; “browse more recipes” opens
+  the finder. No tinted container, horizontal overflow, or dimming.
+- Results combine shared recipes and indexed recipe sites. Picking one opens it
+  without saving. Paper placeholders hold space while loading; errors or no
+  results leave the section out.
 
 ### Shared Recipes
 
-- A recipe from the web exists once, for everyone; saving puts it on your shelf
-  without copying it. An unsaved recipe's page offers "save to shelf" as its one
-  solid action (basil, pinned in thumb reach on phones); once saved, "cooked it"
-  takes that place and books appear.
+- A recipe from the web exists once for everyone. An outlined “save to shelf”
+  action becomes “remove from shelf” once saved, inline with the compact Start
+  cooking action. Saving does not copy the recipe. Saved recipes can be
+  organized into books. Cook logging is not part of the current MVP.
 - Editing a shared recipe makes your own copy on its first real change; an
-  eggplant-tinted note in the editor says so before and after. Notes are always
-  yours and never copy anything. Removing a shared recipe only takes it off your
-  shelf.
+  eggplant-tinted note in the editor explains this. Notes remain personal.
+  Removing a shared recipe only takes it off your shelf.
 
 ### Recipe Form
 
@@ -252,11 +269,12 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
   which finishes a draft and returns to the view. There is no save or cancel.
 - A recipe exists once it has a name, as a draft, so leaving early loses
   nothing. Pasting a whole recipe into an empty one sorts it into name,
-  ingredients and steps; a link pasted as a new recipe's name offers "get this
-  recipe".
-- An ingredient is one outlined line: sprite, quantity, unit and name divided by
-  hairlines inside a single row; phones stack the name over quantity and unit.
-  The add row is dashed.
+  ingredients and steps, with Undo. Links are imported through the finder or the
+  explicit import dialog.
+- Each ingredient is one free-form line with a reorder handle. Only section
+  headings carry an ingredient icon; individual rows remain text. Suggestions
+  complete the food name while preserving amounts and wording. Lines wrap, and
+  the add row is dashed.
 
 ### Chips and Active States
 
@@ -283,7 +301,9 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 - Left rail of full-width rows: Phosphor icon (18px, filled when active) +
   lowercase 13px semibold label. Active row = yolk 30% tint with a hairline
-  border; hover = card fill.
+  border; hover = card fill. Ingredients and groceries open dedicated
+  work-in-progress pages with a route back to recipes until those features are
+  ready.
 - Phone tab bar: three equal tabs (recipes, ingredients, groceries; icon over
   label, 56px tall, safe-area padded) pinned to the bottom behind a hairline.
   The recipes shelf alone adds a round yolk button (56px, soft float shadow)
@@ -310,7 +330,35 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 - **Don't** use hard offset shadows, 2px ink borders, uppercase labels or
   rotated stickers — the rejected neobrutalist world.
-- **Don't** put a border and a shadow on the same surface.
+- **Don't** put a border and a shadow on the same surface, except for the
+  floating-panel and recipe-tile treatments defined above.
 - **Don't** use gray-on-color secondary text; tint from the surface's ink.
 - **Don't** resurrect rejected worlds: neobrutalist, metro-black, pantry-shelf,
   diner ticket-rail.
+
+### Ingredient overview and cooking
+
+The recipe overview offers category and source-order views. Categories reuse
+Ingredients' catalog assignments and food aliases; source sections appear only
+in recipe order and cooking mode. Unknown foods stay under Other. Display
+grouping never changes saved ingredient order. Ingredients and steps use
+bordered, rounded lists with separated rows and naturally wrapping text.
+Quantities stay verbatim, at the same weight as the ingredient. Category
+headings use generic pantry sprites, including a bottle for oils and sauces;
+source headings stay text-only.
+
+Start cooking restores source order. Checkboxes are visible before cooking;
+clicking one asks to start, and confirmation checks the selected item. Cancel
+leaves the checklist unchanged. Progress is saved per user and recipe on the
+server, including across devices. End cooking clears the session without
+recording a meal. Changed ingredient or step content invalidates stale
+checkoffs.
+
+A warm yolk card at the bottom of the sidebar links to each active recipe, shows
+step progress, and counts elapsed time since starting (including time away). On
+phones it sits above the bottom navigation. Start cooking remains a compact
+action beside Save.
+
+Checklist changes appear immediately while serialized background requests save
+them. Failed changes roll back with a retryable error; checks remain interactive
+during saves.

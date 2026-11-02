@@ -79,9 +79,14 @@ export function useOnlineRecipes(query: string | undefined): OnlineSearch {
 	}
 }
 
-// Imports a recipe by link and reports success to `onImported`. One import runs
-// at a time; a failure leaves the message in `error`.
-export function useRecipeImport(onImported: (recipeId: string) => void) {
+type Imported = { id: string; title: string }
+
+// Imports a recipe by link and reports success to `onImported`; `keep` also
+// puts it on the shelf. One import runs at a time; a failure leaves the message
+// in `error`.
+export function useRecipeImport(
+	onImported: (recipe: Imported) => void | Promise<void>,
+) {
 	const [saving, setSaving] = useState<string>()
 	const [error, setError] = useState<string>()
 	const active = useRef(true)
@@ -94,15 +99,15 @@ export function useRecipeImport(onImported: (recipeId: string) => void) {
 		}
 	}, [])
 
-	async function save(target: string) {
+	async function save(target: string, { keep = false } = {}) {
 		if (saving) return
 		setSaving(target)
 		setError(undefined)
 
 		try {
-			const recipe = await importRecipe({ data: { url: target } })
+			const recipe = await importRecipe({ data: { url: target, keep } })
 
-			if (active.current) onImported(recipe.id)
+			if (active.current) await onImported(recipe)
 		} catch (cause) {
 			if (!active.current) return
 			setError(
@@ -125,7 +130,7 @@ export function RecipeThumb({
 }: {
 	imageUrl?: string | null | undefined
 	title: string
-	className?: string
+	className?: string | undefined
 }) {
 	const [broken, setBroken] = useState(false)
 

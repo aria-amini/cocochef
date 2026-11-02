@@ -16,12 +16,13 @@ import {
 	getRecipeForUser,
 	listCollectionsForUser,
 	listShelfForUser,
+	popularSharedRecipes,
 	moveRecipeForUser,
 	renameCollectionForUser,
 	saveRecipeForUser,
 	createSharedRecipe,
 	findSharedRecipeByUrl,
-	searchSharedRecipes,
+	findRecipesForUser,
 	sharedRecipeUrls,
 	updateRecipeForUser,
 } from './repository'
@@ -398,10 +399,6 @@ describe('shared recipes', () => {
 		await expect(
 			findSharedRecipeByUrl('https://example.com/dal', db),
 		).resolves.toMatchObject({ id: first.id })
-		await expect(searchSharedRecipes('DAL', 20, db)).resolves.toEqual([
-			expect.objectContaining({ id: first.id }),
-		])
-		await expect(searchSharedRecipes('100%', 20, db)).resolves.toEqual([])
 		await expect(
 			sharedRecipeUrls(
 				['https://example.com/dal', 'https://example.com/x'],
@@ -409,6 +406,114 @@ describe('shared recipes', () => {
 			),
 		).resolves.toEqual(['https://example.com/dal'])
 		await expect(sharedRecipeUrls([], db)).resolves.toEqual([])
+	})
+
+	test('ranks popular recipes by saves and recent cooks, minus your own shelf', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const otherId = await seedUser(db)
+		const thirdId = await seedUser(db)
+		const quiet = await seedShared(db, 'https://example.com/quiet')
+		const saved = await seedShared(db, 'https://example.com/saved')
+		const cooked = await seedShared(db, 'https://example.com/cooked')
+		const mine = await seedShared(db, 'https://example.com/mine')
+
+		await saveRecipeForUser(otherId, saved.id, db)
+		await saveRecipeForUser(thirdId, saved.id, db)
+		await saveRecipeForUser(userId, mine.id, db)
+		await saveRecipeForUser(otherId, mine.id, db)
+		await saveRecipeForUser(thirdId, mine.id, db)
+		await db.insert(mealLogs).values(
+			[1, 2, 3].map(() => ({
+				id: crypto.randomUUID(),
+				userId: otherId,
+				recipeId: cooked.id,
+				cookedAt: new Date(),
+			})),
+		)
+		// A cook from long ago no longer counts.
+		await db.insert(mealLogs).values({
+			id: crypto.randomUUID(),
+			userId: otherId,
+			recipeId: quiet.id,
+			cookedAt: new Date('2020-01-01'),
+		})
+
+		const seeded = new Set([quiet.id, saved.id, cooked.id, mine.id])
+
+		// Other tests share the database; only these recipes are compared.
+		const popular = (await popularSharedRecipes(userId, 100, db)).filter(
+			(recipe) => seeded.has(recipe.id),
+		)
+
+		expect(popular.map((recipe) => recipe.id)).toEqual([
+			cooked.id,
+			saved.id,
+			quiet.id,
+		])
+		await expect(popularSharedRecipes(userId, 1, db)).resolves.toHaveLength(1)
+	})
+
+	test('finds recipes by name or ingredient, with every word', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const otherId = await seedUser(db)
+		const tag = crypto.randomUUID().slice(0, 8)
+
+		const shared = await createSharedRecipe(
+			{
+				title: `${tag} traybake`,
+				sourceUrl: `https://example.com/${tag}`,
+				ingredients: ['6 chicken thighs', '1 lemon'],
+				steps: ['roast'],
+			},
+			db,
+		)
+
+		const mine = await createRecipeForUser(
+			userId,
+			{ title: `lemon chicken ${tag}`, ingredients: ['chicken'] },
+			db,
+		)
+
+		await createRecipeForUser(
+			otherId,
+			{ title: `secret lemon chicken ${tag}`, ingredients: ['lemon'] },
+			db,
+		)
+
+		if (!shared || !mine) throw new Error('recipes were not created')
+
+		const found = await findRecipesForUser(
+			userId,
+			`${tag} lemon chicken`,
+			20,
+			db,
+		)
+
+		// Both hold every word; the one named with more of them ranks first.
+		// Someone else's own recipe never shows.
+		expect(found.map((recipe) => recipe.id)).toEqual([mine.id, shared.id])
+		expect(found[0]).toMatchObject({
+			saved: true,
+			owned: true,
+			ingredientMatches: [],
+		})
+		expect(found[1]).toMatchObject({
+			saved: false,
+			owned: false,
+			ingredientMatches: ['lemon', 'chicken'],
+		})
+
+		await expect(
+			findRecipesForUser(userId, `${tag} thighs`, 20, db),
+		).resolves.toEqual([expect.objectContaining({ id: shared.id })])
+		await expect(
+			findRecipesForUser(userId, `${tag} mango`, 20, db),
+		).resolves.toEqual([])
+		await expect(findRecipesForUser(userId, '% _', 20, db)).resolves.toEqual([])
 	})
 
 	test('opens unsaved, then saves to the shelf once', async ({ db }) => {

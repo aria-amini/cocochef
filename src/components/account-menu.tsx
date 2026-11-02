@@ -227,7 +227,7 @@ function AccountMenuShell({
 					align={variant === 'avatar' ? 'end' : 'start'}
 					sideOffset={6}
 				>
-					<Menu.Popup className="bg-background w-64 overflow-hidden rounded-xl shadow-md outline-none">
+					<Menu.Popup className="bg-background border-foreground/30 w-64 overflow-hidden rounded-xl border shadow-md outline-none">
 						<div className="border-border border-b px-3 py-3">{header}</div>
 						<div className="flex flex-col py-1">{children}</div>
 					</Menu.Popup>

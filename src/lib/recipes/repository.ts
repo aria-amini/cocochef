@@ -4,7 +4,9 @@ import {
 	count,
 	desc,
 	eq,
+	exists,
 	getColumns,
+	gt,
 	ilike,
 	inArray,
 	isNull,
@@ -140,13 +142,123 @@ export async function sharedRecipeUrls(
 	return rows.flatMap((row) => row.sourceUrl ?? [])
 }
 
-// Shared recipes whose name matches, for finding new ones to save.
-export async function searchSharedRecipes(
+// Search words: lowercase letters and digits, two or more long, a few at most.
+function searchTerms(query: string) {
+	const terms = query
+		.toLowerCase()
+		.split(/[^\p{L}\p{N}]+/u)
+		.filter((term) => term.length > 1)
+
+	return [...new Set(terms)].slice(0, 6)
+}
+
+const likePattern = (term: string) =>
+	`%${term.replaceAll(/[\\%_]/g, (match) => `\\${match}`)}%`
+
+// Recipes this user can open whose name or ingredients hold every word, so
+// "chicken thighs lemon" finds what cooks with them. Names that hold more of
+// the words rank first, then what is on the shelf, then the newest. Each says
+// which words only its ingredients matched.
+export async function findRecipesForUser(
+	userId: string,
 	query: string,
 	limit = 20,
 	database: Database = getDb(),
 ) {
-	const pattern = `%${query.replaceAll(/[\\%_]/g, (match) => `\\${match}`)}%`
+	const terms = searchTerms(query)
+
+	if (terms.length === 0) return []
+
+	const inTitle = (term: string) => ilike(recipes.title, likePattern(term))
+
+	const inIngredients = (term: string) =>
+		exists(
+			database
+				.select({ one: sql`1` })
+				.from(recipeIngredients)
+				.where(
+					and(
+						eq(recipeIngredients.recipeId, recipes.id),
+						ilike(recipeIngredients.text, likePattern(term)),
+					),
+				),
+		)
+
+	const titleHits = sql.join(
+		terms.map((term) => sql`(case when ${inTitle(term)} then 1 else 0 end)`),
+		sql` + `,
+	)
+
+	const found = await recipesForUser(database, userId)
+		.where(
+			and(
+				visibleTo(userId),
+				...terms.map((term) => or(inTitle(term), inIngredients(term))),
+			),
+		)
+		.orderBy(
+			desc(titleHits),
+			sql`${shelfRecipes.addedAt} is null`,
+			desc(recipes.createdAt),
+		)
+		.limit(limit)
+
+	if (found.length === 0) return []
+
+	const lines = await database
+		.select({
+			recipeId: recipeIngredients.recipeId,
+			text: recipeIngredients.text,
+		})
+		.from(recipeIngredients)
+		.where(
+			inArray(
+				recipeIngredients.recipeId,
+				found.map((recipe) => recipe.id),
+			),
+		)
+
+	return found.map((recipe) => {
+		const title = recipe.title.toLowerCase()
+
+		const ingredients = lines
+			.filter((line) => line.recipeId === recipe.id)
+			.map((line) => line.text.toLowerCase())
+
+		return {
+			...recipe,
+			saved: recipe.savedAt !== null,
+			owned: recipe.userId === userId,
+			ingredientMatches: terms.filter(
+				(term) =>
+					!title.includes(term) &&
+					ingredients.some((line) => line.includes(term)),
+			),
+		}
+	})
+}
+
+// Shared recipes worth a look, most saved and most cooked lately first, leaving
+// out what this user already keeps.
+export async function popularSharedRecipes(
+	userId: string,
+	limit = 12,
+	database: Database = getDb(),
+) {
+	const saves = database
+		.select({ recipeId: shelfRecipes.recipeId, saves: count().as('saves') })
+		.from(shelfRecipes)
+		.groupBy(shelfRecipes.recipeId)
+		.as('saves')
+
+	const cooks = database
+		.select({ recipeId: mealLogs.recipeId, cooks: count().as('cooks') })
+		.from(mealLogs)
+		.where(gt(mealLogs.cookedAt, sql`now() - interval '30 days'`))
+		.groupBy(mealLogs.recipeId)
+		.as('cooks')
+
+	const score = sql<number>`coalesce(${saves.saves}, 0) + coalesce(${cooks.cooks}, 0)`
 
 	return database
 		.select({
@@ -156,8 +268,17 @@ export async function searchSharedRecipes(
 			sourceUrl: recipes.sourceUrl,
 		})
 		.from(recipes)
-		.where(and(isNull(recipes.userId), ilike(recipes.title, pattern)))
-		.orderBy(desc(recipes.createdAt))
+		.leftJoin(saves, eq(saves.recipeId, recipes.id))
+		.leftJoin(cooks, eq(cooks.recipeId, recipes.id))
+		.leftJoin(
+			shelfRecipes,
+			and(
+				eq(shelfRecipes.recipeId, recipes.id),
+				eq(shelfRecipes.userId, userId),
+			),
+		)
+		.where(and(isNull(recipes.userId), isNull(shelfRecipes.id)))
+		.orderBy(desc(score), desc(recipes.createdAt))
 		.limit(limit)
 }
 

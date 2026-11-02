@@ -1,0 +1,1 @@
+ALTER TABLE "cooking_progress" ADD COLUMN "started_at" timestamp with time zone DEFAULT now() NOT NULL;

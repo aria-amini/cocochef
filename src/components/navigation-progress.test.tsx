@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
 
 vi.mock('@/lib/recipes/server', () => ({
+	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
 	getRecipe: vi.fn(),
 	createRecipe: vi.fn(),
@@ -37,7 +38,7 @@ describe('page loading', () => {
 		})
 
 		await expect
-			.element(screen.getByRole('heading', { name: 'your recipes' }))
+			.element(screen.getByRole('heading', { name: 'recipes', exact: true }))
 			.toBeInTheDocument()
 
 		void router.navigate({ to: '/ingredients' })
@@ -62,7 +63,7 @@ describe('page loading', () => {
 		await expect.element(screen.getByText('nothing here yet')).toBeVisible()
 		await router.navigate({ to: '/recipes' })
 		await expect
-			.element(screen.getByRole('heading', { name: 'your recipes' }))
+			.element(screen.getByRole('heading', { name: 'recipes', exact: true }))
 			.toBeInTheDocument()
 		await expect
 			.element(page.getByRole('progressbar', { name: 'loading page' }))

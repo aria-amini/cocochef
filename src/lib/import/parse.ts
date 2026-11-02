@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
 import type { RecipeIngredient } from '@/db/schema'
+import {
+	formatIngredientHeading,
+	ingredientHeading,
+} from '@/lib/recipes/ingredient-line'
 import { recipeImageUrl } from '@/lib/recipes/model'
 
 export type ImportedRecipe = {
@@ -41,14 +45,21 @@ function decodeCodePoint(codePoint: number, entity: string) {
 }
 
 function stripTags(html: string) {
-	return decodeEntities(
-		html
-			.replaceAll(/<script\b[\s\S]*?<\/script>/gi, ' ')
-			.replaceAll(/<style\b[\s\S]*?<\/style>/gi, ' ')
-			.replaceAll(/<[^>]+>/g, ' '),
+	return (
+		decodeEntities(
+			html
+				.replaceAll(/<script\b[\s\S]*?<\/script>/gi, ' ')
+				.replaceAll(/<style\b[\s\S]*?<\/style>/gi, ' ')
+				.replaceAll(/<[^>]+>/g, ' '),
+		)
+			.replaceAll(/\s+/g, ' ')
+			// Tags stripped from inside brackets and before punctuation leave spaces
+			// behind, and some sites wrap amounts in two sets of brackets.
+			.replaceAll(/\(\s+/g, '(')
+			.replaceAll(/\s+([),.;:!?])/g, '$1')
+			.replaceAll(/\(\(([^()]*)\)\)/g, '($1)')
+			.trim()
 	)
-		.replaceAll(/\s+/g, ' ')
-		.trim()
 }
 
 function attrMap(tag: string) {
@@ -150,12 +161,139 @@ function* candidateNodes(parsed: Json): Generator<z.infer<typeof jsonLdNode>> {
 
 const text = z.string().transform(stripTags)
 
-const textList = z
-	.union([
-		text.transform((entry) => (entry ? [entry] : [])),
-		z.array(text.catch('')).transform((entries) => entries.filter(Boolean)),
-	])
-	.catch([])
+// Some publishers use named ItemLists instead of Google's flat string list.
+const ingredientList: z.ZodType<string[]> = z.lazy(() =>
+	z
+		.union([
+			text.transform((line) => (line ? [line] : [])),
+			z.array(ingredientList).transform((lists) => lists.flat()),
+			z
+				.looseObject({
+					name: text.optional(),
+					text: text.optional(),
+					value: z.union([text, z.number()]).optional(),
+					unitText: text.optional(),
+					item: ingredientList.optional(),
+					itemListElement: ingredientList.optional(),
+				})
+				.transform((node) => {
+					const children = node.itemListElement ?? node.item
+
+					if (children) {
+						const heading =
+							node.itemListElement &&
+							node.name &&
+							node.name.toLowerCase() !== 'ingredients'
+								? formatIngredientHeading(node.name)
+								: undefined
+
+						return heading && children.length
+							? [heading, ...children]
+							: children
+					}
+
+					const line =
+						node.value !== undefined
+							? [node.value, node.unitText, node.name]
+									.filter((part) => part !== undefined && part !== '')
+									.join(' ')
+							: (node.text ?? node.name)
+
+					return line ? [line] : []
+				}),
+		])
+		.catch([]),
+)
+
+// Recover only source-authored sections from recognized recipe-card markup.
+// Exact, ordered matching prevents unrelated lists from replacing JSON-LD.
+function withHtmlIngredientGroups(html: string, lines: string[]) {
+	if (
+		!lines.length ||
+		lines.some((line) => ingredientHeading(line) !== undefined)
+	)
+		return lines
+
+	const normalize = (line: string) =>
+		line
+			.replace(/^[□▢☐]\s*/, '')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.toLowerCase()
+
+	const tags = /<([a-z]\w*)\b[^>]*>/gi
+
+	for (const container of html.matchAll(tags)) {
+		const classes = (attrMap(container[0])['class'] ?? '').split(/\s+/)
+		const wprm = classes.includes('wprm-recipe-ingredients-container')
+
+		const tasty =
+			classes.includes('tasty-recipes-ingredients') ||
+			classes.includes('tasty-recipes-ingredients-body')
+
+		if (!wprm && !tasty) continue
+		const start = container.index + container[0].length
+
+		const scope = html.slice(
+			start,
+			closingTagStart(html, container[1] ?? '', start),
+		)
+
+		let index = 0
+		let heading: string | undefined
+		const grouped: string[] = []
+		let mismatch = false
+
+		for (const node of scope.matchAll(/<(h[2-6]|li|div|span)\b[^>]*>/gi)) {
+			const nodeClasses = (attrMap(node[0])['class'] ?? '').split(/\s+/)
+
+			const isHeading =
+				/^h/i.test(node[1] ?? '') ||
+				nodeClasses.includes('wprm-recipe-group-name')
+
+			const isIngredient = wprm
+				? nodeClasses.includes('wprm-recipe-ingredient')
+				: node[1]?.toLowerCase() === 'li'
+
+			if (!isHeading && !isIngredient) continue
+			const contentStart = node.index + node[0].length
+
+			const content = stripTags(
+				scope.slice(
+					contentStart,
+					closingTagStart(scope, node[1] ?? '', contentStart),
+				),
+			)
+
+			if (isHeading) {
+				heading = content
+				continue
+			}
+
+			const original = lines[index]
+
+			if (
+				original === undefined ||
+				normalize(content) !== normalize(original)
+			) {
+				mismatch = true
+				break
+			}
+
+			if (heading) {
+				grouped.push(formatIngredientHeading(heading))
+				heading = undefined
+			}
+
+			grouped.push(original)
+			index += 1
+		}
+
+		if (!mismatch && index === lines.length) return grouped
+	}
+
+	return lines
+}
 
 const image: z.ZodType<string | undefined> = z.lazy(() =>
 	z
@@ -203,7 +341,7 @@ const recipeFields = z.object({
 		.transform((name) => decodeEntities(name).trim())
 		.catch(''),
 	image,
-	recipeIngredient: textList,
+	recipeIngredient: ingredientList,
 	recipeInstructions: instructions,
 })
 
@@ -235,7 +373,10 @@ function parseJsonLd(html: string): ImportedRecipe | null {
 			return {
 				title: fields.name,
 				imageUrl: fields.image,
-				ingredients: fields.recipeIngredient.map((raw) => ({ raw })),
+				ingredients: withHtmlIngredientGroups(
+					html,
+					fields.recipeIngredient,
+				).map((raw) => ({ raw })),
 				steps: fields.recipeInstructions,
 			}
 		}
@@ -348,5 +489,12 @@ export function parseRecipe(
 
 	if (recipe.ingredients.length === 0 && recipe.steps.length === 0) return null
 
-	return { ...recipe, imageUrl: resolveImageUrl(recipe.imageUrl, baseUrl) }
+	return {
+		...recipe,
+		ingredients: withHtmlIngredientGroups(
+			html,
+			recipe.ingredients.map(({ raw }) => raw),
+		).map((raw) => ({ raw })),
+		imageUrl: resolveImageUrl(recipe.imageUrl, baseUrl),
+	}
 }

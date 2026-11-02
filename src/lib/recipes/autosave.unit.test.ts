@@ -119,4 +119,16 @@ describe('autosaver', () => {
 
 		expect(save).toHaveBeenCalledTimes(1)
 	})
+	test('saves identical content again after its persisted copy is forgotten', async () => {
+		const save = vi.fn(async () => {})
+		const { saver } = setup(save)
+		saver.start(false)
+		await saver.flush()
+		saver.stop()
+		await saver.settle()
+		saver.forget()
+		saver.resume()
+		await saver.flush()
+		expect(save).toHaveBeenCalledTimes(2)
+	})
 })

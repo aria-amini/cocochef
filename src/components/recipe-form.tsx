@@ -1,3 +1,5 @@
+import { WarningCircleIcon } from '@phosphor-icons/react'
+
 import { cn } from '@/lib/utils/ui'
 
 // Section headings inside a recipe form: one step above the fields they name.
@@ -33,13 +35,15 @@ export function RecipeIntro({
 }
 
 // The recipe's name, written where the page shows it: the same size as the
-// recipe's heading, on a dashed line until it has focus.
+// recipe's heading, on a dashed line until it has focus. A long name wraps
+// like the heading does, but stays one line: enter finishes the recipe.
 export function RecipeNameField({
 	label,
 	id,
 	defaultValue,
 	placeholder,
 	maxLength,
+	errorId,
 	onChange,
 	onPaste,
 }: {
@@ -48,25 +52,67 @@ export function RecipeNameField({
 	defaultValue?: string
 	placeholder?: string
 	maxLength: number
+	// The message under the field while the name is missing.
+	errorId?: string | undefined
 	onChange?: (value: string) => void
-	onPaste?: (event: React.ClipboardEvent<HTMLInputElement>) => void
+	onPaste?: (event: React.ClipboardEvent<HTMLTextAreaElement>) => void
 }) {
 	return (
-		<input
+		<textarea
 			id={id}
 			name="title"
+			rows={1}
 			aria-label={label}
+			aria-invalid={errorId ? true : undefined}
+			aria-describedby={errorId}
 			maxLength={maxLength}
 			defaultValue={defaultValue}
 			placeholder={placeholder}
 			autoComplete="off"
-			onChange={(event) => onChange?.(event.target.value)}
+			enterKeyHint="done"
+			onChange={(event) => {
+				// A pasted name can carry line breaks the field won't show.
+				const value = event.target.value.replaceAll(/\s*\n\s*/g, ' ')
+
+				if (value !== event.target.value) event.target.value = value
+				onChange?.(value)
+			}}
+			onKeyDown={(event) => {
+				if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+				event.preventDefault()
+				event.currentTarget.form?.requestSubmit()
+			}}
 			onPaste={onPaste}
 			className={cn(
-				'border-input focus-visible:border-kitchen-eggplant w-full min-w-0 border-b border-dashed bg-transparent pb-2 text-4xl font-bold tracking-tight outline-none focus-visible:border-b-2 focus-visible:border-solid md:text-5xl',
+				'border-input focus-visible:border-kitchen-eggplant aria-invalid:border-kitchen-tomato field-sizing-content w-full min-w-0 resize-none border-b border-dashed bg-transparent pb-2 text-4xl leading-tight font-bold tracking-tight outline-none focus-visible:border-b-2 focus-visible:border-solid md:text-5xl',
 				placeholderClassName,
 			)}
 		/>
+	)
+}
+
+// What went wrong, in ink so it reads, with a tomato mark so it is seen.
+export function FieldError({
+	id,
+	children,
+}: {
+	id?: string
+	children: React.ReactNode
+}) {
+	return (
+		<p
+			id={id}
+			role="alert"
+			className="flex items-start gap-1.5 text-sm font-semibold"
+		>
+			<WarningCircleIcon
+				size={18}
+				weight="fill"
+				aria-hidden
+				className="text-kitchen-tomato shrink-0"
+			/>
+			{children}
+		</p>
 	)
 }
 

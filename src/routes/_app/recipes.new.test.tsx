@@ -1,4 +1,5 @@
 import { renderRoute } from '@tests/support/render/route'
+import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -13,33 +14,30 @@ type Saved = {
 	finalize?: boolean
 }
 
-type State = { created: Saved[]; updated: Saved[]; imported: string[] }
+type State = {
+	created: Saved[]
+	updated: Saved[]
+	deleted: string[]
+	createDelay?: Promise<void> | undefined
+}
 
 const state = vi.hoisted<State>(() => ({
 	created: [],
 	updated: [],
-	imported: [],
+	deleted: [],
 }))
 
 // The latest content saved for the new recipe, created or updated.
 const latest = () => state.updated.at(-1) ?? state.created.at(-1)
 
-const kimchiUrl = 'https://www.bbcgoodfood.com/recipes/quick-kimchi'
-
-vi.mock('@/lib/import/server', () => ({
-	importRecipe: async ({ data }: { data: { url: string } }) => {
-		state.imported.push(data.url)
-
-		return { id: 'recipe-imported' }
-	},
-}))
-
 vi.mock('@/lib/recipes/server', () => ({
+	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
 	getRecipe: () => Promise.resolve(null),
 	listBooks: () => Promise.resolve([]),
 	createRecipe: async ({ data }: { data: Saved }) => {
 		state.created.push(data)
+		await state.createDelay
 
 		return { id: 'recipe-new' }
 	},
@@ -48,7 +46,11 @@ vi.mock('@/lib/recipes/server', () => ({
 
 		return { id: 'recipe-new' }
 	},
-	deleteRecipe: vi.fn(),
+	deleteRecipe: async ({ data }: { data: { id: string } }) => {
+		state.deleted.push(data.id)
+
+		return true
+	},
 }))
 
 vi.mock('@/lib/s3', () => ({
@@ -67,8 +69,11 @@ const testSession = {
 describe('write a recipe', () => {
 	beforeEach(() => {
 		state.created = []
+		state.createDelay = undefined
 		state.updated = []
-		state.imported = []
+		state.deleted = []
+		// Toasts outlive the page that raised them.
+		toast.dismiss()
 	})
 
 	test('starts on a blank recipe with the name focused', async () => {
@@ -86,6 +91,57 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByRole('button', { name: 'save to shelf' }))
 			.not.toBeInTheDocument()
+	})
+
+	test('sorts text pasted into the recipe dialog', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen
+			.getByRole('button', { name: 'paste text', exact: true })
+			.click()
+		const dialog = screen.getByRole('dialog', { name: 'Paste a recipe' })
+		await expect
+			.element(dialog.getByRole('button', { name: 'add recipe' }))
+			.toBeDisabled()
+		await dialog
+			.getByRole('textbox', { name: 'recipe text' })
+			.fill('Toast\nIngredients\n2 slices bread\nSteps\nToast the bread.')
+		await dialog.getByRole('button', { name: 'add recipe' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'name' }))
+			.toHaveValue('Toast')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 1' }))
+			.toHaveValue('Toast the bread.')
+	})
+
+	test('offers import from the empty editor and keeps the editor when cancelled', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await expect
+			.element(
+				screen.getByRole('button', { name: 'blank recipe', exact: true }),
+			)
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('button', { name: 'paste text', exact: true }))
+			.toBeVisible()
+		await screen
+			.getByRole('button', { name: 'import link', exact: true })
+			.click()
+		await expect
+			.element(screen.getByRole('dialog', { name: 'import a recipe' }))
+			.toBeVisible()
+		await userEvent.keyboard('{Escape}')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'name' }))
+			.toBeVisible()
 	})
 
 	test('saves a draft once it has a name, then keeps it up to date', async () => {
@@ -145,6 +201,9 @@ describe('write a recipe', () => {
 		expect(state.updated.at(-1)).toEqual(
 			expect.objectContaining({ title: 'Toast', finalize: true }),
 		)
+		await expect
+			.element(screen.getByText('Toast is on your shelf'))
+			.toBeVisible()
 	})
 
 	test('saves a name carried over from the search when done is pressed untouched', async () => {
@@ -170,9 +229,17 @@ describe('write a recipe', () => {
 		})
 
 		await screen.getByRole('button', { name: 'done' }).click()
+
+		const name = screen.getByRole('textbox', { name: 'name' })
 		await expect
 			.element(screen.getByRole('alert'))
-			.toHaveTextContent('give the recipe a name')
+			.toHaveTextContent('give the recipe a name to finish it')
+		// Said at the name, not down by done.
+		await expect.element(name).toHaveFocus()
+		await expect.element(name).toHaveAttribute('aria-invalid', 'true')
+		await expect
+			.element(name)
+			.toHaveAccessibleDescription('give the recipe a name to finish it')
 		expect(state.created).toEqual([])
 	})
 
@@ -220,6 +287,95 @@ describe('write a recipe', () => {
 				steps: ['rinse the lentils', 'simmer'],
 			}),
 		)
+		await expect
+			.element(screen.getByText('sorted into 2 ingredients and 2 steps'))
+			.toBeVisible()
+	})
+
+	test('undoes a sorted paste even while its first save is still running', async () => {
+		let finishSave = () => {}
+
+		state.createDelay = new Promise<void>((resolve) => {
+			finishSave = resolve
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		const data = new DataTransfer()
+		data.setData('text', 'weeknight dal\n1 cup red lentils\n1. simmer')
+		screen
+			.getByRole('textbox', { name: 'name' })
+			.element()
+			.dispatchEvent(
+				new ClipboardEvent('paste', {
+					clipboardData: data,
+					bubbles: true,
+					cancelable: true,
+				}),
+			)
+		await expect.poll(() => state.created).toHaveLength(1)
+
+		await screen.getByRole('button', { name: 'undo' }).click()
+		expect(state.deleted).toEqual([])
+		finishSave()
+
+		await expect
+			.element(screen.getByRole('textbox', { name: 'name' }))
+			.toHaveValue('')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('')
+		await expect.poll(() => state.deleted).toEqual(['recipe-new'])
+		// Pasting the same content after Undo must create another draft.
+		screen
+			.getByRole('textbox', { name: 'name' })
+			.element()
+			.dispatchEvent(
+				new ClipboardEvent('paste', {
+					clipboardData: data,
+					bubbles: true,
+					cancelable: true,
+				}),
+			)
+		await expect.poll(() => state.created).toHaveLength(2)
+		await screen.getByRole('textbox', { name: 'name' }).click()
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.poll(() => state.updated.some((saved) => saved.finalize))
+			.toBe(true)
+	})
+
+	test('takes the paste undo away once the recipe is finished', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		const data = new DataTransfer()
+		data.setData('text', 'weeknight dal\n1 cup red lentils\n1. simmer')
+		screen
+			.getByRole('textbox', { name: 'name' })
+			.element()
+			.dispatchEvent(
+				new ClipboardEvent('paste', {
+					clipboardData: data,
+					bubbles: true,
+					cancelable: true,
+				}),
+			)
+		await expect.poll(() => state.created).toHaveLength(1)
+		await screen.getByRole('button', { name: 'done' }).click()
+		await expect
+			.poll(() => state.updated.some((saved) => saved.finalize))
+			.toBe(true)
+
+		await expect
+			.element(screen.getByRole('button', { name: 'undo' }))
+			.not.toBeInTheDocument()
+		expect(state.deleted).toEqual([])
 	})
 
 	test('keeps rows already typed when a recipe is pasted into the empty name', async () => {
@@ -251,43 +407,112 @@ describe('write a recipe', () => {
 			.toHaveValue('my own onion')
 	})
 
-	test('offers to fetch a link pasted as the name', async () => {
+	test.each(['/recipes', '/recipes/new'])(
+		'sorts a recipe pasted into the one box from %s, once',
+		async (path) => {
+			const { router, screen } = await renderRoute({
+				path,
+				session: testSession,
+			})
+
+			await router.navigate({
+				to: '/recipes/new',
+				state: {
+					pasted:
+						'weeknight dal\ningredients\n1 cup red lentils\nmethod\n1. simmer',
+				},
+			})
+
+			await expect
+				.element(screen.getByRole('textbox', { name: 'name' }))
+				.toHaveValue('weeknight dal')
+			await expect
+				.element(screen.getByRole('textbox', { name: 'Step 1' }))
+				.toHaveValue('simmer')
+			await expect.poll(latest).toEqual(
+				expect.objectContaining({
+					title: 'weeknight dal',
+					ingredients: ['1 cup red lentils'],
+					steps: ['simmer'],
+				}),
+			)
+			// The page forgets it, so a reload starts blank instead of a second draft.
+			await expect
+				.poll(() => router.state.location.state.pasted)
+				.toBeUndefined()
+			await screen.getByRole('button', { name: 'undo' }).click()
+			await expect
+				.element(screen.getByRole('textbox', { name: 'name' }))
+				.toHaveValue('')
+			await expect
+				.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+				.toHaveValue('')
+			await expect.poll(() => state.deleted).toEqual(['recipe-new'])
+		},
+	)
+
+	test('keeps a saved draft when another recipe arrives from the finder', async () => {
 		const { router, screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
 		})
 
-		await screen.getByRole('textbox', { name: 'name' }).fill(kimchiUrl)
-		await screen.getByRole('button', { name: /get this recipe/ }).click()
-
+		await screen.getByRole('textbox', { name: 'name' }).fill('My pasta')
+		await screen.getByRole('combobox', { name: 'Ingredient 1' }).fill('1 onion')
+		await userEvent.keyboard('{Escape}')
+		await screen.getByRole('textbox', { name: 'Step 1' }).fill('Chop')
+		await expect.poll(latest).toEqual(
+			expect.objectContaining({
+				title: 'My pasta',
+				ingredients: ['1 onion'],
+				steps: ['Chop'],
+			}),
+		)
+		await router.navigate({
+			to: '/recipes/new',
+			state: { pasted: 'dal\ningredients\n1 cup lentils\nmethod\n1. simmer' },
+		})
 		await expect
-			.poll(() => router.state.location.pathname)
-			.toBe('/recipes/recipe-imported')
-		expect(state.imported).toEqual([kimchiUrl])
+			.element(screen.getByText('Start with an empty recipe to paste text'))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'name' }))
+			.toHaveValue('My pasta')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('1 onion')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 1' }))
+			.toHaveValue('Chop')
+		await expect.poll(() => router.state.location.state.pasted).toBeUndefined()
+		expect(latest()).toEqual(
+			expect.objectContaining({
+				title: 'My pasta',
+				ingredients: ['1 onion'],
+				steps: ['Chop'],
+			}),
+		)
 	})
 
-	test('builds ingredients from a quantity, a unit, and a suggested name', async () => {
+	test('writes each ingredient as one line, finishing the food from a suggestion', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
 		})
 
 		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
-		await screen.getByRole('spinbutton', { name: 'Quantity 1' }).fill('1.5')
-		await screen.getByRole('combobox', { name: 'Unit 1' }).selectOptions('cup')
-		await screen.getByRole('combobox', { name: 'Ingredient 1' }).fill('flo')
+		const first = screen.getByRole('combobox', { name: 'Ingredient 1' })
+		await first.fill('1 1/2 cups flo')
 		await screen.getByRole('option', { name: 'flour' }).click()
-		await expect
-			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
-			.toHaveValue('flour')
+		await expect.element(first).toHaveValue('1 1/2 cups flour')
 
-		await screen.getByRole('button', { name: 'add ingredient' }).click()
-		await screen.getByRole('spinbutton', { name: 'Quantity 2' }).fill('2')
-		await screen.getByRole('combobox', { name: 'Ingredient 2' }).fill('eggs')
+		await userEvent.keyboard('[Enter]')
+		await userEvent.keyboard('a knob of butter')
 
+		// Kept as written: no unit list to fit, no decimals to read.
 		await expect
 			.poll(() => latest()?.ingredients)
-			.toEqual(['1½ cup flour', '2 eggs'])
+			.toEqual(['1 1/2 cups flour', 'a knob of butter'])
 	})
 
 	test('groups ingredients under a section heading', async () => {
@@ -311,6 +536,54 @@ describe('write a recipe', () => {
 		await expect
 			.poll(() => latest()?.ingredients)
 			.toEqual(['bread', '## for the topping', 'butter'])
+	})
+
+	test('keeps a group label in a pasted list as a section', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		const first = screen.getByRole('combobox', { name: 'Ingredient 1' })
+		first.element().focus()
+
+		const data = new DataTransfer()
+		data.setData('text', '2 slices bread\nfor the topping:\n- 1 tbsp butter')
+		first.element().dispatchEvent(
+			new ClipboardEvent('paste', {
+				clipboardData: data,
+				bubbles: true,
+				cancelable: true,
+			}),
+		)
+
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Section heading 2' }))
+			.toHaveValue('for the topping')
+		await expect
+			.poll(() => latest()?.ingredients)
+			.toEqual(['2 slices bread', '## for the topping', '1 tbsp butter'])
+	})
+
+	test('moves a step with the keyboard', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await screen.getByRole('textbox', { name: 'Step 1' }).fill('butter it')
+		await userEvent.keyboard('[Enter]')
+		await userEvent.keyboard('toast it')
+		await expect.poll(() => latest()?.steps).toEqual(['butter it', 'toast it'])
+
+		screen.getByRole('button', { name: 'Reorder step 2' }).element().focus()
+		await userEvent.keyboard('[Space]')
+		await userEvent.keyboard('[ArrowUp]')
+		await userEvent.keyboard('[Space]')
+
+		await expect.poll(() => latest()?.steps).toEqual(['toast it', 'butter it'])
 	})
 
 	test('starts the next step on enter and skips empty ones', async () => {
@@ -389,6 +662,47 @@ describe('write a recipe', () => {
 			.toBeVisible()
 
 		await expect.poll(() => latest()?.imageUrl).toBe('recipes/user-1-photo')
+	})
+
+	test('does not finish on Enter while a photo upload is pending', async () => {
+		let finishUpload: (response: Response) => void = () => {}
+
+		const upload = new Promise<Response>((resolve) => {
+			finishUpload = resolve
+		})
+
+		const realFetch = globalThis.fetch.bind(globalThis)
+		vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) =>
+			new Request(input).url.startsWith('https://storage.test/')
+				? upload
+				: realFetch(input, init),
+		)
+
+		const { screen, router } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		const name = screen.getByRole('textbox', { name: 'name' })
+		await name.fill('Toast')
+		await expect.poll(() => state.created).toHaveLength(1)
+		await userEvent.upload(
+			screen.getByLabelText('Recipe photo'),
+			new File(['x'], 'toast.png', { type: 'image/png' }),
+		)
+		await expect
+			.element(screen.getByRole('button', { name: 'done' }))
+			.toBeDisabled()
+		await name.click()
+		await userEvent.keyboard('{Enter}')
+		expect(router.state.location.pathname).toBe('/recipes/new')
+		expect(state.updated.some((saved) => saved.finalize)).toBe(false)
+		finishUpload(new Response(null, { status: 200 }))
+		await expect.poll(() => latest()?.imageUrl).toBe('recipes/user-1-photo')
+		await screen.getByRole('button', { name: 'done' }).click()
+		await expect
+			.poll(() => state.updated.find((saved) => saved.finalize)?.imageUrl)
+			.toBe('recipes/user-1-photo')
 	})
 
 	test('hides the photo slot from guests', async () => {

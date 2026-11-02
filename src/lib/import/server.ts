@@ -8,6 +8,7 @@ import { clampRecipeTitle, recipeInput } from '@/lib/recipes/model'
 import {
 	createSharedRecipe,
 	findSharedRecipeByUrl,
+	saveRecipeForUser,
 } from '@/lib/recipes/repository'
 
 import { fetchRecipeHtml, type RelayConfig } from './fetch'
@@ -21,45 +22,65 @@ function relayConfig(): RelayConfig | undefined {
 		: undefined
 }
 
-// Finds the shared recipe for a page, fetching it the first time anyone asks.
-// It is not saved to the shelf: the recipe opens, and saving is one tap.
+// The shared recipe for a page, fetched the first time anyone asks for it.
+async function findOrFetch(url: string, sourceUrl: string) {
+	const known = await findSharedRecipeByUrl(sourceUrl)
+
+	if (known) return known
+
+	const page = await fetchRecipeHtml(url, relayConfig())
+
+	if (!page) throw new Error("that site won't let us in — try another link")
+
+	if (!page.recipe) throw new Error("couldn't find a recipe on that page")
+
+	const input = recipeInput.safeParse({
+		title: clampRecipeTitle(page.recipe.title),
+		imageUrl: page.recipe.imageUrl,
+		sourceUrl,
+		ingredients: page.recipe.ingredients.map(({ raw }) => raw),
+		steps: page.recipe.steps,
+	})
+
+	if (!input.success) throw new Error("couldn't read a recipe on that page")
+
+	const recipe = await createSharedRecipe({
+		...input.data,
+		sourceUrl,
+	})
+
+	if (!recipe) throw new Error("couldn't save that — try again")
+
+	return recipe
+}
+
+function fetchLimited(userId: string, url: string, sourceUrl: string) {
+	rateLimit(`user:${userId}`, 10)
+	rateLimit(`ip:${getRequestIP() ?? 'unknown'}`, 20)
+
+	return withImportSlot(userId, () => findOrFetch(url, sourceUrl))
+}
+
+// Imports a recipe by link. A link pasted to add a recipe goes on the shelf too
+// (`keep`); a search result only opens, and saving it is one tap.
 export const importRecipe = createServerFn({ method: 'POST' })
-	.validator(z.object({ url: z.url({ protocol: /^https?$/ }).max(2000) }))
+	.validator(
+		z.object({
+			url: z.url({ protocol: /^https?$/ }).max(2000),
+			keep: z.boolean().optional(),
+		}),
+	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const sourceUrl = canonicalRecipeUrl(data.url)
-		const ip = getRequestIP() ?? 'unknown'
-		rateLimit(`user:${userId}`, 10)
-		rateLimit(`ip:${ip}`, 20)
 
-		return withImportSlot(userId, async () => {
-			const known = await findSharedRecipeByUrl(sourceUrl)
+		// A page already in dutch-oven costs nothing to open, so looking through
+		// search previews only counts against the limits when a site is fetched.
+		const recipe =
+			(await findSharedRecipeByUrl(sourceUrl)) ??
+			(await fetchLimited(userId, data.url, sourceUrl))
 
-			if (known) return known
+		if (data.keep) await saveRecipeForUser(userId, recipe.id)
 
-			const page = await fetchRecipeHtml(data.url, relayConfig())
-
-			if (!page) throw new Error("that site won't let us in — try another link")
-
-			if (!page.recipe) throw new Error("couldn't find a recipe on that page")
-
-			const input = recipeInput.safeParse({
-				title: clampRecipeTitle(page.recipe.title),
-				imageUrl: page.recipe.imageUrl,
-				sourceUrl,
-				ingredients: page.recipe.ingredients.map(({ raw }) => raw),
-				steps: page.recipe.steps,
-			})
-
-			if (!input.success) throw new Error("couldn't read a recipe on that page")
-
-			const recipe = await createSharedRecipe({
-				...input.data,
-				sourceUrl,
-			})
-
-			if (!recipe) throw new Error("couldn't save that — try again")
-
-			return recipe
-		})
+		return recipe
 	})

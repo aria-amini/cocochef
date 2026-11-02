@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'vite-plus/test'
+import type { z } from 'zod'
+
+type RecipeJson = z.infer<ReturnType<typeof z.json>>
 
 import { parseRecipe } from './parse'
 
@@ -149,6 +152,21 @@ describe('parseRecipe', () => {
 		})
 	})
 
+	test('tidies the spaces and brackets stripped tags leave behind', () => {
+		const page = JSON_LD_PAGE.replace(
+			'"1/2 cup extra-virgin olive oil"',
+			'"1 cup broth (<a href=\\"/broth\\">preferably homemade</a> )"',
+		).replace(
+			'"3 tablespoons balsamic vinegar"',
+			'"((5 to 6)) garlic cloves , minced"',
+		)
+
+		expect(parseRecipe(page)?.ingredients.slice(0, 2)).toEqual([
+			{ raw: '1 cup broth (preferably homemade)' },
+			{ raw: '(5 to 6) garlic cloves, minced' },
+		])
+	})
+
 	test('handles @graph wrappers, array @type, and HowToSection flattening', () => {
 		const recipe = parseRecipe(GRAPH_PAGE)
 		expect(recipe?.title).toBe('Miso Butter Pasta')
@@ -222,5 +240,110 @@ describe('parseRecipe', () => {
 		const recipe = parseRecipe(pageWithImage(image))
 		expect(recipe?.title).toBe('Image Soup')
 		expect(recipe?.imageUrl).toBeUndefined()
+	})
+})
+
+describe('source ingredient sections', () => {
+	const page = (ingredients: RecipeJson, body = '') =>
+		'<script type="application/ld+json">' +
+		JSON.stringify({
+			'@type': 'Recipe',
+			name: 'chicken with sauce',
+			recipeIngredient: ingredients,
+		}) +
+		'</script>' +
+		body
+
+	test('preserves named ItemLists, nested ListItems, and structured amounts', () => {
+		expect(
+			parseRecipe(
+				page({
+					'@type': 'ItemList',
+					name: 'Ingredients',
+					itemListElement: [
+						{
+							'@type': 'ItemList',
+							name: 'marinade',
+							itemListElement: ['1 lemon', '2 tbsp oil'],
+						},
+						{
+							'@type': 'ItemList',
+							name: 'sauce',
+							itemListElement: [
+								{
+									'@type': 'ListItem',
+									item: {
+										'@type': 'PropertyValue',
+										name: 'yogurt',
+										value: 1,
+										unitText: 'cup',
+									},
+								},
+							],
+						},
+					],
+				}),
+			)?.ingredients,
+		).toEqual([
+			{ raw: '## marinade' },
+			{ raw: '1 lemon' },
+			{ raw: '2 tbsp oil' },
+			{ raw: '## sauce' },
+			{ raw: '1 cup yogurt' },
+		])
+	})
+
+	test('recovers WPRM headings only when every ingredient matches in order', () => {
+		const html =
+			'<div class="wprm-recipe-ingredients-container"><h4 class="wprm-recipe-group-name">marinade</h4><ul><li class="wprm-recipe-ingredient"><span>1 lemon</span></li></ul><h4>for the sauce</h4><ul><li class="wprm-recipe-ingredient">1 cup yogurt</li></ul></div>'
+
+		expect(
+			parseRecipe(page(['1 lemon', '1 cup yogurt'], html))?.ingredients,
+		).toEqual([
+			{ raw: '## marinade' },
+			{ raw: '1 lemon' },
+			{ raw: '## for the sauce' },
+			{ raw: '1 cup yogurt' },
+		])
+
+		// An unrelated card, missing ingredient, or reordered list must not group it.
+		for (const lines of [
+			['1 lemon'],
+			['1 cup yogurt', '1 lemon'],
+			['1 lemon', 'salt'],
+		]) {
+			expect(parseRecipe(page(lines, html))?.ingredients).toEqual(
+				lines.map((raw) => ({ raw })),
+			)
+		}
+	})
+
+	test('recovers Tasty headings and preserves repeated ingredients in source order', () => {
+		const html =
+			'<div class="tasty-recipes-ingredients"><h3>dough</h3><ul><li>1 cup flour</li></ul><h3>to dust</h3><ul><li>1 cup flour</li></ul></div>'
+
+		expect(
+			parseRecipe(page(['1 cup flour', '1 cup flour'], html))?.ingredients,
+		).toEqual([
+			{ raw: '## dough' },
+			{ raw: '1 cup flour' },
+			{ raw: '## to dust' },
+			{ raw: '1 cup flour' },
+		])
+	})
+
+	test('leaves a flat list alone when source sections are absent or already explicit', () => {
+		expect(
+			parseRecipe(
+				page(
+					['1 lemon', 'salt'],
+					'<h3>recommendations</h3><ul><li>salt</li></ul>',
+				),
+			)?.ingredients,
+		).toEqual([{ raw: '1 lemon' }, { raw: 'salt' }])
+		expect(parseRecipe(page(['## sauce', 'salt']))?.ingredients).toEqual([
+			{ raw: '## sauce' },
+			{ raw: 'salt' },
+		])
 	})
 })

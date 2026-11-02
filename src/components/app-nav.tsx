@@ -8,6 +8,8 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
+import { CookingTracker } from '@/components/cooking-tracker'
+import { useRecipeActions } from '@/components/recipe-actions'
 import { cn } from '@/lib/utils/ui'
 
 const navItems = [
@@ -37,7 +39,9 @@ export function useTabBar(): TabBarMode {
 
 	if (path === '/recipes') return 'bar-fab'
 
-	return tabBarRoutes.has(path) ? 'bar' : 'none'
+	return tabBarRoutes.has(path) || path.startsWith('/coming-soon/')
+		? 'bar'
+		: 'none'
 }
 
 // The on-screen keyboard shoves fixed bars up over the field being typed in,
@@ -78,11 +82,16 @@ export function useTabBarVisible() {
 }
 
 export function AppNav() {
+	const tabsVisible = useTabBarVisible()
+
 	return (
 		<>
 			<MobileHeader />
 			<Sidebar />
 			<TabBar />
+			<div className={cn('md:hidden', tabsVisible && '[&_aside]:bottom-20')}>
+				<CookingTracker />
+			</div>
 		</>
 	)
 }
@@ -110,12 +119,16 @@ function Sidebar() {
 				dutch-oven
 			</Link>
 			{navItems.map(({ label, icon: Icon, to }) => {
-				const active = pathname === to || pathname.startsWith(`${to}/`)
+				const active =
+					pathname === to ||
+					pathname.startsWith(`${to}/`) ||
+					pathname === `/coming-soon/${label}`
 
 				return (
 					<Link
 						key={to}
-						to={to}
+						to={to === '/recipes' ? '/recipes' : '/coming-soon/$feature'}
+						params={to === '/recipes' ? {} : { feature: label }}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
 							'focus-visible:outline-kitchen-eggplant flex w-full shrink-0 items-center gap-2 border px-2.5 py-1.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 rounded-md',
@@ -129,7 +142,10 @@ function Sidebar() {
 					</Link>
 				)
 			})}
-			<AccountMenu variant="rail" />
+			<div className="mt-auto flex flex-col gap-4 pt-6">
+				<CookingTracker />
+				<AccountMenu variant="rail" />
+			</div>
 		</nav>
 	)
 }
@@ -165,6 +181,7 @@ function MobileHeader() {
 function TabBar() {
 	const mode = useTabBar()
 	const visible = useTabBarVisible()
+	const { find } = useRecipeActions()
 
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
@@ -179,12 +196,16 @@ function TabBar() {
 				className="border-border bg-background pb-safe fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t md:hidden"
 			>
 				{navItems.map(({ label, icon: Icon, to }) => {
-					const active = pathname === to || pathname.startsWith(`${to}/`)
+					const active =
+						pathname === to ||
+						pathname.startsWith(`${to}/`) ||
+						pathname === `/coming-soon/${label}`
 
 					return (
 						<Link
 							key={to}
-							to={to}
+							to={to === '/recipes' ? '/recipes' : '/coming-soon/$feature'}
+							params={to === '/recipes' ? {} : { feature: label }}
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,
@@ -200,13 +221,14 @@ function TabBar() {
 				})}
 			</nav>
 			{mode === 'bar-fab' ? (
-				<Link
-					to="/recipes/new"
+				<button
+					type="button"
 					aria-label="add recipe"
+					onClick={() => find()}
 					className="bg-kitchen-yolk focus-visible:outline-kitchen-eggplant bottom-fab fixed right-4 z-20 grid size-14 place-items-center rounded-full shadow-md transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 md:hidden"
 				>
 					<PlusIcon size={26} weight="bold" aria-hidden />
-				</Link>
+				</button>
 			) : null}
 		</>
 	)

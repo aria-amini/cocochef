@@ -2,6 +2,7 @@ import { renderRoute } from '@tests/support/render/route'
 import { describe, expect, test, vi } from 'vite-plus/test'
 
 vi.mock('@/lib/recipes/server', () => ({
+	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
 	getRecipe: () => Promise.resolve(null),
 	listBooks: () => Promise.resolve([]),

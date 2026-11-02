@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
+import { foodFamily } from './food-family'
 import type { PantryCategory } from './model'
+import { pantrySprites } from './sprites'
 
 export const categorySprites: Record<PantryCategory, string> = {
 	spices: 'cinnamon',
@@ -312,4 +314,76 @@ export function filterCatalogItems(items: readonly string[], query: string) {
 			itemWords.some((itemWord) => itemWord.startsWith(word)),
 		)
 	})
+}
+
+// Shared food recognition uses the same category assignments as Ingredients,
+// plus the existing food aliases. Match whole words and prefer the most
+// specific food: coconut milk beats milk, tomato paste beats tomato.
+function categoryKey(name: string) {
+	return normalizeIngredientName(name)
+		.normalize('NFD')
+		.replace(/\p{M}/gu, '')
+		.replace(/[^\p{L}\p{N}]+/gu, ' ')
+		.trim()
+		.split(/\s+/)
+		.map((word) =>
+			word.endsWith('ies')
+				? `${word.slice(0, -3)}y`
+				: word.endsWith('oes')
+					? word.slice(0, -2)
+					: word.endsWith('s') && !word.endsWith('ss')
+						? word.slice(0, -1)
+						: word,
+		)
+		.join(' ')
+}
+
+const catalogCategories = new Map(
+	catalogSections.flatMap(({ id, items }) =>
+		items.map((name) => [categoryKey(name), id] as const),
+	),
+)
+
+const spriteCategories: Record<
+	(typeof pantrySprites)[number]['category'],
+	PantryCategory
+> = {
+	vegetable: 'vegetables',
+	fruit: 'fruit',
+	dairy: 'dairy',
+	grain: 'grains',
+	protein: 'meat',
+	spice: 'spices',
+	other: 'other',
+}
+
+const categoryMatches = [
+	...[...catalogCategories.entries()].map(([name, category]) => ({
+		name,
+		category,
+	})),
+	...pantrySprites.flatMap(({ aliases, category }) => {
+		const names = aliases.map(categoryKey)
+
+		const assigned =
+			names
+				.map((name) => catalogCategories.get(name))
+				.find((value) => value !== undefined) ?? spriteCategories[category]
+
+		return names.map((name) => ({
+			name,
+			category: catalogCategories.get(name) ?? assigned,
+		}))
+	}),
+].sort((a, b) => b.name.length - a.name.length)
+
+export function categorizeIngredient(name: string): PantryCategory {
+	const normalized = ` ${categoryKey(name.replace(/\bcans?\b/gi, 'canned').replace(/\b(crushed|chopped|diced|minced|finely|coarsely|sliced|grated|shredded)\b/gi, ''))} `
+
+	return (
+		categoryMatches.find((match) => normalized.includes(` ${match.name} `))
+			?.category ??
+		foodFamily(name)?.category ??
+		'other'
+	)
 }
