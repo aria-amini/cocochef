@@ -6,6 +6,7 @@ import {
 	Scripts,
 	createRootRoute,
 } from '@tanstack/react-router'
+import type { PostHogConfig } from 'posthog-js'
 import { Toaster } from 'sonner'
 
 import { useTabBarVisible } from '@/components/app-nav'
@@ -24,7 +25,15 @@ const posthogOptions = {
 	defaults: '2026-05-30',
 	person_profiles: 'always',
 	capture_exceptions: true,
-} as const
+	// Sharing tokens grant access; do not send them in pageviews, referrers,
+	// autocaptured link clicks, or other event properties.
+	before_send: (event) => {
+		if (event && /\/s\/[0-9a-f]{8}-[0-9a-f-]{27,}/i.test(JSON.stringify(event)))
+			return null
+
+		return event
+	},
+} satisfies Partial<PostHogConfig>
 
 export const Route = createRootRoute({
 	head: () => ({

@@ -154,6 +154,12 @@ function AccountProfile({
 	return (
 		<main className="mx-auto min-h-dvh max-w-xl space-y-8 p-6">
 			<h1 className="text-4xl font-semibold">Profile</h1>
+			<Link
+				to="/profile/sharing"
+				className="inline-block text-sm font-semibold underline"
+			>
+				sharing & public profile
+			</Link>
 			<div className="space-y-4">
 				<p>{name}</p>
 				<p className="text-muted-foreground">{email}</p>

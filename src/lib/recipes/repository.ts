@@ -10,6 +10,7 @@ import {
 	ilike,
 	inArray,
 	isNull,
+	isNotNull,
 	max,
 	or,
 	sql,
@@ -22,17 +23,37 @@ import {
 	recipeIngredients,
 	recipeSteps,
 	recipes,
+	recipeShares,
 	shelfRecipes,
 } from '@/db/schema'
 import { ownsRecipePhoto, type RecipeUpdate } from '@/lib/recipes/model'
+import { publishFinishedRecipe } from '@/lib/sharing/repository'
 
 type RecipeDatabase =
 	| Database
 	| Parameters<Parameters<Database['transaction']>[0]>[0]
 
 // Shared recipes are everyone's; a written or copied recipe only its writer's.
-function visibleTo(userId: string) {
-	return or(isNull(recipes.userId), eq(recipes.userId, userId))
+function visibleTo(userId: string, database: RecipeDatabase) {
+	return or(
+		isNull(recipes.userId),
+		eq(recipes.userId, userId),
+		and(
+			isNotNull(recipes.finalizedAt),
+			exists(
+				database
+					.select({ id: recipeShares.id })
+					.from(recipeShares)
+					.where(
+						and(
+							eq(recipeShares.recipeId, recipes.id),
+							eq(recipeShares.userId, recipes.userId),
+							eq(recipeShares.visibility, 'public'),
+						),
+					),
+			),
+		),
+	)
 }
 
 function cookStatsForUser(database: Database, userId: string) {
@@ -81,7 +102,7 @@ export async function listShelfForUser(
 	const [userCollections, userRecipes] = await Promise.all([
 		listCollectionsForUser(userId, database),
 		recipesForUser(database, userId)
-			.where(eq(shelfRecipes.userId, userId))
+			.where(and(eq(shelfRecipes.userId, userId), visibleTo(userId, database)))
 			.orderBy(desc(shelfRecipes.addedAt)),
 	])
 
@@ -114,7 +135,7 @@ export async function getRecipeForUser(
 	database: Database = getDb(),
 ) {
 	const [recipe] = await recipesForUser(database, userId).where(
-		and(eq(recipes.id, id), visibleTo(userId)),
+		and(eq(recipes.id, id), visibleTo(userId, database)),
 	)
 
 	if (!recipe) return null
@@ -192,7 +213,7 @@ export async function findRecipesForUser(
 	const found = await recipesForUser(database, userId)
 		.where(
 			and(
-				visibleTo(userId),
+				visibleTo(userId, database),
 				...terms.map((term) => or(inTitle(term), inIngredients(term))),
 			),
 		)
@@ -366,7 +387,7 @@ async function assertVisibleRecipe(
 	const [recipe] = await database
 		.select()
 		.from(recipes)
-		.where(and(eq(recipes.id, id), visibleTo(userId)))
+		.where(and(eq(recipes.id, id), visibleTo(userId, database)))
 
 	return recipe ?? null
 }
@@ -476,6 +497,8 @@ export async function createRecipeForUser(
 			notes: input.notes ?? null,
 			addedAt: recipe.createdAt,
 		})
+
+		await publishFinishedRecipe(userId, recipe, tx)
 
 		return recipe
 	})
@@ -676,6 +699,9 @@ export async function updateRecipeForUser(
 				),
 			)
 
+		if (!current.finalizedAt || recipe.id !== current.id)
+			await publishFinishedRecipe(userId, recipe, tx)
+
 		return recipe
 	})
 }
@@ -688,6 +714,12 @@ export async function deleteRecipeForUser(
 	database: Database = getDb(),
 ) {
 	return database.transaction(async (tx) => {
+		await tx
+			.delete(recipeShares)
+			.where(
+				and(eq(recipeShares.userId, userId), eq(recipeShares.recipeId, id)),
+			)
+
 		const [owned] = await tx
 			.delete(recipes)
 			.where(and(eq(recipes.id, id), eq(recipes.userId, userId)))

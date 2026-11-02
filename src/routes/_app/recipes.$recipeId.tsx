@@ -17,6 +17,7 @@ import { toast } from 'sonner'
 
 import { IngredientText } from '@/components/ingredient-text'
 import { RecipeEditor } from '@/components/recipe-editor'
+import { RecipeSharing } from '@/components/recipe-sharing'
 import {
 	Dialog,
 	DialogContent,
@@ -440,6 +441,12 @@ function RecipeView({
 					<PencilSimple size={12} weight="bold" aria-hidden />
 					edit
 				</button>
+				{recipe.finalizedAt ? (
+					<RecipeSharing
+						recipeId={recipe.id}
+						imported={!recipe.owned && !!recipe.sourceUrl}
+					/>
+				) : null}
 				{recipe.saved && books.length ? (
 					<BookPicker recipe={recipe} books={books} />
 				) : null}
