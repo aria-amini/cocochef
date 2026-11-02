@@ -207,6 +207,9 @@ export function RecipeEditor({
 	const [unnamed, setUnnamed] = useState(false)
 	const [confirmingDelete, setConfirmingDelete] = useState(false)
 	const [photoBusy, setPhotoBusy] = useState(false)
+	// Finishing keeps the draft, so a paste's undo toast must not take it back.
+	const sortedToast = useRef<string | number>(undefined)
+	const finishing = useRef(false)
 
 	// A recipe pasted into the one box starts the page already sorted.
 	const [arrived] = useState(() =>
@@ -284,23 +287,28 @@ export function RecipeEditor({
 			sorted: ReturnType<typeof parsePastedRecipe>,
 			before: { name: string; draft: string | undefined },
 		) => {
-			toast(sortedLabel(sorted.ingredients.length, sorted.steps.length), {
-				action: {
-					label: 'undo',
-					onClick: () => {
-						setName(before.name)
-						setSeed((current) => ({
-							version: current.version + 1,
-							title: before.name,
-							ingredients: [],
-							steps: [],
-						}))
+			sortedToast.current = toast(
+				sortedLabel(sorted.ingredients.length, sorted.steps.length),
+				{
+					action: {
+						label: 'undo',
+						onClick: () => {
+							if (finishing.current) return
 
-						if (!before.draft) void discardDraft()
-						else scheduleAutosave()
+							setName(before.name)
+							setSeed((current) => ({
+								version: current.version + 1,
+								title: before.name,
+								ingredients: [],
+								steps: [],
+							}))
+
+							if (!before.draft) void discardDraft()
+							else scheduleAutosave()
+						},
 					},
 				},
-			})
+			)
 		},
 		[discardDraft, scheduleAutosave],
 	)
@@ -361,6 +369,9 @@ export function RecipeEditor({
 
 		setPending(true)
 		setError(undefined)
+		finishing.current = true
+
+		if (sortedToast.current !== undefined) toast.dismiss(sortedToast.current)
 
 		try {
 			if (!(await autosave.flush())) throw new Error('not saved')
@@ -381,6 +392,7 @@ export function RecipeEditor({
 			if (isDraft) toast.success(`${latest.title} is on your shelf`)
 			onDone(id)
 		} catch {
+			finishing.current = false
 			setError("couldn't save that — try again")
 		} finally {
 			setPending(false)
