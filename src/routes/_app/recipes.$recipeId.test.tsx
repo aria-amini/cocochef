@@ -204,7 +204,9 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await expect.element(screen.getByText('200g pasta')).toBeVisible()
+		await expect
+			.element(screen.getByRole('checkbox', { name: '200g pasta' }))
+			.toBeVisible()
 		await expect.element(screen.getByText('boil the pasta')).toBeVisible()
 	})
 
@@ -218,7 +220,7 @@ describe('recipe detail', () => {
 		await expect.element(screen.getByText('no steps yet')).toBeVisible()
 	})
 
-	test('aligns ingredient starts and switches between category and recipe order', async () => {
+	test('lays ingredients out as checkbox, amount and name columns, and switches between category and recipe order', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'200g pasta',
@@ -235,7 +237,16 @@ describe('recipe detail', () => {
 			screen.getByText(text, { exact: true }).element().getBoundingClientRect()
 				.left
 
-		expect(Math.abs(left('200g pasta') - left('⅓ cup flour'))).toBeLessThan(1)
+		const right = (text: string) =>
+			screen.getByText(text, { exact: true }).element().getBoundingClientRect()
+				.right
+
+		expect(Math.abs(left('pasta') - left('flour'))).toBeLessThan(1)
+		expect(Math.abs(right('200 g') - right('⅓ cup'))).toBeLessThan(1)
+		expect(left('pasta')).toBeGreaterThanOrEqual(right('200 g'))
+		await expect
+			.element(screen.getByText('salt to taste', { exact: true }))
+			.toBeVisible()
 		await screen
 			.getByRole('button', { name: 'recipe order', exact: true })
 			.click()
@@ -244,7 +255,7 @@ describe('recipe detail', () => {
 			.not.toBeInTheDocument()
 	})
 
-	test('keeps mixed fractions and dual-unit amounts visible in an indented list', async () => {
+	test('keeps mixed fractions and dual-unit amounts visible in the amount column', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'## Ingredients',
@@ -262,10 +273,12 @@ describe('recipe detail', () => {
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		for (const amount of [
-			'1 ½ tablespoons dried mint',
-			'1 1/2 teaspoons turmeric powder',
-			'12oz / 340g fresh spinach',
-			'4oz / 120g reshteh noodles (or dried udon noodles / linguine)',
+			'1 ½ tablespoons',
+			'1 1/2 teaspoons',
+			'12 oz',
+			'fresh spinach · 340g',
+			'dried mint',
+			'reshteh noodles (or dried udon noodles / linguine) · 120g',
 		]) {
 			const element = screen.getByText(amount, { exact: true }).element()
 			expect(element.getBoundingClientRect().width).toBeGreaterThan(0)
@@ -299,7 +312,7 @@ describe('recipe detail', () => {
 			.element(screen.getByText('## for the sauce'))
 			.not.toBeInTheDocument()
 		await expect
-			.element(screen.getByText('1 tbsp miso', { exact: true }))
+			.element(screen.getByRole('checkbox', { name: '1 tbsp miso' }))
 			.toBeVisible()
 		await expect
 			.element(screen.getByRole('checkbox', { name: /for the sauce/ }))
@@ -329,7 +342,9 @@ describe('recipe detail', () => {
 			.fill('stir in the butter')
 		await screen.getByRole('button', { name: 'done' }).click()
 
-		await expect.element(screen.getByText('2 tbsp butter')).toBeVisible()
+		await expect
+			.element(screen.getByRole('checkbox', { name: '2 tbsp butter' }))
+			.toBeVisible()
 		await expect.element(screen.getByText('stir in the butter')).toBeVisible()
 		expect(updateCalls.calls.at(-1)).toMatchObject({
 			ingredients: ['200 g pasta', '2 tbsp butter'],
@@ -454,7 +469,7 @@ describe('recipe detail', () => {
 		await screen.getByRole('button', { name: 'done' }).click()
 
 		await expect
-			.element(screen.getByText('⅓ cup flour', { exact: true }))
+			.element(screen.getByRole('checkbox', { name: '⅓ cup flour' }))
 			.toBeVisible()
 		await expect
 			.element(screen.getByRole('button', { name: 'edit' }))

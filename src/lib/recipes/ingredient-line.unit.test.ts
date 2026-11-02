@@ -4,6 +4,7 @@ import {
 	formatIngredientHeading,
 	ingredientHeading,
 	parseIngredientLine,
+	splitIngredientAmount,
 } from './ingredient-line'
 
 describe('parseIngredientLine', () => {
@@ -28,6 +29,29 @@ describe('parseIngredientLine', () => {
 		['salt to taste', { quantity: undefined, unit: '', name: 'salt to taste' }],
 	])('parses %s', (line, expected) => {
 		expect(parseIngredientLine(line)).toEqual(expected)
+	})
+})
+
+describe('splitIngredientAmount', () => {
+	test.each([
+		['200g pasta', { amount: '200 g', name: 'pasta' }],
+		[
+			'1 ½ tablespoons dried mint',
+			{ amount: '1 ½ tablespoons', name: 'dried mint' },
+		],
+		['1 1/2 cups flour', { amount: '1 1/2 cups', name: 'flour' }],
+		['2 large eggs', { amount: '2', name: 'large eggs' }],
+		[
+			'12oz / 340g fresh spinach',
+			{ amount: '12 oz', name: 'fresh spinach · 340g' },
+		],
+		['1 cup / 240 ml milk', { amount: '1 cup', name: 'milk · 240 ml' }],
+		['2 (14 oz) cans tomatoes', { amount: '2', name: '(14 oz) cans tomatoes' }],
+		['2-3 eggs', { amount: '', name: '2-3 eggs' }],
+		['salt to taste', { amount: '', name: 'salt to taste' }],
+		['  ½ onion ', { amount: '½', name: 'onion' }],
+	])('splits %s', (line, expected) => {
+		expect(splitIngredientAmount(line)).toEqual(expected)
 	})
 })
 
