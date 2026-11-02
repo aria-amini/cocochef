@@ -248,7 +248,7 @@ function SignOutItem() {
 			if (error) throw new Error(error.message)
 			await navigate({ to: '/' })
 		} catch {
-			toast.error('Could not sign out. Try again.')
+			toast.error("couldn't sign you out — try again")
 		} finally {
 			setSigningOut(false)
 		}

@@ -1,11 +1,14 @@
 import { useState } from 'react'
 
+import { buttonVariants } from '@/components/ui/button'
 import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogTitle,
 } from '@/components/ui/dialog'
+import { fieldClassName, placeholderClassName } from '@/components/ui/input'
+import { cn } from '@/lib/utils/ui'
 
 export function PasteRecipeDialog({
 	open,
@@ -26,22 +29,26 @@ export function PasteRecipeDialog({
 	return (
 		<Dialog open={open} onOpenChange={changeOpen}>
 			<DialogContent>
-				<DialogTitle>Paste a recipe</DialogTitle>
+				<DialogTitle>paste a recipe</DialogTitle>
 				<DialogDescription>
-					Paste the recipe below and we’ll sort its ingredients and steps.
+					paste the recipe below and we’ll sort its ingredients and steps.
 				</DialogDescription>
 				<textarea
 					aria-label="recipe text"
 					value={text}
 					onChange={(event) => setText(event.target.value)}
 					rows={9}
-					placeholder="Paste your recipe here"
-					className="border-input bg-background focus-visible:outline-kitchen-eggplant w-full resize-y rounded-md border p-3 text-sm focus-visible:outline-2"
+					placeholder="paste your recipe here"
+					className={cn(
+						fieldClassName,
+						placeholderClassName,
+						'resize-y text-sm',
+					)}
 				/>
 				<div className="flex justify-end gap-3">
 					<button
 						type="button"
-						className="rounded-md border px-3 py-2 text-sm"
+						className={buttonVariants({ variant: 'outline' })}
 						onClick={() => changeOpen(false)}
 					>
 						cancel
@@ -49,7 +56,7 @@ export function PasteRecipeDialog({
 					<button
 						type="button"
 						disabled={!text.trim()}
-						className="bg-kitchen-basil rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-50"
+						className={buttonVariants()}
 						onClick={() => {
 							onAdd(text)
 							changeOpen(false)

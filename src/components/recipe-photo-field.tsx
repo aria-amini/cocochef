@@ -71,7 +71,7 @@ export function RecipePhotoField({
 				tags: { upload: 'recipe-photo' },
 				extra: { type: file.type, size: file.size },
 			})
-			toast.error('could not upload that photo — try again')
+			toast.error("couldn't upload that photo — try again")
 		} finally {
 			updateBusy(false)
 		}

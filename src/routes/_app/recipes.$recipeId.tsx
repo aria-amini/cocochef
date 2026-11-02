@@ -19,6 +19,7 @@ import { BackLink, PageTitle } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
 import { RecipeSharing } from '@/components/recipe-sharing'
 import { ExportRecipeButton } from '@/components/recipe-transfer'
+import { buttonVariants } from '@/components/ui/button'
 import {
 	Dialog,
 	DialogContent,
@@ -266,7 +267,7 @@ function RecipeView({
 			}
 
 			toast.error(
-				error.message || 'Could not save cooking progress. Please retry.',
+				error.message || "couldn't save your progress — try again",
 			)
 		},
 		onSettled: () => {
@@ -305,9 +306,9 @@ function RecipeView({
 				}}
 			>
 				<DialogContent>
-					<DialogTitle>Start cooking?</DialogTitle>
+					<DialogTitle>start cooking?</DialogTitle>
 					<DialogDescription>
-						Track ingredients and steps for {recipe.title}. Your progress is
+						check off ingredients and steps for {recipe.title}. your progress is
 						saved, so you can come back anytime.
 					</DialogDescription>
 					<div className="flex justify-end gap-3">
@@ -315,14 +316,14 @@ function RecipeView({
 							type="button"
 							onClick={() => setStartPrompt(null)}
 							disabled={busy}
-							className="rounded-md border px-3 py-2 text-sm"
+							className={buttonVariants({ variant: 'outline' })}
 						>
 							cancel
 						</button>
 						<button
 							type="button"
 							disabled={busy}
-							className="bg-kitchen-basil rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-50"
+							className={buttonVariants()}
 							onClick={async () => {
 								const item = startPrompt
 
@@ -394,7 +395,7 @@ function RecipeView({
 				) : null}
 				{progress.isError ? (
 					<p role="alert" className="text-sm">
-						Could not load cooking progress.{' '}
+						couldn&apos;t load your progress.{' '}
 						<button
 							type="button"
 							onClick={() => void progress.refetch()}

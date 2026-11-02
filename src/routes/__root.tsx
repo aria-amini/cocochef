@@ -90,8 +90,8 @@ function RootComponent() {
 						classNames: {
 							toast:
 								'bg-card text-foreground flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold border border-foreground/30 shadow-md rounded-xl overflow-hidden',
-							error: 'bg-kitchen-tomato text-black',
-							success: 'bg-kitchen-basil text-black',
+							error: 'bg-kitchen-tomato text-foreground',
+							success: 'bg-kitchen-basil text-foreground',
 						},
 					}}
 				/>

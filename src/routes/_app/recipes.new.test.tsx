@@ -110,7 +110,7 @@ describe('write a recipe', () => {
 		await screen
 			.getByRole('button', { name: 'paste text', exact: true })
 			.click()
-		const dialog = screen.getByRole('dialog', { name: 'Paste a recipe' })
+		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		await expect
 			.element(dialog.getByRole('button', { name: 'add recipe' }))
 			.toBeDisabled()
@@ -487,7 +487,7 @@ describe('write a recipe', () => {
 			state: { pasted: 'dal\ningredients\n1 cup lentils\nmethod\n1. simmer' },
 		})
 		await expect
-			.element(screen.getByText('Start with an empty recipe to paste text'))
+			.element(screen.getByText('start with an empty recipe to paste text'))
 			.toBeVisible()
 		await expect
 			.element(screen.getByRole('textbox', { name: 'name' }))
@@ -701,7 +701,7 @@ describe('write a recipe', () => {
 			new File(['x'], 'toast.png', { type: 'image/png' }),
 		)
 		await expect
-			.element(screen.getByText('could not upload that photo — try again'))
+			.element(screen.getByText("couldn't upload that photo — try again"))
 			.toBeVisible()
 		expect(sentry.captureException).toHaveBeenCalledOnce()
 		expect(sentry.captureException).toHaveBeenCalledWith(

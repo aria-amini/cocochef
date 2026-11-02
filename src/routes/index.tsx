@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { MotionConfig, motion } from 'framer-motion'
 import { z } from 'zod'
 
+import { buttonVariants } from '@/components/ui/button'
 import { getCurrentSession } from '@/lib/auth/session'
 import { importSiteLogo, importSites } from '@/lib/import/sites'
 import { cn } from '@/lib/utils/ui'
@@ -25,26 +26,23 @@ const heroSprites = ['apple', 'carrot', 'tomato', 'flour', 'milk', 'cinnamon']
 const features = [
 	{
 		sprite: 'tomato',
-		color: 'bg-kitchen-tomato',
+		color: 'bg-kitchen-tomato/25',
 		title: 'save from sites you trust',
-		body: 'search or paste a link. you keep a copy that links back to the original.',
+		body: 'search or paste a link. it goes on your shelf and always links back to the original.',
 	},
 	{
 		sprite: 'carrot',
-		color: 'bg-kitchen-basil',
+		color: 'bg-kitchen-basil/25',
 		title: 'know your kitchen',
 		body: 'stock what you have by category in a few taps.',
 	},
 	{
 		sprite: 'flour',
-		color: 'bg-kitchen-yolk',
+		color: 'bg-kitchen-yolk/35',
 		title: 'cook what you actually cook',
 		body: 'start a meal from your regulars, what you have not made in a while, or something new.',
 	},
 ]
-
-const buttonClassName =
-	'border-border focus-visible:outline-kitchen-eggplant inline-flex items-center border px-5 py-3 text-sm font-semibold transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 rounded-md'
 
 function Landing() {
 	return (
@@ -52,9 +50,7 @@ function Landing() {
 			<div className="bg-background text-foreground min-h-dvh">
 				<div className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-6 md:gap-24 md:px-10 md:py-8">
 					<header className="flex items-center justify-between">
-						<span className="font-mono text-sm font-bold tracking-tight lowercase">
-							dutch-oven
-						</span>
+						<span className="text-sm font-bold">dutch-oven</span>
 						<Link
 							to="/auth/login"
 							className="focus-visible:outline-kitchen-eggplant text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -80,20 +76,14 @@ function Landing() {
 									/>
 								))}
 							</div>
-							<h1 className="max-w-3xl text-5xl leading-none font-bold tracking-tight md:text-7xl">
+							<h1 className="max-w-3xl text-5xl leading-none font-bold tracking-tight text-balance md:text-7xl">
 								recipes from real cooks, never made up by AI
 							</h1>
 							<p className="text-muted-foreground max-w-xl text-lg font-semibold text-balance">
 								keep what you cook and what is in your kitchen.
 							</p>
 							<div className="flex flex-wrap items-center gap-4">
-								<Link
-									to="/recipes"
-									className={cn(
-										buttonClassName,
-										'bg-kitchen-tomato text-black',
-									)}
-								>
+								<Link to="/recipes" className={buttonVariants({ size: 'lg' })}>
 									start your shelf
 								</Link>
 								<span className="text-muted-foreground text-xs font-semibold">
@@ -164,7 +154,7 @@ function Landing() {
 							</h2>
 							<Link
 								to="/recipes"
-								className={cn(buttonClassName, 'bg-kitchen-yolk text-black')}
+								className={buttonVariants({ variant: 'outline', size: 'lg' })}
 							>
 								start your shelf
 							</Link>
