@@ -3,6 +3,7 @@ import {
 	BookmarkSimpleIcon,
 	CookingPotIcon,
 	PencilSimple,
+	UserCheckIcon,
 } from '@phosphor-icons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -36,6 +37,7 @@ import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import { splitIngredientAmount } from '@/lib/recipes/ingredient-line'
 import { formatMinutes } from '@/lib/recipes/model'
 import {
+	claimRecipe,
 	deleteRecipe,
 	getRecipe,
 	listBooks,
@@ -448,6 +450,9 @@ function RecipeView({
 					<PencilSimple size={12} weight="bold" aria-hidden />
 					edit
 				</button>
+				{!recipe.owned || recipe.forkedFromId || recipe.sourceUrl ? (
+					<ClaimButton recipe={recipe} disabled={cooking || busy} />
+				) : null}
 				{recipe.finalizedAt ? (
 					<RecipeSharing
 						recipeId={recipe.id}
@@ -716,6 +721,61 @@ const recipeActionClassName =
 // A shared recipe someone opened from a search or a link. Adding it puts it on
 // the shelf as is; books come after. A secondary button, not a solid one: the
 // recipe itself is what the page is for.
+// Makes a recipe wholly the cook's: no "your copy" label, no link to the site
+// it came from. A shared recipe is copied for them first.
+function ClaimButton({
+	recipe,
+	disabled,
+}: {
+	recipe: Recipe
+	disabled: boolean
+}) {
+	const router = useRouter()
+	const navigate = useNavigate()
+	const queryClient = useQueryClient()
+	const [pending, setPending] = useState(false)
+
+	const claim = async () => {
+		setPending(true)
+
+		try {
+			const claimed = await claimRecipe({ data: { id: recipe.id } })
+
+			if (!claimed) throw new Error('recipe was not claimed')
+
+			await Promise.all([
+				router.invalidate(),
+				queryClient.invalidateQueries({ queryKey: ['shelf'] }),
+				queryClient.invalidateQueries({ queryKey: ['recipe'] }),
+			])
+
+			if (claimed.id !== recipe.id)
+				await navigate({
+					to: '/recipes/$recipeId',
+					params: { recipeId: claimed.id },
+					replace: true,
+				})
+			toast.success(`${recipe.title} is yours now`)
+		} catch {
+			toast.error("couldn't take that over — try again")
+		} finally {
+			setPending(false)
+		}
+	}
+
+	return (
+		<button
+			type="button"
+			disabled={disabled || pending}
+			onClick={() => void claim()}
+			className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex items-center gap-1 px-1 py-1 text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
+		>
+			<UserCheckIcon size={12} weight="bold" aria-hidden />
+			make it mine
+		</button>
+	)
+}
+
 function SaveButton({ recipe }: { recipe: Recipe }) {
 	const router = useRouter()
 	const queryClient = useQueryClient()

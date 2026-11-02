@@ -21,8 +21,9 @@ const updateCalls = vi.hoisted(() => {
 	const calls: RecipeUpdate[] = []
 	const deleted: string[] = []
 	const saved: string[] = []
+	const claimed: string[] = []
 
-	return { calls, deleted, saved }
+	return { calls, deleted, saved, claimed }
 })
 
 const cookingState = vi.hoisted<{
@@ -109,6 +110,22 @@ vi.mock('@/lib/recipes/server', () => ({
 		// A shared recipe's first edit comes back as the user's own copy.
 		return { id: recipeState.recipe?.owned === false ? 'recipe-copy' : data.id }
 	},
+	claimRecipe: async ({ data }: { data: { id: string } }) => {
+		updateCalls.claimed.push(data.id)
+
+		// The owner may have withdrawn the recipe since the page loaded.
+		if (updateCalls.refuseClaim) return null
+
+		if (recipeState.recipe)
+			recipeState.recipe = {
+				...recipeState.recipe,
+				forkedFromId: null,
+				sourceUrl: null,
+				owned: true,
+			}
+
+		return { id: data.id }
+	},
 	createRecipe: vi.fn(),
 	saveRecipe: async ({ data }: { data: { id: string } }) => {
 		updateCalls.saved.push(data.id)
@@ -171,6 +188,7 @@ describe('recipe detail', () => {
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
+		updateCalls.claimed.length = 0
 		recipeState.recipe = {
 			id: 'recipe-1',
 			userId: 'user-1',
@@ -273,6 +291,52 @@ describe('recipe detail', () => {
 			.toBeVisible()
 		await expect
 			.element(screen.getByText('dairy & eggs', { exact: true }))
+			.not.toBeInTheDocument()
+	})
+
+	test('lets a cook take over a copied web recipe, dropping its credit', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.sourceUrl = 'https://example.com/pasta'
+		recipeState.recipe.forkedFromId = 'shared-1'
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect.element(screen.getByText('your copy')).toBeVisible()
+		await expect.element(screen.getByText('from example.com')).toBeVisible()
+		await screen.getByRole('button', { name: 'make it mine' }).click()
+
+		await expect.element(screen.getByText('your copy')).not.toBeInTheDocument()
+		await expect
+			.element(screen.getByText('from example.com'))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('button', { name: 'make it mine' }))
+			.not.toBeInTheDocument()
+		expect(updateCalls.claimed).toEqual(['recipe-1'])
+	})
+
+	test('says so when the server could not hand the recipe over', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.sourceUrl = 'https://example.com/pasta'
+		recipeState.recipe.forkedFromId = 'shared-1'
+		updateCalls.refuseClaim = true
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'make it mine' }).click()
+
+		await expect
+			.element(screen.getByText("couldn't take that over", { exact: false }))
+			.toBeVisible()
+		await expect.element(screen.getByText('your copy')).toBeVisible()
+	})
+
+	test("offers no take-over on a recipe that is already the cook's own", async () => {
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(screen.getByRole('button', { name: 'edit' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'make it mine' }))
 			.not.toBeInTheDocument()
 	})
 

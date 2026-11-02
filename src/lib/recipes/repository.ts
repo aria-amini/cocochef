@@ -645,6 +645,83 @@ function sameCategories(a: IngredientCategories, b: IngredientCategories) {
 	)
 }
 
+// The shelf row and cooks follow the user to their copy of a shared recipe.
+async function moveShelfToCopy(
+	database: RecipeDatabase,
+	userId: string,
+	originalId: string,
+	copyId: string,
+) {
+	await saveRecipeForUser(userId, originalId, database)
+	await database
+		.update(shelfRecipes)
+		.set({ recipeId: copyId })
+		.where(
+			and(
+				eq(shelfRecipes.userId, userId),
+				eq(shelfRecipes.recipeId, originalId),
+			),
+		)
+	await database
+		.update(mealLogs)
+		.set({ recipeId: copyId })
+		.where(and(eq(mealLogs.userId, userId), eq(mealLogs.recipeId, originalId)))
+}
+
+// Takes a recipe over: it becomes the user's own, with no link back to the
+// recipe it was copied from or the website it came from. A shared recipe is
+// copied first, as the first edit would; the original stays as it was.
+export async function claimRecipeForUser(
+	userId: string,
+	id: string,
+	database: Database = getDb(),
+) {
+	return database.transaction(async (tx) => {
+		const current = await assertVisibleRecipe(tx, userId, id)
+
+		if (!current) return null
+
+		if (current.userId === userId) {
+			const [claimed] = await tx
+				.update(recipes)
+				.set({ forkedFromId: null, sourceUrl: null })
+				.where(and(eq(recipes.id, id), eq(recipes.userId, userId)))
+				.returning()
+
+			return claimed ?? null
+		}
+
+		const content = await recipeContent(tx, id)
+
+		const [copy] = await tx
+			.insert(recipes)
+			.values({
+				id: crypto.randomUUID(),
+				userId,
+				title: current.title,
+				imageUrl: current.imageUrl,
+				servings: current.servings,
+				totalMinutes: current.totalMinutes,
+				createdAt: new Date(),
+				finalizedAt: new Date(),
+			})
+			.returning()
+
+		if (!copy) return null
+		await insertRecipeContent(
+			tx,
+			copy.id,
+			content.ingredients,
+			content.steps,
+			content.ingredientCategories,
+		)
+		await moveShelfToCopy(tx, userId, current.id, copy.id)
+		await publishFinishedRecipe(userId, copy, tx)
+
+		return copy
+	})
+}
+
 // Edits land on the user's own recipe. A shared recipe is never changed: the
 // first real edit copies it for them, and their shelf row and cooks move to the
 // copy. Notes are theirs either way and never copy anything.
@@ -733,22 +810,7 @@ export async function updateRecipeForUser(
 					steps,
 					ingredientCategories,
 				)
-				await saveRecipeForUser(userId, current.id, tx)
-				await tx
-					.update(shelfRecipes)
-					.set({ recipeId: copy.id })
-					.where(
-						and(
-							eq(shelfRecipes.userId, userId),
-							eq(shelfRecipes.recipeId, current.id),
-						),
-					)
-				await tx
-					.update(mealLogs)
-					.set({ recipeId: copy.id })
-					.where(
-						and(eq(mealLogs.userId, userId), eq(mealLogs.recipeId, current.id)),
-					)
+				await moveShelfToCopy(tx, userId, current.id, copy.id)
 			}
 		}
 

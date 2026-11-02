@@ -14,6 +14,7 @@ import {
 } from './model'
 import {
 	createCollectionForUser,
+	claimRecipeForUser,
 	createRecipeForUser,
 	deleteCollectionForUser,
 	deleteRecipeForUser,
@@ -59,6 +60,12 @@ export const getRecipe = createServerFn({ method: 'GET' })
 export const createRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeInput)
 	.handler(async ({ data }) => createRecipeForUser(await requireUserId(), data))
+
+export const claimRecipe = createServerFn({ method: 'POST' })
+	.validator(recipeIdInput)
+	.handler(async ({ data }) =>
+		claimRecipeForUser(await requireUserId(), data.id),
+	)
 
 export const saveRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)
