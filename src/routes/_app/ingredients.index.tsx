@@ -1,5 +1,5 @@
 import { Dialog } from '@base-ui/react/dialog'
-import { ArrowLeft, Minus, Plus, X } from '@phosphor-icons/react'
+import { Minus, Plus, X } from '@phosphor-icons/react'
 import {
 	createFileRoute,
 	Link,
@@ -9,6 +9,7 @@ import {
 import { useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 
+import { BackLink, PageTitle } from '@/components/page'
 import type { pantryItems } from '@/db/schema'
 import { categorySprites, findCatalogSection } from '@/lib/pantry/catalog'
 import {
@@ -84,16 +85,10 @@ function Pantry() {
 			<div className="flex max-w-5xl flex-col gap-6 p-6 md:p-10">
 				<header className="flex flex-wrap items-end justify-between gap-4">
 					<div>
-						<Link
-							to="/recipes"
-							className="focus-visible:outline-kitchen-eggplant mb-4 hidden items-center gap-1.5 text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2 md:inline-flex"
-						>
-							<ArrowLeft size={14} weight="bold" aria-hidden />
+						<BackLink to="/recipes" className="mb-2 hidden md:inline-flex">
 							recipes
-						</Link>
-						<h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-							ingredients
-						</h1>
+						</BackLink>
+						<PageTitle>ingredients</PageTitle>
 					</div>
 					{groups.length > 0 ? (
 						<Link
