@@ -222,10 +222,27 @@ function RecipeView({
 				wasChecked: previous?.checked.includes(item) ?? false,
 			}
 		},
-		onSuccess: (data, variables) => {
+		onSuccess: (data, variables, context) => {
 			if (variables.action !== 'check') {
 				setStartPrompt(null)
 				client.setQueryData(queryKey, data)
+			}
+
+			// Ending is one stray tap away mid-cook, so it can be taken back.
+			if (context?.kind === 'finish' && context.previous?.active) {
+				const restore = context.previous.checked
+
+				toast('cooking ended', {
+					action: {
+						label: 'undo',
+						onClick: () => {
+							command.mutate({ action: 'start' })
+
+							for (const item of restore)
+								command.mutate({ action: 'check', item, done: true })
+						},
+					},
+				})
 			}
 
 			if (!data) void client.invalidateQueries({ queryKey: ['shelf'] })
@@ -266,9 +283,7 @@ function RecipeView({
 				)
 			}
 
-			toast.error(
-				error.message || "couldn't save your progress — try again",
-			)
+			toast.error(error.message || "couldn't save your progress — try again")
 		},
 		onSettled: () => {
 			if (
@@ -387,7 +402,7 @@ function RecipeView({
 							type="button"
 							disabled={busy}
 							onClick={() => command.mutate({ action: 'finish' })}
-							className="bg-kitchen-basil focus-visible:outline-kitchen-eggplant rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-2 disabled:opacity-50"
+							className={buttonVariants({ variant: 'outline' })}
 						>
 							end cooking
 						</button>
@@ -418,17 +433,9 @@ function RecipeView({
 							(!recipe.ingredients.length && !recipe.steps.length)
 						}
 						onClick={() => command.mutate({ action: 'start' })}
-						className={cn(
-							recipeActionClassName,
-							'border-input w-auto border bg-kitchen-basil/15',
-						)}
+						className={buttonVariants()}
 					>
-						<CookingPotIcon
-							size={14}
-							weight="duotone"
-							aria-hidden
-							className="size-3.5"
-						/>
+						<CookingPotIcon size={18} weight="duotone" aria-hidden />
 						{busy
 							? 'starting…'
 							: progress.data
@@ -548,7 +555,7 @@ function RecipeView({
 															progress.isError ||
 															(busy && command.variables?.action === 'finish')
 														}
-														className="accent-kitchen-basil mt-1 size-5 shrink-0"
+														className="accent-kitchen-basil mt-1 size-6 shrink-0"
 													/>
 												</label>
 											</td>
@@ -623,14 +630,14 @@ function RecipeView({
 												progress.isError ||
 												(busy && command.variables?.action === 'finish')
 											}
-											className="accent-kitchen-basil mt-0.5 size-5 shrink-0"
+											className="accent-kitchen-basil mt-0.5 size-6 shrink-0"
 										/>
 										<span className="text-muted-foreground mt-0.5 text-xs font-bold">
 											{index + 1}
 										</span>
 										<span
 											className={cn(
-												'text-sm font-semibold',
+												'text-base leading-relaxed',
 												done && 'text-muted-foreground line-through',
 											)}
 										>
@@ -711,9 +718,6 @@ function RecipeMeta({ recipe }: { recipe: Recipe }) {
 }
 
 // Shared dimensions keep the recipe's actions aligned in one compact row.
-const recipeActionClassName =
-	'focus-visible:outline-kitchen-eggplant inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50'
-
 // A shared recipe someone opened from a search or a link. Adding it puts it on
 // the shelf as is; books come after. A secondary button, not a solid one: the
 // recipe itself is what the page is for.
@@ -806,10 +810,7 @@ function SaveButton({ recipe }: { recipe: Recipe }) {
 				type="button"
 				disabled={pending}
 				onClick={() => void save()}
-				className={cn(
-					recipeActionClassName,
-					'border-input bg-background hover:bg-card border md:bg-transparent',
-				)}
+				className={buttonVariants({ variant: 'outline' })}
 			>
 				<BookmarkSimpleIcon
 					size={14}
