@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { Fragment } from 'react'
 
 import { IngredientText } from '@/components/ingredient-text'
+import { BackLink, PageTitle } from '@/components/page'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import { formatMinutes } from '@/lib/recipes/model'
 import type {
@@ -32,9 +33,7 @@ export function PublicProfile({
 		<>
 			<PublicHeader />
 			<main className="mx-auto max-w-5xl p-6 md:p-10">
-				<h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-					{profile.displayName}
-				</h1>
+				<PageTitle>{profile.displayName}</PageTitle>
 				<p className="text-muted-foreground mt-3">
 					recipes to pass around the table.
 				</p>
@@ -89,18 +88,12 @@ export function PublicRecipePage({
 			<PublicHeader />
 			<main className="mx-auto max-w-3xl space-y-8 p-6 pb-12 md:p-10">
 				{'publisher' in recipe ? (
-					<Link
-						to="/$handle"
-						params={{ handle: recipe.publisher.handle }}
-						className="text-sm font-semibold underline"
-					>
+					<BackLink to="/$handle" params={{ handle: recipe.publisher.handle }}>
 						{recipe.publisher.displayName}&apos;s recipes
-					</Link>
+					</BackLink>
 				) : null}
 				<div>
-					<h1 className="text-3xl leading-tight font-bold tracking-tight break-words md:text-4xl">
-						{recipe.title}
-					</h1>
+					<PageTitle>{recipe.title}</PageTitle>
 					{recipe.sourceUrl ? (
 						<p className="text-muted-foreground mt-3 text-sm">
 							from{' '}
