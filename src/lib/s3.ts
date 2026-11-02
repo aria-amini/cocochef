@@ -1,4 +1,6 @@
 import {
+	BucketAlreadyOwnedByYou,
+	CreateBucketCommand,
 	GetObjectCommand,
 	PutObjectCommand,
 	S3Client,
@@ -57,8 +59,31 @@ export const getAvatarUrl = createServerFn({ method: 'GET' })
 		data.image ? resolveStoredImage(data.image) : undefined,
 	)
 
+// Development MinIO starts empty, so the bucket is created on the first upload.
+// Production buckets are provisioned ahead of time and never created here.
+let devBucketReady: Promise<void> | undefined
+
+async function createDevBucket(client: S3Client, bucket: string) {
+	try {
+		await client.send(new CreateBucketCommand({ Bucket: bucket }))
+	} catch (error) {
+		if (error instanceof BucketAlreadyOwnedByYou) return
+
+		devBucketReady = undefined
+		throw error
+	}
+}
+
+function ensureDevBucket(client: S3Client, bucket: string) {
+	devBucketReady ??= createDevBucket(client, bucket)
+
+	return devBucketReady
+}
+
 async function signImageUpload(key: string) {
 	const { bucket, client } = getStorage()
+
+	if (env.APP_ENV === 'development') await ensureDevBucket(client, bucket)
 
 	const command = new PutObjectCommand({
 		Bucket: bucket,
