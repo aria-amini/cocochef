@@ -44,6 +44,38 @@ describe('auth forms', () => {
 		settle({ error: null })
 	})
 
+	test('sends Google sign-in back to the page that asked for it', async () => {
+		authMocks.signInSocial.mockClear()
+
+		const { screen } = await renderRoute({
+			path: '/auth/login?redirect=%2Frecipes%2Fnew',
+		})
+
+		await screen.getByRole('button', { name: 'Continue with Google' }).click()
+
+		await vi.waitFor(() => {
+			expect(authMocks.signInSocial).toHaveBeenCalledWith({
+				provider: 'google',
+				callbackURL: `${window.location.origin}/recipes/new`,
+			})
+		})
+	})
+
+	test('sends Google sign-in to the recipes by default', async () => {
+		authMocks.signInSocial.mockClear()
+
+		const { screen } = await renderRoute({ path: '/auth/login' })
+
+		await screen.getByRole('button', { name: 'Continue with Google' }).click()
+
+		await vi.waitFor(() => {
+			expect(authMocks.signInSocial).toHaveBeenCalledWith({
+				provider: 'google',
+				callbackURL: `${window.location.origin}/recipes`,
+			})
+		})
+	})
+
 	test('signs up from the submit button', async () => {
 		const { screen } = await renderRoute({ path: '/auth/signup' })
 
