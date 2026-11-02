@@ -210,6 +210,23 @@ describe('recipe detail', () => {
 		await expect.element(screen.getByText('boil the pasta')).toBeVisible()
 	})
 
+	test('fills the page beside the sidebar even when the recipe is short', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['Salt']
+		recipeState.recipe.steps = []
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'Salt' }))
+			.toBeVisible()
+
+		const main = document.querySelector('main')
+
+		if (!main) throw new Error('main missing')
+		expect(
+			Math.abs(main.getBoundingClientRect().right - window.innerWidth),
+		).toBeLessThan(1)
+	})
+
 	test('shows placeholders when content is empty', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/recipe-1',

@@ -82,7 +82,7 @@ function RecipeDetail() {
 	return (
 		<main
 			className={cn(
-				'bg-background text-foreground min-h-dvh p-6 md:p-10',
+				'bg-background text-foreground min-h-dvh min-w-0 flex-1 p-6 md:p-10',
 				!editing && 'pb-tabbar md:pb-10',
 			)}
 		>
