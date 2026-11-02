@@ -31,14 +31,20 @@ Vite+, Drizzle/Postgres, Better Auth, Tailwind v4, shadcn).
 
 ## Capabilities and Constraints
 
-Confirmed: recipe browsing/saving/cooking, meal logging (one-tap byproduct of
-cooking, feeds cook-count ranking), import-from-URL (slot built, parser
-pending), books (collections) as organization + AI scope, a home "what's
-tonight" decision surface, groceries (list from picked recipes, later).
-Decision-first, not calendar-first: week planning deferred. Undecided:
-nutrition/macro detail depth, sharing/social features. Pantry tracking returns
-on 2026-10-19: per-user ingredients, whole-item quantities, and pixel icons.
-Four storage locations are planned; the data model has none yet.
+Shipped: recipe browsing, saving and cooking (a per-recipe checklist that syncs
+across devices), import from a link or pasted text (with a home relay for sites
+that refuse datacenters), books (collections) for organizing a shelf, public
+profiles and share links, recipe export and import between kitchens, and an
+ingredients pantry (per-user ingredients, whole-item quantities, pixel icons).
+
+Confirmed, not built yet: meal logging as a one-tap byproduct of cooking (the
+data model and server functions exist, and cook counts already rank the shelf,
+but there is no logging UI), creating and renaming books from the shelf, a home
+"what's tonight" decision surface (`/home` redirects to the shelf for now),
+groceries (a list from picked recipes; the tab opens a work-in-progress page),
+and books as an AI scope. Decision-first, not calendar-first: week planning
+deferred. Undecided: nutrition/macro detail depth. Four pantry storage locations
+are planned; the data model has none yet.
 
 ## Brand Commitments
 
@@ -55,8 +61,9 @@ ticket-rail world — too commercial, not homey.
 
 ## Evidence on Hand
 
-None — template app, no real recipe content or imagery yet. Recipe data shown in
-concepts is synthetic and must be labeled or replaced.
+Recipes come from real recipe sites through import and discovery, plus what
+cooks write themselves. No user research or brand imagery yet; pantry icons are
+licensed pixel sprites (`public/sprites/pantry/ATTRIBUTION.txt`).
 
 ## Product Principles
 
