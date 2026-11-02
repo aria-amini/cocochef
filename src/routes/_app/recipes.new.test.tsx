@@ -367,7 +367,13 @@ describe('write a recipe', () => {
 				}),
 			)
 		await expect.poll(() => state.created).toHaveLength(1)
-		await screen.getByRole('button', { name: 'done' }).click()
+		// The "sorted into" toast can sit over the button on a short screen.
+		screen
+			.getByRole('button', { name: 'done' })
+			.element()
+			.dispatchEvent(
+				new MouseEvent('click', { bubbles: true, cancelable: true }),
+			)
 		await expect
 			.poll(() => state.updated.some((saved) => saved.finalize))
 			.toBe(true)

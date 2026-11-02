@@ -28,6 +28,31 @@ describe('ingredient display groups', () => {
 			}
 	})
 
+	test("groups by the cook's pick over the guess, for that line only", () => {
+		const lines = ['2 large eggs', '1 carrot', '2 large eggs']
+
+		expect(
+			ingredientViewRows(lines, true, { '1 carrot': 'other' }).map(
+				({ text }) => text,
+			),
+		).toEqual([
+			'dairy & eggs',
+			'2 large eggs',
+			'2 large eggs',
+			'other',
+			'1 carrot',
+		])
+		expect(ingredientViewRows(lines, true, {}).map(({ text }) => text)).toEqual(
+			[
+				'dairy & eggs',
+				'2 large eggs',
+				'2 large eggs',
+				'vegetables & herbs',
+				'1 carrot',
+			],
+		)
+	})
+
 	test('hides imported Ingredients and Garnish labels only in category mode', () => {
 		const lines = [
 			'## Ingredients',

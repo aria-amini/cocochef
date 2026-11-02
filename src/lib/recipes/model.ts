@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { pantryCategories, type PantryCategory } from '@/lib/pantry/model'
+
 export const recipeTitleMax = 120
 
 export const recipeNotesMax = 2000
@@ -30,6 +32,14 @@ const contentLines = z
 	.array(z.string())
 	.transform((lines) => lines.map((line) => line.trim()).filter(Boolean))
 
+// The cook's own grouping for ingredients, keyed by the ingredient's line.
+// Lines without an entry are grouped by guessing from the food.
+export type IngredientCategories = Partial<Record<string, PantryCategory>>
+
+const ingredientCategories = z
+	.record(z.string(), z.enum(pantryCategories))
+	.optional()
+
 export const recipeInput = z.object({
 	title: recipeFields.title,
 	imageUrl: z.preprocess(
@@ -41,6 +51,7 @@ export const recipeInput = z.object({
 	finalized: z.boolean().optional(),
 	notes: recipeFields.notes.optional().transform((notes) => notes || undefined),
 	ingredients: contentLines.optional(),
+	ingredientCategories,
 	steps: contentLines.optional(),
 })
 
@@ -52,6 +63,7 @@ export const recipeUpdateInput = z.object({
 	notes: recipeFields.notes.nullable().transform((notes) => notes || null),
 	finalize: z.boolean().optional(),
 	ingredients: contentLines,
+	ingredientCategories,
 	steps: contentLines,
 })
 

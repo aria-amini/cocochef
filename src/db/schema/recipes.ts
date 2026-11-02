@@ -9,6 +9,8 @@ import {
 	uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
+import { pantryCategories } from '@/lib/pantry/model'
+
 import { user } from './auth'
 
 // `raw` is the display truth — quantity/unit/name/note are populated later by
@@ -122,6 +124,8 @@ export const recipeIngredients = snakeCase.table(
 		recipeId: text().notNull(),
 		position: integer().notNull(),
 		text: text().notNull(),
+		// The cook's own grouping; null leaves the guess from the line's food.
+		category: text({ enum: pantryCategories }),
 	},
 	(table) => [
 		index('recipe_ingredients_recipe_id_index').on(table.recipeId),

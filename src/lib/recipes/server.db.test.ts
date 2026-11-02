@@ -118,6 +118,58 @@ describe('recipe shelf', () => {
 		})
 	})
 
+	test('keeps the groups a cook picks, only for lines that are still there', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+
+		const recipe = await createRecipeForUser(
+			userId,
+			{
+				title: 'omelette',
+				ingredients: ['2 large eggs', '1 onion'],
+				ingredientCategories: { '2 large eggs': 'meat', 'gone line': 'spices' },
+			},
+			db,
+		)
+
+		if (!recipe) throw new Error('recipe was not created')
+		await expect(
+			getRecipeForUser(userId, recipe.id, db),
+		).resolves.toMatchObject({
+			ingredientCategories: { '2 large eggs': 'meat' },
+		})
+
+		const update = recipeUpdateInput.parse({
+			id: recipe.id,
+			title: 'omelette',
+			notes: null,
+			ingredients: ['2 large eggs', '1 onion'],
+			ingredientCategories: { '1 onion': 'other' },
+			steps: [],
+		})
+
+		await updateRecipeForUser(userId, update, db)
+		await expect(
+			getRecipeForUser(userId, recipe.id, db),
+		).resolves.toMatchObject({ ingredientCategories: { '1 onion': 'other' } })
+
+		await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({ ...update, ingredientCategories: {} }),
+			db,
+		)
+		await expect(
+			getRecipeForUser(userId, recipe.id, db),
+		).resolves.toMatchObject({ ingredientCategories: {} })
+		expect(
+			recipeUpdateInput.safeParse({
+				...update,
+				ingredientCategories: { '1 onion': 'furniture' },
+			}).success,
+		).toBe(false)
+	})
+
 	test('updates recipe details and content and checks ownership', async ({
 		db,
 	}) => {
@@ -637,6 +689,38 @@ describe('shared recipes', () => {
 		)
 
 		expect(again?.id).toBe(copy.id)
+	})
+
+	test("copies a shared recipe when only an ingredient's group changes", async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const recipe = await seedShared(db)
+		await saveRecipeForUser(userId, recipe.id, db)
+		const original = await getRecipeForUser(userId, recipe.id, db)
+
+		const copy = await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: original?.title,
+				notes: null,
+				ingredients: original?.ingredients,
+				ingredientCategories: { [original?.ingredients[0] ?? '']: 'other' },
+				steps: original?.steps,
+			}),
+			db,
+		)
+
+		expect(copy?.id).not.toBe(recipe.id)
+		await expect(
+			getRecipeForUser(userId, copy?.id ?? '', db),
+		).resolves.toMatchObject({
+			ingredientCategories: { [original?.ingredients[0] ?? '']: 'other' },
+		})
+		await expect(
+			getRecipeForUser(userId, recipe.id, db),
+		).resolves.toMatchObject({ ingredientCategories: {} })
 	})
 
 	test('removing a shared recipe only takes it off your shelf', async ({

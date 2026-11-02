@@ -12,27 +12,40 @@ import {
 } from '@/components/recipe-form'
 import { SortableList, SortableRow } from '@/components/sortable-list'
 import {
+	pantryCategories,
+	pantryCategoryLabels,
+	type PantryCategory,
+} from '@/lib/pantry/model'
+import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
+import {
 	formatIngredientHeading,
 	ingredientHeading,
 	parseIngredientLine,
 } from '@/lib/recipes/ingredient-line'
+import type { IngredientCategories } from '@/lib/recipes/model'
 import { pastedIngredients } from '@/lib/recipes/paste'
 import { cn } from '@/lib/utils/ui'
 
 // An ingredient is the line as the cook wrote it ("a knob of butter"); a
 // heading row holds the section's name ("for the sauce").
-type Row = { id: string; text: string; heading?: true | undefined }
+type Row = {
+	id: string
+	text: string
+	heading?: true | undefined
+	// Picked by the cook; without one the group is guessed from the food.
+	category?: PantryCategory | undefined
+}
 
 function insertRows(rows: Row[], index: number, added: Row[]) {
 	return [...rows.slice(0, index), ...added, ...rows.slice(index)]
 }
 
-function toRows(lines: string[]): Row[] {
+function toRows(lines: string[], categories: IngredientCategories = {}): Row[] {
 	return (lines.length ? lines : ['']).map((line): Row => {
 		const heading = ingredientHeading(line)
 
 		return heading === undefined
-			? { id: crypto.randomUUID(), text: line }
+			? { id: crypto.randomUUID(), text: line, category: categories[line] }
 			: { id: crypto.randomUUID(), text: heading, heading: true }
 	})
 }
@@ -65,12 +78,17 @@ const iconButtonClassName =
 // submits as one `ingredient` field; read the rows with `getAll`.
 export function IngredientListField({
 	defaultValue = [],
+	defaultCategories,
 	onCountChange,
 }: {
 	defaultValue?: string[] | undefined
+	defaultCategories?: IngredientCategories | undefined
 	onCountChange?: (count: number) => void
 }) {
-	const [rows, setRows] = useState(() => toRows(defaultValue))
+	const [rows, setRows] = useState(() =>
+		toRows(defaultValue, defaultCategories),
+	)
+
 	const inputs = useRef(new Map<string, HTMLElement>())
 	const focusNext = useRef<string>(undefined)
 
@@ -208,6 +226,7 @@ export function IngredientListField({
 											name="ingredient"
 											value={lineOf(row)}
 										/>
+										<input type="hidden" name="ingredient-category" value="" />
 										<input
 											ref={inputRef(row.id)}
 											value={row.text}
@@ -240,33 +259,50 @@ export function IngredientListField({
 											name="ingredient"
 											value={lineOf(row)}
 										/>
-										<div className="border-input bg-card focus-within:outline-kitchen-eggplant relative flex min-w-0 flex-1 items-start rounded-xl border group-data-[dragging=true]:border-transparent focus-within:outline-2 focus-within:outline-offset-2">
-											<div className="min-w-0 flex-1">
-												<IngredientCombobox
-													bare
-													required={false}
-													name="ingredient-line"
-													label={`Ingredient ${index + 1}`}
-													placeholder={
-														index === 0 ? '2 cloves garlic' : 'a knob of butter'
-													}
-													maxLength={500}
-													completion={completion}
-													value={row.text}
-													onChange={(text) => update(row.id, { text })}
-													inputRef={inputRef(row.id)}
-													onKeyDown={(event) => handleKey(event, row, index)}
-													onPaste={(event) => paste(event, row)}
-												/>
+										<input
+											type="hidden"
+											name="ingredient-category"
+											value={row.category ?? ''}
+										/>
+										<div className="border-input bg-card focus-within:outline-kitchen-eggplant relative flex min-w-0 flex-1 flex-col rounded-xl border group-data-[dragging=true]:border-transparent focus-within:outline-2 focus-within:outline-offset-2">
+											<div className="flex items-start">
+												<div className="min-w-0 flex-1">
+													<IngredientCombobox
+														bare
+														required={false}
+														name="ingredient-line"
+														label={`Ingredient ${index + 1}`}
+														placeholder={
+															index === 0
+																? '2 cloves garlic'
+																: 'a knob of butter'
+														}
+														maxLength={500}
+														completion={completion}
+														value={row.text}
+														onChange={(text) => update(row.id, { text })}
+														inputRef={inputRef(row.id)}
+														onKeyDown={(event) => handleKey(event, row, index)}
+														onPaste={(event) => paste(event, row)}
+													/>
+												</div>
+												<button
+													type="button"
+													onClick={() => removeAt(index)}
+													aria-label={`Remove ingredient ${index + 1}`}
+													className={iconButtonClassName}
+												>
+													<X size={14} weight="bold" aria-hidden />
+												</button>
 											</div>
-											<button
-												type="button"
-												onClick={() => removeAt(index)}
-												aria-label={`Remove ingredient ${index + 1}`}
-												className={iconButtonClassName}
-											>
-												<X size={14} weight="bold" aria-hidden />
-											</button>
+											{row.text.trim() ? (
+												<CategoryPicker
+													label={`Group for ingredient ${index + 1}`}
+													guess={ingredientCategory(row.text)}
+													value={row.category}
+													onChange={(category) => update(row.id, { category })}
+												/>
+											) : null}
 										</div>
 									</>
 								)
@@ -294,5 +330,47 @@ export function IngredientListField({
 				</button>
 			</div>
 		</fieldset>
+	)
+}
+
+// The by-category view groups an ingredient by guessing from its food; this
+// lets the cook put it somewhere else, or hand the choice back to the guess.
+function CategoryPicker({
+	label,
+	guess,
+	value,
+	onChange,
+}: {
+	label: string
+	guess: PantryCategory
+	value: PantryCategory | undefined
+	onChange: (category: PantryCategory | undefined) => void
+}) {
+	return (
+		<div className="text-muted-foreground flex items-center gap-1.5 px-3 pb-2 text-xs font-semibold">
+			<span aria-hidden>group</span>
+			<select
+				aria-label={label}
+				value={value ?? ''}
+				onChange={(event) =>
+					onChange(
+						pantryCategories.find(
+							(category) => category === event.target.value,
+						),
+					)
+				}
+				className={cn(
+					'border-input bg-card focus-visible:outline-kitchen-eggplant min-w-0 rounded-md border px-1.5 py-1 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2',
+					value ? 'text-foreground' : 'text-muted-foreground',
+				)}
+			>
+				<option value="">auto · {pantryCategoryLabels[guess]}</option>
+				{pantryCategories.map((category) => (
+					<option key={category} value={category}>
+						{pantryCategoryLabels[category]}
+					</option>
+				))}
+			</select>
+		</div>
 	)
 }

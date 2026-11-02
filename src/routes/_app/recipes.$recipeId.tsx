@@ -283,7 +283,13 @@ function RecipeView({
 
 	const cooking = progress.data?.active === true
 	const checked = new Set(progress.data?.checked ?? [])
-	const rows = ingredientViewRows(recipe.ingredients, !cooking && grouped)
+
+	const rows = ingredientViewRows(
+		recipe.ingredients,
+		!cooking && grouped,
+		recipe.ingredientCategories,
+	)
+
 	const RowBody = 'label'
 	const busy = command.isPending
 

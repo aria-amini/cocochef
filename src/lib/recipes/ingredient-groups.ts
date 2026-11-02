@@ -6,6 +6,7 @@ import {
 } from '@/lib/pantry/model'
 
 import { ingredientHeading } from './ingredient-line'
+import type { IngredientCategories } from './model'
 
 export function ingredientCategory(line: string): PantryCategory {
 	return categorizeIngredient(line.split(',')[0] ?? line)
@@ -20,6 +21,8 @@ export type IngredientViewRow =
 export function ingredientViewRows(
 	lines: string[],
 	grouped: boolean,
+	// The cook's own grouping, keyed by line; the rest is guessed from the food.
+	categories: IngredientCategories = {},
 ): IngredientViewRow[] {
 	const source: IngredientViewRow[] = lines.flatMap(
 		(text, index): IngredientViewRow[] => {
@@ -39,7 +42,8 @@ export function ingredientViewRows(
 	return pantryCategories.flatMap((category): IngredientViewRow[] => {
 		const items = source.filter(
 			(row) =>
-				row.kind === 'ingredient' && ingredientCategory(row.text) === category,
+				row.kind === 'ingredient' &&
+				(categories[row.text] ?? ingredientCategory(row.text)) === category,
 		)
 
 		return items.length

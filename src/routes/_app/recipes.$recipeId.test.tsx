@@ -190,6 +190,7 @@ describe('recipe detail', () => {
 			saved: true,
 			owned: true,
 			ingredients: [],
+			ingredientCategories: {},
 			steps: [],
 		}
 	})
@@ -225,6 +226,54 @@ describe('recipe detail', () => {
 		expect(
 			Math.abs(main.getBoundingClientRect().right - window.innerWidth),
 		).toBeLessThan(1)
+	})
+
+	test("groups an ingredient where the cook put it, not where it's guessed", async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
+		recipeState.recipe.ingredientCategories = { '2 large eggs': 'meat' }
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(screen.getByText('meat & seafood', { exact: true }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByText('dairy & eggs', { exact: true }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByText('vegetables & herbs', { exact: true }))
+			.toBeVisible()
+	})
+
+	test('lets the cook pick the group an ingredient is shown under', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 large eggs']
+		recipeState.recipe.steps = ['whisk']
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+
+		const picker = screen.getByRole('combobox', {
+			name: 'Group for ingredient 1',
+		})
+
+		await expect.element(picker).toHaveValue('')
+		await expect
+			.element(screen.getByText('auto · dairy & eggs'))
+			.toBeInTheDocument()
+		await picker.selectOptions('other')
+		await screen.getByRole('button', { name: 'done' }).click()
+
+		expect(updateCalls.calls.at(-1)).toMatchObject({
+			ingredients: ['2 large eggs'],
+			ingredientCategories: { '2 large eggs': 'other' },
+		})
+		await expect
+			.element(screen.getByText('other', { exact: true }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByText('dairy & eggs', { exact: true }))
+			.not.toBeInTheDocument()
 	})
 
 	test('shows placeholders when content is empty', async () => {
