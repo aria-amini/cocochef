@@ -6,11 +6,9 @@ import {
 	IngredientCombobox,
 	type LineCompletion,
 } from '@/components/ingredient-combobox'
-import {
-	fieldLabelClassName,
-	placeholderClassName,
-} from '@/components/recipe-form'
+import { fieldLabelClassName } from '@/components/recipe-form'
 import { SortableList, SortableRow } from '@/components/sortable-list'
+import { placeholderClassName } from '@/components/ui/input'
 import {
 	pantryCategories,
 	pantryCategoryLabels,

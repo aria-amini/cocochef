@@ -136,9 +136,7 @@ export function AccountMenu({ variant }: { variant: Variant }) {
 				>
 					<UserPlusIcon size={16} weight="bold" aria-hidden />
 					create an account
-					<Badge variant="tag" className="ml-auto">
-						free
-					</Badge>
+					<Badge className="ml-auto">free</Badge>
 				</Menu.LinkItem>
 				<Menu.LinkItem
 					className={itemClassName}

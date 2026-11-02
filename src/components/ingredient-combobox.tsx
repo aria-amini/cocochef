@@ -4,7 +4,7 @@
    stays in the input, which handles the keys, so options need no key events. */
 import { useId, useRef, useState } from 'react'
 
-import { placeholderClassName } from '@/components/recipe-form'
+import { placeholderClassName } from '@/components/ui/input'
 import { pantrySprites, resolveSpriteSrc } from '@/lib/pantry/sprites'
 import { cn } from '@/lib/utils/ui'
 

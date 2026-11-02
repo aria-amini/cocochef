@@ -4,13 +4,9 @@ import { useNavigate } from '@tanstack/react-router'
 import { useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import {
-	FieldError,
-	fieldClassName,
-	placeholderClassName,
-	primaryActionClassName,
-} from '@/components/recipe-form'
+import { FieldError, primaryActionClassName } from '@/components/recipe-form'
 import { asRecipeUrl, useRecipeImport } from '@/components/recipe-online'
+import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { importSiteLogo, importSites } from '@/lib/import/sites'
 import { cn } from '@/lib/utils/ui'
 

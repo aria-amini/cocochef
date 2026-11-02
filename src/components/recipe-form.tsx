@@ -1,5 +1,7 @@
 import { WarningCircleIcon } from '@phosphor-icons/react'
 
+import { buttonVariants } from '@/components/ui/button'
+import { placeholderClassName } from '@/components/ui/input'
 import { cn } from '@/lib/utils/ui'
 
 // Section headings inside a recipe form: one step above the fields they name.
@@ -7,15 +9,6 @@ export const fieldLabelClassName = 'text-base font-bold'
 
 // The line under a section heading that says how the section works.
 export const fieldHintClassName = 'text-muted-foreground text-sm'
-
-// Placeholders read as hints, not values: regular weight, muted ink (≥4.5:1).
-export const placeholderClassName =
-	'placeholder:text-muted-foreground placeholder:font-normal'
-
-// A filled, softly rounded field: the one look every text control in a recipe
-// form shares.
-export const fieldClassName =
-	'border-input bg-card focus-visible:outline-kitchen-eggplant w-full rounded-xl border px-4 py-3 text-base font-medium focus-visible:outline-2 focus-visible:outline-offset-2'
 
 // The photo slot beside the recipe's name: the two things that say what this
 // recipe is, side by side at the top of the form.
@@ -126,8 +119,9 @@ export function FormActions({ children }: { children: React.ReactNode }) {
 	)
 }
 
-export const primaryActionClassName =
-	'bg-kitchen-basil focus-visible:outline-kitchen-eggplant px-6 py-3 text-sm font-semibold transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 rounded-xl'
+export const primaryActionClassName = buttonVariants({ size: 'lg' })
 
-export const quietActionClassName =
-	'text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant px-3 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 rounded-xl'
+export const quietActionClassName = buttonVariants({
+	variant: 'ghost',
+	size: 'lg',
+})
