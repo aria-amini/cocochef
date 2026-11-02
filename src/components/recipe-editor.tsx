@@ -26,7 +26,10 @@ import {
 	RecipeIntro,
 	RecipeNameField,
 } from '@/components/recipe-form'
-import { RecipePhotoField } from '@/components/recipe-photo-field'
+import {
+	GuestPhotoSlot,
+	RecipePhotoField,
+} from '@/components/recipe-photo-field'
 import { StepsField, stepsFrom } from '@/components/steps-field'
 import { authClient } from '@/lib/auth/client'
 import { createAutosaver, type SaveState } from '@/lib/recipes/autosave'
@@ -515,7 +518,9 @@ export function RecipeEditor({
 								aria-hidden
 								className="border-input size-20 shrink-0 rounded-xl border border-dashed md:size-24"
 							/>
-						) : null
+						) : (
+							<GuestPhotoSlot />
+						)
 					}
 				>
 					<RecipeNameField

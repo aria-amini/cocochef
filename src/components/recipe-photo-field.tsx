@@ -1,5 +1,6 @@
 import { ImageSquare, X } from '@phosphor-icons/react'
 import * as Sentry from '@sentry/tanstackstart-react'
+import { Link, useLocation } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -7,6 +8,25 @@ import { getRecipePhotoUploadUrl } from '@/lib/s3'
 import { cn } from '@/lib/utils/ui'
 
 const maxBytes = 10 * 1024 * 1024
+
+// Stands where the photo field would for a guest, who can't upload: the slot
+// says why and links to sign-in, which returns here, instead of vanishing.
+export function GuestPhotoSlot() {
+	const location = useLocation()
+
+	return (
+		<Link
+			to="/auth/login"
+			search={{ redirect: location.href }}
+			className="border-input bg-background hover:bg-card focus-visible:outline-kitchen-eggplant text-foreground/60 grid size-20 shrink-0 place-items-center rounded-xl border border-dashed p-1 focus-visible:outline-2 focus-visible:outline-offset-2 md:size-24"
+		>
+			<span className="flex flex-col items-center gap-1 text-center text-xs font-semibold">
+				<ImageSquare size={28} weight="duotone" aria-hidden />
+				sign in to add a photo
+			</span>
+		</Link>
+	)
+}
 
 // Shows `current` (an imported or saved photo) until the user picks another.
 // Uploads on pick, then submits the storage key as the form's `imageUrl`. An

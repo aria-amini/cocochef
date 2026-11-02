@@ -51,7 +51,10 @@ function Login() {
 				<CardContent>
 					<div className="space-y-6">
 						<h1 className="text-3xl font-bold">Sign in</h1>
-						<GoogleAuthButton fallbackRedirect="/recipes" className="w-full" />
+						<GoogleAuthButton
+							fallbackRedirect={search.redirect ?? '/recipes'}
+							className="w-full"
+						/>
 						<form onSubmit={submit} className="space-y-4">
 							<Input
 								required

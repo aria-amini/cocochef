@@ -756,7 +756,7 @@ describe('write a recipe', () => {
 			.toBe('recipes/user-1-photo')
 	})
 
-	test('hides the photo slot from guests', async () => {
+	test('points guests to sign-in instead of the photo slot', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
 			session: {
@@ -771,5 +771,8 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByLabelText('Recipe photo'))
 			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('link', { name: 'sign in to add a photo' }))
+			.toHaveAttribute('href', '/auth/login?redirect=%2Frecipes%2Fnew')
 	})
 })

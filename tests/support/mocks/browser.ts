@@ -24,6 +24,11 @@ const authState = vi.hoisted<{
 const authMocks = vi.hoisted(() => ({
 	signInEmail: vi.fn(async () => ({ error: null })),
 	signUpEmail: vi.fn(async () => ({ error: null })),
+	// Resolves with an error so the Google flow never navigates the test page.
+	signInSocial: vi.fn(async () => ({
+		data: null,
+		error: { message: 'stubbed' },
+	})),
 	refetchSession: vi.fn(),
 }))
 
@@ -60,7 +65,7 @@ vi.mock('@/lib/auth/client', () => ({
 		}),
 		signIn: {
 			email: authMocks.signInEmail,
-			social: vi.fn(),
+			social: authMocks.signInSocial,
 		},
 		signUp: {
 			email: authMocks.signUpEmail,
