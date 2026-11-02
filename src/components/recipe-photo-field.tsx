@@ -1,4 +1,5 @@
 import { ImageSquare, X } from '@phosphor-icons/react'
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -58,9 +59,18 @@ export function RecipePhotoField({
 				body: file,
 			})
 
-			if (!response.ok) throw new Error('Upload failed')
+			if (!response.ok) {
+				const detail = (await response.text()).slice(0, 300)
+
+				throw new Error(`Photo upload failed (${response.status}): ${detail}`)
+			}
+
 			setPhoto({ key, preview: URL.createObjectURL(file) })
-		} catch {
+		} catch (error) {
+			Sentry.captureException(error, {
+				tags: { upload: 'recipe-photo' },
+				extra: { type: file.type, size: file.size },
+			})
 			toast.error('could not upload that photo — try again')
 		} finally {
 			updateBusy(false)
