@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/avatar'
+import { RecipeTransfer } from '@/components/recipe-transfer'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
@@ -62,6 +63,7 @@ function Profile() {
 						keep my shelf
 					</Link>
 				</div>
+				<RecipeTransfer />
 			</main>
 		)
 	}
@@ -180,6 +182,7 @@ function AccountProfile({
 					{signingOut ? 'Signing out…' : 'Sign out'}
 				</Button>
 			</div>
+			<RecipeTransfer />
 		</main>
 	)
 }

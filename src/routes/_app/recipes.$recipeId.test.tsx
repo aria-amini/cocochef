@@ -22,8 +22,9 @@ const updateCalls = vi.hoisted(() => {
 	const deleted: string[] = []
 	const saved: string[] = []
 	const claimed: string[] = []
+	const exported: (string | undefined)[] = []
 
-	return { calls, deleted, saved, claimed }
+	return { calls, deleted, saved, claimed, exported, refuseClaim: false }
 })
 
 const cookingState = vi.hoisted<{
@@ -110,6 +111,12 @@ vi.mock('@/lib/recipes/server', () => ({
 		// A shared recipe's first edit comes back as the user's own copy.
 		return { id: recipeState.recipe?.owned === false ? 'recipe-copy' : data.id }
 	},
+	importRecipes: vi.fn(),
+	exportRecipes: async ({ data }: { data: { id?: string } }) => {
+		updateCalls.exported.push(data.id)
+
+		return { recipes: [{ title: 'miso butter pasta' }] }
+	},
 	claimRecipe: async ({ data }: { data: { id: string } }) => {
 		updateCalls.claimed.push(data.id)
 
@@ -189,6 +196,8 @@ describe('recipe detail', () => {
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
 		updateCalls.claimed.length = 0
+		updateCalls.exported.length = 0
+		updateCalls.refuseClaim = false
 		recipeState.recipe = {
 			id: 'recipe-1',
 			userId: 'user-1',
@@ -338,6 +347,19 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('button', { name: 'make it mine' }))
 			.not.toBeInTheDocument()
+	})
+
+	test('exports one recipe as a file from its action row', async () => {
+		const click = vi
+			.spyOn(HTMLAnchorElement.prototype, 'click')
+			.mockImplementation(() => undefined)
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'export' }).click()
+		await expect.poll(() => click.mock.calls.length).toBe(1)
+		expect(updateCalls.exported).toEqual(['recipe-1'])
+		click.mockRestore()
 	})
 
 	test('shows placeholders when content is empty', async () => {

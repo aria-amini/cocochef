@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import { z } from 'zod'
 
 import { requireUserId } from '@/lib/auth/session'
 import { resolveStoredImage } from '@/lib/s3'
@@ -26,6 +27,11 @@ import {
 	saveRecipeForUser,
 	updateRecipeForUser,
 } from './repository'
+import { parseTransferDocument } from './transfer'
+import {
+	exportRecipesForUser,
+	importRecipesForUser,
+} from './transfer-repository'
 
 // Uploaded photos are stored as bucket keys; clients need a fetchable URL.
 async function withSignedImage<T extends { imageUrl: string | null }>(
@@ -60,6 +66,22 @@ export const getRecipe = createServerFn({ method: 'GET' })
 export const createRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeInput)
 	.handler(async ({ data }) => createRecipeForUser(await requireUserId(), data))
+
+export const exportRecipes = createServerFn({ method: 'GET' })
+	.validator(z.object({ id: z.string().min(1).optional() }))
+	.handler(async ({ data }) =>
+		exportRecipesForUser(await requireUserId(), data.id),
+	)
+
+export const importRecipes = createServerFn({ method: 'POST' })
+	.validator(z.object({ text: z.string().max(10_000_000) }))
+	.handler(async ({ data }) => {
+		const parsed = parseTransferDocument(data.text)
+
+		if (!parsed.ok) throw new Error(parsed.error)
+
+		return importRecipesForUser(await requireUserId(), parsed.recipes)
+	})
 
 export const claimRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)

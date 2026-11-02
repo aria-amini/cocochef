@@ -477,6 +477,8 @@ export async function createRecipeForUser(
 		steps?: string[] | undefined
 		// Written recipes pass false and stay drafts until they are finished.
 		finalized?: boolean | undefined
+		// Imported files pass false so they stay private on auto-publish profiles.
+		publish?: boolean | undefined
 	},
 	database: Database = getDb(),
 ) {
@@ -517,7 +519,7 @@ export async function createRecipeForUser(
 			addedAt: recipe.createdAt,
 		})
 
-		await publishFinishedRecipe(userId, recipe, tx)
+		if (input.publish !== false) await publishFinishedRecipe(userId, recipe, tx)
 
 		return recipe
 	})

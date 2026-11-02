@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import { IngredientText } from '@/components/ingredient-text'
 import { RecipeEditor } from '@/components/recipe-editor'
 import { RecipeSharing } from '@/components/recipe-sharing'
+import { ExportRecipeButton } from '@/components/recipe-transfer'
 import {
 	Dialog,
 	DialogContent,
@@ -453,6 +454,7 @@ function RecipeView({
 				{!recipe.owned || recipe.forkedFromId || recipe.sourceUrl ? (
 					<ClaimButton recipe={recipe} disabled={cooking || busy} />
 				) : null}
+				<ExportRecipeButton recipe={recipe} />
 				{recipe.finalizedAt ? (
 					<RecipeSharing
 						recipeId={recipe.id}
