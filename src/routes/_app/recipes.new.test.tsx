@@ -21,6 +21,13 @@ type State = {
 	createDelay?: Promise<void> | undefined
 }
 
+const sentry = vi.hoisted(() => ({ captureException: vi.fn() }))
+
+vi.mock('@sentry/tanstackstart-react', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@sentry/tanstackstart-react')>()),
+	captureException: sentry.captureException,
+}))
+
 const state = vi.hoisted<State>(() => ({
 	created: [],
 	updated: [],
@@ -72,6 +79,7 @@ describe('write a recipe', () => {
 		state.createDelay = undefined
 		state.updated = []
 		state.deleted = []
+		sentry.captureException.mockClear()
 		// Toasts outlive the page that raised them.
 		toast.dismiss()
 	})
@@ -668,6 +676,43 @@ describe('write a recipe', () => {
 			.toBeVisible()
 
 		await expect.poll(() => latest()?.imageUrl).toBe('recipes/user-1-photo')
+	})
+
+	test('reports a rejected photo upload with the storage error', async () => {
+		const realFetch = globalThis.fetch.bind(globalThis)
+
+		vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) =>
+			new Request(input).url.startsWith('https://storage.test/')
+				? Promise.resolve(
+						new Response('<Error><Code>NoSuchBucket</Code></Error>', {
+							status: 404,
+						}),
+					)
+				: realFetch(input, init),
+		)
+
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await userEvent.upload(
+			screen.getByLabelText('Recipe photo'),
+			new File(['x'], 'toast.png', { type: 'image/png' }),
+		)
+		await expect
+			.element(screen.getByText('could not upload that photo — try again'))
+			.toBeVisible()
+		expect(sentry.captureException).toHaveBeenCalledOnce()
+		expect(sentry.captureException).toHaveBeenCalledWith(
+			expect.objectContaining({
+				message: expect.stringMatching(/404.*NoSuchBucket/),
+			}),
+			{
+				tags: { upload: 'recipe-photo' },
+				extra: { type: 'image/png', size: 1 },
+			},
+		)
 	})
 
 	test('does not finish on Enter while a photo upload is pending', async () => {

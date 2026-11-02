@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -126,12 +127,21 @@ function AccountProfile({
 				body: file,
 			})
 
-			if (!response.ok) throw new Error('Upload failed')
+			if (!response.ok) {
+				const detail = (await response.text()).slice(0, 300)
+
+				throw new Error(`Avatar upload failed (${response.status}): ${detail}`)
+			}
+
 			const { error } = await authClient.updateUser({ image: key })
 
 			if (error) throw new Error(error.message)
 			setAvatar(await getAvatarUrl({ data: { image: key } }))
-		} catch {
+		} catch (error) {
+			Sentry.captureException(error, {
+				tags: { upload: 'avatar' },
+				extra: { type: file.type, size: file.size },
+			})
 			toast.error('could not upload that photo — try again')
 		} finally {
 			setUploading(false)
