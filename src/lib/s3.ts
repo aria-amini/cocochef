@@ -23,7 +23,15 @@ const storageConfig = z.object({
 })
 
 function getStorage() {
-	const config = storageConfig.parse(env)
+	// varlock's `ENV` answers property reads only, so Zod would see every key as
+	// missing if handed the object itself.
+	const config = storageConfig.parse({
+		AWS_REGION: env.AWS_REGION,
+		AWS_ENDPOINT_URL: env.AWS_ENDPOINT_URL,
+		AWS_ACCESS_KEY_ID: env.AWS_ACCESS_KEY_ID,
+		AWS_SECRET_ACCESS_KEY: env.AWS_SECRET_ACCESS_KEY,
+		AWS_S3_BUCKET_NAME: env.AWS_S3_BUCKET_NAME,
+	})
 
 	return {
 		bucket: config.AWS_S3_BUCKET_NAME,

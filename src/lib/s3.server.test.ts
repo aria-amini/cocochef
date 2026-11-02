@@ -8,18 +8,30 @@ import {
 	vi,
 } from 'vite-plus/test'
 
-const mocks = vi.hoisted(() => ({
-	env: {
-		APP_ENV: 'production',
-		AWS_REGION: 'local',
-		AWS_ENDPOINT_URL: 'https://storage.example',
-		AWS_ACCESS_KEY_ID: 'test',
-		AWS_SECRET_ACCESS_KEY: 'test',
-		AWS_S3_BUCKET_NAME: 'avatars',
-	},
-	session: vi.fn(),
-	sign: vi.fn().mockResolvedValue('https://storage.example/upload'),
-}))
+const mocks = vi.hoisted(() => {
+	const values = new Map<string | symbol, string>([
+		['APP_ENV', 'production'],
+		['AWS_REGION', 'local'],
+		['AWS_ENDPOINT_URL', 'https://storage.example'],
+		['AWS_ACCESS_KEY_ID', 'test'],
+		['AWS_SECRET_ACCESS_KEY', 'test'],
+		['AWS_S3_BUCKET_NAME', 'avatars'],
+	])
+
+	return {
+		values,
+		// Like varlock's `ENV`: an empty proxy that only answers property reads,
+		// so `in`, `Object.keys` and spreading all see nothing.
+		env: new Proxy(
+			{},
+			{
+				get: (_target, key) => values.get(key),
+			},
+		),
+		session: vi.fn(),
+		sign: vi.fn().mockResolvedValue('https://storage.example/upload'),
+	}
+})
 
 vi.mock('@/lib/auth/session', () => ({ getCurrentSession: mocks.session }))
 
@@ -102,12 +114,12 @@ describe('development bucket', () => {
 	})
 
 	afterEach(() => {
-		mocks.env.APP_ENV = 'production'
+		mocks.values.set('APP_ENV', 'production')
 		vi.restoreAllMocks()
 	})
 
 	test('creates the bucket once before signing in development', async () => {
-		mocks.env.APP_ENV = 'development'
+		mocks.values.set('APP_ENV', 'development')
 
 		const send = vi
 			.spyOn(S3Client.prototype, 'send')
@@ -124,7 +136,7 @@ describe('development bucket', () => {
 	})
 
 	test('accepts a bucket that already exists', async () => {
-		mocks.env.APP_ENV = 'development'
+		mocks.values.set('APP_ENV', 'development')
 		vi.spyOn(S3Client.prototype, 'send').mockRejectedValue(
 			new BucketAlreadyOwnedByYou({ message: 'exists', $metadata: {} }),
 		)
@@ -137,7 +149,7 @@ describe('development bucket', () => {
 	})
 
 	test('retries after the bucket could not be created', async () => {
-		mocks.env.APP_ENV = 'development'
+		mocks.values.set('APP_ENV', 'development')
 
 		const send = vi
 			.spyOn(S3Client.prototype, 'send')
