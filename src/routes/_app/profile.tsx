@@ -147,7 +147,7 @@ function AccountProfile({
 				tags: { upload: 'avatar' },
 				extra: { type: file.type, size: file.size },
 			})
-			toast.error('could not upload that photo — try again')
+			toast.error("couldn't upload that photo — try again")
 		} finally {
 			setUploading(false)
 		}

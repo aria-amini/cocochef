@@ -288,7 +288,7 @@ function DetailPanel({
 			await setPantryItemQuantity({ data: { id: itemId, quantity } })
 			await router.invalidate()
 		} catch {
-			toast.error('Could not update the quantity. Try again.')
+			toast.error("couldn't update the quantity — try again")
 		} finally {
 			setPending(false)
 		}
@@ -305,7 +305,7 @@ function DetailPanel({
 			})
 			await router.invalidate()
 		} catch {
-			toast.error('Could not remove that ingredient. Try again.')
+			toast.error("couldn't remove that ingredient — try again")
 		} finally {
 			setPending(false)
 		}

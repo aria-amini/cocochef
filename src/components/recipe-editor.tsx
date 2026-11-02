@@ -375,7 +375,7 @@ export function RecipeEditor({
 		if (recipe || !pasted || !form.current) return
 
 		if (!empty(form.current) || name.trim()) {
-			toast('Start with an empty recipe to paste text')
+			toast('start with an empty recipe to paste text')
 
 			return
 		}
@@ -480,7 +480,7 @@ export function RecipeEditor({
 							.querySelector<HTMLTextAreaElement>('#edit-title')
 							?.value.trim()
 					) {
-						toast('Start with an empty recipe to paste text')
+						toast('start with an empty recipe to paste text')
 
 						return
 					}
@@ -562,7 +562,7 @@ export function RecipeEditor({
 											.querySelector<HTMLInputElement>('#edit-title')
 											?.value.trim()
 									) {
-										toast('Start with an empty recipe to import a link')
+										toast('start with an empty recipe to import a link')
 
 										return
 									}

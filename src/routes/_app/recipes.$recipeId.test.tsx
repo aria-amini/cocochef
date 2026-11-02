@@ -640,7 +640,7 @@ describe('recipe detail', () => {
 			.element(screen.getByRole('button', { name: 'end cooking' }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('dialog', { name: 'Start cooking?' }))
+			.element(screen.getByRole('dialog', { name: 'start cooking?' }))
 			.not.toBeInTheDocument()
 		expect(cookingState.progress?.active).toBe(true)
 	})
