@@ -2,10 +2,8 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-import { GoogleAuthButton } from '@/components/google-auth-button'
+import { AuthField, AuthShell } from '@/components/auth-form'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import { redirectAuthenticatedUsers } from '@/lib/auth/functions'
 import { formatShelfStats, useShelfStats } from '@/lib/use-shelf-stats'
@@ -38,60 +36,62 @@ function Signup() {
 			if (error) toast.error(error.message)
 			else await navigate({ to: '/recipes' })
 		} catch {
-			toast.error('Could not create your account. Try again.')
+			toast.error("couldn't create your account — try again")
 		} finally {
 			setPending(false)
 		}
 	}
 
 	return (
-		<main className="grid min-h-dvh place-items-center p-6">
-			<Card className="w-full max-w-md">
-				<CardContent>
-					<div className="space-y-6">
-						<h1 className="text-3xl font-bold">
-							{isGuest ? 'Keep your shelf' : 'Create account'}
-						</h1>
-						{isGuest ? (
-							<p className="text-muted-foreground text-sm">
-								{shelfSummary
-									? `Keep your ${shelfSummary} on any device when you create an account.`
-									: 'Your guest shelf comes with you when you create an account.'}
-							</p>
-						) : null}
-						<GoogleAuthButton fallbackRedirect="/recipes" className="w-full" />
-						<form onSubmit={submit} className="space-y-4">
-							<Input
-								required
-								placeholder="Name"
-								value={name}
-								onChange={(event) => setName(event.target.value)}
-							/>
-							<Input
-								required
-								type="email"
-								placeholder="Email"
-								value={email}
-								onChange={(event) => setEmail(event.target.value)}
-							/>
-							<Input
-								required
-								minLength={8}
-								type="password"
-								placeholder="Password"
-								value={password}
-								onChange={(event) => setPassword(event.target.value)}
-							/>
-							<Button type="submit" className="w-full" disabled={pending}>
-								{pending ? 'Signing up…' : 'Sign up'}
-							</Button>
-						</form>
-						<Link to="/auth/login" className="text-sm underline">
-							Already have an account? Sign in
-						</Link>
-					</div>
-				</CardContent>
-			</Card>
-		</main>
+		<AuthShell
+			title={isGuest ? 'keep your shelf' : 'create an account'}
+			intro={
+				isGuest
+					? shelfSummary
+						? `keep your ${shelfSummary} on any device once you have an account.`
+						: 'your guest shelf comes with you when you create an account.'
+					: undefined
+			}
+			footer={
+				<>
+					already have an account?{' '}
+					<Link to="/auth/login" className="font-semibold underline">
+						sign in
+					</Link>
+				</>
+			}
+		>
+			<form onSubmit={submit} className="flex flex-col gap-4">
+				<AuthField
+					label="name"
+					required
+					autoComplete="name"
+					value={name}
+					onChange={(event) => setName(event.target.value)}
+				/>
+				<AuthField
+					label="email"
+					required
+					type="email"
+					autoComplete="email"
+					placeholder="you@example.com"
+					value={email}
+					onChange={(event) => setEmail(event.target.value)}
+				/>
+				<AuthField
+					label="password"
+					required
+					minLength={8}
+					type="password"
+					autoComplete="new-password"
+					placeholder="at least 8 characters"
+					value={password}
+					onChange={(event) => setPassword(event.target.value)}
+				/>
+				<Button type="submit" size="lg" className="w-full" disabled={pending}>
+					{pending ? 'creating your account…' : 'create account'}
+				</Button>
+			</form>
+		</AuthShell>
 	)
 }
