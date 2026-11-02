@@ -40,7 +40,7 @@ function Groceries() {
 					<h1 className="text-4xl font-bold tracking-tight md:text-5xl">
 						groceries
 					</h1>
-					<Badge variant="tag">work in progress</Badge>
+					<Badge>work in progress</Badge>
 				</div>
 				<section className="border-foreground/50 bg-kitchen-yolk/25 flex flex-col items-start gap-4 rounded-xl border border-dashed p-6">
 					<span className="bg-kitchen-yolk grid size-12 place-items-center rounded-full">

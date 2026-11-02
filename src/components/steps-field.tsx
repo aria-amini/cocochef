@@ -2,12 +2,9 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { Plus, X } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 
-import {
-	fieldClassName,
-	fieldLabelClassName,
-	placeholderClassName,
-} from '@/components/recipe-form'
+import { fieldLabelClassName } from '@/components/recipe-form'
 import { SortableList, SortableRow } from '@/components/sortable-list'
+import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { leadingNumber } from '@/lib/recipes/paste'
 import { formFields } from '@/lib/utils/form'
 import { cn } from '@/lib/utils/ui'

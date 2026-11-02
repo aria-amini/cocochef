@@ -2,19 +2,23 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils/ui'
 
+// Placeholders read as hints, not values: regular weight, muted ink (≥4.5:1).
+export const placeholderClassName =
+	'placeholder:text-muted-foreground placeholder:font-normal'
+
+// A filled, softly rounded field: the one look every text control shares.
+export const fieldClassName =
+	'border-input bg-card focus-visible:outline-kitchen-eggplant aria-invalid:border-kitchen-tomato w-full rounded-md border px-4 py-3 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50'
+
 function Input(
-	{ className, type, ...props }: React.ComponentProps<'input'>,
+	{ className, ...props }: React.ComponentProps<'input'>,
 	forwardedRef: React.ForwardedRef<HTMLInputElement>,
 ) {
 	return (
 		<input
 			ref={forwardedRef}
-			type={type}
 			data-slot="input"
-			className={cn(
-				'h-9 w-full min-w-0 rounded-md border border-input bg-input/30 px-3 py-1 text-base transition-colors outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 md:text-sm',
-				className,
-			)}
+			className={cn(fieldClassName, placeholderClassName, className)}
 			{...props}
 		/>
 	)

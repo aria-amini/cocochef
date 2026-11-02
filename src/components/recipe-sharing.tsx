@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { primaryActionClassName } from '@/components/recipe-form'
+import { FieldError, primaryActionClassName } from '@/components/recipe-form'
 import { Button } from '@/components/ui/button'
 import {
 	Dialog,
@@ -137,11 +137,7 @@ function SharingOptions({
 						{web.isPending ? 'creating link…' : 'get source recipe link'}
 					</Button>
 					{webPath ? <ShareAddress path={webPath} onCopy={copy} /> : null}
-					{web.isError ? (
-						<p role="alert" className="text-destructive text-sm">
-							{web.error.message}
-						</p>
-					) : null}
+					{web.isError ? <FieldError>{web.error.message}</FieldError> : null}
 				</div>
 			) : null}
 			{session.isPending || profile.isPending || share.isPending ? (
@@ -251,9 +247,7 @@ function SharingOptions({
 						{update.isPending ? 'saving…' : 'save visibility'}
 					</button>
 					{update.isError ? (
-						<p role="alert" className="text-destructive text-sm">
-							{update.error.message}
-						</p>
+						<FieldError>{update.error.message}</FieldError>
 					) : null}
 					{update.isSuccess ? (
 						<output className="text-sm">visibility saved</output>

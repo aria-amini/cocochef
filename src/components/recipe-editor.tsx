@@ -17,10 +17,8 @@ import { IngredientListField } from '@/components/ingredient-list-field'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import {
 	FieldError,
-	fieldClassName,
 	fieldLabelClassName,
 	FormActions,
-	placeholderClassName,
 	primaryActionClassName,
 	quietActionClassName,
 	RecipeIntro,
@@ -31,6 +29,7 @@ import {
 	RecipePhotoField,
 } from '@/components/recipe-photo-field'
 import { StepsField, stepsFrom } from '@/components/steps-field'
+import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import { createAutosaver, type SaveState } from '@/lib/recipes/autosave'
 import {

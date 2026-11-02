@@ -69,7 +69,7 @@ export function ServerErrorComponent({ error, reset }: ErrorComponentProps) {
 							<ArrowsClockwiseIcon className="h-4 w-4" />
 							Try Again
 						</Button>
-						<Link to="/" className={buttonVariants({ variant: 'secondary' })}>
+						<Link to="/" className={buttonVariants({ variant: 'outline' })}>
 							<ArrowLeftIcon className="h-4 w-4" />
 							Back to Home
 						</Link>

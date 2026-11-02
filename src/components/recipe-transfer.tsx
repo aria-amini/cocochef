@@ -149,7 +149,7 @@ export function RecipeTransfer() {
 				<label
 					className={cn(
 						buttonVariants({ variant: 'outline' }),
-						'focus-within:ring-ring/50 cursor-pointer focus-within:ring-3',
+						'focus-within:outline-kitchen-eggplant cursor-pointer focus-within:outline-2 focus-within:outline-offset-2',
 						busy !== undefined && 'pointer-events-none opacity-50',
 					)}
 				>
@@ -173,7 +173,7 @@ export function RecipeTransfer() {
 			</div>
 			{result ? (
 				<output
-					className={result.failed ? 'text-destructive text-sm' : 'text-sm'}
+					className={cn('text-sm', result.failed && 'font-semibold')}
 					role={result.failed ? 'alert' : undefined}
 				>
 					{result.text}
