@@ -83,6 +83,50 @@ export function parseIngredientLine(line: string): IngredientParts {
 		: { quantity, unit: '', name: (match[2] ?? '').trim() }
 }
 
+// An alternate measure after the first one ("12oz / 340g spinach").
+const ALTERNATE = new RegExp(
+	`^/\\s*(?:${QUANTITY})(?=[\\s\\p{L}(]|$)\\s*(.*)$`,
+	'u',
+)
+
+function takeUnit(text: string) {
+	const [first = '', ...rest] = text.split(/\s+/)
+
+	return unitByAlias.has(first.toLowerCase().replace(/\.$/, ''))
+		? { unit: first, rest: rest.join(' ') }
+		: { unit: '', rest: text }
+}
+
+// Splits a line into the amount ("1 ½ tablespoons") and the rest, for layouts
+// that give each its own column. A second measure ("/ 340g") moves to the end
+// of the name.
+export function splitIngredientAmount(line: string) {
+	const text = line.trim()
+	const match = LINE.exec(text)
+
+	if (!match || quantityFrom(match[1] ?? '') === undefined)
+		return { amount: '', name: text }
+
+	const { unit, rest } = takeUnit((match[2] ?? '').trim())
+	const alternate = ALTERNATE.exec(rest)
+	const quantity = match[1] ?? ''
+
+	if (!alternate)
+		return { amount: [quantity, unit].join(' ').trim(), name: rest }
+
+	const { rest: name } = takeUnit((alternate[1] ?? '').trim())
+
+	const measure = rest
+		.slice(0, rest.length - name.length)
+		.replace(/^\//, '')
+		.trim()
+
+	return {
+		amount: [quantity, unit].join(' ').trim(),
+		name: `${name} · ${measure}`,
+	}
+}
+
 // ===== Section headings =====
 
 // A recipe's ingredients are a list of lines. A line starting with `## ` names

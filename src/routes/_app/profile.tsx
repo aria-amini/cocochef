@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/avatar'
+import { RecipeTransfer } from '@/components/recipe-transfer'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
@@ -62,6 +63,7 @@ function Profile() {
 						keep my shelf
 					</Link>
 				</div>
+				<RecipeTransfer />
 			</main>
 		)
 	}
@@ -154,6 +156,12 @@ function AccountProfile({
 	return (
 		<main className="mx-auto min-h-dvh max-w-xl space-y-8 p-6">
 			<h1 className="text-4xl font-semibold">Profile</h1>
+			<Link
+				to="/profile/sharing"
+				className="inline-block text-sm font-semibold underline"
+			>
+				sharing & public profile
+			</Link>
 			<div className="space-y-4">
 				<p>{name}</p>
 				<p className="text-muted-foreground">{email}</p>
@@ -174,6 +182,7 @@ function AccountProfile({
 					{signingOut ? 'Signing out…' : 'Sign out'}
 				</Button>
 			</div>
+			<RecipeTransfer />
 		</main>
 	)
 }

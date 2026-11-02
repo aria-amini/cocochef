@@ -6,9 +6,11 @@ import {
 } from '@tests/support/fixtures/db'
 
 import { mealLogs, user } from '@/db/schema'
+import { getRecipeShare, saveSharingProfile } from '@/lib/sharing/repository'
 
 import { recipeUpdateInput } from './model'
 import {
+	claimRecipeForUser,
 	createCollectionForUser,
 	createRecipeForUser,
 	deleteCollectionForUser,
@@ -116,6 +118,58 @@ describe('recipe shelf', () => {
 			ingredients: ['lentils', 'salt'],
 			steps: ['simmer', 'serve'],
 		})
+	})
+
+	test('keeps the groups a cook picks, only for lines that are still there', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+
+		const recipe = await createRecipeForUser(
+			userId,
+			{
+				title: 'omelette',
+				ingredients: ['2 large eggs', '1 onion'],
+				ingredientCategories: { '2 large eggs': 'meat', 'gone line': 'spices' },
+			},
+			db,
+		)
+
+		if (!recipe) throw new Error('recipe was not created')
+		await expect(
+			getRecipeForUser(userId, recipe.id, db),
+		).resolves.toMatchObject({
+			ingredientCategories: { '2 large eggs': 'meat' },
+		})
+
+		const update = recipeUpdateInput.parse({
+			id: recipe.id,
+			title: 'omelette',
+			notes: null,
+			ingredients: ['2 large eggs', '1 onion'],
+			ingredientCategories: { '1 onion': 'other' },
+			steps: [],
+		})
+
+		await updateRecipeForUser(userId, update, db)
+		await expect(
+			getRecipeForUser(userId, recipe.id, db),
+		).resolves.toMatchObject({ ingredientCategories: { '1 onion': 'other' } })
+
+		await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({ ...update, ingredientCategories: {} }),
+			db,
+		)
+		await expect(
+			getRecipeForUser(userId, recipe.id, db),
+		).resolves.toMatchObject({ ingredientCategories: {} })
+		expect(
+			recipeUpdateInput.safeParse({
+				...update,
+				ingredientCategories: { '1 onion': 'furniture' },
+			}).success,
+		).toBe(false)
 	})
 
 	test('updates recipe details and content and checks ownership', async ({
@@ -637,6 +691,132 @@ describe('shared recipes', () => {
 		)
 
 		expect(again?.id).toBe(copy.id)
+	})
+
+	test("copies a shared recipe when only an ingredient's group changes", async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const recipe = await seedShared(db)
+		await saveRecipeForUser(userId, recipe.id, db)
+		const original = await getRecipeForUser(userId, recipe.id, db)
+
+		const copy = await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: original?.title,
+				notes: null,
+				ingredients: original?.ingredients,
+				ingredientCategories: { [original?.ingredients[0] ?? '']: 'other' },
+				steps: original?.steps,
+			}),
+			db,
+		)
+
+		expect(copy?.id).not.toBe(recipe.id)
+		await expect(
+			getRecipeForUser(userId, copy?.id ?? '', db),
+		).resolves.toMatchObject({
+			ingredientCategories: { [original?.ingredients[0] ?? '']: 'other' },
+		})
+		await expect(
+			getRecipeForUser(userId, recipe.id, db),
+		).resolves.toMatchObject({ ingredientCategories: {} })
+	})
+
+	test('publishes a taken-over copy when the profile publishes by default', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const recipe = await seedShared(db)
+		await saveRecipeForUser(userId, recipe.id, db)
+		await saveSharingProfile(
+			userId,
+			{ handle: 'claim-cook', displayName: 'Claim', autoPublish: true },
+			db,
+		)
+
+		const claimed = await claimRecipeForUser(userId, recipe.id, db)
+
+		await expect(
+			getRecipeShare(userId, claimed?.id ?? '', db),
+		).resolves.toMatchObject({ visibility: 'public' })
+	})
+
+	test('lets a cook take a recipe over, dropping the source and the copy label', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const otherId = await seedUser(db)
+		const recipe = await seedShared(db)
+		await saveRecipeForUser(userId, recipe.id, db)
+		await saveRecipeForUser(otherId, recipe.id, db)
+
+		await db.insert(mealLogs).values({
+			id: crypto.randomUUID(),
+			userId,
+			recipeId: recipe.id,
+			cookedAt: new Date(),
+		})
+
+		// A shared recipe is copied for them, with no link back.
+		const claimed = await claimRecipeForUser(userId, recipe.id, db)
+
+		if (!claimed) throw new Error('recipe was not claimed')
+		expect(claimed.id).not.toBe(recipe.id)
+		expect(claimed).toMatchObject({
+			userId,
+			forkedFromId: null,
+			sourceUrl: null,
+			title: 'shared dal',
+		})
+		await expect(
+			getRecipeForUser(userId, claimed.id, db),
+		).resolves.toMatchObject({
+			owned: true,
+			ingredients: ['lentils', 'salt'],
+			cookCount: 1,
+		})
+		expect(
+			(await listShelfForUser(userId, db)).recipes.map((item) => item.id),
+		).toEqual([claimed.id])
+		await expect(
+			getRecipeForUser(otherId, recipe.id, db),
+		).resolves.toMatchObject({
+			saved: true,
+			sourceUrl: 'https://example.com/dal',
+		})
+
+		// Their own copy of one just drops the links.
+		const edited = await updateRecipeForUser(
+			otherId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: 'my dal',
+				notes: null,
+				ingredients: ['lentils'],
+				steps: [],
+			}),
+			db,
+		)
+
+		expect(edited).toMatchObject({
+			forkedFromId: recipe.id,
+			sourceUrl: 'https://example.com/dal',
+		})
+		await expect(
+			claimRecipeForUser(otherId, edited?.id ?? '', db),
+		).resolves.toMatchObject({
+			id: edited?.id,
+			forkedFromId: null,
+			sourceUrl: null,
+		})
+
+		// Someone else's own recipe cannot be taken over.
+		await expect(
+			claimRecipeForUser(userId, edited?.id ?? '', db),
+		).resolves.toBeNull()
 	})
 
 	test('removing a shared recipe only takes it off your shelf', async ({

@@ -33,6 +33,7 @@ import { createAutosaver, type SaveState } from '@/lib/recipes/autosave'
 import {
 	recipeContentInput,
 	recipeNotesMax,
+	type IngredientCategories,
 	recipeTitleMax,
 } from '@/lib/recipes/model'
 import { isPastedRecipe, parsePastedRecipe } from '@/lib/recipes/paste'
@@ -47,6 +48,7 @@ export type EditableRecipe = {
 	imageUrl: string | null
 	notes: string | null
 	ingredients: string[]
+	ingredientCategories?: IngredientCategories | undefined
 	steps: string[]
 	finalizedAt: Date | null
 	// Shared recipes are never changed: the first edit makes the user a copy.
@@ -61,6 +63,23 @@ const saveLabels: Record<SaveState, string> = {
 	failed: "couldn't save — still trying",
 }
 
+// Each ingredient row submits its line and its picked category (empty when the
+// category is left to the guess) side by side.
+function categoriesFrom(data: FormData) {
+	const picked = data.getAll('ingredient-category').map(String)
+
+	return Object.fromEntries(
+		data
+			.getAll('ingredient')
+			.map(String)
+			.flatMap((line, index) => {
+				const text = line.trim()
+
+				return text && picked[index] ? [[text, picked[index]] as const] : []
+			}),
+	)
+}
+
 // What the form would save right now, or nothing while the name is empty.
 function contentFrom(form: HTMLFormElement) {
 	const data = new FormData(form)
@@ -73,6 +92,7 @@ function contentFrom(form: HTMLFormElement) {
 			: undefined,
 		notes: formField(data, 'notes'),
 		ingredients: data.getAll('ingredient').map(String),
+		ingredientCategories: categoriesFrom(data),
 		steps: stepsFrom(data),
 	})
 
@@ -231,10 +251,17 @@ export function RecipeEditor({
 	const { schedule: scheduleAutosave, stop, settle, resume, forget } = autosave
 
 	// A pasted recipe replaces the empty fields, so they start over from it.
-	const [seed, setSeed] = useState({
+	const [seed, setSeed] = useState<{
+		version: number
+		title: string
+		ingredients: string[]
+		ingredientCategories?: IngredientCategories | undefined
+		steps: string[]
+	}>({
 		version: 0,
 		title: recipe?.title ?? arrived?.title ?? defaultTitle,
 		ingredients: recipe?.ingredients ?? arrived?.ingredients ?? [],
+		ingredientCategories: recipe?.ingredientCategories,
 		steps: recipe?.steps ?? arrived?.steps ?? [],
 	})
 
@@ -564,6 +591,7 @@ export function RecipeEditor({
 				<IngredientListField
 					key={seed.version}
 					defaultValue={seed.ingredients}
+					defaultCategories={seed.ingredientCategories}
 				/>
 			</div>
 			<StepsField key={seed.version} defaultValue={seed.steps} />
