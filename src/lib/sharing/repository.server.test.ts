@@ -62,6 +62,7 @@ async function recipe(db: Database, userId: string, finalized = true) {
 			ingredients: ['1 onion'],
 			steps: ['Chop'],
 			notes: 'Private medical notes',
+			sourceNotes: 'Publisher cooking tip',
 			finalized,
 		},
 		db,
@@ -100,6 +101,7 @@ describe('recipe publication boundaries', () => {
 		const published = await getPublishedRecipe({ handle, slug: share.slug }, db)
 		expect(published).toMatchObject({
 			title: row.title,
+			sourceNotes: 'Publisher cooking tip',
 			ingredients: ['1 onion'],
 			steps: ['Chop'],
 			publisher: { displayName: 'A public kitchen' },

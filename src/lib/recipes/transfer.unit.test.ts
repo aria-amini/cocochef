@@ -51,6 +51,17 @@ describe('recipe transfer files', () => {
 		expect(document.format).toBe(transferFormat)
 	})
 
+	test('preserves an empty publisher-notes marker through a transfer', () => {
+		const document = toTransferDocument([
+			toTransferRecipe({ ...saved, sourceNotes: '' }),
+		])
+
+		expect(parseTransferDocument(JSON.stringify(document))).toMatchObject({
+			ok: true,
+			recipes: [{ sourceNotes: '' }],
+		})
+	})
+
 	test('takes any step a cook could write, however long', () => {
 		const step = 'stir '.repeat(2000)
 

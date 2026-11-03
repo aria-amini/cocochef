@@ -44,6 +44,7 @@ const recipe = {
 	title: 'Weeknight pasta',
 	imageUrl: null,
 	sourceUrl: null,
+	sourceNotes: 'Publisher cooking tip',
 	servings: null,
 	totalMinutes: null,
 	ingredients: ['## sauce', '1 onion'],
@@ -114,6 +115,9 @@ describe('sharing', () => {
 			.toBeVisible()
 		await expect.element(screen.getByText('1 onion')).toBeVisible()
 		await expect.element(screen.getByText('Chop the onion')).toBeVisible()
+		await expect
+			.element(screen.getByText('Publisher cooking tip'))
+			.toBeVisible()
 		await expect
 			.element(screen.getByText('private@example.com'))
 			.not.toBeInTheDocument()

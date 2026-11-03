@@ -115,6 +115,7 @@ export async function importRecipesForUser(
 				title: recipe.title,
 				imageUrl: recipe.imageUrl,
 				sourceUrl: recipe.sourceUrl,
+				sourceNotes: recipe.sourceNotes,
 				notes: recipe.notes || undefined,
 				finalized: recipe.finalized,
 				collectionId,

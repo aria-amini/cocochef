@@ -196,6 +196,14 @@ export function PublicRecipePage({
 						<p className="text-muted-foreground">no steps listed.</p>
 					)}
 				</section>
+				{recipe.sourceNotes ? (
+					<section aria-labelledby="public-notes">
+						<h2 id="public-notes" className="mb-4 text-xl font-bold">
+							recipe notes
+						</h2>
+						<p className="whitespace-pre-line">{recipe.sourceNotes}</p>
+					</section>
+				) : null}
 				{!unlisted ? (
 					<Link
 						to="/recipes/$recipeId"

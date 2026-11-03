@@ -470,6 +470,9 @@ export async function createRecipeForUser(
 		title: string
 		imageUrl?: string | undefined
 		sourceUrl?: string | undefined
+		sourceNotes?:
+			| NonNullable<typeof recipes.$inferSelect.sourceNotes>
+			| undefined
 		collectionId?: string | undefined
 		notes?: string | undefined
 		ingredients?: string[] | undefined
@@ -497,6 +500,7 @@ export async function createRecipeForUser(
 				title: input.title,
 				imageUrl: input.imageUrl ?? null,
 				sourceUrl: input.sourceUrl ?? null,
+				sourceNotes: input.sourceNotes ?? null,
 				createdAt: new Date(),
 				finalizedAt: input.finalized === false ? null : new Date(),
 			})

@@ -6,6 +6,9 @@ export const recipeTitleMax = 120
 
 export const recipeNotesMax = 2000
 
+// Publisher notes are kept as imported, including line breaks and empty checked markers.
+export const recipeSourceNotes = z.string()
+
 // zod measures string length in code points, so truncate the same way to avoid splitting a surrogate pair
 export const clampRecipeTitle = (title: string) =>
 	Array.from(title.trim()).slice(0, recipeTitleMax).join('')

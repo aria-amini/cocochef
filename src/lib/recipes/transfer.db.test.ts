@@ -62,6 +62,7 @@ describe('moving recipes between kitchens', () => {
 				sourceUrl: 'https://example.com/resteh',
 				imageUrl: `recipes/${preview}-photo`,
 				notes: 'less salt',
+				sourceNotes: 'Publisher tip\nKeep chilled.',
 				collectionId: book?.id,
 				ingredients: ['## sauce', '2 large eggs'],
 				ingredientCategories: { '2 large eggs': 'other' },
@@ -91,6 +92,7 @@ describe('moving recipes between kitchens', () => {
 		expect(copied).toMatchObject({
 			owned: true,
 			notes: 'less salt',
+			sourceNotes: 'Publisher tip\nKeep chilled.',
 			sourceUrl: 'https://example.com/resteh',
 			// A photo stored on the other deployment cannot come along.
 			imageUrl: null,

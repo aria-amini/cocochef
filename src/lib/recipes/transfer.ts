@@ -7,6 +7,7 @@ import {
 	recipeImageUrl,
 	recipeInput,
 	recipeNotesMax,
+	recipeSourceNotes,
 	type IngredientCategories,
 } from './model'
 
@@ -26,6 +27,7 @@ const transferRecipe = recipeInput
 	.pick({ title: true, sourceUrl: true, finalized: true })
 	.extend({
 		notes: z.string().trim().max(recipeNotesMax).optional(),
+		sourceNotes: recipeSourceNotes.optional(),
 		imageUrl: recipeImageUrl.optional(),
 		book: z.string().trim().min(1).max(80).optional(),
 		ingredients: lines.optional(),
@@ -55,6 +57,7 @@ export function toTransferRecipe(recipe: {
 	sourceUrl: string | null
 	imageUrl: string | null
 	notes: string | null
+	sourceNotes?: string | null | undefined
 	finalizedAt: Date | null
 	ingredients: string[]
 	ingredientCategories: IngredientCategories
@@ -75,6 +78,8 @@ export function toTransferRecipe(recipe: {
 	if (image) transfer.imageUrl = image
 
 	if (recipe.notes) transfer.notes = recipe.notes
+
+	if (recipe.sourceNotes != null) transfer.sourceNotes = recipe.sourceNotes
 
 	if (recipe.book) transfer.book = recipe.book
 
