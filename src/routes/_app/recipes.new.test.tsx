@@ -101,6 +101,38 @@ describe('write a recipe', () => {
 			.not.toBeInTheDocument()
 	})
 
+	test('keeps long pasted notes visible and explains why they cannot yet be saved', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen
+			.getByRole('button', { name: 'paste text', exact: true })
+			.click()
+		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
+		const longNotes = 'a'.repeat(2001)
+		await dialog
+			.getByRole('textbox', { name: 'recipe text' })
+			.fill(
+				`Toast\nIngredients\n2 slices bread\nSteps\nToast.\nNotes\n${longNotes}`,
+			)
+		await dialog.getByRole('button', { name: 'add recipe' }).click()
+		const notes = screen.getByRole('textbox', { name: 'notes' })
+		await expect.element(notes).toHaveValue(longNotes)
+		await expect
+			.element(
+				screen.getByText(
+					'notes are too long to save — shorten them to 2,000 characters',
+				),
+			)
+			.toBeVisible()
+		await notes.fill('short note')
+		await expect
+			.poll(latest)
+			.toEqual(expect.objectContaining({ notes: 'short note' }))
+	})
+
 	test('sorts text pasted into the recipe dialog', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',

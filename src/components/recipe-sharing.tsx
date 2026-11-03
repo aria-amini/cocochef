@@ -57,7 +57,7 @@ export function RecipeSharing({
 					<div className="border-border space-y-2 border-t pt-4">
 						<p className="text-muted-foreground text-sm">
 							or save a backup file, with your notes, to import into another
-							dutch-oven.
+							dutch-oven. uploaded photos aren't included.
 						</p>
 						<ExportRecipeButton recipe={recipe} />
 					</div>

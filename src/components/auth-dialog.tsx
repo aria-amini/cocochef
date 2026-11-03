@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { toast } from 'sonner'
 
 import { AuthField } from '@/components/auth-form'
 import { GoogleAuthButton } from '@/components/google-auth-button'
@@ -34,6 +33,7 @@ export function AuthDialog({
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
 	const [pending, setPending] = useState(false)
+	const [error, setError] = useState<string>()
 	const session = authClient.useSession()
 	const isGuest = Boolean(session.data?.user.isAnonymous)
 	const stats = useShelfStats(isGuest ? session.data?.user.id : undefined)
@@ -45,6 +45,7 @@ export function AuthDialog({
 		setName('')
 		setEmail('')
 		setPassword('')
+		setError(undefined)
 	}
 
 	async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -52,6 +53,7 @@ export function AuthDialog({
 
 		if (pending) return
 		setPending(true)
+		setError(undefined)
 
 		try {
 			const result =
@@ -63,7 +65,8 @@ export function AuthDialog({
 							callbackURL: redirect,
 						})
 
-			if (result.error) toast.error(result.error.message)
+			if (result.error)
+				setError(result.error.message ?? 'something went wrong — try again')
 			else {
 				await session.refetch()
 				onOpenChange(false)
@@ -71,7 +74,7 @@ export function AuthDialog({
 				onSuccess?.()
 			}
 		} catch {
-			toast.error(
+			setError(
 				mode === 'signup'
 					? "couldn't create your account — try again"
 					: "couldn't sign you in — try again",
@@ -118,7 +121,10 @@ export function AuthDialog({
 							required
 							autoComplete="name"
 							value={name}
-							onChange={(event) => setName(event.target.value)}
+							onChange={(event) => {
+								setName(event.target.value)
+								setError(undefined)
+							}}
 						/>
 					) : null}
 					<AuthField
@@ -128,7 +134,10 @@ export function AuthDialog({
 						autoComplete="email"
 						placeholder="you@example.com"
 						value={email}
-						onChange={(event) => setEmail(event.target.value)}
+						onChange={(event) => {
+							setEmail(event.target.value)
+							setError(undefined)
+						}}
 					/>
 					<AuthField
 						label="password"
@@ -139,8 +148,16 @@ export function AuthDialog({
 							mode === 'signup' ? 'new-password' : 'current-password'
 						}
 						value={password}
-						onChange={(event) => setPassword(event.target.value)}
+						onChange={(event) => {
+							setPassword(event.target.value)
+							setError(undefined)
+						}}
 					/>
+					{error ? (
+						<p role="alert" className="text-sm font-semibold">
+							{error}
+						</p>
+					) : null}
 					<Button type="submit" size="lg" className="w-full" disabled={pending}>
 						{pending
 							? mode === 'signup'
@@ -156,7 +173,10 @@ export function AuthDialog({
 					<button
 						type="button"
 						className="font-semibold underline"
-						onClick={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
+						onClick={() => {
+							setMode(mode === 'signup' ? 'signin' : 'signup')
+							setError(undefined)
+						}}
 					>
 						{mode === 'signup' ? 'sign in' : 'create an account'}
 					</button>

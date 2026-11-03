@@ -1,3 +1,4 @@
+import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
@@ -20,6 +21,21 @@ const guest = {
 }
 
 describe('landing page', () => {
+	test('shows sign-in failures in the dialog and clears them on edit', async () => {
+		getAuthMocks().signInEmail.mockRejectedValueOnce(new Error('network error'))
+		const { screen } = await renderRoute({ path: '/' })
+		await screen.getByRole('button', { name: 'sign in' }).click()
+		const dialog = screen.getByRole('dialog', { name: 'sign in' })
+		await dialog.getByLabelText('email').fill('cook@example.com')
+		await dialog.getByLabelText('password').fill('wrong password')
+		await dialog.getByRole('button', { name: 'sign in', exact: true }).click()
+		await expect
+			.element(dialog.getByRole('alert'))
+			.toHaveTextContent("couldn't sign you in — try again")
+		await dialog.getByLabelText('password').fill('new password')
+		await expect.element(dialog.getByRole('alert')).not.toBeInTheDocument()
+	})
+
 	test('opens sign in without leaving the landing page', async () => {
 		const { screen } = await renderRoute({ path: '/' })
 		await screen.getByRole('button', { name: 'sign in' }).click()

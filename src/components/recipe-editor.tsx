@@ -269,6 +269,11 @@ export function RecipeEditor({
 		notes: recipe?.notes ?? arrived?.notes ?? '',
 	})
 
+	const [notesTooLong, setNotesTooLong] = useState(
+		() =>
+			(recipe?.notes ?? arrived?.notes ?? '').trim().length > recipeNotesMax,
+	)
+
 	// Read from the fields, not from `contentFrom`, which gives up without a name
 	// and would call a form with typed rows empty.
 	const empty = (node: HTMLFormElement) => {
@@ -327,6 +332,7 @@ export function RecipeEditor({
 							if (finishing.current) return
 
 							setName(before.name)
+							setNotesTooLong(before.notes.trim().length > recipeNotesMax)
 							setSeed((current) => ({
 								version: current.version + 1,
 								title: before.name,
@@ -366,12 +372,17 @@ export function RecipeEditor({
 					: '',
 			}
 
+			const mergedNotes = [before.notes, sorted.notes]
+				.filter(Boolean)
+				.join('\n\n')
+
 			setName(sorted.title)
 			setUnnamed(false)
+			setNotesTooLong(mergedNotes.trim().length > recipeNotesMax)
 			setSeed((current) => ({
 				version: current.version + 1,
 				...sorted,
-				notes: [before.notes, sorted.notes].filter(Boolean).join('\n\n'),
+				notes: mergedNotes,
 			}))
 			scheduleAutosave()
 
@@ -401,6 +412,13 @@ export function RecipeEditor({
 
 	const done = async () => {
 		if (photoBusy || pending) return
+
+		if (notesTooLong) {
+			form.current?.querySelector<HTMLElement>('#edit-notes')?.focus()
+
+			return
+		}
+
 		const content = form.current ? contentFrom(form.current) : undefined
 
 		if (!content) {
@@ -623,10 +641,20 @@ export function RecipeEditor({
 					name="notes"
 					maxLength={recipeNotesMax}
 					defaultValue={seed.notes ?? ''}
+					onChange={(event) =>
+						setNotesTooLong(event.target.value.trim().length > recipeNotesMax)
+					}
+					aria-invalid={notesTooLong || undefined}
+					aria-describedby={notesTooLong ? 'notes-too-long' : undefined}
 					rows={3}
 					placeholder="less salt next time"
 					className={cn(fieldClassName, 'resize-y', placeholderClassName)}
 				/>
+				{notesTooLong ? (
+					<FieldError id="notes-too-long">
+						notes are too long to save — shorten them to 2,000 characters
+					</FieldError>
+				) : null}
 			</div>
 			{error ? <FieldError>{error}</FieldError> : null}
 			<FormActions>
