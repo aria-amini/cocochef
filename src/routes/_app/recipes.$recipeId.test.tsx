@@ -14,16 +14,19 @@ const recipeState: { recipe: Recipe | null } = vi.hoisted(() => ({
 type RecipeUpdate = Omit<
 	Recipe,
 	'userId' | 'collectionId' | 'imageUrl' | 'sourceUrl' | 'createdAt'
-> & { imageUrl?: string | null | undefined; finalize?: boolean | undefined }
+> & {
+	imageUrl?: string | null | undefined
+	sourceUrl?: string | null | undefined
+	finalize?: boolean | undefined
+}
 
 const updateCalls = vi.hoisted(() => {
 	const calls: RecipeUpdate[] = []
 	const deleted: string[] = []
 	const saved: string[] = []
-	const claimed: string[] = []
 	const exported: (string | undefined)[] = []
 
-	return { calls, deleted, saved, claimed, exported, refuseClaim: false }
+	return { calls, deleted, saved, exported }
 })
 
 vi.mock('@/lib/recipes/server', () => ({
@@ -33,9 +36,20 @@ vi.mock('@/lib/recipes/server', () => ({
 		updateCalls.calls.push(data)
 
 		if (recipeState.recipe) {
-			const { finalize, imageUrl, ...rest } = data
+			const { finalize, imageUrl, sourceUrl, ...rest } = data
 
 			Object.assign(recipeState.recipe, rest)
+
+			// Taking the link away makes the recipe the cook's own.
+			if (sourceUrl !== undefined) {
+				if (sourceUrl === null && recipeState.recipe.sourceUrl)
+					Object.assign(recipeState.recipe, {
+						forkedFromId: null,
+						original: null,
+					})
+
+				recipeState.recipe.sourceUrl = sourceUrl
+			}
 
 			if (imageUrl !== undefined) recipeState.recipe.imageUrl = imageUrl
 
@@ -50,23 +64,6 @@ vi.mock('@/lib/recipes/server', () => ({
 		updateCalls.exported.push(data.id)
 
 		return { recipes: [{ title: 'miso butter pasta' }] }
-	},
-	claimRecipe: async ({ data }: { data: { id: string } }) => {
-		updateCalls.claimed.push(data.id)
-
-		// The owner may have withdrawn the recipe since the page loaded.
-		if (updateCalls.refuseClaim) return null
-
-		if (recipeState.recipe)
-			recipeState.recipe = {
-				...recipeState.recipe,
-				forkedFromId: null,
-				sourceUrl: null,
-				sourceNotes: null,
-				owned: true,
-			}
-
-		return { id: data.id }
 	},
 	createRecipe: vi.fn(),
 	saveRecipe: async ({ data }: { data: { id: string } }) => {
@@ -125,9 +122,7 @@ describe('recipe detail', () => {
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
-		updateCalls.claimed.length = 0
 		updateCalls.exported.length = 0
-		updateCalls.refuseClaim = false
 		recipeState.recipe = {
 			id: 'recipe-1',
 			userId: 'user-1',
@@ -144,6 +139,7 @@ describe('recipe detail', () => {
 			cookCount: 0,
 			lastCookedAt: null,
 			forkedFromId: null,
+			original: null,
 			savedAt: new Date(),
 			saved: true,
 			owned: true,
@@ -291,52 +287,105 @@ describe('recipe detail', () => {
 		})
 	})
 
-	test('lets a cook take over a copied web recipe, dropping its credit', async () => {
+	test('points a copied web recipe back to its page and the original version', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.sourceUrl = 'https://example.com/pasta'
-		recipeState.recipe.forkedFromId = 'shared-1'
+		Object.assign(recipeState.recipe, {
+			sourceUrl: 'https://example.com/pasta',
+			forkedFromId: 'shared-1',
+			original: { id: 'shared-1', title: 'miso butter pasta' },
+		})
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		await expect.element(screen.getByText('your copy')).toBeVisible()
-		await expect.element(screen.getByText('from example.com')).toBeVisible()
+		await expect
+			.element(screen.getByRole('link', { name: 'from example.com' }))
+			.toHaveAttribute('href', 'https://example.com/pasta')
+		await expect
+			.element(screen.getByRole('link', { name: 'see the original version' }))
+			.toHaveAttribute('href', '/recipes/shared-1')
 		await expect
 			.element(screen.getByRole('button', { name: 'make it mine' }))
 			.not.toBeInTheDocument()
+	})
+
+	test('calls a youtube link a video to watch', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.sourceUrl = 'https://www.youtube.com/watch?v=abc'
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(screen.getByRole('link', { name: 'watch on youtube' }))
+			.toHaveAttribute('href', 'https://www.youtube.com/watch?v=abc')
+	})
+
+	test("removing the link in the editor makes the recipe the cook's own", async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		Object.assign(recipeState.recipe, {
+			sourceUrl: 'https://example.com/pasta',
+			forkedFromId: 'shared-1',
+			original: { id: 'shared-1', title: 'miso butter pasta' },
+		})
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
 		await screen.getByRole('button', { name: 'edit' }).click()
-		await screen.getByRole('button', { name: 'make it mine' }).click()
-		await expect.poll(() => updateCalls.claimed).toEqual(['recipe-1'])
+		await expect
+			.element(screen.getByLabelText('original link'))
+			.toHaveValue('https://example.com/pasta')
+		await screen.getByLabelText('original link').fill('')
+		await expect
+			.element(
+				screen.getByText('no link, so this recipe is entirely your own.'),
+			)
+			.toBeVisible()
 		await screen.getByRole('button', { name: 'done' }).click()
 
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({ sourceUrl: null })
 		await expect.element(screen.getByText('your copy')).not.toBeInTheDocument()
 		await expect
 			.element(screen.getByText('from example.com'))
 			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByText('see the original version'))
+			.not.toBeInTheDocument()
 	})
 
-	test('says so when the server could not hand the recipe over', async () => {
-		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.sourceUrl = 'https://example.com/pasta'
-		recipeState.recipe.forkedFromId = 'shared-1'
-		updateCalls.refuseClaim = true
+	test('points a recipe to a youtube video, adding the scheme', async () => {
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		await screen.getByRole('button', { name: 'edit' }).click()
-		await screen.getByRole('button', { name: 'make it mine' }).click()
+		await screen.getByLabelText('original link').fill('youtube.com/watch?v=abc')
+		await expect
+			.element(screen.getByText('a video to cook along with.'))
+			.toBeVisible()
+		await screen.getByRole('button', { name: 'done' }).click()
 
 		await expect
-			.element(screen.getByText("couldn't take that over", { exact: false }))
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({ sourceUrl: 'https://youtube.com/watch?v=abc' })
+		await expect
+			.element(screen.getByRole('link', { name: 'watch on youtube' }))
 			.toBeVisible()
 	})
 
-	test("offers no take-over on a recipe that is already the cook's own", async () => {
+	test('keeps saving the rest while a half-typed link is not an address yet', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.sourceUrl = 'https://example.com/pasta'
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByLabelText('original link').fill('grandma')
 		await expect
-			.element(screen.getByRole('button', { name: 'edit' }))
+			.element(screen.getByText("that doesn't look like a web address yet"))
 			.toBeVisible()
+		await screen.getByLabelText('name').fill('grandma pasta')
+		await screen.getByRole('button', { name: 'done' }).click()
+
 		await expect
-			.element(screen.getByRole('button', { name: 'make it mine' }))
-			.not.toBeInTheDocument()
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({ title: 'grandma pasta' })
+		expect(updateCalls.calls.at(-1)?.sourceUrl).toBeUndefined()
 	})
 
 	test('exports one recipe as a file from the share dialog', async () => {
@@ -789,10 +838,6 @@ describe('recipe detail', () => {
 				screen.getByText('changing it makes your own copy', { exact: false }),
 			)
 			.toBeVisible()
-		// The first change already makes the copy, so there is nothing to take over.
-		await expect
-			.element(screen.getByRole('button', { name: 'make it mine' }))
-			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: 'delete', exact: true }))
 			.toBeVisible()

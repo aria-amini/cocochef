@@ -41,6 +41,7 @@ import {
 } from '@/lib/recipes/model'
 import { isPastedRecipe, parsePastedRecipe } from '@/lib/recipes/paste'
 import { createRecipe, deleteRecipe, updateRecipe } from '@/lib/recipes/server'
+import { isYouTube, parseSourceInput } from '@/lib/recipes/source'
 import { formField } from '@/lib/utils/form'
 import { cn } from '@/lib/utils/ui'
 
@@ -49,6 +50,10 @@ export type EditableRecipe = {
 	id: string
 	title: string
 	imageUrl: string | null
+	// The page or video it came from, and the Dutch Oven recipe it was copied
+	// from. Taking the link away makes the recipe the cook's own.
+	sourceUrl: string | null
+	forkedFromId: string | null
 	notes: string | null
 	ingredients: string[]
 	ingredientCategories?: IngredientCategories | undefined
@@ -94,6 +99,8 @@ function contentFrom(form: HTMLFormElement) {
 			? formField(data, 'imageUrl') || null
 			: undefined,
 		notes: formField(data, 'notes'),
+		// Empty removes the link; text that is not an address yet leaves it alone.
+		sourceUrl: parseSourceInput(formField(data, 'sourceUrl')),
 		ingredients: data.getAll('ingredient').map(String),
 		ingredientCategories: categoriesFrom(data),
 		steps: stepsFrom(data),
@@ -134,6 +141,7 @@ function useAutosave(
 					data: {
 						...content,
 						imageUrl: content.imageUrl ?? undefined,
+						sourceUrl: content.sourceUrl ?? undefined,
 						notes: content.notes ?? undefined,
 						finalized: false,
 					},
@@ -269,6 +277,10 @@ export function RecipeEditor({
 		steps: recipe?.steps ?? arrived?.steps ?? [],
 		notes: recipe?.notes ?? arrived?.notes ?? '',
 	})
+
+	const [source, setSource] = useState(recipe?.sourceUrl ?? '')
+
+	const linked = Boolean(recipe?.sourceUrl || recipe?.forkedFromId)
 
 	const [notesTooLong, setNotesTooLong] = useState(
 		() =>
@@ -486,6 +498,10 @@ export function RecipeEditor({
 		}
 	}
 
+	const parsedSource = parseSourceInput(source)
+
+	const sourceInvalid = parsedSource === undefined
+
 	// Once an edit to a shared recipe saves, the user is editing their own copy.
 	const onShared = shared && savedId === recipe?.id
 
@@ -660,6 +676,41 @@ export function RecipeEditor({
 						notes are too long to save — shorten them to 2,000 characters
 					</FieldError>
 				) : null}
+			</div>
+			<div className="flex flex-col gap-2">
+				<label className={fieldLabelClassName} htmlFor="edit-source">
+					original link
+				</label>
+				<input
+					id="edit-source"
+					name="sourceUrl"
+					type="text"
+					inputMode="url"
+					autoCapitalize="none"
+					autoCorrect="off"
+					spellCheck={false}
+					value={source}
+					onChange={(event) => setSource(event.target.value)}
+					aria-invalid={sourceInvalid || undefined}
+					aria-describedby="edit-source-hint"
+					placeholder="a web page or a youtube video"
+					className={cn(fieldClassName, placeholderClassName)}
+				/>
+				{sourceInvalid ? (
+					<FieldError id="edit-source-hint">
+						that doesn&apos;t look like a web address yet
+					</FieldError>
+				) : (
+					<p id="edit-source-hint" className="text-muted-foreground text-sm">
+						{!source.trim() && linked
+							? 'no link, so this recipe is entirely your own.'
+							: linked
+								? 'readers can follow this back to where the recipe came from. clear it to make the recipe entirely yours.'
+								: parsedSource && isYouTube(parsedSource)
+									? 'a video to cook along with.'
+									: 'where the recipe came from, if it came from somewhere.'}
+					</p>
+				)}
 			</div>
 			{error ? <FieldError>{error}</FieldError> : null}
 			<FormActions>

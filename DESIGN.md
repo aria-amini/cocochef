@@ -274,6 +274,11 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 - Editing a shared recipe makes your own copy on its first real change; an
   eggplant-tinted note in the editor explains this. Notes remain personal.
   Removing a shared recipe only takes it off your shelf.
+- A recipe says where it came from with its original link: a web page, or a
+  video such as a YouTube link. A copy also points back to the version it was
+  copied from. There is no "make it mine" button: clearing the link in the
+  editor is how a recipe becomes entirely yours, and typing one back in points
+  it at a source again.
 
 ### Recipe Form
 

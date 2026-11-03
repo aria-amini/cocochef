@@ -1,11 +1,12 @@
 import {
 	BookmarkSimpleIcon,
 	PencilSimple,
-	UserCheckIcon,
+	YoutubeLogoIcon,
 } from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
 	createFileRoute,
+	Link,
 	notFound,
 	useNavigate,
 	useRouter,
@@ -26,13 +27,13 @@ import { ingredientItemSprite } from '@/lib/pantry/sprites'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import { formatMinutes } from '@/lib/recipes/model'
 import {
-	claimRecipe,
 	deleteRecipe,
 	getRecipe,
 	listBooks,
 	moveRecipe,
 	saveRecipe,
 } from '@/lib/recipes/server'
+import { hostOf, isYouTube } from '@/lib/recipes/source'
 import { stepRows } from '@/lib/recipes/step-groups'
 import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
 import { cn } from '@/lib/utils/ui'
@@ -52,14 +53,6 @@ export const Route = createFileRoute('/_app/recipes/$recipeId')({
 })
 
 const sectionLabelClassName = 'text-lg font-semibold'
-
-function hostOf(url: string) {
-	try {
-		return new URL(url).hostname.replace(/^www\./, '')
-	} catch {
-		return url
-	}
-}
 
 type Recipe = NonNullable<Awaited<ReturnType<typeof getRecipe>>>
 
@@ -84,7 +77,6 @@ function RecipeDetail() {
 				</BackLink>
 				{editing ? (
 					<>
-						<EditTools recipe={recipe} />
 						<RecipeEditor
 							key={recipe.id}
 							recipe={recipe}
@@ -114,17 +106,6 @@ function RecipeDetail() {
 				)}
 			</div>
 		</main>
-	)
-}
-
-// Ownership changes belong to editing, so the read view stays quiet.
-function EditTools({ recipe }: { recipe: Recipe }) {
-	return (
-		<div className="mb-4 flex flex-wrap items-center gap-2 empty:hidden">
-			{recipe.owned && (recipe.forkedFromId || recipe.sourceUrl) ? (
-				<ClaimButton recipe={recipe} disabled={false} />
-			) : null}
-		</div>
 	)
 }
 
@@ -384,13 +365,27 @@ function RecipeView({
 	)
 }
 
+// Where a recipe came from: the Dutch Oven recipe it was copied from and the
+// page or video it started as. A recipe with neither is the cook's own.
 function RecipeMeta({ recipe }: { recipe: Recipe }) {
 	const source = recipe.sourceUrl
 		? importSiteForUrl(recipe.sourceUrl)
 		: undefined
 
+	const video = recipe.sourceUrl ? isYouTube(recipe.sourceUrl) : false
+
 	const items = [
 		recipe.forkedFromId ? <span key="copy">your copy</span> : null,
+		recipe.original ? (
+			<Link
+				key="original"
+				to="/recipes/$recipeId"
+				params={{ recipeId: recipe.original.id }}
+				className="hover:text-foreground focus-visible:outline-kitchen-eggplant underline focus-visible:outline-2 focus-visible:outline-offset-2"
+			>
+				see the original version
+			</Link>
+		) : null,
 		recipe.servings ? (
 			<span key="servings">serves {recipe.servings}</span>
 		) : null,
@@ -405,14 +400,16 @@ function RecipeMeta({ recipe }: { recipe: Recipe }) {
 				rel="noreferrer"
 				className="hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex items-center gap-1.5 underline focus-visible:outline-2 focus-visible:outline-offset-2"
 			>
-				{source ? (
+				{video ? (
+					<YoutubeLogoIcon size={16} weight="fill" aria-hidden />
+				) : source ? (
 					<img
 						src={importSiteLogo(source.id)}
 						alt=""
 						className="size-4 shrink-0 no-underline"
 					/>
 				) : null}
-				from {hostOf(recipe.sourceUrl)}
+				{video ? 'watch on youtube' : `from ${hostOf(recipe.sourceUrl)}`}
 			</a>
 		) : null,
 	].filter((item) => item !== null)
@@ -428,61 +425,6 @@ function RecipeMeta({ recipe }: { recipe: Recipe }) {
 				</Fragment>
 			))}
 		</p>
-	)
-}
-
-// Makes a recipe wholly the cook's: no "your copy" label, no link to the site
-// it came from. A shared recipe is copied for them first.
-function ClaimButton({
-	recipe,
-	disabled,
-}: {
-	recipe: Recipe
-	disabled: boolean
-}) {
-	const router = useRouter()
-	const navigate = useNavigate()
-	const queryClient = useQueryClient()
-	const [pending, setPending] = useState(false)
-
-	const claim = async () => {
-		setPending(true)
-
-		try {
-			const claimed = await claimRecipe({ data: { id: recipe.id } })
-
-			if (!claimed) throw new Error('recipe was not claimed')
-
-			await Promise.all([
-				router.invalidate(),
-				queryClient.invalidateQueries({ queryKey: ['shelf'] }),
-				queryClient.invalidateQueries({ queryKey: ['recipe'] }),
-			])
-
-			if (claimed.id !== recipe.id)
-				await navigate({
-					to: '/recipes/$recipeId',
-					params: { recipeId: claimed.id },
-					replace: true,
-				})
-			toast.success(`${recipe.title} is yours now`)
-		} catch {
-			toast.error("couldn't take that over — try again")
-		} finally {
-			setPending(false)
-		}
-	}
-
-	return (
-		<button
-			type="button"
-			disabled={disabled || pending}
-			onClick={() => void claim()}
-			className={buttonVariants({ variant: 'outline' })}
-		>
-			<UserCheckIcon size={14} weight="bold" aria-hidden />
-			make it mine
-		</button>
 	)
 }
 

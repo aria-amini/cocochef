@@ -141,6 +141,22 @@ async function recipeContent(database: RecipeDatabase, recipeId: string) {
 	}
 }
 
+// The recipe a copy was made from, when this cook can still open it.
+async function visibleOriginal(
+	database: RecipeDatabase,
+	userId: string,
+	id: string | null,
+) {
+	if (!id) return null
+
+	const [original] = await database
+		.select({ id: recipes.id, title: recipes.title })
+		.from(recipes)
+		.where(and(eq(recipes.id, id), visibleTo(userId, database)))
+
+	return original ?? null
+}
+
 export async function getRecipeForUser(
 	userId: string,
 	id: string,
@@ -155,6 +171,7 @@ export async function getRecipeForUser(
 	return {
 		...recipe,
 		...(await recipeContent(database, recipe.id)),
+		original: await visibleOriginal(database, userId, recipe.forkedFromId),
 		saved: recipe.savedAt !== null,
 		owned: recipe.userId === userId,
 	}
@@ -695,64 +712,11 @@ async function moveShelfToCopy(
 		.where(and(eq(mealLogs.userId, userId), eq(mealLogs.recipeId, originalId)))
 }
 
-// Takes a recipe over: it becomes the user's own, with no link back to the
-// recipe it was copied from or the website it came from. A shared recipe is
-// copied first, as the first edit would; the original stays as it was.
-export async function claimRecipeForUser(
-	userId: string,
-	id: string,
-	database: Database = getDb(),
-) {
-	return database.transaction(async (tx) => {
-		const current = await assertVisibleRecipe(tx, userId, id)
-
-		if (!current) return null
-
-		if (current.userId === userId) {
-			const [claimed] = await tx
-				.update(recipes)
-				.set({ forkedFromId: null, sourceUrl: null })
-				.where(and(eq(recipes.id, id), eq(recipes.userId, userId)))
-				.returning()
-
-			return claimed ?? null
-		}
-
-		const content = await recipeContent(tx, id)
-
-		const [copy] = await tx
-			.insert(recipes)
-			.values({
-				id: crypto.randomUUID(),
-				userId,
-				title: current.title,
-				imageUrl: current.imageUrl,
-				sourceNotes: current.sourceNotes,
-				servings: current.servings,
-				totalMinutes: current.totalMinutes,
-				createdAt: new Date(),
-				finalizedAt: new Date(),
-			})
-			.returning()
-
-		if (!copy) return null
-		await insertRecipeContent(
-			tx,
-			copy.id,
-			content.ingredients,
-			content.steps,
-			content.ingredientCategories,
-		)
-		await moveShelfToCopy(tx, userId, current.id, copy.id)
-		await publishFinishedRecipe(userId, copy, tx)
-
-		return copy
-	})
-}
-
 // Edits land on the user's own recipe. A shared recipe is never changed: the
 // first real edit copies it for them, and their shelf row and cooks move to the
-// copy. Notes are theirs either way and never copy anything.
+// copy. Notes are theirs either way and never copy anything. Taking the link
+// to the original away (a null `sourceUrl`) makes the recipe wholly theirs: it
+// stops pointing at the website and at the recipe it was copied from.
 export async function updateRecipeForUser(
 	userId: string,
 	{
@@ -762,6 +726,7 @@ export async function updateRecipeForUser(
 		steps,
 		finalize,
 		notes,
+		sourceUrl,
 		...details
 	}: RecipeUpdate,
 	database: Database = getDb(),
@@ -775,10 +740,23 @@ export async function updateRecipeForUser(
 
 		let recipe = current
 
+		// Only dropping an existing link takes the recipe over; one that never
+		// had a link keeps whatever it was copied from.
+		const unlinking = sourceUrl === null && current.sourceUrl !== null
+
+		const source = {
+			...(sourceUrl !== undefined && { sourceUrl }),
+			...(unlinking && { forkedFromId: null }),
+		}
+
 		if (current.userId === userId) {
 			const [updated] = await tx
 				.update(recipes)
-				.set(finalize ? { ...details, finalizedAt: new Date() } : details)
+				.set({
+					...details,
+					...source,
+					...(finalize && { finalizedAt: new Date() }),
+				})
 				.where(eq(recipes.id, id))
 				.returning()
 
@@ -802,6 +780,7 @@ export async function updateRecipeForUser(
 				details.title !== current.title ||
 				(details.imageUrl !== undefined &&
 					details.imageUrl !== current.imageUrl) ||
+				(sourceUrl !== undefined && sourceUrl !== current.sourceUrl) ||
 				!sameLines(contentLines(ingredients), content.ingredients) ||
 				!sameCategories(
 					categoriesFor(contentLines(ingredients), ingredientCategories),
@@ -815,13 +794,13 @@ export async function updateRecipeForUser(
 					.values({
 						id: crypto.randomUUID(),
 						userId,
-						forkedFromId: current.id,
+						forkedFromId: unlinking ? null : current.id,
 						title: details.title,
 						imageUrl:
 							details.imageUrl === undefined
 								? current.imageUrl
 								: details.imageUrl,
-						sourceUrl: current.sourceUrl,
+						sourceUrl: sourceUrl === undefined ? current.sourceUrl : sourceUrl,
 						sourceNotes: current.sourceNotes,
 						servings: current.servings,
 						totalMinutes: current.totalMinutes,

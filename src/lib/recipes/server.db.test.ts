@@ -11,7 +11,6 @@ import { getRecipeShare, saveSharingProfile } from '@/lib/sharing/repository'
 import { recipeUpdateInput } from './model'
 import {
 	addMissingSourceNotes,
-	claimRecipeForUser,
 	createCollectionForUser,
 	createRecipeForUser,
 	deleteCollectionForUser,
@@ -768,14 +767,25 @@ describe('shared recipes', () => {
 			db,
 		)
 
-		const claimed = await claimRecipeForUser(userId, recipe.id, db)
+		const claimed = await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: 'shared dal',
+				notes: null,
+				sourceUrl: null,
+				ingredients: ['lentils', 'salt'],
+				steps: ['simmer'],
+			}),
+			db,
+		)
 
 		await expect(
 			getRecipeShare(userId, claimed?.id ?? '', db),
 		).resolves.toMatchObject({ visibility: 'public' })
 	})
 
-	test('lets a cook take a recipe over, dropping the source and the copy label', async ({
+	test("removing the link makes a recipe the cook's own, dropping the source and the copy label", async ({
 		db,
 	}) => {
 		const userId = await seedUser(db)
@@ -791,10 +801,24 @@ describe('shared recipes', () => {
 			cookedAt: new Date(),
 		})
 
-		// A shared recipe is copied for them, with no link back.
-		const claimed = await claimRecipeForUser(userId, recipe.id, db)
+		const unlink = (id: string, who: string) =>
+			updateRecipeForUser(
+				who,
+				recipeUpdateInput.parse({
+					id,
+					title: 'shared dal',
+					notes: null,
+					sourceUrl: null,
+					ingredients: ['lentils', 'salt'],
+					steps: ['simmer'],
+				}),
+				db,
+			)
 
-		if (!claimed) throw new Error('recipe was not claimed')
+		// A shared recipe is copied for them, with no link back.
+		const claimed = await unlink(recipe.id, userId)
+
+		if (!claimed) throw new Error('recipe was not taken over')
 		expect(claimed.id).not.toBe(recipe.id)
 		expect(claimed).toMatchObject({
 			userId,
@@ -806,6 +830,7 @@ describe('shared recipes', () => {
 			getRecipeForUser(userId, claimed.id, db),
 		).resolves.toMatchObject({
 			owned: true,
+			original: null,
 			ingredients: ['lentils', 'salt'],
 			cookCount: 1,
 		})
@@ -837,17 +862,107 @@ describe('shared recipes', () => {
 			sourceUrl: 'https://example.com/dal',
 		})
 		await expect(
-			claimRecipeForUser(otherId, edited?.id ?? '', db),
+			getRecipeForUser(otherId, edited?.id ?? '', db),
 		).resolves.toMatchObject({
+			original: { id: recipe.id, title: 'shared dal' },
+		})
+
+		const unlinked = await updateRecipeForUser(
+			otherId,
+			recipeUpdateInput.parse({
+				id: edited?.id,
+				title: 'my dal',
+				notes: null,
+				sourceUrl: null,
+				ingredients: ['lentils'],
+				steps: [],
+			}),
+			db,
+		)
+
+		expect(unlinked).toMatchObject({
 			id: edited?.id,
 			forkedFromId: null,
 			sourceUrl: null,
 		})
 
-		// Someone else's own recipe cannot be taken over.
+		// A link can be pointed back at any web page, such as a video; the
+		// recipe stays the cook's own.
+		const relinked = await updateRecipeForUser(
+			otherId,
+			recipeUpdateInput.parse({
+				id: edited?.id,
+				title: 'my dal',
+				notes: null,
+				sourceUrl: 'https://www.youtube.com/watch?v=abc',
+				ingredients: ['lentils'],
+				steps: [],
+			}),
+			db,
+		)
+
+		expect(relinked).toMatchObject({
+			forkedFromId: null,
+			sourceUrl: 'https://www.youtube.com/watch?v=abc',
+		})
+
+		// An untouched link is kept, and someone else's recipe stays theirs.
 		await expect(
-			claimRecipeForUser(userId, edited?.id ?? '', db),
+			updateRecipeForUser(
+				userId,
+				recipeUpdateInput.parse({
+					id: edited?.id,
+					title: 'hijack',
+					notes: null,
+					sourceUrl: null,
+					ingredients: [],
+					steps: [],
+				}),
+				db,
+			),
 		).resolves.toBeNull()
+	})
+
+	test('changing only the link of a shared recipe copies it, and an unchanged link does not', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const recipe = await seedShared(db)
+		await saveRecipeForUser(userId, recipe.id, db)
+
+		const same = await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: 'shared dal',
+				notes: 'mine',
+				sourceUrl: 'https://example.com/dal',
+				ingredients: ['lentils', 'salt'],
+				steps: ['simmer'],
+			}),
+			db,
+		)
+
+		expect(same?.id).toBe(recipe.id)
+
+		const moved = await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: 'shared dal',
+				notes: 'mine',
+				sourceUrl: 'https://example.com/better-dal',
+				ingredients: ['lentils', 'salt'],
+				steps: ['simmer'],
+			}),
+			db,
+		)
+
+		expect(moved?.id).not.toBe(recipe.id)
+		expect(moved).toMatchObject({
+			forkedFromId: recipe.id,
+			sourceUrl: 'https://example.com/better-dal',
+		})
 	})
 
 	test('removing a shared recipe only takes it off your shelf', async ({
