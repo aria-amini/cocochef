@@ -1,7 +1,7 @@
 import { renderRoute } from '@tests/support/render/route'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 
 import type { getRecipe } from '@/lib/recipes/server'
 
@@ -695,11 +695,16 @@ describe('recipe detail', () => {
 
 		await screen.getByRole('button', { name: 'edit' }).click()
 		await screen.getByRole('button', { name: 'delete', exact: true }).click()
-		await screen.getByRole('button', { name: 'keep it' }).click()
+		await expect
+
+			.element(page.getByText('there is no undo', { exact: false }))
+			.toBeVisible()
+		await page.getByRole('button', { name: 'keep it' }).click()
+		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument()
 		expect(updateCalls.deleted).toEqual([])
 
 		await screen.getByRole('button', { name: 'delete', exact: true }).click()
-		await screen.getByRole('button', { name: 'really delete' }).click()
+		await page.getByRole('button', { name: 'delete', exact: true }).click()
 
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
 		expect(updateCalls.deleted).toEqual(['recipe-1'])
@@ -741,14 +746,23 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByLabelText('book', { exact: true }))
 			.not.toBeInTheDocument()
-		await screen.getByRole('button', { name: 'save to shelf' }).click()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect.poll(() => recipeState.recipe?.saved).toBe(true)
 		expect(updateCalls.saved).toEqual(['recipe-1'])
-		await screen.getByRole('button', { name: 'remove from shelf' }).click()
+		// A saved recipe's bookmark asks before taking it back off the shelf.
+		await screen.getByRole('button', { name: 'saved', exact: true }).click()
+		await page.getByRole('button', { name: 'keep it' }).click()
+		expect(updateCalls.deleted).toEqual([])
+		await screen.getByRole('button', { name: 'saved', exact: true }).click()
+		await expect
+
+			.element(page.getByText('it comes off your shelf', { exact: false }))
+			.toBeVisible()
+		await page.getByRole('button', { name: 'delete', exact: true }).click()
 		await expect.poll(() => recipeState.recipe?.saved).toBe(false)
 		expect(updateCalls.deleted).toEqual(['recipe-1'])
 		await expect
-			.element(screen.getByRole('button', { name: 'save to shelf' }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.toBeVisible()
 		await expect
 			.element(screen.getByRole('heading', { name: 'miso butter pasta' }))
@@ -780,7 +794,7 @@ describe('recipe detail', () => {
 			.element(screen.getByRole('button', { name: 'make it mine' }))
 			.not.toBeInTheDocument()
 		await expect
-			.element(screen.getByRole('button', { name: 'remove from shelf' }))
+			.element(screen.getByRole('button', { name: 'delete', exact: true }))
 			.toBeVisible()
 		await screen.getByLabelText('name').fill('my pasta')
 		await expect

@@ -279,14 +279,14 @@ describe('the one box', () => {
 		if (!isPhone())
 			await expect.element(screen.getByText('6 chicken thighs')).toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: /save to shelf/ }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: 'open recipe' }))
 			.not.toBeInTheDocument()
 		await option.click()
 		await expect
-			.element(screen.getByRole('button', { name: /save to shelf/ }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: 'open recipe' }))
@@ -339,7 +339,7 @@ describe('the one box', () => {
 			window.innerHeight - (isPhone() ? 0 : 64),
 		)
 		await expect
-			.element(screen.getByRole('button', { name: /save to shelf/ }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 
 		expect(router.state.location.pathname).toBe('/recipes')
@@ -434,7 +434,7 @@ describe('the one box', () => {
 			.element(screen.getByRole('link', { name: /see the page/ }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: /save to shelf/ }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: /start from this/ }))

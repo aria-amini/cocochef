@@ -13,6 +13,7 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 
+import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
 import { IngredientListField } from '@/components/ingredient-list-field'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import {
@@ -686,26 +687,7 @@ export function RecipeEditor({
 							: saveLabels[autosave.state]}
 				</output>
 				<span className="ml-auto flex gap-2">
-					{confirmingDelete ? (
-						<>
-							<button
-								type="button"
-								disabled={pending}
-								onClick={() => void remove()}
-								className="bg-kitchen-tomato/40 hover:bg-kitchen-tomato/60 focus-visible:outline-kitchen-eggplant rounded-md px-4 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
-							>
-								{onShared ? 'really remove' : 'really delete'}
-							</button>
-							<button
-								type="button"
-								disabled={pending}
-								onClick={() => setConfirmingDelete(false)}
-								className={quietActionClassName}
-							>
-								keep it
-							</button>
-						</>
-					) : onShared && !recipe?.saved ? null : (
+					{onShared && !recipe?.saved ? null : (
 						<button
 							type="button"
 							disabled={pending}
@@ -714,11 +696,19 @@ export function RecipeEditor({
 							}
 							className={cn(quietActionClassName, 'hover:bg-kitchen-tomato/20')}
 						>
-							{onShared ? 'remove from shelf' : savedId ? 'delete' : 'discard'}
+							{onShared || savedId ? 'delete' : 'discard'}
 						</button>
 					)}
 				</span>
 			</FormActions>
+			<DeleteRecipeDialog
+				open={confirmingDelete}
+				onOpenChange={setConfirmingDelete}
+				title={name}
+				shared={onShared}
+				pending={pending}
+				onConfirm={() => void remove()}
+			/>
 		</form>
 	)
 }

@@ -13,6 +13,7 @@ import {
 import { Fragment, useState } from 'react'
 import { toast } from 'sonner'
 
+import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
 import { IngredientText } from '@/components/ingredient-text'
 import { BackLink, PageTitle } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
@@ -473,12 +474,14 @@ function ClaimButton({
 	)
 }
 
-// A shared recipe someone opened from a search or a link. Adding it puts it on
-// the shelf as is; books come after. Solid until it is saved.
+// A shared recipe someone opened from a search or a link. Saving it puts it on
+// the shelf as is; books come after. Solid until it is saved. Once saved it
+// says so, and pressing it asks before taking the recipe off the shelf.
 function SaveButton({ recipe }: { recipe: Recipe }) {
 	const router = useRouter()
 	const queryClient = useQueryClient()
 	const [pending, setPending] = useState(false)
+	const [confirming, setConfirming] = useState(false)
 
 	const save = async () => {
 		setPending(true)
@@ -491,6 +494,7 @@ function SaveButton({ recipe }: { recipe: Recipe }) {
 				queryClient.invalidateQueries({ queryKey: ['shelf'] }),
 				queryClient.invalidateQueries({ queryKey: ['recipe', recipe.id] }),
 			])
+			setConfirming(false)
 			toast.success(
 				recipe.saved
 					? 'removed from your shelf'
@@ -508,7 +512,7 @@ function SaveButton({ recipe }: { recipe: Recipe }) {
 			<button
 				type="button"
 				disabled={pending}
-				onClick={() => void save()}
+				onClick={() => (recipe.saved ? setConfirming(true) : void save())}
 				className={buttonVariants({
 					variant: recipe.saved ? 'outline' : 'default',
 				})}
@@ -519,8 +523,16 @@ function SaveButton({ recipe }: { recipe: Recipe }) {
 					aria-hidden
 					className="size-3.5"
 				/>
-				{recipe.saved ? 'remove from shelf' : 'save to shelf'}
+				{recipe.saved ? 'saved' : 'save'}
 			</button>
+			<DeleteRecipeDialog
+				open={confirming}
+				onOpenChange={setConfirming}
+				title={recipe.title}
+				shared
+				pending={pending}
+				onConfirm={() => void save()}
+			/>
 		</div>
 	)
 }

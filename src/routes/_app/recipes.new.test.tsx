@@ -97,7 +97,7 @@ describe('write a recipe', () => {
 			.element(screen.getByRole('button', { name: 'done' }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: 'save to shelf' }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 	})
 
