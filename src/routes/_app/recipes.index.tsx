@@ -13,6 +13,7 @@ import {
 	shelfHeadingClassName,
 } from '@/components/popular-recipes'
 import { useRecipeActions } from '@/components/recipe-actions'
+import { RecipeGlyph } from '@/components/recipe-glyph'
 import { listShelf } from '@/lib/recipes/server'
 import {
 	tileColorFor,
@@ -177,15 +178,22 @@ function RecipeTile({ recipe, color }: { recipe: Recipe; color: TileColor }) {
 					</h3>
 				</>
 			) : (
-				// Long names stop short of the draft label rather than run under it.
-				<h3
-					className={cn(
-						'absolute right-3 bottom-2.5 left-3 text-xl leading-tight font-bold wrap-anywhere',
-						draft ? 'line-clamp-3' : 'line-clamp-4',
-					)}
-				>
-					{recipe.title}
-				</h3>
+				<>
+					<RecipeGlyph
+						title={recipe.title}
+						size={40}
+						className="text-foreground/60 absolute top-3 right-3"
+					/>
+					{/* Long names stop short of the draft label rather than run under it. */}
+					<h3
+						className={cn(
+							'absolute right-3 bottom-2.5 left-3 text-xl leading-tight font-bold wrap-anywhere',
+							draft ? 'line-clamp-3' : 'line-clamp-4',
+						)}
+					>
+						{recipe.title}
+					</h3>
+				</>
 			)}
 		</Link>
 	)

@@ -3,6 +3,7 @@ import { Fragment } from 'react'
 
 import { IngredientText } from '@/components/ingredient-text'
 import { BackLink, PageTitle } from '@/components/page'
+import { RecipeGlyph } from '@/components/recipe-glyph'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import { formatMinutes } from '@/lib/recipes/model'
 import { stepRows } from '@/lib/recipes/step-groups'
@@ -56,7 +57,11 @@ export function PublicProfile({
 											loading="lazy"
 											className="h-full w-full object-cover"
 										/>
-									) : null}
+									) : (
+										<span className="text-foreground/60 grid h-full place-items-center">
+											<RecipeGlyph title={recipe.title} size={48} />
+										</span>
+									)}
 								</div>
 								<h2 className="p-4 text-lg leading-snug font-bold break-words">
 									{recipe.title}

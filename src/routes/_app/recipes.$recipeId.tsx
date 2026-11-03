@@ -17,6 +17,7 @@ import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
 import { IngredientText } from '@/components/ingredient-text'
 import { BackLink, PageTitle } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
+import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeSharing } from '@/components/recipe-sharing'
 import { buttonVariants } from '@/components/ui/button'
 import type { collections } from '@/db/schema'
@@ -33,6 +34,7 @@ import {
 	saveRecipe,
 } from '@/lib/recipes/server'
 import { stepRows } from '@/lib/recipes/step-groups'
+import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/recipes/$recipeId')({
@@ -202,7 +204,17 @@ function RecipeView({
 						alt={recipe.title}
 						className="border-border size-16 shrink-0 rounded-xl border object-cover md:size-24"
 					/>
-				) : null}
+				) : (
+					<span
+						aria-hidden
+						className={cn(
+							'border-border grid size-16 shrink-0 place-items-center rounded-xl border md:size-24',
+							tileColors[tileColorFor(recipe.id)],
+						)}
+					>
+						<RecipeGlyph title={recipe.title} className="size-9 md:size-14" />
+					</span>
+				)}
 				<div className="min-w-0">
 					<PageTitle className="text-2xl md:text-4xl">{recipe.title}</PageTitle>
 					<RecipeMeta recipe={recipe} />

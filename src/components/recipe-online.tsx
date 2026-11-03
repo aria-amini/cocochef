@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { RecipeGlyph } from '@/components/recipe-glyph'
 import { searchRecipes } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
 import { cn } from '@/lib/utils/ui'
@@ -122,7 +123,7 @@ export function useRecipeImport(
 	return { saving, error, save, clearError: () => setError(undefined) }
 }
 
-// A recipe's picture, or its first letter on a yolk tile when it has none.
+// A recipe's picture, or an icon for its name on a yolk tile when it has none.
 export function RecipeThumb({
 	imageUrl,
 	title,
@@ -139,11 +140,11 @@ export function RecipeThumb({
 			<span
 				aria-hidden
 				className={cn(
-					'bg-kitchen-yolk border-border grid size-10 shrink-0 place-items-center rounded-lg border text-sm font-bold',
+					'bg-kitchen-yolk border-border grid size-10 shrink-0 place-items-center rounded-lg border',
 					className,
 				)}
 			>
-				{title.charAt(0)}
+				<RecipeGlyph title={title} size={22} />
 			</span>
 		)
 
