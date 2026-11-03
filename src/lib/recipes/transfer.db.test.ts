@@ -107,8 +107,9 @@ describe('moving recipes between kitchens', () => {
 			(await listCollectionsForUser(prod, db))[0]?.id,
 		)
 
+		// A draft in the file arrives as a finished recipe.
 		const draft = shelf.recipes.find((recipe) => recipe.title === 'half done')
-		expect(draft?.finalizedAt).toBeNull()
+		expect(draft?.finalizedAt).not.toBeNull()
 	})
 
 	test('does not double a recipe that is already there', async ({ db }) => {

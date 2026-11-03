@@ -54,10 +54,11 @@ function trimmed(lines: string[] | undefined) {
 	return (lines ?? []).map((line) => line.trim()).filter(Boolean)
 }
 
-// Recipes come in as the user's own, and private. One already on their shelf,
-// saved or their own, with the same name and the same ingredients and steps is
-// skipped, so a file can be brought
-// in twice, or after a partly failed try, without doubling anything.
+// Recipes come in as the user's own, finished, and private: a draft in the file
+// is a recipe on the shelf, not another draft to open and finish. One already
+// on their shelf, saved or their own, with the same name and the same
+// ingredients and steps is skipped, so a file can be brought in twice, or after
+// a partly failed try, without doubling anything.
 export async function importRecipesForUser(
 	userId: string,
 	recipes: TransferRecipe[],
@@ -117,7 +118,6 @@ export async function importRecipesForUser(
 				sourceUrl: recipe.sourceUrl,
 				sourceNotes: recipe.sourceNotes,
 				notes: recipe.notes || undefined,
-				finalized: recipe.finalized,
 				collectionId,
 				ingredients,
 				ingredientCategories: recipe.ingredientCategories,
