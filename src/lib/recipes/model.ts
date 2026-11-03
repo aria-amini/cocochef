@@ -63,9 +63,7 @@ export const recipeUpdateInput = z.object({
 	title: recipeFields.title,
 	// Omitted keeps the current photo; null removes it.
 	imageUrl: z.union([recipeFields.imageUrl, recipePhotoPath]).nullish(),
-	// Omitted keeps the link to the original; null removes it, and with it the
-	// link to the Dutch Oven recipe this one was copied from: the recipe is the
-	// cook's own.
+	// Omitted keeps the link to where the recipe came from; null removes it.
 	sourceUrl: recipeFields.sourceUrl.nullish(),
 	notes: recipeFields.notes.nullable().transform((notes) => notes || null),
 	finalize: z.boolean().optional(),

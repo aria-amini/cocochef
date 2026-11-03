@@ -789,7 +789,7 @@ describe('shared recipes', () => {
 		).resolves.toMatchObject({ visibility: 'public' })
 	})
 
-	test("removing the link makes a recipe the cook's own, dropping the source and the copy label", async ({
+	test('a source link can be removed, replaced or added back', async ({
 		db,
 	}) => {
 		const userId = await seedUser(db)
@@ -819,14 +819,13 @@ describe('shared recipes', () => {
 				db,
 			)
 
-		// A shared recipe is copied for them, with no link back.
+		// Removing a shared recipe's link is a change, so it is copied for them.
 		const claimed = await unlink(recipe.id, userId)
 
-		if (!claimed) throw new Error('recipe was not taken over')
+		if (!claimed) throw new Error('recipe was not copied')
 		expect(claimed.id).not.toBe(recipe.id)
 		expect(claimed).toMatchObject({
 			userId,
-			forkedFromId: null,
 			sourceUrl: null,
 			title: 'shared dal',
 		})
@@ -834,7 +833,6 @@ describe('shared recipes', () => {
 			getRecipeForUser(userId, claimed.id, db),
 		).resolves.toMatchObject({
 			owned: true,
-			original: null,
 			ingredients: ['lentils', 'salt'],
 			cookCount: 1,
 		})
@@ -848,7 +846,7 @@ describe('shared recipes', () => {
 			sourceUrl: 'https://example.com/dal',
 		})
 
-		// Their own copy of one just drops the links.
+		// Another cook's copy keeps the link until it is changed.
 		const edited = await updateRecipeForUser(
 			otherId,
 			recipeUpdateInput.parse({
@@ -865,11 +863,6 @@ describe('shared recipes', () => {
 			forkedFromId: recipe.id,
 			sourceUrl: 'https://example.com/dal',
 		})
-		await expect(
-			getRecipeForUser(otherId, edited?.id ?? '', db),
-		).resolves.toMatchObject({
-			original: { id: recipe.id, title: 'shared dal' },
-		})
 
 		const unlinked = await updateRecipeForUser(
 			otherId,
@@ -884,14 +877,10 @@ describe('shared recipes', () => {
 			db,
 		)
 
-		expect(unlinked).toMatchObject({
-			id: edited?.id,
-			forkedFromId: null,
-			sourceUrl: null,
-		})
+		// Their own copy is changed in place.
+		expect(unlinked).toMatchObject({ id: edited?.id, sourceUrl: null })
 
-		// A link can be pointed back at any web page, such as a video; the
-		// recipe stays the cook's own.
+		// A link can be pointed back at any web page, such as a video.
 		const relinked = await updateRecipeForUser(
 			otherId,
 			recipeUpdateInput.parse({
@@ -906,11 +895,10 @@ describe('shared recipes', () => {
 		)
 
 		expect(relinked).toMatchObject({
-			forkedFromId: null,
 			sourceUrl: 'https://www.youtube.com/watch?v=abc',
 		})
 
-		// An untouched link is kept, and someone else's recipe stays theirs.
+		// Someone else's recipe cannot be changed.
 		await expect(
 			updateRecipeForUser(
 				userId,

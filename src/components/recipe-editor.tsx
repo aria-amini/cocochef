@@ -50,10 +50,8 @@ export type EditableRecipe = {
 	id: string
 	title: string
 	imageUrl: string | null
-	// The page or video it came from, and the Dutch Oven recipe it was copied
-	// from. Taking the link away makes the recipe the cook's own.
+	// The page or video it came from, if any.
 	sourceUrl: string | null
-	forkedFromId: string | null
 	notes: string | null
 	ingredients: string[]
 	ingredientCategories?: IngredientCategories | undefined
@@ -279,8 +277,6 @@ export function RecipeEditor({
 	})
 
 	const [source, setSource] = useState(recipe?.sourceUrl ?? '')
-
-	const linked = Boolean(recipe?.sourceUrl || recipe?.forkedFromId)
 
 	const [notesTooLong, setNotesTooLong] = useState(
 		() =>
@@ -702,13 +698,9 @@ export function RecipeEditor({
 					</FieldError>
 				) : (
 					<p id="edit-source-hint" className="text-muted-foreground text-sm">
-						{!source.trim() && linked
-							? 'no link, so this recipe is entirely your own.'
-							: linked
-								? 'readers can follow this back to where the recipe came from. clear it to make the recipe entirely yours.'
-								: parsedSource && isYouTube(parsedSource)
-									? 'a video to cook along with.'
-									: 'where the recipe came from, if it came from somewhere.'}
+						{parsedSource && isYouTube(parsedSource)
+							? 'a video to cook along with.'
+							: 'where the recipe came from, if it came from somewhere.'}
 					</p>
 				)}
 			</div>

@@ -40,16 +40,7 @@ vi.mock('@/lib/recipes/server', () => ({
 
 			Object.assign(recipeState.recipe, rest)
 
-			// Taking the link away makes the recipe the cook's own.
-			if (sourceUrl !== undefined) {
-				if (sourceUrl === null && recipeState.recipe.sourceUrl)
-					Object.assign(recipeState.recipe, {
-						forkedFromId: null,
-						original: null,
-					})
-
-				recipeState.recipe.sourceUrl = sourceUrl
-			}
+			if (sourceUrl !== undefined) recipeState.recipe.sourceUrl = sourceUrl
 
 			if (imageUrl !== undefined) recipeState.recipe.imageUrl = imageUrl
 
@@ -139,7 +130,6 @@ describe('recipe detail', () => {
 			cookCount: 0,
 			lastCookedAt: null,
 			forkedFromId: null,
-			original: null,
 			publicPath: null,
 			savedAt: new Date(),
 			saved: true,
@@ -298,22 +288,21 @@ describe('recipe detail', () => {
 			.toBe('/aria-amini/miso-butter-pasta')
 	})
 
-	test('points a copied web recipe back to its page and the original version', async () => {
+	test('shows the page a recipe came from, and nothing about copies', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		Object.assign(recipeState.recipe, {
 			sourceUrl: 'https://example.com/pasta',
 			forkedFromId: 'shared-1',
-			original: { id: 'shared-1', title: 'miso butter pasta' },
 		})
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		await expect.element(screen.getByText('your copy')).toBeVisible()
 		await expect
 			.element(screen.getByRole('link', { name: 'from example.com' }))
 			.toHaveAttribute('href', 'https://example.com/pasta')
+		await expect.element(screen.getByText('your copy')).not.toBeInTheDocument()
 		await expect
-			.element(screen.getByRole('link', { name: 'see the original version' }))
-			.toHaveAttribute('href', '/recipes/shared-1')
+			.element(screen.getByText('see the original version'))
+			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: 'make it mine' }))
 			.not.toBeInTheDocument()
@@ -329,13 +318,9 @@ describe('recipe detail', () => {
 			.toHaveAttribute('href', 'https://www.youtube.com/watch?v=abc')
 	})
 
-	test("removing the link in the editor makes the recipe the cook's own", async () => {
+	test('removing the link in the editor takes it off the recipe', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		Object.assign(recipeState.recipe, {
-			sourceUrl: 'https://example.com/pasta',
-			forkedFromId: 'shared-1',
-			original: { id: 'shared-1', title: 'miso butter pasta' },
-		})
+		recipeState.recipe.sourceUrl = 'https://example.com/pasta'
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		await screen.getByRole('button', { name: 'edit' }).click()
@@ -343,22 +328,13 @@ describe('recipe detail', () => {
 			.element(screen.getByLabelText('original link'))
 			.toHaveValue('https://example.com/pasta')
 		await screen.getByLabelText('original link').fill('')
-		await expect
-			.element(
-				screen.getByText('no link, so this recipe is entirely your own.'),
-			)
-			.toBeVisible()
 		await screen.getByRole('button', { name: 'done' }).click()
 
 		await expect
 			.poll(() => updateCalls.calls.at(-1))
 			.toMatchObject({ sourceUrl: null })
-		await expect.element(screen.getByText('your copy')).not.toBeInTheDocument()
 		await expect
 			.element(screen.getByText('from example.com'))
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByText('see the original version'))
 			.not.toBeInTheDocument()
 	})
 

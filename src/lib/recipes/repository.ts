@@ -175,22 +175,6 @@ async function publicPathFor(
 	return share ? `/${share.handle}/${share.slug}` : null
 }
 
-// The recipe a copy was made from, when this cook can still open it.
-async function visibleOriginal(
-	database: RecipeDatabase,
-	userId: string,
-	id: string | null,
-) {
-	if (!id) return null
-
-	const [original] = await database
-		.select({ id: recipes.id, title: recipes.title })
-		.from(recipes)
-		.where(and(eq(recipes.id, id), visibleTo(userId, database)))
-
-	return original ?? null
-}
-
 export async function getRecipeForUser(
 	userId: string,
 	id: string,
@@ -205,7 +189,6 @@ export async function getRecipeForUser(
 	return {
 		...recipe,
 		...(await recipeContent(database, recipe.id)),
-		original: await visibleOriginal(database, userId, recipe.forkedFromId),
 		publicPath: await publicPathFor(database, userId, recipe),
 		saved: recipe.savedAt !== null,
 		owned: recipe.userId === userId,
@@ -749,9 +732,8 @@ async function moveShelfToCopy(
 
 // Edits land on the user's own recipe. A shared recipe is never changed: the
 // first real edit copies it for them, and their shelf row and cooks move to the
-// copy. Notes are theirs either way and never copy anything. Taking the link
-// to the original away (a null `sourceUrl`) makes the recipe wholly theirs: it
-// stops pointing at the website and at the recipe it was copied from.
+// copy. Notes are theirs either way and never copy anything. A new or removed
+// source link counts as a change, so it copies a shared recipe too.
 export async function updateRecipeForUser(
 	userId: string,
 	{
@@ -775,21 +757,12 @@ export async function updateRecipeForUser(
 
 		let recipe = current
 
-		// Only dropping an existing link takes the recipe over; one that never
-		// had a link keeps whatever it was copied from.
-		const unlinking = sourceUrl === null && current.sourceUrl !== null
-
-		const source = {
-			...(sourceUrl !== undefined && { sourceUrl }),
-			...(unlinking && { forkedFromId: null }),
-		}
-
 		if (current.userId === userId) {
 			const [updated] = await tx
 				.update(recipes)
 				.set({
 					...details,
-					...source,
+					...(sourceUrl !== undefined && { sourceUrl }),
 					...(finalize && { finalizedAt: new Date() }),
 				})
 				.where(eq(recipes.id, id))
@@ -829,7 +802,7 @@ export async function updateRecipeForUser(
 					.values({
 						id: crypto.randomUUID(),
 						userId,
-						forkedFromId: unlinking ? null : current.id,
+						forkedFromId: current.id,
 						title: details.title,
 						imageUrl:
 							details.imageUrl === undefined

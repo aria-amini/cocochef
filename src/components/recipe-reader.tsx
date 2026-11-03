@@ -1,5 +1,4 @@
 import { YoutubeLogoIcon } from '@phosphor-icons/react'
-import { Link } from '@tanstack/react-router'
 import { Fragment, useState } from 'react'
 
 import { IngredientText } from '@/components/ingredient-text'
@@ -30,9 +29,6 @@ export type ReadableRecipe = {
 	ingredients: string[]
 	ingredientCategories?: IngredientCategories | undefined
 	steps: string[]
-	// The cook's copy points back to the version it was made from.
-	forkedFromId?: string | null | undefined
-	original?: { id: string; title: string } | null | undefined
 }
 
 const sectionLabelClassName = 'text-lg font-semibold'
@@ -282,8 +278,7 @@ export function RecipeReader({
 	)
 }
 
-// Where a recipe came from: the Dutch Oven recipe it was copied from and the
-// page or video it started as. A recipe with neither is the cook's own.
+// Servings, time, and the page or video the recipe came from, if it has one.
 function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
 	const source = recipe.sourceUrl
 		? importSiteForUrl(recipe.sourceUrl)
@@ -292,17 +287,6 @@ function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
 	const video = recipe.sourceUrl ? isYouTube(recipe.sourceUrl) : false
 
 	const items = [
-		recipe.forkedFromId ? <span key="copy">your copy</span> : null,
-		recipe.original ? (
-			<Link
-				key="original"
-				to="/recipes/$recipeId"
-				params={{ recipeId: recipe.original.id }}
-				className="hover:text-foreground focus-visible:outline-kitchen-eggplant underline focus-visible:outline-2 focus-visible:outline-offset-2"
-			>
-				see the original version
-			</Link>
-		) : null,
 		recipe.servings ? (
 			<span key="servings">serves {recipe.servings}</span>
 		) : null,
