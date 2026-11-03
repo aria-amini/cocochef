@@ -485,6 +485,32 @@ export function specificSpriteKey(name: string) {
 	return match && !match.guess ? match.key : undefined
 }
 
+const ingredientItemPatterns = pantrySprites
+	.map(({ key }) => ({
+		key,
+		pattern: new RegExp(`(?:^| )${key.replaceAll('-', ' ')}s?(?: |$)`),
+	}))
+	.sort((a, b) => b.key.length - a.key.length)
+
+// Item icons must depict the named food, not a related food used as a category
+// stand-in (for example, the lemon sprite must never represent a lime).
+export function ingredientItemSprite(name: string) {
+	const main = normalizeName(name.split(/[,;(]/, 1)[0] ?? '')
+
+	if (/\b(?:ground beef|beef mince)\b/.test(main)) return 'meat'
+
+	const match = ingredientItemPatterns.find(({ pattern }) => pattern.test(main))
+
+	if (!match) return undefined
+
+	// These are ingredients in their own right, not the food pictured by a
+	// shorter match inside their name.
+	if (/\b(?:egg noodles|coconut milk|garlic powder|onion powder)\b/.test(main))
+		return undefined
+
+	return match.key
+}
+
 function normalizeName(name: string) {
 	return name
 		.toLowerCase()

@@ -350,13 +350,11 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 ### Ingredient overview and cooking
 
-The recipe overview groups ingredients by category, using Ingredients' catalog
-assignments and food aliases. Unknown foods stay under Other. Display grouping
-never changes saved ingredient order. Ingredients and steps use compact open
-checklists with quiet row dividers and naturally wrapping text. Quantities and
-ingredient details stay together at regular weight. Category headings use
-generic pantry sprites, including a bottle for oils and sauces; source headings
-stay text-only.
+The recipe overview preserves the source order and its own section headings.
+Ingredients and steps use compact open checklists with quiet row dividers and
+naturally wrapping text. Quantities and ingredient details stay together at
+regular weight. A matching pantry sprite sits beside each recognizable item;
+items without a suitable sprite leave that space empty.
 
 Checkboxes are visible before cooking; clicking one asks to start, and
 confirmation checks the selected item. Cancel leaves the checklist unchanged.

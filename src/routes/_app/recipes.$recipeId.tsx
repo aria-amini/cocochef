@@ -33,7 +33,7 @@ import {
 	type listActiveCooking,
 } from '@/lib/cooking/server'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
-import { categorySprites } from '@/lib/pantry/catalog'
+import { ingredientItemSprite } from '@/lib/pantry/sprites'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import { formatMinutes } from '@/lib/recipes/model'
 import {
@@ -298,7 +298,7 @@ function RecipeView({
 
 	const rows = ingredientViewRows(
 		recipe.ingredients,
-		true,
+		false,
 		recipe.ingredientCategories,
 	)
 
@@ -528,16 +528,7 @@ function RecipeView({
 														scope="colgroup"
 														className="pt-3 pb-2 text-left text-sm font-semibold"
 													>
-														<span className="flex items-center gap-2">
-															{row.category ? (
-																<img
-																	src={`/sprites/pantry/${row.sprite ?? categorySprites[row.category]}.png`}
-																	alt=""
-																	className="size-6 shrink-0 object-contain [image-rendering:pixelated]"
-																/>
-															) : null}
-															{row.text}
-														</span>
+														{row.text}
 													</th>
 												</tr>
 											)
@@ -546,6 +537,7 @@ function RecipeView({
 										const item = `i${row.index}`
 										const id = `ingredient-${row.index}`
 										const done = cooking && checked.has(item)
+										const sprite = ingredientItemSprite(row.text)
 
 										return (
 											<tr
@@ -567,6 +559,18 @@ function RecipeView({
 															}
 															className="accent-kitchen-basil mt-1 size-6 shrink-0"
 														/>
+														<span
+															className="mt-1 flex size-6 shrink-0 items-center justify-center"
+															aria-hidden
+														>
+															{sprite ? (
+																<img
+																	src={`/sprites/pantry/${sprite}.png`}
+																	alt=""
+																	className="size-6 object-contain [image-rendering:pixelated]"
+																/>
+															) : null}
+														</span>
 														<IngredientText text={row.text} done={done} />
 													</label>
 												</td>

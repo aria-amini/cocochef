@@ -1,8 +1,20 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import { resolveSpriteSrc } from './sprites'
+import { ingredientItemSprite, resolveSpriteSrc } from './sprites'
 
 describe('ingredient sprites', () => {
+	test.each([
+		['2 yellow onions, diced', 'onion'],
+		['1 large egg', 'egg'],
+		['500g beef mince', 'meat'],
+		['1 lime', undefined],
+		['raspberries', undefined],
+		['coconut milk', undefined],
+		['egg noodles', undefined],
+		['1 cup broth (or milk)', undefined],
+	])('uses an honest item icon for %s', (name, expected) => {
+		expect(ingredientItemSprite(name)).toBe(expected)
+	})
 	test.each([
 		['pineapple', 'pineapple'],
 		['fresh green apples', 'apple'],

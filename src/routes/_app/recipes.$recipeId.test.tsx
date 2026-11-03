@@ -316,34 +316,26 @@ describe('recipe detail', () => {
 		}
 	})
 
-	test("draws a section's picture from the food in it", async () => {
+	test('shows matching icons on items without inventing one for lime', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = ['2 limes', '1 lime']
+		recipeState.recipe.ingredients = ['2 apples', '1 lime', '1 egg']
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		await expect
-			.element(screen.getByRole('checkbox', { name: '2 limes' }))
-			.toBeVisible()
-		expect(document.querySelector('th img')?.getAttribute('src')).toBe(
-			'/sprites/pantry/lemon.png',
+		const rowFor = (name: string) =>
+			screen.getByRole('checkbox', { name }).element().closest('tr')
+
+		expect(rowFor('2 apples')?.querySelector('img')?.getAttribute('src')).toBe(
+			'/sprites/pantry/apple.png',
 		)
-	})
-
-	test("groups an ingredient where the cook put it, not where it's guessed", async () => {
-		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
-		recipeState.recipe.ingredientCategories = { '2 large eggs': 'meat' }
-		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-
-		await expect
-			.element(screen.getByText('meat & seafood', { exact: true }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByText('dairy & eggs', { exact: true }))
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByText('vegetables & herbs', { exact: true }))
-			.toBeVisible()
+		expect(rowFor('1 egg')?.querySelector('img')?.getAttribute('src')).toBe(
+			'/sprites/pantry/egg.png',
+		)
+		expect(rowFor('1 lime')?.querySelector('img')).toBeNull()
+		expect(
+			Array.from(
+				document.querySelectorAll('table[aria-label="ingredients"] input'),
+			).map((item) => item.getAttribute('aria-label')),
+		).toEqual(['2 apples', '1 lime', '1 egg'])
 	})
 
 	test('lets the cook pick the group an ingredient is shown under', async () => {
@@ -369,13 +361,6 @@ describe('recipe detail', () => {
 			ingredients: ['2 large eggs'],
 			ingredientCategories: { '2 large eggs': 'other' },
 		})
-
-		await expect
-			.element(screen.getByText('other', { exact: true }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByText('dairy & eggs', { exact: true }))
-			.not.toBeInTheDocument()
 	})
 
 	test('lets a cook take over a copied web recipe, dropping its credit', async () => {
@@ -447,7 +432,7 @@ describe('recipe detail', () => {
 		await expect.element(screen.getByText('no steps yet')).toBeVisible()
 	})
 
-	test('keeps ingredient text together in category order', async () => {
+	test('keeps ingredient text together in recipe order', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'200g pasta',
@@ -479,7 +464,7 @@ describe('recipe detail', () => {
 		).toBe('12oz / 340g fresh spinach')
 		await expect
 			.element(screen.getByText('dairy & eggs', { exact: true }))
-			.toBeVisible()
+			.not.toBeInTheDocument()
 		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
 			window.innerWidth,
 		)
@@ -494,9 +479,7 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await expect
-			.element(screen.getByText('for the sauce'))
-			.not.toBeInTheDocument()
+		await expect.element(screen.getByText('for the sauce')).toBeVisible()
 		await expect
 			.element(screen.getByText('## for the sauce'))
 			.not.toBeInTheDocument()
