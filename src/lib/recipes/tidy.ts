@@ -26,6 +26,7 @@ function sourceText(input: TidyRecipeInput) {
 				: []),
 		]),
 		...(input.notes ? ['notes:', input.notes] : []),
+		...(input.sourceNotes ? ['publisher notes:', input.sourceNotes] : []),
 	].join('\n')
 }
 
@@ -42,7 +43,7 @@ const tidyOutput = z.object({
 		}),
 	),
 	steps: z.array(z.object({ text: z.string(), substeps: z.array(z.string()) })),
-	notes: z.string(),
+	notes: z.string().max(recipeNotesMax),
 })
 
 export type TidyOutput = z.infer<typeof tidyOutput>
@@ -56,10 +57,10 @@ export type TidiedRecipe = {
 
 const system = `You tidy cooking recipes for a recipe app. The input is a recipe pasted from anywhere, or one already saved. Return it cleaned up.
 
-Ignore checkbox marks like "[x]". Never invent, change, convert or drop an amount, unit, temperature, time or ingredient. Copy each ingredient's text exactly as written: "1½ cups" stays "1½ cups", and "½" is never rewritten as "1/2".
+Ignore checkbox marks like "[x]". Never invent, change, convert or drop an amount, unit, temperature, time or ingredient. Preserve quantities exactly: "1½ cups" stays "1½ cups", and "½" is never rewritten as "1/2". Retain essential preparation on the ingredient (such as diced, divided, or room temperature). Move verbose explanations and substitution guidance to notes, explicitly naming the ingredient they belong to. Preserve all substitutions, alternate quantities and qualifiers there; do not silently omit them.
 
 - title: the dish's short name, keeping a helpful descriptor from the source when it has one ("Ash Reshteh (Persian noodle and herb soup)"). No site names, no "best ever" hype.
-- sections: the ingredients, grouped by when the method uses them, in the order a cook reaches for them (for example: aromatics, legumes, herbs and greens, noodles, to finish). Always make two or more sections for a list of more than eight ingredients. A heading in the source such as "Ingredients" is not a grouping, so ignore it; a heading such as "For the sauce" or "Garnish" is one. Only a short list of one component is a single section with a null heading. Never add a section called "Ingredients". Each ingredient is its own item, like "2 tbsp olive oil, divided". Merge an ingredient listed twice only when both lines are identical; keep it in each section if it is used in more than one.
+- sections: preserve meaningful recipe component headings already present, such as "For the sauce". Otherwise use one section with a null heading; do not invent categories or reorder ingredients. Never add a section called "Ingredients". Keep each ingredient as its own item, including repeated ingredients when they appear in the source.
 - steps: the method in order. Every top-level numbered step of the source is its own step; never merge neighbours like "Soak beans" and "Soak rice", and never merge the items of a list such as the rice instructions. A step that has sub-steps keeps its title as its text and lists the sub-steps, each a complete instruction and in order, in substeps; a step with none has an empty substeps. No numbering, no "step 1" and no headings in any text. A heading above a numbered list ("Prep", "Optional: Rice Instructions") is not a step and never a parent step: its numbered items stay top-level steps of their own, and under an optional heading each one ends with "(optional)". Split sentences that were run together. Remove repeated lines, filler, backstory, ads, "jump to recipe", ratings, nutrition tables, author bios and reader comments. A prep section comes before the cooking steps.
 - notes: only tips, storage, substitutions, serving ideas and an equipment list that are in the input, as short plain sentences. Write equipment as one sentence starting "Equipment:". Empty when there are none. Never write a note about the source, the original recipe or anything the input doesn't say, and do not repeat what the steps or the ingredient lines already say.
 
@@ -111,7 +112,7 @@ export function toTidiedRecipe(output: TidyOutput): TidiedRecipe {
 					]
 				: []
 		}),
-		notes: output.notes.trim().slice(0, recipeNotesMax) || undefined,
+		notes: output.notes.trim() || undefined,
 	}
 }
 
@@ -128,12 +129,11 @@ function numbers(text: string) {
 	)
 }
 
-const MIN_INGREDIENTS_KEPT = 0.6
-
 function distinctIngredients(lines: string[]) {
 	return new Set(
 		lines.flatMap((line) =>
-			ingredientHeading(line) === undefined
+			ingredientHeading(line) === undefined &&
+			!/^ingredients?\s*:?$/i.test(line.trim())
 				? [line.toLowerCase().replaceAll(/\s+/g, ' ').trim()]
 				: [],
 		),
@@ -151,7 +151,12 @@ export function assertFaithful(input: TidyRecipeInput, tidied: TidiedRecipe) {
 	const known = numbers(sourceText(input))
 
 	const written = numbers(
-		[tidied.title, ...tidied.ingredients, ...tidied.steps].join('\n'),
+		[
+			tidied.title,
+			...tidied.ingredients,
+			...tidied.steps,
+			tidied.notes ?? '',
+		].join('\n'),
 	)
 
 	for (const digits of written) if (!known.has(digits)) throw unsafe
@@ -161,7 +166,15 @@ export function assertFaithful(input: TidyRecipeInput, tidied: TidiedRecipe) {
 	const kept = distinctIngredients(tidied.ingredients).size
 	const had = distinctIngredients(input.ingredients).size
 
-	if (kept < Math.ceil(had * MIN_INGREDIENTS_KEPT)) throw unsafe
+	if (kept < had) throw unsafe
+
+	// Amounts moved into notes must still be present somewhere in the result.
+	// Note references are labels rather than ingredient quantities.
+	const ingredientNumbers = numbers(
+		input.ingredients.join('\n').replace(/\bnotes?\s*\d+\b/gi, ''),
+	)
+
+	for (const digits of ingredientNumbers) if (!written.has(digits)) throw unsafe
 
 	if (input.steps.length && !tidied.steps.length) throw unsafe
 }

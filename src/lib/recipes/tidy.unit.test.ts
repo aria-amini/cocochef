@@ -43,7 +43,7 @@ const saved: TidyRecipeInput = {
 		'2. Fry the garlic in the olive oil.',
 		'Toss with parmesan.',
 	],
-	notes: null,
+	notes: 'Keeps 3 days in the fridge.',
 }
 
 const good: TidyOutput = {
@@ -185,6 +185,29 @@ Method
 		await expect(tidyRecipe(modelAnswering(dropped), saved)).rejects.toThrow(
 			AiTaskError,
 		)
+	})
+
+	test('retains alternate amounts moved from an ingredient into notes', async () => {
+		const input: TidyRecipeInput = {
+			title: 'soup',
+			ingredients: ['1 cup broth (or 250 ml water)'],
+			steps: ['Heat.'],
+			notes: null,
+		}
+
+		const output: TidyOutput = {
+			title: 'soup',
+			sections: [{ heading: null, items: ['1 cup broth'] }],
+			steps: [{ text: 'Heat.', substeps: [] }],
+			notes: 'Broth: or 250 ml water.',
+		}
+
+		await expect(
+			tidyRecipe(modelAnswering(output), input),
+		).resolves.toMatchObject({ notes: 'Broth: or 250 ml water.' })
+		await expect(
+			tidyRecipe(modelAnswering({ ...output, notes: '' }), input),
+		).rejects.toThrow("couldn't tidy that safely")
 	})
 
 	test('rejects a cleanup that drops every step', async () => {

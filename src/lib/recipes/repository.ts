@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import {
 	and,
 	asc,
@@ -11,6 +13,7 @@ import {
 	inArray,
 	isNull,
 	isNotNull,
+	notExists,
 	max,
 	or,
 	sql,
@@ -20,6 +23,7 @@ import { type Database, getDb } from '@/db/connection'
 import {
 	mealLogs,
 	recipeIngredients,
+	recipeAiVersions,
 	recipeSteps,
 	recipes,
 	recipeShares,
@@ -28,6 +32,7 @@ import {
 } from '@/db/schema'
 import {
 	ownsRecipePhoto,
+	type RecipeContent,
 	type IngredientCategories,
 	type RecipeUpdate,
 } from '@/lib/recipes/model'
@@ -63,7 +68,7 @@ function visibleTo(userId: string, database: RecipeDatabase) {
 	)
 }
 
-function cookStatsForUser(database: Database, userId: string) {
+function cookStatsForUser(database: RecipeDatabase, userId: string) {
 	return database
 		.select({
 			recipeId: mealLogs.recipeId,
@@ -78,7 +83,7 @@ function cookStatsForUser(database: Database, userId: string) {
 
 // A recipe as one user sees it: the shared content, plus their shelf row (notes,
 // when saved) and how often they cooked it.
-function recipesForUser(database: Database, userId: string) {
+function recipesForUser(database: RecipeDatabase, userId: string) {
 	const stats = cookStatsForUser(database, userId)
 
 	return database
@@ -114,7 +119,23 @@ export async function listShelfForUser(
 	database: Database = getDb(),
 ) {
 	const userRecipes = await recipesForUser(database, userId)
-		.where(and(eq(shelfRecipes.userId, userId), visibleTo(userId, database)))
+		.where(
+			and(
+				eq(shelfRecipes.userId, userId),
+				visibleTo(userId, database),
+				notExists(
+					database
+						.select({ one: sql`1` })
+						.from(recipeAiVersions)
+						.where(
+							and(
+								eq(recipeAiVersions.userId, userId),
+								eq(recipeAiVersions.cleanedId, recipes.id),
+							),
+						),
+				),
+			),
+		)
 		.orderBy(desc(shelfRecipes.addedAt))
 
 	return { recipes: userRecipes }
@@ -248,6 +269,146 @@ export async function getRecipeForUser(
 	}
 }
 
+export async function findAiVersionForUser(
+	userId: string,
+	recipeId: string,
+	database: Database = getDb(),
+) {
+	const [version] = await database
+		.select()
+		.from(recipeAiVersions)
+		.where(
+			and(
+				eq(recipeAiVersions.userId, userId),
+				or(
+					eq(recipeAiVersions.originalId, recipeId),
+					eq(recipeAiVersions.cleanedId, recipeId),
+				),
+			),
+		)
+
+	if (!version) return null
+	const original = await getRecipeForUser(userId, version.originalId, database)
+
+	if (!original) return null
+
+	return {
+		...version,
+		stale: version.sourceFingerprint !== aiSourceFingerprint(original),
+	}
+}
+
+export function aiSourceFingerprint(recipe: {
+	title: string
+	ingredients: string[]
+	steps: string[]
+	notes: string | null
+	sourceNotes: string | null
+}) {
+	return createHash('sha256')
+		.update(
+			JSON.stringify([
+				recipe.title,
+				recipe.ingredients,
+				recipe.steps,
+				recipe.notes,
+				recipe.sourceNotes,
+			]),
+		)
+		.digest('hex')
+}
+
+export async function createAiVersionForUser(
+	userId: string,
+	originalId: string,
+	fingerprint: string,
+	cleaned: Pick<RecipeContent, 'title' | 'ingredients' | 'steps' | 'notes'>,
+	database: Database = getDb(),
+) {
+	return database.transaction(async (tx) => {
+		// Serialize concurrent attempts for this original; only one copy wins.
+		await tx
+			.select({ id: recipes.id })
+			.from(recipes)
+			.where(eq(recipes.id, originalId))
+			.for('update')
+
+		const [existing] = await tx
+			.select()
+			.from(recipeAiVersions)
+			.where(
+				and(
+					eq(recipeAiVersions.userId, userId),
+					eq(recipeAiVersions.originalId, originalId),
+				),
+			)
+
+		if (existing) return existing
+
+		const [original] = await recipesForUser(tx, userId).where(
+			and(eq(recipes.id, originalId), visibleTo(userId, tx)),
+		)
+
+		if (!original) throw new Error('recipe not found')
+		const content = await recipeContent(tx, originalId)
+
+		if (aiSourceFingerprint({ ...original, ...content }) !== fingerprint)
+			throw new Error('the recipe changed while AI was working — try again')
+		const now = new Date()
+		await tx
+			.insert(shelfRecipes)
+			.values({
+				id: crypto.randomUUID(),
+				userId,
+				recipeId: originalId,
+				addedAt: now,
+			})
+			.onConflictDoNothing({
+				target: [shelfRecipes.userId, shelfRecipes.recipeId],
+			})
+
+		const [copy] = await tx
+			.insert(recipes)
+			.values({
+				id: crypto.randomUUID(),
+				userId,
+				forkedFromId: original.id,
+				title: cleaned.title,
+				imageUrl: original.imageUrl,
+				sourceUrl: original.sourceUrl,
+				sourceNotes: original.sourceNotes,
+				servings: original.servings,
+				totalMinutes: original.totalMinutes,
+				createdAt: now,
+				finalizedAt: now,
+			})
+			.returning()
+
+		if (!copy) throw new Error("couldn't save the cleaned version")
+		await insertRecipeContent(tx, copy.id, cleaned.ingredients, cleaned.steps)
+		await tx.insert(shelfRecipes).values({
+			id: crypto.randomUUID(),
+			userId,
+			recipeId: copy.id,
+			notes: cleaned.notes,
+			addedAt: now,
+		})
+
+		const [version] = await tx
+			.insert(recipeAiVersions)
+			.values({
+				userId,
+				originalId,
+				cleanedId: copy.id,
+				sourceFingerprint: fingerprint,
+				createdAt: now,
+			})
+			.returning()
+
+		return version
+	})
+}
+
 // Which of these pages are already shared recipes.
 export async function sharedRecipeUrls(
 	urls: string[],
@@ -314,6 +475,17 @@ export async function findRecipesForUser(
 		.where(
 			and(
 				visibleTo(userId, database),
+				notExists(
+					database
+						.select({ one: sql`1` })
+						.from(recipeAiVersions)
+						.where(
+							and(
+								eq(recipeAiVersions.userId, userId),
+								eq(recipeAiVersions.cleanedId, recipes.id),
+							),
+						),
+				),
 				...terms.map((term) => or(inTitle(term), inIngredients(term))),
 			),
 		)

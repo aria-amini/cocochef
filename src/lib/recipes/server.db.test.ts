@@ -17,6 +17,8 @@ import { recipeUpdateInput } from './model'
 import {
 	addMissingSourceNotes,
 	copyRecipeForUser,
+	aiSourceFingerprint,
+	createAiVersionForUser,
 	createRecipeForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
@@ -26,6 +28,7 @@ import {
 	saveRecipeForUser,
 	createSharedRecipe,
 	findSharedRecipeByUrl,
+	findAiVersionForUser,
 	findRecipesForUser,
 	sharedRecipeUrls,
 	updateRecipeForUser,
@@ -138,6 +141,120 @@ describe('recipe shelf', () => {
 		)
 	})
 
+	test('creates a private AI copy without changing the original and detects stale source', async ({
+		db,
+	}) => {
+		const owner = await seedUser(db)
+		const other = await seedUser(db)
+
+		const original = await createRecipeForUser(
+			owner,
+			{
+				title: 'soup',
+				ingredients: ['1 onion, diced'],
+				steps: ['Cook'],
+				notes: 'original note',
+			},
+			db,
+		)
+
+		if (!original) throw new Error('missing recipe')
+		const before = await getRecipeForUser(owner, original.id, db)
+
+		if (!before) throw new Error('missing source')
+
+		const cleaned = {
+			title: 'soup',
+			ingredients: ['1 onion'],
+			steps: ['Cook'],
+			notes: 'Dice the onion.',
+		}
+
+		const version = await createAiVersionForUser(
+			owner,
+			original.id,
+			aiSourceFingerprint(before),
+			cleaned,
+			db,
+		)
+
+		if (!version) throw new Error('missing version')
+		expect(await getRecipeForUser(owner, original.id, db)).toMatchObject({
+			ingredients: ['1 onion, diced'],
+			notes: 'original note',
+		})
+		expect(await getRecipeForUser(owner, version.cleanedId, db)).toMatchObject({
+			ingredients: ['1 onion'],
+			notes: 'Dice the onion.',
+		})
+		expect(await getRecipeForUser(other, version.cleanedId, db)).toBeNull()
+		expect(await findAiVersionForUser(other, original.id, db)).toBeNull()
+		expect(
+			await findAiVersionForUser(owner, version.cleanedId, db),
+		).toMatchObject({ originalId: original.id, stale: false })
+		expect(
+			(await listShelfForUser(owner, db)).recipes.map((recipe) => recipe.id),
+		).toEqual([original.id])
+		await updateRecipeForUser(
+			owner,
+			{
+				id: original.id,
+				title: 'new soup',
+				imageUrl: null,
+				notes: 'original note',
+				ingredients: ['1 onion, diced'],
+				steps: ['Cook'],
+			},
+			db,
+		)
+		expect(await findAiVersionForUser(owner, original.id, db)).toMatchObject({
+			stale: true,
+		})
+	})
+
+	test('does not save a cleaned version if the original changed during generation', async ({
+		db,
+	}) => {
+		const owner = await seedUser(db)
+
+		const original = await createRecipeForUser(
+			owner,
+			{ title: 'soup', ingredients: ['1 onion'], steps: ['Cook'] },
+			db,
+		)
+
+		if (!original) throw new Error('missing recipe')
+		const before = await getRecipeForUser(owner, original.id, db)
+
+		if (!before) throw new Error('missing source')
+		await updateRecipeForUser(
+			owner,
+			{
+				id: original.id,
+				title: 'changed',
+				imageUrl: null,
+				notes: null,
+				ingredients: ['1 onion'],
+				steps: ['Cook'],
+			},
+			db,
+		)
+		await expect(
+			createAiVersionForUser(
+				owner,
+				original.id,
+				aiSourceFingerprint(before),
+				{
+					title: 'soup',
+					ingredients: ['1 onion'],
+					steps: ['Cook'],
+					notes: null,
+				},
+				db,
+			),
+		).rejects.toThrow('recipe changed')
+		expect(await findAiVersionForUser(owner, original.id, db)).toBeNull()
+	})
 	test('shelves a new recipe', async ({ db }) => {
 		const userId = await seedUser(db)
 		const recipe = await createRecipeForUser(userId, { title: 'dal' }, db)

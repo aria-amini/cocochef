@@ -1,3 +1,4 @@
+import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
@@ -10,6 +11,17 @@ type Recipe = NonNullable<Awaited<ReturnType<typeof getRecipe>>>
 const recipeState: { recipe: Recipe | null } = vi.hoisted(() => ({
 	recipe: null,
 }))
+
+const aiState = vi.hoisted<{
+	version: null | {
+		userId: string
+		originalId: string
+		cleanedId: string
+		sourceFingerprint: string
+		createdAt: Date
+		stale: boolean
+	}
+}>(() => ({ version: null }))
 
 type RecipeUpdate = Omit<
 	Recipe,
@@ -39,8 +51,32 @@ vi.mock('@/lib/recipes/server', () => ({
 		return { id: data.id }
 	},
 	copyRecipe: () => Promise.resolve(null),
+	getAiVersion: () => Promise.resolve(aiState.version),
+	createAiVersion: async () => {
+		aiState.version = {
+			userId: 'user-1',
+			originalId: 'recipe-1',
+			cleanedId: 'cleaned-1',
+			sourceFingerprint: 'hash',
+			createdAt: new Date(),
+			stale: false,
+		}
+
+		return aiState.version
+	},
+	tidyRecipeWithAi: () => Promise.reject(new Error('AI is not mocked')),
 	listShelf: () => Promise.resolve({ recipes: [] }),
-	getRecipe: () => Promise.resolve(recipeState.recipe),
+	getRecipe: ({ data }: { data: { id: string } }) =>
+		Promise.resolve(
+			data.id === 'cleaned-1' && recipeState.recipe
+				? {
+						...recipeState.recipe,
+						id: data.id,
+						title: 'cleaned pasta',
+						ingredients: ['200g pasta'],
+					}
+				: recipeState.recipe,
+		),
 	updateRecipe: async ({ data }: { data: RecipeUpdate }) => {
 		updateCalls.calls.push(data)
 
@@ -100,6 +136,7 @@ const session = {
 
 describe('recipe detail', () => {
 	beforeEach(() => {
+		aiState.version = null
 		// A toast left over from the last test would cover the pinned actions.
 		toast.dismiss()
 		updateCalls.calls.length = 0
@@ -142,6 +179,66 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByText('private recipe', { exact: true }))
 			.toBeInTheDocument()
+	})
+
+	test('asks guests to create an account in a dialog before cleanup', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session: {
+				user: {
+					id: 'guest',
+					name: 'guest',
+					email: 'guest@example.com',
+					isAnonymous: true,
+				},
+				session: { id: 'guest-session', token: 'token' },
+			},
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen
+			.getByRole('button', { name: 'clean up with ai · beta' })
+			.click()
+		const dialog = screen.getByRole('dialog', { name: 'create an account' })
+		await expect.element(dialog).toBeVisible()
+		await dialog.getByRole('button', { name: 'continue with google' }).click()
+		await vi.waitFor(() =>
+			expect(getAuthMocks().signInSocial).toHaveBeenCalledWith({
+				provider: 'google',
+				callbackURL: `${window.location.origin}/recipes/recipe-1`,
+			}),
+		)
+		await dialog.getByRole('button', { name: 'sign in' }).click()
+		await expect
+			.element(screen.getByRole('dialog', { name: 'sign in' }))
+			.toBeVisible()
+	})
+
+	test('creates a separate AI version and switches back to the original', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200g pasta (reserve some water)']
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen
+			.getByRole('button', { name: 'clean up with ai · beta' })
+			.click()
+		await expect
+			.element(screen.getByRole('heading', { name: 'cleaned pasta' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'cleaned' }))
+			.toHaveAttribute('aria-pressed', 'true')
+		await screen.getByRole('button', { name: 'original' }).click()
+		await expect
+			.element(
+				screen.getByRole('checkbox', {
+					name: '200g pasta (reserve some water)',
+				}),
+			)
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'original' }))
+			.toHaveAttribute('aria-pressed', 'true')
 	})
 
 	test('renders content and separate empty states', async () => {

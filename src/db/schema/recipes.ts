@@ -93,6 +93,37 @@ export const shelfRecipes = snakeCase.table(
 	],
 )
 
+// One private AI version per cook and original recipe. The two recipes have
+// independent content; generating one never edits the source.
+export const recipeAiVersions = snakeCase.table(
+	'recipe_ai_versions',
+	{
+		userId: text().notNull(),
+		originalId: text().notNull(),
+		cleanedId: text().notNull(),
+		sourceFingerprint: text().notNull(),
+		createdAt: timestamp({ withTimezone: true }).notNull(),
+	},
+	(table) => [
+		uniqueIndex('recipe_ai_versions_user_original').on(
+			table.userId,
+			table.originalId,
+		),
+		uniqueIndex('recipe_ai_versions_cleaned').on(table.cleanedId),
+		foreignKey({ columns: [table.userId], foreignColumns: [user.id] }).onDelete(
+			'cascade',
+		),
+		foreignKey({
+			columns: [table.originalId],
+			foreignColumns: [recipes.id],
+		}).onDelete('cascade'),
+		foreignKey({
+			columns: [table.cleanedId],
+			foreignColumns: [recipes.id],
+		}).onDelete('cascade'),
+	],
+)
+
 export const recipeIngredients = snakeCase.table(
 	'recipe_ingredients',
 	{

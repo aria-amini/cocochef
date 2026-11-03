@@ -1,8 +1,10 @@
-import { PencilSimple } from '@phosphor-icons/react'
-import { useQuery } from '@tanstack/react-query'
+import { PencilSimple, SparkleIcon } from '@phosphor-icons/react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
+import { AuthDialog } from '@/components/auth-dialog'
 import { CopyRecipeButton } from '@/components/copy-recipe-button'
 import { BackLink } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
@@ -11,7 +13,7 @@ import { RecipeSharing } from '@/components/recipe-sharing'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
 import { buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
-import { getRecipe } from '@/lib/recipes/server'
+import { createAiVersion, getAiVersion, getRecipe } from '@/lib/recipes/server'
 import { getMyRecipeShare } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
 
@@ -36,6 +38,7 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 				</BackLink>
 				{editing ? (
 					<>
+						<EditTools recipe={recipe} onLeave={() => setEditing(false)} />
 						<RecipeEditor
 							key={recipe.id}
 							recipe={recipe}
@@ -64,6 +67,158 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 				)}
 			</div>
 		</main>
+	)
+}
+
+// Rewrites and ownership belong to editing, so the read view stays quiet.
+function EditTools({
+	recipe,
+	onLeave,
+}: {
+	recipe: Recipe
+	onLeave: () => void
+}) {
+	return (
+		<div className="mb-4 flex flex-wrap items-center gap-2 empty:hidden">
+			<AiVersionControls recipeId={recipe.id} editing onCreated={onLeave} />
+		</div>
+	)
+}
+
+function AiVersionControls({
+	recipeId,
+	editing = false,
+	onCreated,
+}: {
+	recipeId: string
+	editing?: boolean
+	onCreated?: () => void
+}) {
+	const session = authClient.useSession()
+	const account = session.data?.user
+	const navigate = useNavigate()
+	const [authOpen, setAuthOpen] = useState(false)
+
+	const versions = useQuery({
+		queryKey: ['recipe-ai-version', recipeId],
+		queryFn: () => getAiVersion({ data: { id: recipeId } }),
+		enabled: Boolean(account && !account.isAnonymous),
+	})
+
+	const generate = useMutation({
+		mutationFn: () => createAiVersion({ data: { id: recipeId } }),
+		onSuccess: (version) => {
+			if (version) onCreated?.()
+
+			if (version)
+				void navigate({
+					to: '/recipes/$recipeId',
+					params: { recipeId: version.cleanedId },
+				})
+		},
+		onError: (error) =>
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "couldn't clean up this recipe",
+			),
+	})
+
+	if (session.isPending) return null
+
+	// The cleanup itself is an edit; the original/cleaned switch is for reading.
+	if (!account || account.isAnonymous)
+		return editing ? (
+			<>
+				<button
+					type="button"
+					className={buttonVariants({ variant: 'outline' })}
+					onClick={() => setAuthOpen(true)}
+				>
+					<SparkleIcon size={14} weight="bold" aria-hidden />
+					clean up with ai · beta
+				</button>
+				<AuthDialog
+					open={authOpen}
+					onOpenChange={setAuthOpen}
+					redirect={`/recipes/${recipeId}`}
+				/>
+			</>
+		) : null
+
+	if (versions.isPending) return null
+
+	if (versions.isError)
+		return (
+			<p role="alert" className="text-sm">
+				couldn't load AI versions —{' '}
+				<button
+					type="button"
+					className="underline"
+					onClick={() => void versions.refetch()}
+				>
+					try again
+				</button>
+			</p>
+		)
+	const version = versions.data
+
+	if (!version)
+		return editing ? (
+			<button
+				type="button"
+				disabled={generate.isPending}
+				className={buttonVariants({ variant: 'outline' })}
+				onClick={() => generate.mutate()}
+				title="saves this recipe to your shelf and keeps the original intact"
+			>
+				<SparkleIcon size={14} weight="bold" aria-hidden />
+				{generate.isPending ? 'cleaning up…' : 'clean up with ai · beta'}
+			</button>
+		) : null
+
+	if (editing) return null
+
+	const cleaned = version.cleanedId === recipeId
+
+	return (
+		<div className="mt-3 flex flex-wrap items-center gap-2">
+			<span className="text-muted-foreground text-xs font-semibold">
+				ai cleanup · beta
+			</span>
+			{[
+				{ id: version.originalId, label: 'original' },
+				{ id: version.cleanedId, label: 'cleaned' },
+			].map(({ id, label }) => (
+				<button
+					key={id}
+					type="button"
+					aria-pressed={recipeId === id}
+					className={cn(
+						'rounded-md px-3 py-2 text-sm font-semibold ',
+						recipeId === id && 'bg-kitchen-yolk/40',
+					)}
+					onClick={() =>
+						void navigate({
+							to: '/recipes/$recipeId',
+							params: { recipeId: id },
+						})
+					}
+				>
+					{label}
+				</button>
+			))}
+			{cleaned ? (
+				<p className="text-muted-foreground w-full text-xs">
+					AI can make mistakes — check the cleaned recipe before cooking.
+				</p>
+			) : null}
+			{version.stale ? (
+				<p className="text-muted-foreground w-full text-xs">
+					the original has changed since this version was created
+				</p>
+			) : null}
+		</div>
 	)
 }
 
@@ -123,6 +278,7 @@ function RecipeView({
 							/>
 						) : null}
 					</div>
+					<AiVersionControls recipeId={recipe.id} />
 					{!recipe.owned ? (
 						<p className="text-muted-foreground mt-2 text-sm">
 							save keeps this recipe; make a copy to edit your own version.

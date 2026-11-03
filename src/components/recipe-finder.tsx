@@ -931,8 +931,6 @@ function IngredientsLoading({ label }: { label: string }) {
 
 // A found recipe up close. Once it is on the shelf it reads exactly as it does
 // on its own page; before that, a title and a note while it is fetched.
-// A found recipe up close. Once it is on the shelf it reads exactly as it does
-// on its own page; before that, a title and a note while it is fetched.
 function RecipePreview({
 	recipe,
 	recipeId,

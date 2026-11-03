@@ -17,7 +17,10 @@ import {
 
 import { recipeIdInput, recipeInput, recipeUpdateInput } from './model'
 import {
+	aiSourceFingerprint,
 	copyRecipeForUser,
+	createAiVersionForUser,
+	findAiVersionForUser,
 	createRecipeForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
@@ -163,6 +166,52 @@ const withTidySlot = createSlots({
 	maxPerKey: 1,
 	message: 'still tidying your last recipe — one moment',
 })
+
+export const getAiVersion = createServerFn({ method: 'GET' })
+	.validator(recipeIdInput)
+	.handler(async ({ data }) =>
+		findAiVersionForUser(await requireAccountId('load AI versions'), data.id),
+	)
+
+// Generate from server-loaded content, and save a new private copy. The source
+// is checked again before writing so concurrent edits are never overwritten.
+export const createAiVersion = createServerFn({ method: 'POST' })
+	.validator(recipeIdInput)
+	.handler(async ({ data }) => {
+		const userId = await requireAccountId('clean up recipes with AI')
+		const existing = await findAiVersionForUser(userId, data.id)
+
+		if (existing) return existing
+		const recipe = await getRecipeForUser(userId, data.id)
+
+		if (!recipe) throw new Error('recipe not found')
+		const model = getAiModel()
+
+		if (!model) throw new Error("AI isn't set up here yet")
+		tidyUserLimit(userId)
+		tidyIpLimit(getRequestIP() ?? 'unknown')
+		tidyGlobalLimit('app')
+
+		const cleaned = await withTidySlot(userId, () =>
+			tidyRecipe(model, {
+				title: recipe.title,
+				ingredients: recipe.ingredients,
+				steps: recipe.steps,
+				notes: recipe.notes,
+				sourceNotes: recipe.sourceNotes ?? undefined,
+			}),
+		)
+
+		return createAiVersionForUser(
+			userId,
+			recipe.id,
+			aiSourceFingerprint(recipe),
+			{
+				...cleaned,
+				notes: cleaned.notes ?? null,
+			},
+		)
+	})
 
 // A proposal only: nothing is saved, so the editor can show it and undo it.
 export const tidyRecipeWithAi = createServerFn({ method: 'POST' })

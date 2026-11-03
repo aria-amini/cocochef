@@ -58,7 +58,11 @@ are planned; the data model has none yet.
   stands on its own; removing a link never changes that credit.
 - A recipe is written on its own page and saved on purpose: the editor lists
   what changed, "save" keeps it, and "cancel" leaves the recipe as it was.
-- Ingredient and step checkboxes are temporary: leaving the recipe clears them.
+- Ingredient and step checkboxes are temporary: leaving the recipe or switching
+  versions clears them.
+- An account can create a private AI-cleaned version of a recipe and switch back
+  to the original, which is never changed. The cleaned version is marked beta so
+  it gets checked before cooking.
 - Cook logging is not part of the current MVP.
 
 ## Brand Commitments
