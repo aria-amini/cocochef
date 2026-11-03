@@ -331,7 +331,7 @@ describe('the one box', () => {
 
 		if (!dialog) throw new Error('missing finder dialog')
 		expect(dialog.getBoundingClientRect().height).toBe(
-			window.innerHeight - (isPhone() ? 0 : 64),
+			window.innerHeight - (isPhone() ? 48 : 64),
 		)
 		await expect
 			.element(screen.getByRole('button', { name: 'save', exact: true }))

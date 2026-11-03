@@ -10,6 +10,7 @@ import {
 	LinkSimpleIcon,
 	MagnifyingGlassIcon,
 	PencilSimpleIcon,
+	XIcon,
 } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -190,7 +191,7 @@ export function RecipeFinder({
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={input}
-					className="bg-background md:border-foreground/30 fixed inset-0 z-50 flex flex-col overflow-hidden outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl md:border md:shadow-md"
+					className="bg-background border-foreground/30 fixed inset-x-2 top-10 z-50 flex h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded-2xl border shadow-md outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl"
 				>
 					<Dialog.Title className="sr-only">find a recipe</Dialog.Title>
 					<FinderPanel
@@ -641,17 +642,25 @@ function FinderPanel({
 					)}
 				>
 					{previewing ? (
-						<button
-							type="button"
-							ref={backRef}
-							onClick={() => {
-								setPreviewing(false)
-							}}
-							className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant flex items-center gap-1.5 px-4 py-3 text-sm font-semibold focus-visible:outline-2"
-						>
-							<ArrowLeftIcon size={14} weight="bold" aria-hidden />
-							back to results
-						</button>
+						<div className="border-border flex items-center justify-between border-b pr-2">
+							<button
+								type="button"
+								ref={backRef}
+								onClick={() => {
+									setPreviewing(false)
+								}}
+								className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant flex min-h-11 items-center gap-1.5 px-4 text-sm font-semibold focus-visible:outline-2"
+							>
+								<ArrowLeftIcon size={14} weight="bold" aria-hidden />
+								back to results
+							</button>
+							<Dialog.Close
+								aria-label="close"
+								className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant grid size-11 place-items-center rounded-md focus-visible:outline-2 md:hidden"
+							>
+								<XIcon size={18} weight="bold" aria-hidden />
+							</Dialog.Close>
+						</div>
 					) : null}
 					{previewing && error ? (
 						<p
