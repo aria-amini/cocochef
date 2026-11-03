@@ -8,7 +8,6 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
-import { CookingTracker } from '@/components/cooking-tracker'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { cn } from '@/lib/utils/ui'
 
@@ -82,16 +81,11 @@ export function useTabBarVisible() {
 }
 
 export function AppNav() {
-	const tabsVisible = useTabBarVisible()
-
 	return (
 		<>
 			<MobileHeader />
 			<Sidebar />
 			<TabBar />
-			<div className={cn('md:hidden', tabsVisible && '[&_aside]:bottom-20')}>
-				<CookingTracker />
-			</div>
 		</>
 	)
 }
@@ -143,7 +137,6 @@ function Sidebar() {
 				)
 			})}
 			<div className="mt-auto flex flex-col gap-4 pt-6">
-				<CookingTracker />
 				<AccountMenu variant="rail" />
 			</div>
 		</nav>

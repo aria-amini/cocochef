@@ -4,7 +4,8 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { FieldError, primaryActionClassName } from '@/components/recipe-form'
-import { Button } from '@/components/ui/button'
+import { ExportRecipeButton } from '@/components/recipe-transfer'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
 	Dialog,
 	DialogContent,
@@ -20,11 +21,12 @@ import {
 } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
 
+// The one place for getting a recipe out of the app: a link to it, or a file.
 export function RecipeSharing({
-	recipeId,
+	recipe,
 	imported,
 }: {
-	recipeId: string
+	recipe: { id: string; title: string }
 	imported: boolean
 }) {
 	const [open, setOpen] = useState(false)
@@ -33,10 +35,10 @@ export function RecipeSharing({
 		<>
 			<button
 				type="button"
-				className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex items-center gap-1 px-1 py-1 text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2"
+				className={buttonVariants({ variant: 'ghost' })}
 				onClick={() => setOpen(true)}
 			>
-				<ShareNetworkIcon size={12} weight="bold" aria-hidden />
+				<ShareNetworkIcon size={14} weight="bold" aria-hidden />
 				share
 			</button>
 			<Dialog open={open} onOpenChange={setOpen}>
@@ -47,11 +49,18 @@ export function RecipeSharing({
 					</DialogDescription>
 					{open ? (
 						<SharingOptions
-							key={recipeId}
-							recipeId={recipeId}
+							key={recipe.id}
+							recipeId={recipe.id}
 							imported={imported}
 						/>
 					) : null}
+					<div className="border-border space-y-2 border-t pt-4">
+						<p className="text-muted-foreground text-sm">
+							or save a backup file, with your notes, to import into another
+							dutch-oven.
+						</p>
+						<ExportRecipeButton recipe={recipe} />
+					</div>
 				</DialogContent>
 			</Dialog>
 		</>

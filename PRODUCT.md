@@ -31,11 +31,11 @@ Vite+, Drizzle/Postgres, Better Auth, Tailwind v4, shadcn).
 
 ## Capabilities and Constraints
 
-Shipped: recipe browsing, saving and cooking (a per-recipe checklist that syncs
-across devices), import from a link or pasted text (with a home relay for sites
-that refuse datacenters), books (collections) for organizing a shelf, public
-profiles and share links, recipe export and import between kitchens, and an
-ingredients pantry (per-user ingredients, whole-item quantities, pixel icons).
+Shipped: recipe browsing, saving and temporary on-page checklists, import from a
+link or pasted text (with a home relay for sites that refuse datacenters), books
+(collections) for organizing a shelf, public profiles and share links, recipe
+export and import between kitchens, and an ingredients pantry (per-user
+ingredients, whole-item quantities, pixel icons).
 
 Confirmed, not built yet: meal logging as a one-tap byproduct of cooking (the
 data model and server functions exist, and cook counts already rank the shelf,

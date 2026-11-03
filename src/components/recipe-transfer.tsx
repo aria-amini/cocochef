@@ -45,8 +45,8 @@ export function ExportRecipeButton({
 	const [pending, setPending] = useState(false)
 
 	return (
-		<button
-			type="button"
+		<Button
+			variant="outline"
 			disabled={pending}
 			onClick={() => {
 				setPending(true)
@@ -55,11 +55,10 @@ export function ExportRecipeButton({
 					.catch(() => toast.error("couldn't export that — try again"))
 					.finally(() => setPending(false))
 			}}
-			className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex items-center gap-1 px-1 py-1 text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
 		>
-			<DownloadSimpleIcon size={12} weight="bold" aria-hidden />
-			export
-		</button>
+			<DownloadSimpleIcon size={14} weight="bold" aria-hidden />
+			export as file
+		</Button>
 	)
 }
 
