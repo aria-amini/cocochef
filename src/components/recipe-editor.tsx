@@ -259,12 +259,14 @@ export function RecipeEditor({
 		ingredients: string[]
 		ingredientCategories?: IngredientCategories | undefined
 		steps: string[]
+		notes?: string | undefined
 	}>({
 		version: 0,
 		title: recipe?.title ?? arrived?.title ?? defaultTitle,
 		ingredients: recipe?.ingredients ?? arrived?.ingredients ?? [],
 		ingredientCategories: recipe?.ingredientCategories,
 		steps: recipe?.steps ?? arrived?.steps ?? [],
+		notes: recipe?.notes ?? arrived?.notes ?? '',
 	})
 
 	// Read from the fields, not from `contentFrom`, which gives up without a name
@@ -314,7 +316,7 @@ export function RecipeEditor({
 	const announceSorted = useCallback(
 		(
 			sorted: ReturnType<typeof parsePastedRecipe>,
-			before: { name: string; draft: string | undefined },
+			before: { name: string; draft: string | undefined; notes: string },
 		) => {
 			sortedToast.current = toast(
 				sortedLabel(sorted.ingredients.length, sorted.steps.length),
@@ -330,6 +332,7 @@ export function RecipeEditor({
 								title: before.name,
 								ingredients: [],
 								steps: [],
+								notes: before.notes,
 							}))
 
 							if (!before.draft) void discardDraft()
@@ -347,18 +350,29 @@ export function RecipeEditor({
 		if (!arrived || announcedArrival.current) return
 		announcedArrival.current = true
 		scheduleAutosave()
-		announceSorted(arrived, { name: defaultTitle, draft: undefined })
+		announceSorted(arrived, { name: defaultTitle, draft: undefined, notes: '' })
 	}, [arrived, defaultTitle, scheduleAutosave, announceSorted])
 
 	// A pasted recipe is sorted at once, with a way back to the empty page.
 	const sortPasted = useCallback(
 		(text: string) => {
 			const sorted = parsePastedRecipe(text)
-			const before = { name, draft: recipeId.current }
+
+			const before = {
+				name,
+				draft: recipeId.current,
+				notes: form.current
+					? formField(new FormData(form.current), 'notes')
+					: '',
+			}
 
 			setName(sorted.title)
 			setUnnamed(false)
-			setSeed((current) => ({ version: current.version + 1, ...sorted }))
+			setSeed((current) => ({
+				version: current.version + 1,
+				...sorted,
+				notes: [before.notes, sorted.notes].filter(Boolean).join('\n\n'),
+			}))
 			scheduleAutosave()
 
 			announceSorted(sorted, before)
@@ -604,10 +618,11 @@ export function RecipeEditor({
 					notes
 				</label>
 				<textarea
+					key={seed.version}
 					id="edit-notes"
 					name="notes"
 					maxLength={recipeNotesMax}
-					defaultValue={recipe?.notes ?? ''}
+					defaultValue={seed.notes ?? ''}
 					rows={3}
 					placeholder="less salt next time"
 					className={cn(fieldClassName, 'resize-y', placeholderClassName)}

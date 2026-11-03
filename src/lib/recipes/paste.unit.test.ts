@@ -18,6 +18,13 @@ Method
 		})
 	})
 
+	test('keeps unmeasured ingredients before measured ones', () => {
+		expect(
+			parsePastedRecipe('Eggs\nIngredients\nsalt\n2 eggs\nSteps\nWhisk.')
+				.ingredients,
+		).toEqual(['salt', '2 eggs'])
+	})
+
 	test('splits on ingredients and method headings', () => {
 		expect(
 			parsePastedRecipe(`Nonna's ragù

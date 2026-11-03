@@ -116,7 +116,7 @@ function headingOf(line: PastedLine) {
 }
 
 // A short label over a list ("Herbs", "Sides (Optional)") names a group, not a
-// food: it has no amount and the next line is a list item or has one.
+// food: it has no amount and is followed by bullets, or ends with a colon.
 function isGroupHeading(line: PastedLine, next: PastedLine | undefined) {
 	if (line.kind !== 'plain' || line.text.length > 40) return false
 
@@ -127,9 +127,8 @@ function isGroupHeading(line: PastedLine, next: PastedLine | undefined) {
 
 	return (
 		next !== undefined &&
-		(next.kind === 'bullet' ||
-			(next.kind !== 'blank' &&
-				parseIngredientLine(next.text).quantity !== undefined))
+		next.kind !== 'blank' &&
+		(line.text.endsWith(':') || next.kind === 'bullet')
 	)
 }
 
