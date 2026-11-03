@@ -23,7 +23,7 @@ const tabBarRoutes = new Set([
 	'/recipes',
 	'/ingredients',
 	'/groceries',
-	'/profile',
+	'/settings',
 ])
 
 type TabBarMode = 'none' | 'bar' | 'bar-fab'

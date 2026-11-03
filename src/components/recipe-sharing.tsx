@@ -173,7 +173,11 @@ function SharingOptions({
 				</div>
 			) : !profile.data ? (
 				<p className="text-sm">
-					<Link to="/profile/sharing" className="font-semibold underline">
+					<Link
+						to="/settings"
+						hash="public-profile"
+						className="font-semibold underline"
+					>
 						choose a public handle
 					</Link>{' '}
 					before publishing recipes.

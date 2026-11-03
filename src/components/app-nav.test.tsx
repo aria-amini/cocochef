@@ -89,15 +89,15 @@ describe('app nav', () => {
 		},
 	)
 
-	test('puts profile and sign out in the account menu', async () => {
+	test('puts settings and sign out in the account menu', async () => {
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
 
 		await screen.getByRole('button', { name: 'Account' }).click()
 
 		await expect.element(page.getByText('ada@example.com')).toBeVisible()
 		await expect
-			.element(page.getByRole('menuitem', { name: 'profile & photo' }))
-			.toHaveAttribute('href', '/profile')
+			.element(page.getByRole('menuitem', { name: 'settings' }))
+			.toHaveAttribute('href', '/settings')
 		await expect
 			.element(page.getByRole('menuitem', { name: 'sign out' }))
 			.toBeVisible()

@@ -169,7 +169,7 @@ function SharingProfileForm({
 					type="submit"
 					disabled={update.isPending}
 				>
-					{update.isPending ? 'saving…' : 'save sharing settings'}
+					{update.isPending ? 'saving…' : 'save settings'}
 				</button>
 				{saved ? <output className="text-sm">saved</output> : null}
 				{profile ? (

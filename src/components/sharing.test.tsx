@@ -28,6 +28,13 @@ vi.mock('@/lib/recipes/server', () => ({
 	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
 	getRecipe: vi.fn(),
 	listBooks: () => Promise.resolve([]),
+	exportRecipes: vi.fn(),
+	importRecipes: vi.fn(),
+}))
+
+vi.mock('@/lib/s3', () => ({
+	getAvatarUrl: async () => undefined,
+	getAvatarUploadUrl: vi.fn(),
 }))
 
 const session = {
@@ -71,7 +78,7 @@ describe('sharing', () => {
 			displayName: 'Aria’s kitchen',
 			autoPublish: true,
 		})
-		const { screen } = await renderRoute({ path: '/profile/sharing', session })
+		const { screen } = await renderRoute({ path: '/settings', session })
 		await screen
 			.getByRole('textbox', { name: 'public handle' })
 			.fill('aria-amini')
@@ -84,7 +91,7 @@ describe('sharing', () => {
 		await screen
 			.getByRole('checkbox', { name: /automatically publish/ })
 			.click()
-		await screen.getByRole('button', { name: 'save sharing settings' }).click()
+		await screen.getByRole('button', { name: 'save settings' }).click()
 		await expect
 			.poll(() => api.updateProfile.mock.calls[0]?.[0]?.data)
 			.toEqual({
