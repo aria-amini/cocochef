@@ -5,11 +5,13 @@ import { IngredientText } from '@/components/ingredient-text'
 import { BackLink, PageTitle } from '@/components/page'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import { formatMinutes } from '@/lib/recipes/model'
+import { stepRows } from '@/lib/recipes/step-groups'
 import type {
 	readPublicProfile,
 	readPublicRecipe,
 	readWebRecipe,
 } from '@/lib/sharing/server'
+import { cn } from '@/lib/utils/ui'
 
 export function PublicHeader() {
 	return (
@@ -150,19 +152,43 @@ export function PublicRecipePage({
 					</h2>
 					{recipe.steps.length ? (
 						<ol className="border-border divide-border divide-y rounded-xl border">
-							{recipe.steps.map((step, index) => (
-								<li key={index} className="flex gap-4 px-4 py-4">
-									<span className="text-muted-foreground font-semibold tabular-nums">
-										{index + 1}.
-									</span>
-									<p className="min-w-0 whitespace-pre-wrap">
-										{step.split('\n').map((line, i) => (
-											<Fragment key={i}>
-												{i ? <br /> : null}
-												{line}
-											</Fragment>
-										))}
-									</p>
+							{stepRows(recipe.steps).map((row) => (
+								<li key={row.index} className="px-4 py-4">
+									<div className="flex gap-4">
+										<span className="text-muted-foreground font-semibold tabular-nums">
+											{row.label}.
+										</span>
+										<p
+											className={cn(
+												'min-w-0 whitespace-pre-wrap',
+												row.kind === 'group' && 'font-semibold',
+											)}
+										>
+											{row.text.split('\n').map((line, i) => (
+												<Fragment key={i}>
+													{i ? <br /> : null}
+													{line}
+												</Fragment>
+											))}
+										</p>
+									</div>
+									{row.kind === 'group' ? (
+										<ol className="border-border mt-2 ml-8 border-l">
+											{row.children.map((child) => (
+												<li
+													key={child.index}
+													className="flex gap-4 py-1.5 pl-4"
+												>
+													<span className="text-muted-foreground text-sm font-semibold tabular-nums">
+														{child.label}
+													</span>
+													<p className="min-w-0 whitespace-pre-wrap">
+														{child.text}
+													</p>
+												</li>
+											))}
+										</ol>
+									) : null}
 								</li>
 							))}
 						</ol>

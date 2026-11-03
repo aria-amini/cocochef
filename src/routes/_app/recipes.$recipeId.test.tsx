@@ -93,6 +93,7 @@ vi.mock('@/lib/cooking/server', () => ({
 }))
 
 vi.mock('@/lib/recipes/server', () => ({
+	tidyRecipeWithAi: () => Promise.reject(new Error('AI is not mocked')),
 	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
 	getRecipe: () => Promise.resolve(recipeState.recipe),
 	updateRecipe: async ({ data }: { data: RecipeUpdate }) => {
@@ -253,6 +254,77 @@ describe('recipe detail', () => {
 		expect(
 			Math.abs(main.getBoundingClientRect().right - window.innerWidth),
 		).toBeLessThan(1)
+	})
+
+	test('nests sub-steps under their step, without a box for the step itself', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['1 onion']
+		recipeState.recipe.steps = [
+			'Prep',
+			'- Chop the onion',
+			'- Wash the pot',
+			'Simmer',
+		]
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(
+				screen.getByRole('checkbox', { name: 'step 1.1: Chop the onion' }),
+			)
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'step 1.2: Wash the pot' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'step 2: Simmer' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'step 1: Prep' }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByText('Prep', { exact: true }))
+			.toBeVisible()
+	})
+
+	test('puts ingredients beside the steps on a wide page and stacks them on a narrow one', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
+		recipeState.recipe.steps = ['whisk the eggs', 'fold in the carrot']
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'step 1: whisk the eggs' }))
+			.toBeVisible()
+
+		const ingredients = document.querySelector(
+			'table[aria-label="ingredients"]',
+		)
+
+		const steps = document.querySelector('ol')
+
+		if (!ingredients || !steps) throw new Error('lists missing')
+		const left = ingredients.getBoundingClientRect()
+		const right = steps.getBoundingClientRect()
+
+		// The sidebar takes room from the page, so "wide" is what the page gets.
+		if (window.innerWidth >= 1024) {
+			expect(right.left).toBeGreaterThanOrEqual(left.right)
+			expect(Math.abs(right.top - left.top)).toBeLessThan(80)
+		} else {
+			expect(right.top).toBeGreaterThanOrEqual(left.bottom)
+		}
+	})
+
+	test("draws a section's picture from the food in it", async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 limes', '1 lime']
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(screen.getByRole('checkbox', { name: '2 limes' }))
+			.toBeVisible()
+		expect(document.querySelector('th img')?.getAttribute('src')).toBe(
+			'/sprites/pantry/lemon.png',
+		)
 	})
 
 	test("groups an ingredient where the cook put it, not where it's guessed", async () => {
@@ -453,6 +525,11 @@ describe('recipe detail', () => {
 			session,
 		})
 
+		// A recipe with sections of its own reads in them, not by aisle.
+		await expect.element(screen.getByText('for the sauce')).toBeVisible()
+		await screen
+			.getByRole('button', { name: 'by category', exact: true })
+			.click()
 		await expect
 			.element(screen.getByText('for the sauce'))
 			.not.toBeInTheDocument()

@@ -473,6 +473,18 @@ export function resolveSpriteSrc(
 	return `/sprites/pantry/${key}.png`
 }
 
+// The sprite an ingredient has of its own, when it has one; a guess from a
+// keyword ("frozen shrimp" is some protein) doesn't count.
+export function specificSpriteKey(name: string) {
+	const normalized = ` ${normalizeName(name)} `
+
+	const match = spriteMatches.find(({ alias }) =>
+		normalized.includes(` ${alias} `),
+	)
+
+	return match && !match.guess ? match.key : undefined
+}
+
 function normalizeName(name: string) {
 	return name
 		.toLowerCase()

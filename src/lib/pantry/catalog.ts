@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { foodFamily } from './food-family'
 import type { PantryCategory } from './model'
-import { pantrySprites } from './sprites'
+import { pantrySprites, specificSpriteKey } from './sprites'
 
 export const categorySprites: Record<PantryCategory, string> = {
 	spices: 'cinnamon',
@@ -15,6 +15,31 @@ export const categorySprites: Record<PantryCategory, string> = {
 	sauces: 'olive-oil',
 	frozen: 'ice-cube',
 	other: 'fallback-other',
+}
+
+// A section's picture comes from what is in it: a fruit section holding limes
+// shows the lemon, not the apple that stands for fruit in general. Whatever its
+// lines have most of wins, the first one on a tie, and a section with nothing
+// recognizable falls back to the category's own picture.
+export function sectionSprite(lines: string[], category: PantryCategory) {
+	const counts = new Map<string, number>()
+
+	for (const line of lines) {
+		const key = specificSpriteKey(line)
+
+		if (key) counts.set(key, (counts.get(key) ?? 0) + 1)
+	}
+
+	let best: string | undefined
+	let bestCount = 0
+
+	for (const [key, count] of counts)
+		if (count > bestCount) {
+			best = key
+			bestCount = count
+		}
+
+	return best ?? categorySprites[category]
 }
 
 const section = <const Id extends PantryCategory>(id: Id, items: string[]) => ({

@@ -34,7 +34,10 @@ export function AuthShell({
 						<p className="text-muted-foreground text-sm">{intro}</p>
 					) : null}
 				</div>
-				<GoogleAuthButton fallbackRedirect={googleRedirect} className="w-full" />
+				<GoogleAuthButton
+					fallbackRedirect={googleRedirect}
+					className="w-full"
+				/>
 				<div className="text-muted-foreground flex items-center gap-3 text-xs font-semibold">
 					<span className="bg-border h-px flex-1" />
 					or with email

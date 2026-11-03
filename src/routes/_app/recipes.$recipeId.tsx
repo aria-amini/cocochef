@@ -34,7 +34,10 @@ import {
 } from '@/lib/cooking/server'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { categorySprites } from '@/lib/pantry/catalog'
-import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
+import {
+	hasOwnSections,
+	ingredientViewRows,
+} from '@/lib/recipes/ingredient-groups'
 import { splitIngredientAmount } from '@/lib/recipes/ingredient-line'
 import { formatMinutes } from '@/lib/recipes/model'
 import {
@@ -45,6 +48,7 @@ import {
 	moveRecipe,
 	saveRecipe,
 } from '@/lib/recipes/server'
+import { checkableStepIndexes, stepRows } from '@/lib/recipes/step-groups'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/recipes/$recipeId')({
@@ -89,7 +93,7 @@ function RecipeDetail() {
 				!editing && 'pb-tabbar md:pb-10',
 			)}
 		>
-			<div className="max-w-2xl">
+			<div className={cn(editing ? 'max-w-2xl' : 'max-w-5xl')}>
 				<BackLink to="/recipes" className="mb-2">
 					recipes
 				</BackLink>
@@ -131,7 +135,11 @@ function RecipeView({
 	books: Book[]
 	onEdit: () => void
 }) {
-	const [grouped, setGrouped] = useState(true)
+	// A recipe that has its own sections reads in them; the rest sort by aisle.
+	const [grouped, setGrouped] = useState(
+		() => !hasOwnSections(recipe.ingredients),
+	)
+
 	const [startPrompt, setStartPrompt] = useState<string | null>(null)
 	const versions = useRef(new Map<string, number>())
 	const client = useQueryClient()
@@ -307,6 +315,49 @@ function RecipeView({
 	const RowBody = 'label'
 	const busy = command.isPending
 
+	const stepBox = (
+		text: string,
+		index: number,
+		label: string,
+		nested = false,
+	) => {
+		const item = `s${index}`
+		const done = cooking && checked.has(item)
+
+		return (
+			<RowBody
+				className={cn(
+					'flex cursor-pointer items-start gap-3 px-4',
+					nested ? 'py-2' : 'py-3',
+				)}
+			>
+				<input
+					type="checkbox"
+					aria-label={`step ${label}: ${text}`}
+					checked={done}
+					onChange={() => toggle(item)}
+					disabled={
+						progress.isPending ||
+						progress.isError ||
+						(busy && command.variables?.action === 'finish')
+					}
+					className="accent-kitchen-basil mt-0.5 size-6 shrink-0"
+				/>
+				<span className="text-muted-foreground mt-0.5 text-xs font-bold">
+					{label}
+				</span>
+				<span
+					className={cn(
+						'text-base leading-relaxed',
+						done && 'text-muted-foreground line-through',
+					)}
+				>
+					{text}
+				</span>
+			</RowBody>
+		)
+	}
+
 	const toggle = (item: string) =>
 		cooking
 			? command.mutate({ action: 'check', item, done: !checked.has(item) })
@@ -366,11 +417,11 @@ function RecipeView({
 					<img
 						src={recipe.imageUrl}
 						alt={recipe.title}
-						className="border-border size-20 shrink-0 object-cover md:size-28"
+						className="border-border size-16 shrink-0 rounded-xl border object-cover md:size-24"
 					/>
 				) : null}
 				<div className="min-w-0">
-					<PageTitle>{recipe.title}</PageTitle>
+					<PageTitle className="text-2xl md:text-4xl">{recipe.title}</PageTitle>
 					<RecipeMeta recipe={recipe} />
 				</div>
 			</div>
@@ -390,7 +441,7 @@ function RecipeView({
 								recipe.steps.filter((_, index) => checked.has(`s${index}`))
 									.length
 							}{' '}
-							of {recipe.steps.length} steps ·{' '}
+							of {checkableStepIndexes(recipe.steps).length} steps ·{' '}
 							{
 								recipe.ingredients.filter((_, index) =>
 									checked.has(`i${index}`),
@@ -466,194 +517,187 @@ function RecipeView({
 					<BookPicker recipe={recipe} books={books} />
 				) : null}
 			</div>
-			<section className="mt-10">
-				<h2 className="text-xs font-semibold">
-					<span className={cn(sectionLabelClassName, 'border-kitchen-tomato')}>
-						ingredients
-					</span>
-				</h2>
-				{!cooking ? (
-					<fieldset
-						aria-label="ingredient order"
-						className="border-input mt-4 inline-flex gap-1 rounded-lg border p-1"
-					>
-						{[
-							{ label: 'by category', value: true },
-							{ label: 'recipe order', value: false },
-						].map(({ label, value }) => (
-							<button
-								key={label}
-								type="button"
-								aria-pressed={grouped === value}
-								onClick={() => setGrouped(value)}
-								className={cn(
-									'focus-visible:outline-kitchen-eggplant rounded-md px-3 py-2 text-sm font-semibold focus-visible:outline-2',
-									grouped === value && 'bg-kitchen-yolk/40',
-								)}
-							>
-								{label}
-							</button>
-						))}
-					</fieldset>
-				) : null}
+			<div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-12">
+				<section>
+					<h2 className="text-xs font-semibold">
+						<span
+							className={cn(sectionLabelClassName, 'border-kitchen-tomato')}
+						>
+							ingredients
+						</span>
+					</h2>
+					{!cooking ? (
+						<fieldset
+							aria-label="ingredient order"
+							className="border-input mt-4 inline-flex gap-1 rounded-lg border p-1"
+						>
+							{[
+								{ label: 'by category', value: true },
+								{ label: 'recipe order', value: false },
+							].map(({ label, value }) => (
+								<button
+									key={label}
+									type="button"
+									aria-pressed={grouped === value}
+									onClick={() => setGrouped(value)}
+									className={cn(
+										'focus-visible:outline-kitchen-eggplant rounded-md px-3 py-2 text-sm font-semibold focus-visible:outline-2',
+										grouped === value && 'bg-kitchen-yolk/40',
+									)}
+								>
+									{label}
+								</button>
+							))}
+						</fieldset>
+					) : null}
 
-				<div className="border-border bg-card mt-5 overflow-hidden rounded-xl border">
-					<table aria-label="ingredients" className="w-full">
-						<tbody>
-							{recipe.ingredients.length ? (
-								rows.map((row) => {
-									if (row.kind === 'heading')
+					<div className="border-border bg-card mt-5 overflow-hidden rounded-xl border">
+						<table aria-label="ingredients" className="w-full">
+							<tbody>
+								{recipe.ingredients.length ? (
+									rows.map((row) => {
+										if (row.kind === 'heading')
+											return (
+												<tr
+													key={row.key}
+													className="border-border bg-background border-b"
+												>
+													<th
+														colSpan={3}
+														scope="colgroup"
+														className="px-4 py-3 text-left text-sm font-semibold"
+													>
+														<span className="flex items-center gap-2">
+															{row.category ? (
+																<img
+																	src={`/sprites/pantry/${row.sprite ?? categorySprites[row.category]}.png`}
+																	alt=""
+																	className="size-6 shrink-0 object-contain [image-rendering:pixelated]"
+																/>
+															) : null}
+															{row.text}
+														</span>
+													</th>
+												</tr>
+											)
+
+										if (row.kind !== 'ingredient') return null
+										const item = `i${row.index}`
+										const id = `ingredient-${row.index}`
+										const done = cooking && checked.has(item)
+
+										const { amount, name } = splitIngredientAmount(row.text)
+
 										return (
 											<tr
 												key={row.key}
-												className="border-border bg-background border-b"
+												className="border-foreground/15 border-b align-top last:border-b-0"
 											>
-												<th
-													colSpan={3}
-													scope="colgroup"
-													className="px-4 py-3 text-left text-sm font-semibold"
-												>
-													<span className="flex items-center gap-2">
-														{row.category ? (
-															<img
-																src={`/sprites/pantry/${categorySprites[row.category]}.png`}
-																alt=""
-																className="size-6 shrink-0 object-contain [image-rendering:pixelated]"
-															/>
-														) : null}
-														{row.text}
-													</span>
-												</th>
+												<td className="w-px">
+													<label
+														htmlFor={id}
+														className="flex cursor-pointer py-3 pr-2 pl-4"
+													>
+														<input
+															type="checkbox"
+															id={id}
+															aria-label={row.text}
+															checked={done}
+															onChange={() => toggle(item)}
+															disabled={
+																progress.isPending ||
+																progress.isError ||
+																(busy && command.variables?.action === 'finish')
+															}
+															className="accent-kitchen-basil mt-1 size-6 shrink-0"
+														/>
+													</label>
+												</td>
+												<td className="w-px whitespace-nowrap">
+													<label
+														htmlFor={id}
+														className={cn(
+															'block cursor-pointer py-3 pr-3 pl-1 text-right text-base leading-relaxed font-semibold',
+															done && 'text-muted-foreground line-through',
+														)}
+													>
+														{amount}
+													</label>
+												</td>
+												<td>
+													<label
+														htmlFor={id}
+														className="flex cursor-pointer py-3 pr-4"
+													>
+														<IngredientText text={name} done={done} />
+													</label>
+												</td>
 											</tr>
 										)
-
-									if (row.kind !== 'ingredient') return null
-									const item = `i${row.index}`
-									const id = `ingredient-${row.index}`
-									const done = cooking && checked.has(item)
-
-									const { amount, name } = splitIngredientAmount(row.text)
-
-									return (
-										<tr
-											key={row.key}
-											className="border-foreground/15 border-b align-top last:border-b-0"
+									})
+								) : (
+									<tr>
+										<td
+											colSpan={3}
+											className="border-foreground/40 border-dashed p-4 text-sm font-semibold"
 										>
-											<td className="w-px">
-												<label
-													htmlFor={id}
-													className="flex cursor-pointer py-3 pr-2 pl-4"
-												>
-													<input
-														type="checkbox"
-														id={id}
-														aria-label={row.text}
-														checked={done}
-														onChange={() => toggle(item)}
-														disabled={
-															progress.isPending ||
-															progress.isError ||
-															(busy && command.variables?.action === 'finish')
-														}
-														className="accent-kitchen-basil mt-1 size-6 shrink-0"
-													/>
-												</label>
-											</td>
-											<td className="w-px whitespace-nowrap">
-												<label
-													htmlFor={id}
-													className={cn(
-														'block cursor-pointer py-3 pr-3 pl-1 text-right text-base leading-relaxed font-semibold',
-														done && 'text-muted-foreground line-through',
-													)}
-												>
-													{amount}
-												</label>
-											</td>
-											<td>
-												<label
-													htmlFor={id}
-													className="flex cursor-pointer py-3 pr-4"
-												>
-													<IngredientText text={name} done={done} />
-												</label>
-											</td>
-										</tr>
-									)
-								})
-							) : (
-								<tr>
-									<td
-										colSpan={3}
-										className="border-foreground/40 border-dashed p-4 text-sm font-semibold"
+											no ingredients yet
+										</td>
+									</tr>
+								)}
+							</tbody>
+						</table>
+					</div>
+				</section>
+				<section>
+					<h2 className="text-xs font-semibold">
+						<span
+							className={cn(sectionLabelClassName, 'border-kitchen-eggplant')}
+						>
+							steps
+						</span>
+					</h2>
+					<ol className="border-border bg-card mt-4 overflow-hidden rounded-xl border">
+						{recipe.steps.length ? (
+							stepRows(recipe.steps).map((row) =>
+								row.kind === 'group' ? (
+									<li
+										key={`${row.text}-${row.index}`}
+										className="border-foreground/15 border-b last:border-b-0"
 									>
-										no ingredients yet
-									</td>
-								</tr>
-							)}
-						</tbody>
-					</table>
-				</div>
-			</section>
-			<section className="mt-10">
-				<h2 className="text-xs font-semibold">
-					<span
-						className={cn(sectionLabelClassName, 'border-kitchen-eggplant')}
-					>
-						steps
-					</span>
-				</h2>
-				<ol className="border-border bg-card mt-4 overflow-hidden rounded-xl border">
-					{recipe.steps.length ? (
-						recipe.steps.map((step, index) => {
-							const item = `s${index}`
-							const done = cooking && checked.has(item)
-
-							return (
-								<li
-									key={`${step}-${index}`}
-									className="border-foreground/15 border-b last:border-b-0"
-								>
-									<RowBody
-										className={cn(
-											'flex cursor-pointer items-start gap-3 px-4 py-3',
-											cooking && 'cursor-pointer',
-										)}
+										<p className="flex items-start gap-3 px-4 pt-3 pb-1">
+											<span className="text-muted-foreground mt-0.5 ml-8 text-xs font-bold">
+												{row.label}
+											</span>
+											<span className="text-base leading-relaxed font-bold">
+												{row.text}
+											</span>
+										</p>
+										<ol className="border-foreground/15 mb-2 ml-9 border-l">
+											{row.children.map((child) => (
+												<li key={`${child.text}-${child.index}`}>
+													{stepBox(child.text, child.index, child.label, true)}
+												</li>
+											))}
+										</ol>
+									</li>
+								) : (
+									<li
+										key={`${row.text}-${row.index}`}
+										className="border-foreground/15 border-b last:border-b-0"
 									>
-										<input
-											type="checkbox"
-											aria-label={`step ${index + 1}: ${step}`}
-											checked={done}
-											onChange={() => toggle(item)}
-											disabled={
-												progress.isPending ||
-												progress.isError ||
-												(busy && command.variables?.action === 'finish')
-											}
-											className="accent-kitchen-basil mt-0.5 size-6 shrink-0"
-										/>
-										<span className="text-muted-foreground mt-0.5 text-xs font-bold">
-											{index + 1}
-										</span>
-										<span
-											className={cn(
-												'text-base leading-relaxed',
-												done && 'text-muted-foreground line-through',
-											)}
-										>
-											{step}
-										</span>
-									</RowBody>
-								</li>
+										{stepBox(row.text, row.index, row.label)}
+									</li>
+								),
 							)
-						})
-					) : (
-						<li className="border-foreground/40 border-dashed p-4 text-sm font-semibold">
-							no steps yet
-						</li>
-					)}
-				</ol>
-			</section>
+						) : (
+							<li className="border-foreground/40 border-dashed p-4 text-sm font-semibold">
+								no steps yet
+							</li>
+						)}
+					</ol>
+				</section>
+			</div>
 			{recipe.notes ? (
 				<section className="mt-10">
 					<h2 className="text-xs font-semibold">
