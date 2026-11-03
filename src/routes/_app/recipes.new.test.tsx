@@ -259,6 +259,29 @@ describe('write a recipe', () => {
 			.toHaveValue('')
 	})
 
+	test('keeps a pasted recipe as the original and can undo the sort', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen
+			.getByRole('button', { name: 'paste text', exact: true })
+			.click()
+		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
+		await dialog
+			.getByRole('textbox', { name: 'recipe text' })
+			.fill('Toast\nIngredients\n2 slices bread\nSteps\n1. toast it')
+		await dialog.getByRole('button', { name: 'add recipe' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 1' }))
+			.toHaveValue('toast it')
+		await screen.getByRole('button', { name: 'undo' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'name' }))
+			.toHaveValue('')
+	})
+
 	test('offers import from the empty editor and keeps the editor when cancelled', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
@@ -749,6 +772,73 @@ describe('write a recipe', () => {
 		await expect
 			.poll(() => latest()?.steps)
 			.toEqual(['slice the bread', 'toast it', 'butter it'])
+	})
+
+	test('keeps the sub-steps of a pasted method nested and saves them', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		screen.getByRole('textbox', { name: 'Step 1' }).element().focus()
+
+		const data = new DataTransfer()
+		data.setData(
+			'text',
+			'1. Prep\n    1. slice the bread\n    2. heat the pan\n2. toast it',
+		)
+		screen
+			.getByRole('textbox', { name: 'Step 1' })
+			.element()
+			.dispatchEvent(
+				new ClipboardEvent('paste', {
+					clipboardData: data,
+					bubbles: true,
+					cancelable: true,
+				}),
+			)
+
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 1.2' }))
+			.toHaveValue('heat the pan')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 2' }))
+			.toHaveValue('toast it')
+
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => latest()?.steps)
+			.toEqual(['Prep', '- slice the bread', '- heat the pan', 'toast it'])
+	})
+
+	test('indents a step under the one above it, and takes it back', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await screen.getByRole('textbox', { name: 'Step 1' }).fill('Prep')
+		await screen.getByRole('button', { name: 'add step' }).click()
+		await screen
+			.getByRole('textbox', { name: 'Step 2' })
+			.fill('slice the bread')
+		await screen.getByRole('button', { name: 'Make step 2 a sub-step' }).click()
+
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 1.1' }))
+			.toHaveValue('slice the bread')
+
+		await screen.getByRole('button', { name: 'Make step 1.1 a step' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 2' }))
+			.toHaveValue('slice the bread')
+
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => latest()?.steps)
+			.toEqual(['Prep', 'slice the bread'])
 	})
 
 	test('uploads a photo and saves its key with the recipe', async () => {

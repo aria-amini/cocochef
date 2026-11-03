@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { serverEnv as env } from '@/env.server'
 import { getViewerId, requireAccountId } from '@/lib/auth/session'
+import { createRateLimiter, createSlots } from '@/lib/rate-limit'
 import { clampRecipeTitle, recipeInput } from '@/lib/recipes/model'
 import {
 	addMissingSourceNotes,
@@ -13,8 +14,23 @@ import {
 } from '@/lib/recipes/repository'
 
 import { fetchRecipeHtml, type RelayConfig } from './fetch'
-import { rateLimit, withImportSlot } from './rate-limit'
 import { canonicalRecipeUrl } from './url'
+
+const userLimit = createRateLimiter({
+	limit: 10,
+	message: 'too many imports — wait a minute and try again',
+})
+
+const ipLimit = createRateLimiter({
+	limit: 20,
+	message: 'too many imports — wait a minute and try again',
+})
+
+const withImportSlot = createSlots({
+	max: 4,
+	maxPerKey: 2,
+	message: 'too many imports in flight — try again in a moment',
+})
 
 // Set only where datacenter addresses get blocked, which is every deploy.
 function relayConfig(): RelayConfig | undefined {
@@ -57,8 +73,8 @@ async function findOrFetch(url: string, sourceUrl: string) {
 }
 
 function fetchLimited(userId: string, url: string, sourceUrl: string) {
-	rateLimit(`user:${userId}`, 10)
-	rateLimit(`ip:${getRequestIP() ?? 'unknown'}`, 20)
+	userLimit(userId)
+	ipLimit(getRequestIP() ?? 'unknown')
 
 	return withImportSlot(userId, () => findOrFetch(url, sourceUrl))
 }
@@ -94,8 +110,8 @@ export const importRecipe = createServerFn({ method: 'POST' })
 		// empty string, so it is looked at once. A failed refresh keeps it usable.
 		if (known && data.keep && known.sourceNotes === null) {
 			try {
-				rateLimit(`user:${userId}`, 10)
-				rateLimit(`ip:${getRequestIP() ?? 'unknown'}`, 20)
+				userLimit(userId)
+				ipLimit(getRequestIP() ?? 'unknown')
 
 				const page = await withImportSlot(userId, () =>
 					fetchRecipeHtml(data.url, relayConfig()),

@@ -1,11 +1,14 @@
 import { createServerFn } from '@tanstack/react-start'
+import { getRequestIP } from '@tanstack/react-start/server'
 import { z } from 'zod'
 
+import { getAiModel } from '@/lib/ai/model'
 import {
 	getCurrentSession,
 	getViewerId,
 	requireAccountId,
 } from '@/lib/auth/session'
+import { createRateLimiter, createSlots } from '@/lib/rate-limit'
 import { resolveStoredImage } from '@/lib/s3'
 import {
 	getWebRecipeLink,
@@ -23,6 +26,8 @@ import {
 	saveRecipeForUser,
 	updateRecipeForUser,
 } from './repository'
+import { tidyRecipe } from './tidy'
+import { tidyRecipeInput } from './tidy-input'
 import { parseTransferDocument } from './transfer'
 import {
 	exportRecipesForUser,
@@ -139,3 +144,38 @@ export const deleteRecipe = createServerFn({ method: 'POST' })
 	.handler(async ({ data }) =>
 		deleteRecipeForUser(await requireAccountId('save recipes'), data.id),
 	)
+
+const tidyMessage = 'too many AI requests — wait a minute and try again'
+
+const tidyUserLimit = createRateLimiter({ limit: 10, message: tidyMessage })
+
+const tidyIpLimit = createRateLimiter({ limit: 20, message: tidyMessage })
+
+// Every request costs money, so the whole app has a ceiling too.
+const tidyGlobalLimit = createRateLimiter({
+	limit: 300,
+	windowMs: 60 * 60_000,
+	message: 'AI is busy right now — try again later',
+})
+
+const withTidySlot = createSlots({
+	max: 6,
+	maxPerKey: 1,
+	message: 'still tidying your last recipe — one moment',
+})
+
+// A proposal only: nothing is saved, so the editor can show it and undo it.
+export const tidyRecipeWithAi = createServerFn({ method: 'POST' })
+	.validator(tidyRecipeInput)
+	.handler(async ({ data }) => {
+		const userId = await requireAccountId('tidy recipes with AI')
+		const model = getAiModel()
+
+		if (!model) throw new Error("AI isn't set up here yet")
+
+		tidyUserLimit(userId)
+		tidyIpLimit(getRequestIP() ?? 'unknown')
+		tidyGlobalLimit('app')
+
+		return withTidySlot(userId, () => tidyRecipe(model, data))
+	})

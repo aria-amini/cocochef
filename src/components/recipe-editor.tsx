@@ -1,6 +1,7 @@
 import {
 	ClipboardTextIcon,
 	LinkSimpleIcon,
+	SparkleIcon,
 	TrashIcon,
 } from '@phosphor-icons/react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
@@ -33,6 +34,7 @@ import { StepsField, stepsFrom } from '@/components/steps-field'
 import { buttonVariants } from '@/components/ui/button'
 import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
+import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import {
 	recipeContentInput,
 	recipeNotesMax,
@@ -40,8 +42,15 @@ import {
 	recipeTitleMax,
 } from '@/lib/recipes/model'
 import { isPastedRecipe, parsePastedRecipe } from '@/lib/recipes/paste'
-import { createRecipe, deleteRecipe, updateRecipe } from '@/lib/recipes/server'
+import {
+	createRecipe,
+	deleteRecipe,
+	tidyRecipeWithAi,
+	updateRecipe,
+} from '@/lib/recipes/server'
 import { isYouTube, parseSourceInput } from '@/lib/recipes/source'
+import { stepRows } from '@/lib/recipes/step-groups'
+import { tidyInputMax, type TidyRecipeInput } from '@/lib/recipes/tidy-input'
 import { formField } from '@/lib/utils/form'
 import { cn } from '@/lib/utils/ui'
 
@@ -123,6 +132,27 @@ function changeSnapshot(form: HTMLFormElement, hadPhoto: boolean) {
 }
 
 type ChangeSnapshot = ReturnType<typeof changeSnapshot>
+
+// What the fields hold right now, named or not, so a change can be taken back.
+function snapshotOf(form: HTMLFormElement) {
+	const data = new FormData(form)
+
+	return {
+		title: formField(data, 'title'),
+		ingredients: data.getAll('ingredient').map(String),
+		ingredientCategories:
+			recipeContentInput.shape.ingredientCategories.safeParse(
+				categoriesFrom(data),
+			).data,
+		steps: stepsFrom(data),
+		notes: formField(data, 'notes'),
+	}
+}
+
+type Snapshot = ReturnType<typeof snapshotOf>
+
+const notesOverMax = (notes: string) =>
+	Array.from(notes.trim()).length > recipeNotesMax
 
 function sortedLabel(ingredients: number, steps: number) {
 	const count = (n: number, one: string, many: string) =>
@@ -230,6 +260,8 @@ export function RecipeEditor({
 	const user = session.data?.user
 	// Uploads need a real account, same as avatars.
 	const canAddPhoto = Boolean(user && !user.isAnonymous)
+	// AI costs money, so it needs a real account too.
+	const canUseAi = canAddPhoto
 	const isDraft = !recipe?.finalizedAt
 	const shared = recipe ? !recipe.owned : false
 
@@ -283,44 +315,155 @@ export function RecipeEditor({
 		if (target) form.current?.querySelector<HTMLElement>(target)?.focus()
 	}, [recipe, isDraft])
 
+	const tidying = useRef(false)
+	// Counts changes made by hand, so a model's answer never overwrites them.
+	const edits = useRef(0)
+
+	const restore = useCallback((before: Snapshot) => {
+		if (finishing.current) return
+
+		setName(before.title)
+		setNotesTooLong(notesOverMax(before.notes))
+		setSeed((current) => ({
+			version: current.version + 1,
+			title: before.title,
+			ingredients: before.ingredients,
+			ingredientCategories: before.ingredientCategories,
+			steps: before.steps,
+			notes: before.notes,
+		}))
+	}, [])
+
+	// Asks the model for a tidier version and puts it in the fields, with a way
+	// back to what was there. Nothing is saved until the cook saves. A failure
+	// says so, then `onFail` lets the caller fall back; if the cook kept typing
+	// meanwhile, their version stays.
+	const tidyWithAi = useCallback(
+		async (
+			input: TidyRecipeInput,
+			{ undo, onFail }: { undo?: () => void; onFail?: () => void } = {},
+		) => {
+			if (!form.current) return
+
+			if (tidying.current) {
+				onFail?.()
+
+				return
+			}
+
+			if ('title' in input && !input.title.trim()) {
+				toast('Name the recipe first')
+
+				return
+			}
+
+			tidying.current = true
+			const before = snapshotOf(form.current)
+			const startedAt = edits.current
+			const loading = toast.loading('tidying up…')
+
+			try {
+				const tidied = await tidyRecipeWithAi({ data: input })
+
+				if (finishing.current) return
+
+				toast.dismiss(loading)
+
+				if (edits.current !== startedAt) {
+					toast('You kept typing, so your version stays')
+
+					return
+				}
+
+				const notes = tidied.notes ?? before.notes
+
+				setName(tidied.title)
+				setUnnamed(false)
+				setNotesTooLong(notesOverMax(notes))
+
+				setSeed((current) => ({
+					version: current.version + 1,
+					title: tidied.title,
+					ingredients: tidied.ingredients,
+					ingredientCategories: before.ingredientCategories,
+					steps: tidied.steps,
+					notes,
+				}))
+
+				sortedToast.current = toast('tidied up', {
+					action: { label: 'undo', onClick: undo ?? (() => restore(before)) },
+				})
+			} catch (failure) {
+				toast.error(
+					failure instanceof Error ? failure.message : "couldn't tidy that",
+					{ id: loading },
+				)
+				onFail?.()
+			} finally {
+				tidying.current = false
+			}
+		},
+		[restore],
+	)
+
+	const undoSort = useCallback((before: { name: string; notes: string }) => {
+		if (finishing.current) return
+
+		setName(before.name)
+		setNotesTooLong(notesOverMax(before.notes))
+		setSeed((current) => ({
+			version: current.version + 1,
+			title: before.name,
+			ingredients: [],
+			steps: [],
+			notes: before.notes,
+		}))
+	}, [])
+
+	// A sorted paste says what it found. With an account, the model tidies it as
+	// well, and the plain sort is what stays if that doesn't work out.
 	const announceSorted = useCallback(
 		(
 			sorted: ReturnType<typeof parsePastedRecipe>,
 			before: { name: string; draft: string | undefined; notes: string },
+			source: string,
 		) => {
-			sortedToast.current = toast(
-				sortedLabel(sorted.ingredients.length, sorted.steps.length),
-				{
-					action: {
-						label: 'undo',
-						onClick: () => {
-							if (finishing.current) return
+			const showSorted = () => {
+				sortedToast.current = toast(
+					sortedLabel(
+						sorted.ingredients.filter(
+							(line) => ingredientHeading(line) === undefined,
+						).length,
+						stepRows(sorted.steps).length,
+					),
+					{ action: { label: 'undo', onClick: () => undoSort(before) } },
+				)
+			}
 
-							setName(before.name)
-							setNotesTooLong(
-								Array.from(before.notes.trim()).length > recipeNotesMax,
-							)
-							setSeed((current) => ({
-								version: current.version + 1,
-								title: before.name,
-								ingredients: [],
-								steps: [],
-								notes: before.notes,
-							}))
-						},
-					},
-				},
+			if (!canUseAi || source.length > tidyInputMax) {
+				showSorted()
+
+				return
+			}
+
+			void tidyWithAi(
+				{ text: source },
+				{ undo: () => undoSort(before), onFail: showSorted },
 			)
 		},
-		[],
+		[canUseAi, tidyWithAi, undoSort],
 	)
 
 	const announcedArrival = useRef(false)
 	useEffect(() => {
 		if (!arrived || announcedArrival.current) return
 		announcedArrival.current = true
-		announceSorted(arrived, { name: defaultTitle, draft: undefined, notes: '' })
-	}, [arrived, defaultTitle, announceSorted])
+		announceSorted(
+			arrived,
+			{ name: defaultTitle, draft: undefined, notes: '' },
+			pasted ?? '',
+		)
+	}, [arrived, defaultTitle, announceSorted, pasted])
 
 	// A pasted recipe is sorted at once, with a way back to the empty page.
 	const sortPasted = useCallback(
@@ -348,7 +491,7 @@ export function RecipeEditor({
 				notes: mergedNotes,
 			}))
 
-			announceSorted(sorted, before)
+			announceSorted(sorted, before, text)
 		},
 		[name, announceSorted],
 	)
@@ -464,8 +607,14 @@ export function RecipeEditor({
 		<form
 			ref={form}
 			className="flex flex-col gap-10"
-			onInput={scheduleChanges}
-			onChange={scheduleChanges}
+			onInput={() => {
+				edits.current += 1
+				scheduleChanges()
+			}}
+			onChange={() => {
+				edits.current += 1
+				scheduleChanges()
+			}}
 			onClick={scheduleChanges}
 			onPointerUp={scheduleChanges}
 			onKeyUp={scheduleChanges}
@@ -697,6 +846,34 @@ export function RecipeEditor({
 					cancel
 				</button>
 				<span className="ml-auto flex gap-2">
+					{canUseAi ? (
+						<button
+							type="button"
+							disabled={pending}
+							onClick={() => {
+								if (!form.current) return
+
+								const { title, ingredients, steps, notes } = snapshotOf(
+									form.current,
+								)
+
+								if (!ingredients.some(Boolean) && !steps.some(Boolean)) {
+									toast('Add ingredients or steps to tidy')
+
+									return
+								}
+
+								void tidyWithAi({ title, ingredients, steps, notes })
+							}}
+							className={cn(
+								quietActionClassName,
+								'inline-flex items-center gap-1.5',
+							)}
+						>
+							<SparkleIcon size={14} weight="bold" aria-hidden />
+							tidy with ai
+						</button>
+					) : null}
 					{onShared && !recipe?.saved ? null : (
 						<button
 							type="button"
