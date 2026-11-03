@@ -5,7 +5,31 @@ import {
 	ingredientHeading,
 	parseIngredientLine,
 	splitIngredientAmount,
+	splitIngredientDetails,
 } from './ingredient-line'
+
+describe('ingredient details', () => {
+	test.each([
+		[
+			'2/3 cup milk (at room temperature)',
+			'2/3 cup milk',
+			'(at room temperature)',
+		],
+		['1 egg (room temperature (~55g))', '1 egg', '(room temperature (~55g))'],
+		[
+			'1 (14 oz) can tomatoes (drained)',
+			'1 (14 oz) can tomatoes (drained)',
+			'',
+		],
+		['1 cup (240ml) milk', '1 cup (240ml) milk', ''],
+		['1 onion (diced', '1 onion (diced', ''],
+	])(
+		'separates only unambiguous trailing detail in %s',
+		(line, main, detail) => {
+			expect(splitIngredientDetails(line)).toEqual({ main, detail })
+		},
+	)
+})
 
 describe('parseIngredientLine', () => {
 	test.each([
