@@ -353,9 +353,9 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 The recipe overview defaults to source order and offers a category view.
 Categories reuse Ingredients' catalog assignments and food aliases; source
 sections appear only in recipe order and cooking mode. Unknown foods stay under
-Other. Display grouping never changes saved ingredient order. Ingredients use
-an open list with quiet row dividers; steps use a bordered, rounded list. Both
-wrap naturally. Quantities and ingredient details stay together at regular weight.
+Other. Display grouping never changes saved ingredient order. Ingredients and
+steps use compact open checklists with quiet row dividers and naturally wrapping
+text. Quantities and ingredient details stay together at regular weight.
 Category headings use generic pantry sprites, including a bottle for oils and
 sauces; source headings stay text-only.
 

@@ -61,8 +61,7 @@ export const Route = createFileRoute('/_app/recipes/$recipeId')({
 	component: RecipeDetail,
 })
 
-const sectionLabelClassName =
-	'inline-block border-b-3 pb-0.5 text-xs font-semibold'
+const sectionLabelClassName = 'text-lg font-semibold'
 
 function hostOf(url: string) {
 	try {
@@ -321,8 +320,8 @@ function RecipeView({
 		return (
 			<RowBody
 				className={cn(
-					'flex cursor-pointer items-start gap-3 px-4',
-					nested ? 'py-2' : 'py-3',
+					'flex min-h-11 cursor-pointer items-start gap-3',
+					nested ? 'py-2' : 'py-2.5',
 				)}
 			>
 				<input
@@ -337,7 +336,7 @@ function RecipeView({
 					}
 					className="accent-kitchen-basil mt-0.5 size-6 shrink-0"
 				/>
-				<span className="text-muted-foreground mt-0.5 text-xs font-bold">
+				<span className="text-muted-foreground mt-1 w-5 shrink-0 text-sm font-semibold tabular-nums">
 					{label}
 				</span>
 				<span
@@ -488,6 +487,8 @@ function RecipeView({
 								: 'start cooking'}
 					</button>
 				) : null}
+			</div>
+			<div className="mt-2 flex flex-wrap items-center gap-x-4">
 				<button
 					type="button"
 					className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex items-center gap-1 px-1 py-1 text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -511,41 +512,37 @@ function RecipeView({
 					<BookPicker recipe={recipe} books={books} />
 				) : null}
 			</div>
-			<div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-12">
+			<div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-12">
 				<section>
-					<h2 className="text-xs font-semibold">
-						<span
-							className={cn(sectionLabelClassName, 'border-kitchen-tomato')}
-						>
-							ingredients
-						</span>
-					</h2>
-					{!cooking ? (
-						<fieldset
-							aria-label="ingredient order"
-							className="mt-4 inline-flex gap-1"
-						>
-							{[
-								{ label: 'by category', value: true },
-								{ label: 'recipe order', value: false },
-							].map(({ label, value }) => (
-								<button
-									key={label}
-									type="button"
-									aria-pressed={grouped === value}
-									onClick={() => setGrouped(value)}
-									className={cn(
-										'focus-visible:outline-kitchen-eggplant rounded-md px-3 py-2 text-sm font-semibold focus-visible:outline-2',
-										grouped === value && 'bg-kitchen-yolk/40',
-									)}
-								>
-									{label}
-								</button>
-							))}
-						</fieldset>
-					) : null}
+					<div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
+						<h2 className={sectionLabelClassName}>ingredients</h2>
+						{!cooking ? (
+							<fieldset
+								aria-label="ingredient order"
+								className="inline-flex gap-1"
+							>
+								{[
+									{ label: 'by category', value: true },
+									{ label: 'recipe order', value: false },
+								].map(({ label, value }) => (
+									<button
+										key={label}
+										type="button"
+										aria-pressed={grouped === value}
+										onClick={() => setGrouped(value)}
+										className={cn(
+											'focus-visible:outline-kitchen-eggplant rounded-md px-3 py-2 text-xs font-semibold focus-visible:outline-2',
+											grouped === value && 'bg-kitchen-yolk/40',
+										)}
+									>
+										{label}
+									</button>
+								))}
+							</fieldset>
+						) : null}
+					</div>
 
-					<div className="mt-4">
+					<div className="mt-2">
 						<table aria-label="ingredients" className="w-full">
 							<tbody>
 								{recipe.ingredients.length ? (
@@ -583,7 +580,7 @@ function RecipeView({
 												className="border-border border-b align-top"
 											>
 												<td>
-													<label className="flex min-h-11 cursor-pointer items-start gap-3 py-3">
+													<label className="flex min-h-11 cursor-pointer items-start gap-3 py-2.5">
 														<input
 															type="checkbox"
 															id={id}
@@ -618,30 +615,26 @@ function RecipeView({
 					</div>
 				</section>
 				<section>
-					<h2 className="text-xs font-semibold">
-						<span
-							className={cn(sectionLabelClassName, 'border-kitchen-eggplant')}
-						>
-							steps
-						</span>
-					</h2>
-					<ol className="border-border bg-card mt-4 overflow-hidden rounded-xl border">
+					<div className="flex min-h-11 items-center">
+						<h2 className={sectionLabelClassName}>steps</h2>
+					</div>
+					<ol className="mt-2">
 						{recipe.steps.length ? (
 							stepRows(recipe.steps).map((row) =>
 								row.kind === 'group' ? (
 									<li
 										key={`${row.text}-${row.index}`}
-										className="border-foreground/15 border-b last:border-b-0"
+										className="border-border border-b"
 									>
-										<p className="flex items-start gap-3 px-4 pt-3 pb-1">
-											<span className="text-muted-foreground mt-0.5 ml-8 text-xs font-bold">
+										<p className="flex items-start gap-3 pt-3 pb-1">
+											<span className="text-muted-foreground mt-1 ml-9 w-5 shrink-0 text-sm font-semibold tabular-nums">
 												{row.label}
 											</span>
 											<span className="text-base leading-relaxed font-bold">
 												{row.text}
 											</span>
 										</p>
-										<ol className="border-foreground/15 mb-2 ml-9 border-l">
+										<ol className="border-border mb-2 ml-3 border-l pl-3">
 											{row.children.map((child) => (
 												<li key={`${child.text}-${child.index}`}>
 													{stepBox(child.text, child.index, child.label, true)}
@@ -652,7 +645,7 @@ function RecipeView({
 								) : (
 									<li
 										key={`${row.text}-${row.index}`}
-										className="border-foreground/15 border-b last:border-b-0"
+										className="border-border border-b"
 									>
 										{stepBox(row.text, row.index, row.label)}
 									</li>
@@ -668,12 +661,8 @@ function RecipeView({
 			</div>
 			{recipe.notes ? (
 				<section className="mt-10">
-					<h2 className="text-xs font-semibold">
-						<span className={cn(sectionLabelClassName, 'border-kitchen-yolk')}>
-							notes
-						</span>
-					</h2>
-					<p className="border-border bg-card mt-4 overflow-hidden rounded-xl border p-4 text-sm font-semibold whitespace-pre-line">
+					<h2 className={sectionLabelClassName}>notes</h2>
+					<p className="mt-2 p-4 text-sm font-semibold whitespace-pre-line">
 						{recipe.notes}
 					</p>
 				</section>
