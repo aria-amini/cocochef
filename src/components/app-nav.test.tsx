@@ -1,4 +1,5 @@
 import { setMockSessionPending } from '@tests/support/mocks/browser'
+import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
@@ -111,15 +112,28 @@ describe('app nav', () => {
 			.element(page.getByText('create an account to save your recipes'))
 			.toBeVisible()
 		await expect
-			.element(page.getByRole('menuitem', { name: /create an account/ }))
-			.toHaveAttribute('href', '/auth/signup')
-		await expect
 			.element(
 				page
 					.getByRole('menuitem', { name: /create an account/ })
 					.getByText('free', { exact: true }),
 			)
 			.toBeVisible()
+		await page.getByRole('menuitem', { name: /create an account/ }).click()
+		await expect
+			.element(page.getByRole('dialog', { name: 'create an account' }))
+			.toBeVisible()
+		const dialog = page.getByRole('dialog', { name: 'create an account' })
+		await dialog.getByLabelText('name').fill('Cook')
+		await dialog.getByLabelText('email').fill('cook@example.com')
+		await dialog.getByLabelText('password').fill('password123')
+		await dialog.getByRole('button', { name: 'create account' }).click()
+		await vi.waitFor(() =>
+			expect(getAuthMocks().signUpEmail).toHaveBeenCalledWith({
+				name: 'Cook',
+				email: 'cook@example.com',
+				password: 'password123',
+			}),
+		)
 	})
 
 	test('puts navigation in the thumb zone on phones and a sidebar on desktop', async () => {

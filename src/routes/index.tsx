@@ -1,5 +1,11 @@
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import {
+	createFileRoute,
+	Link,
+	redirect,
+	useNavigate,
+} from '@tanstack/react-router'
 import { MotionConfig, motion } from 'framer-motion'
+import { useState } from 'react'
 import { z } from 'zod'
 
 import { AuthDialog } from '@/components/auth-dialog'
@@ -46,18 +52,22 @@ const features = [
 ]
 
 function Landing() {
+	const [authOpen, setAuthOpen] = useState(false)
+	const navigate = useNavigate()
+
 	return (
 		<MotionConfig reducedMotion="user">
 			<div className="bg-background text-foreground min-h-dvh">
 				<div className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-6 md:gap-24 md:px-10 md:py-8">
 					<header className="flex items-center justify-between">
 						<span className="text-sm font-bold">dutch-oven</span>
-						<Link
-							to="/auth/login"
+						<button
+							type="button"
+							onClick={() => setAuthOpen(true)}
 							className="focus-visible:outline-kitchen-eggplant text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2"
 						>
 							sign in
-						</Link>
+						</button>
 					</header>
 
 					<motion.main
@@ -163,6 +173,13 @@ function Landing() {
 					</motion.main>
 				</div>
 			</div>
+			<AuthDialog
+				open={authOpen}
+				onOpenChange={setAuthOpen}
+				redirect="/recipes"
+				initialMode="signin"
+				onSuccess={() => void navigate({ to: '/recipes' })}
+			/>
 		</MotionConfig>
 	)
 }
