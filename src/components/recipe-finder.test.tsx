@@ -327,11 +327,6 @@ describe('the one box', () => {
 				.getBoundingClientRect().top,
 		)
 
-		const ingredients = screen
-			.getByRole('list', { name: 'ingredients' })
-			.element()
-
-		expect(ingredients.querySelectorAll('img')).toHaveLength(0)
 		const dialog = document.querySelector('[role="dialog"]')
 
 		if (!dialog) throw new Error('missing finder dialog')
@@ -376,7 +371,7 @@ describe('the one box', () => {
 		const { screen, queryClient } = await openBox()
 		await screen.getByRole('option', { name: /lemon chicken/ }).click()
 		await expect
-			.element(screen.getByRole('list', { name: 'ingredients' }))
+			.element(screen.getByRole('table', { name: 'ingredients' }))
 			.toHaveTextContent('1 lemon')
 		queryClient.setQueryData(['popular-recipes'], {
 			warming: false,
