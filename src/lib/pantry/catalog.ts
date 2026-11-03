@@ -402,39 +402,6 @@ const categoryMatches = [
 	}),
 ].sort((a, b) => b.name.length - a.name.length)
 
-const ingredientNamePatterns = [
-	...new Set(categoryMatches.map(({ name }) => name)),
-].map((name) => {
-	const words = name.split(' ').map((word) => {
-		const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
-		return word.endsWith('y')
-			? `(?:${escaped}|${escaped.slice(0, -1)}ies)`
-			: `${escaped}(?:es|s)?`
-	})
-
-	return new RegExp(
-		`(?<![\\p{L}\\p{N}])(?:yellow\\s+|white\\s+|red\\s+|beef\\s+)?${words.join('\\s+')}(?![\\p{L}\\p{N}])`,
-		'iu',
-	)
-})
-
-// Return offsets into the original text so presentation keeps the cook's
-// spelling and punctuation. Only match the main phrase, not a note after it.
-export function ingredientNameRange(text: string) {
-	const main = text.split(/[,();·]/, 1)[0] ?? ''
-	let best: { start: number; end: number } | undefined
-
-	for (const pattern of ingredientNamePatterns) {
-		const match = pattern.exec(main)
-
-		if (match && (!best || match[0].length > best.end - best.start))
-			best = { start: match.index, end: match.index + match[0].length }
-	}
-
-	return best
-}
-
 export function categorizeIngredient(name: string): PantryCategory {
 	const normalized = ` ${categoryKey(name.replace(/\bcans?\b/gi, 'canned').replace(/\b(crushed|chopped|diced|minced|finely|coarsely|sliced|grated|shredded)\b/gi, ''))} `
 

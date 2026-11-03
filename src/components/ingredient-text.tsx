@@ -1,4 +1,3 @@
-import { ingredientNameRange } from '@/lib/pantry/catalog'
 import { cn } from '@/lib/utils/ui'
 
 export function IngredientText({
@@ -12,8 +11,6 @@ export function IngredientText({
 		.replace(/\(\s*,\s*/g, '(')
 		.replace(/\(\(([^()]*)\)([^()]*)\)/g, '($1$2)')
 
-	const name = ingredientNameRange(display)
-
 	return (
 		<span
 			className={cn(
@@ -21,17 +18,7 @@ export function IngredientText({
 				done && 'text-muted-foreground line-through',
 			)}
 		>
-			{name ? (
-				<>
-					{display.slice(0, name.start)}
-					<strong className="font-semibold">
-						{display.slice(name.start, name.end)}
-					</strong>
-					{display.slice(name.end)}
-				</>
-			) : (
-				display
-			)}
+			{display}
 		</span>
 	)
 }

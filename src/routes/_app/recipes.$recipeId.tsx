@@ -523,7 +523,7 @@ function RecipeView({
 					{!cooking ? (
 						<fieldset
 							aria-label="ingredient order"
-							className="border-input mt-4 inline-flex gap-1 rounded-lg border p-1"
+							className="mt-4 inline-flex gap-1"
 						>
 							{[
 								{ label: 'by category', value: true },
@@ -545,21 +545,18 @@ function RecipeView({
 						</fieldset>
 					) : null}
 
-					<div className="border-border bg-card mt-5 overflow-hidden rounded-xl border">
+					<div className="mt-4">
 						<table aria-label="ingredients" className="w-full">
 							<tbody>
 								{recipe.ingredients.length ? (
 									rows.map((row) => {
 										if (row.kind === 'heading')
 											return (
-												<tr
-													key={row.key}
-													className="border-border bg-background border-b"
-												>
+												<tr key={row.key} className="border-border border-b">
 													<th
 														colSpan={1}
 														scope="colgroup"
-														className="px-4 py-3 text-left text-sm font-semibold"
+														className="pt-5 pb-2 text-left text-sm font-semibold"
 													>
 														<span className="flex items-center gap-2">
 															{row.category ? (
@@ -583,10 +580,10 @@ function RecipeView({
 										return (
 											<tr
 												key={row.key}
-												className="border-foreground/15 border-b align-top last:border-b-0"
+												className="border-border border-b align-top"
 											>
 												<td>
-													<label className="flex cursor-pointer items-start gap-3 px-4 py-3">
+													<label className="flex min-h-11 cursor-pointer items-start gap-3 py-3">
 														<input
 															type="checkbox"
 															id={id}
