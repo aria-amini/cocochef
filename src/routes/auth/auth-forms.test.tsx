@@ -51,7 +51,7 @@ describe('auth forms', () => {
 			path: '/auth/login?redirect=%2Frecipes%2Fnew',
 		})
 
-		await screen.getByRole('button', { name: 'Continue with Google' }).click()
+		await screen.getByRole('button', { name: 'continue with google' }).click()
 
 		await vi.waitFor(() => {
 			expect(authMocks.signInSocial).toHaveBeenCalledWith({
@@ -66,7 +66,7 @@ describe('auth forms', () => {
 
 		const { screen } = await renderRoute({ path: '/auth/login' })
 
-		await screen.getByRole('button', { name: 'Continue with Google' }).click()
+		await screen.getByRole('button', { name: 'continue with google' }).click()
 
 		await vi.waitFor(() => {
 			expect(authMocks.signInSocial).toHaveBeenCalledWith({
