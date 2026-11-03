@@ -6,6 +6,7 @@ import { serverEnv as env } from '@/env.server'
 import { requireUserId } from '@/lib/auth/session'
 import { clampRecipeTitle, recipeInput } from '@/lib/recipes/model'
 import {
+	addMissingSourceNotes,
 	createSharedRecipe,
 	findSharedRecipeByUrl,
 	saveRecipeForUser,
@@ -47,6 +48,7 @@ async function findOrFetch(url: string, sourceUrl: string) {
 	const recipe = await createSharedRecipe({
 		...input.data,
 		sourceUrl,
+		sourceNotes: page.recipe.sourceNotes,
 	})
 
 	if (!recipe) throw new Error("couldn't save that — try again")
@@ -76,9 +78,28 @@ export const importRecipe = createServerFn({ method: 'POST' })
 
 		// A page already in dutch-oven costs nothing to open, so looking through
 		// search previews only counts against the limits when a site is fetched.
-		const recipe =
-			(await findSharedRecipeByUrl(sourceUrl)) ??
-			(await fetchLimited(userId, data.url, sourceUrl))
+		const known = await findSharedRecipeByUrl(sourceUrl)
+
+		// Explicitly re-importing a previously saved URL can fill notes that
+		// older versions did not capture. A page with none is marked with an
+		// empty string, so it is looked at once. A failed refresh keeps it usable.
+		if (known && data.keep && known.sourceNotes === null) {
+			try {
+				rateLimit(`user:${userId}`, 10)
+				rateLimit(`ip:${getRequestIP() ?? 'unknown'}`, 20)
+
+				const page = await withImportSlot(userId, () =>
+					fetchRecipeHtml(data.url, relayConfig()),
+				)
+
+				if (page?.recipe)
+					await addMissingSourceNotes(known.id, page.recipe.sourceNotes ?? '')
+			} catch {
+				// Existing recipe remains available if the site cannot be fetched.
+			}
+		}
+
+		const recipe = known ?? (await fetchLimited(userId, data.url, sourceUrl))
 
 		if (data.keep) await saveRecipeForUser(userId, recipe.id)
 

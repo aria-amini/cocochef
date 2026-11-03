@@ -12,6 +12,7 @@ export type ImportedRecipe = {
 	imageUrl?: string | undefined
 	ingredients: RecipeIngredient[]
 	steps: string[]
+	sourceNotes?: string | undefined
 }
 
 // ===== Shared =====
@@ -23,6 +24,12 @@ const ENTITY_MAP = new Map([
 	['quot', '"'],
 	['apos', "'"],
 	['nbsp', ' '],
+	['ndash', '–'],
+	['mdash', '—'],
+	['rsquo', '’'],
+	['lsquo', '‘'],
+	['ldquo', '“'],
+	['rdquo', '”'],
 ])
 
 function decodeEntities(text: string) {
@@ -125,6 +132,41 @@ function elementTexts(html: string, attr: string, value: string) {
 	}
 
 	return texts
+}
+
+// Only recognized recipe-card note containers qualify; article comments and
+// unrelated page sections must not become recipe notes.
+function recipeCardNotes(html: string) {
+	const tags = /<([a-z]\w*)\b[^>]*>/gi
+
+	for (const match of html.matchAll(tags)) {
+		const classes = (attrMap(match[0])['class'] ?? '').split(/\s+/)
+
+		if (
+			!classes.includes('wprm-recipe-notes') &&
+			!classes.includes('tasty-recipes-notes-body')
+		)
+			continue
+		const start = match.index + match[0].length
+		const body = html.slice(start, closingTagStart(html, match[1] ?? '', start))
+
+		const paragraphs = body
+			.replaceAll(/<br\s*\/?\s*>/gi, '\n')
+			.replaceAll(
+				/<span\b[^>]*\bstyle\s*=\s*["'][^"']*display\s*:\s*block[^"']*["'][^>]*>/gi,
+				'\n$&',
+			)
+			.replaceAll(/<\/(?:p|li|div)>/gi, '$&\n')
+			.split(/\n+/)
+			.map(stripTags)
+			.filter(Boolean)
+
+		const notes = paragraphs.join('\n\n').trim()
+
+		if (notes) return notes
+	}
+
+	return undefined
 }
 
 // ===== JSON-LD =====
@@ -491,6 +533,7 @@ export function parseRecipe(
 
 	return {
 		...recipe,
+		sourceNotes: recipeCardNotes(html),
 		ingredients: withHtmlIngredientGroups(
 			html,
 			recipe.ingredients.map(({ raw }) => raw),

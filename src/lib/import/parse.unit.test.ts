@@ -135,6 +135,18 @@ function pageWithImage(image: string) {
 const WALLED_PAGE = `<html><head><title>Just a moment...</title></head><body>challenge-platform</body></html>`
 
 describe('parseRecipe', () => {
+	test('imports recipe-card notes as separate paragraphs and ignores comments', () => {
+		const html = `${JSON_LD_PAGE}<div class="wprm-recipe-notes"><span style="display: block;"><strong>1. Oil</strong> &ndash; use olive oil.</span><div class="wprm-spacer"></div><span style="display: block;">Store in the fridge.</span></div><div class="comment-notes">Not a recipe note.</div>`
+
+		expect(parseRecipe(html)?.sourceNotes).toBe(
+			'1. Oil – use olive oil.\n\nStore in the fridge.',
+		)
+		expect(
+			parseRecipe(
+				`${JSON_LD_PAGE}<div class="comment-notes">Not a recipe note.</div>`,
+			)?.sourceNotes,
+		).toBeUndefined()
+	})
 	test('extracts a recipe from a plain JSON-LD block', () => {
 		const recipe = parseRecipe(JSON_LD_PAGE)
 		expect(recipe).toEqual({

@@ -537,6 +537,25 @@ export async function findSharedRecipeByUrl(
 	return recipe ?? null
 }
 
+// Fill missing publisher notes without changing existing content or anyone's
+// personal shelf notes. Concurrent imports cannot overwrite a populated value.
+export async function addMissingSourceNotes(
+	id: string,
+	sourceNotes: string,
+	database: Database = getDb(),
+) {
+	await database
+		.update(recipes)
+		.set({ sourceNotes })
+		.where(
+			and(
+				eq(recipes.id, id),
+				isNull(recipes.userId),
+				isNull(recipes.sourceNotes),
+			),
+		)
+}
+
 // Adds a recipe from the web for everyone, once per page. Two people importing
 // the same page at once both get the one row.
 export async function createSharedRecipe(
@@ -544,6 +563,7 @@ export async function createSharedRecipe(
 		title: string
 		imageUrl?: string | undefined
 		sourceUrl: string
+		sourceNotes?: string | undefined
 		ingredients?: string[] | undefined
 		steps?: string[] | undefined
 	},
@@ -560,6 +580,7 @@ export async function createSharedRecipe(
 				title: input.title,
 				imageUrl: input.imageUrl ?? null,
 				sourceUrl: input.sourceUrl,
+				sourceNotes: input.sourceNotes ?? null,
 				createdAt: now,
 				finalizedAt: now,
 			})
@@ -702,6 +723,7 @@ export async function claimRecipeForUser(
 				userId,
 				title: current.title,
 				imageUrl: current.imageUrl,
+				sourceNotes: current.sourceNotes,
 				servings: current.servings,
 				totalMinutes: current.totalMinutes,
 				createdAt: new Date(),
@@ -796,6 +818,7 @@ export async function updateRecipeForUser(
 								? current.imageUrl
 								: details.imageUrl,
 						sourceUrl: current.sourceUrl,
+						sourceNotes: current.sourceNotes,
 						servings: current.servings,
 						totalMinutes: current.totalMinutes,
 						createdAt: new Date(),

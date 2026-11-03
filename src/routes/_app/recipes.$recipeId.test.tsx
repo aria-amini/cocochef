@@ -129,6 +129,7 @@ vi.mock('@/lib/recipes/server', () => ({
 				...recipeState.recipe,
 				forkedFromId: null,
 				sourceUrl: null,
+				sourceNotes: null,
 				owned: true,
 			}
 
@@ -206,6 +207,7 @@ describe('recipe detail', () => {
 			title: 'miso butter pasta',
 			imageUrl: null,
 			sourceUrl: null,
+			sourceNotes: null,
 			servings: null,
 			totalMinutes: null,
 			notes: null,
@@ -318,7 +320,6 @@ describe('recipe detail', () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 limes', '1 lime']
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await screen.getByRole('button', { name: 'by category' }).click()
 
 		await expect
 			.element(screen.getByRole('checkbox', { name: '2 limes' }))
@@ -333,7 +334,6 @@ describe('recipe detail', () => {
 		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
 		recipeState.recipe.ingredientCategories = { '2 large eggs': 'meat' }
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await screen.getByRole('button', { name: 'by category' }).click()
 
 		await expect
 			.element(screen.getByText('meat & seafood', { exact: true }))
@@ -369,7 +369,6 @@ describe('recipe detail', () => {
 			ingredients: ['2 large eggs'],
 			ingredientCategories: { '2 large eggs': 'other' },
 		})
-		await screen.getByRole('button', { name: 'by category' }).click()
 
 		await expect
 			.element(screen.getByText('other', { exact: true }))
@@ -448,7 +447,7 @@ describe('recipe detail', () => {
 		await expect.element(screen.getByText('no steps yet')).toBeVisible()
 	})
 
-	test('keeps ingredient text together in recipe order and offers category order', async () => {
+	test('keeps ingredient text together in category order', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'200g pasta',
@@ -480,19 +479,13 @@ describe('recipe detail', () => {
 		).toBe('12oz / 340g fresh spinach')
 		await expect
 			.element(screen.getByText('dairy & eggs', { exact: true }))
-			.not.toBeInTheDocument()
-		await screen
-			.getByRole('button', { name: 'by category', exact: true })
-			.click()
-		await expect
-			.element(screen.getByText('dairy & eggs', { exact: true }))
 			.toBeVisible()
 		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
 			window.innerWidth,
 		)
 	})
 
-	test('shows a heading line as a group label, not a checkbox', async () => {
+	test('does not treat a source heading as an ingredient', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['## for the sauce', '1 tbsp miso']
 
@@ -501,18 +494,9 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		// A recipe with sections of its own reads in them, not by aisle.
-		await expect.element(screen.getByText('for the sauce')).toBeVisible()
-		await screen
-			.getByRole('button', { name: 'by category', exact: true })
-			.click()
 		await expect
 			.element(screen.getByText('for the sauce'))
 			.not.toBeInTheDocument()
-		await screen
-			.getByRole('button', { name: 'recipe order', exact: true })
-			.click()
-		await expect.element(screen.getByText('for the sauce')).toBeVisible()
 		await expect
 			.element(screen.getByText('## for the sauce'))
 			.not.toBeInTheDocument()
@@ -522,6 +506,18 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('checkbox', { name: /for the sauce/ }))
 			.not.toBeInTheDocument()
+	})
+
+	test('shows publisher and personal notes separately', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.sourceNotes = 'Use a heavy pan.'
+		recipeState.recipe.notes = 'Add more lemon.'
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		await expect
+			.element(screen.getByRole('heading', { name: 'recipe notes' }))
+			.toBeVisible()
+		await expect.element(screen.getByText('Use a heavy pan.')).toBeVisible()
+		await expect.element(screen.getByText('Add more lemon.')).toBeVisible()
 	})
 
 	test('saves edited ingredients and free-form steps', async () => {

@@ -56,6 +56,8 @@ export const recipes = snakeCase.table(
 		title: text().notNull(),
 		imageUrl: text(),
 		sourceUrl: text(),
+		// Publisher's recipe-card notes, separate from each cook's private notes.
+		sourceNotes: text(),
 		servings: integer(),
 		totalMinutes: integer(),
 		createdAt: timestamp({ withTimezone: true }).notNull(),

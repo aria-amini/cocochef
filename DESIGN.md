@@ -350,21 +350,19 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 ### Ingredient overview and cooking
 
-The recipe overview defaults to source order and offers a category view.
-Categories reuse Ingredients' catalog assignments and food aliases; source
-sections appear only in recipe order and cooking mode. Unknown foods stay under
-Other. Display grouping never changes saved ingredient order. Ingredients and
-steps use compact open checklists with quiet row dividers and naturally wrapping
-text. Quantities and ingredient details stay together at regular weight.
-Category headings use generic pantry sprites, including a bottle for oils and
-sauces; source headings stay text-only.
+The recipe overview groups ingredients by category, using Ingredients' catalog
+assignments and food aliases. Unknown foods stay under Other. Display grouping
+never changes saved ingredient order. Ingredients and steps use compact open
+checklists with quiet row dividers and naturally wrapping text. Quantities and
+ingredient details stay together at regular weight. Category headings use
+generic pantry sprites, including a bottle for oils and sauces; source headings
+stay text-only.
 
-Start cooking restores source order. Checkboxes are visible before cooking;
-clicking one asks to start, and confirmation checks the selected item. Cancel
-leaves the checklist unchanged. Progress is saved per user and recipe on the
-server, including across devices. End cooking clears the session without
-recording a meal; its toast can undo that. Changed ingredient or step content
-invalidates stale checkoffs.
+Checkboxes are visible before cooking; clicking one asks to start, and
+confirmation checks the selected item. Cancel leaves the checklist unchanged.
+Progress is saved per user and recipe on the server, including across devices.
+End cooking clears the session without recording a meal; its toast can undo
+that. Changed ingredient or step content invalidates stale checkoffs.
 
 A warm yolk card at the bottom of the sidebar links to each active recipe, shows
 step progress, and counts elapsed time since starting (including time away). On

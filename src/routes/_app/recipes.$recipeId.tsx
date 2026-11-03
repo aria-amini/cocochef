@@ -130,9 +130,6 @@ function RecipeView({
 	books: Book[]
 	onEdit: () => void
 }) {
-	// A recipe that has its own sections reads in them; the rest sort by aisle.
-	const [grouped, setGrouped] = useState(false)
-
 	const [startPrompt, setStartPrompt] = useState<string | null>(null)
 	const versions = useRef(new Map<string, number>())
 	const client = useQueryClient()
@@ -301,7 +298,7 @@ function RecipeView({
 
 	const rows = ingredientViewRows(
 		recipe.ingredients,
-		!cooking && grouped,
+		true,
 		recipe.ingredientCategories,
 	)
 
@@ -516,30 +513,6 @@ function RecipeView({
 				<section>
 					<div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
 						<h2 className={sectionLabelClassName}>ingredients</h2>
-						{!cooking ? (
-							<fieldset
-								aria-label="ingredient order"
-								className="inline-flex gap-1"
-							>
-								{[
-									{ label: 'by category', value: true },
-									{ label: 'recipe order', value: false },
-								].map(({ label, value }) => (
-									<button
-										key={label}
-										type="button"
-										aria-pressed={grouped === value}
-										onClick={() => setGrouped(value)}
-										className={cn(
-											'focus-visible:outline-kitchen-eggplant rounded-md px-3 py-2 text-xs font-semibold focus-visible:outline-2',
-											grouped === value && 'bg-kitchen-yolk/40',
-										)}
-									>
-										{label}
-									</button>
-								))}
-							</fieldset>
-						) : null}
 					</div>
 
 					<div className="mt-2">
@@ -553,7 +526,7 @@ function RecipeView({
 													<th
 														colSpan={1}
 														scope="colgroup"
-														className="pt-5 pb-2 text-left text-sm font-semibold"
+														className="pt-3 pb-2 text-left text-sm font-semibold"
 													>
 														<span className="flex items-center gap-2">
 															{row.category ? (
@@ -659,6 +632,14 @@ function RecipeView({
 					</ol>
 				</section>
 			</div>
+			{recipe.sourceNotes ? (
+				<section className="mt-10">
+					<h2 className={sectionLabelClassName}>recipe notes</h2>
+					<p className="mt-3 text-base leading-relaxed whitespace-pre-line">
+						{recipe.sourceNotes}
+					</p>
+				</section>
+			) : null}
 			{recipe.notes ? (
 				<section className="mt-10">
 					<h2 className={sectionLabelClassName}>notes</h2>
