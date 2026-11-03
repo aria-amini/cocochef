@@ -271,7 +271,8 @@ export function RecipeEditor({
 
 	const [notesTooLong, setNotesTooLong] = useState(
 		() =>
-			(recipe?.notes ?? arrived?.notes ?? '').trim().length > recipeNotesMax,
+			Array.from((recipe?.notes ?? arrived?.notes ?? '').trim()).length >
+			recipeNotesMax,
 	)
 
 	// Read from the fields, not from `contentFrom`, which gives up without a name
@@ -332,7 +333,9 @@ export function RecipeEditor({
 							if (finishing.current) return
 
 							setName(before.name)
-							setNotesTooLong(before.notes.trim().length > recipeNotesMax)
+							setNotesTooLong(
+								Array.from(before.notes.trim()).length > recipeNotesMax,
+							)
 							setSeed((current) => ({
 								version: current.version + 1,
 								title: before.name,
@@ -378,7 +381,7 @@ export function RecipeEditor({
 
 			setName(sorted.title)
 			setUnnamed(false)
-			setNotesTooLong(mergedNotes.trim().length > recipeNotesMax)
+			setNotesTooLong(Array.from(mergedNotes.trim()).length > recipeNotesMax)
 			setSeed((current) => ({
 				version: current.version + 1,
 				...sorted,
@@ -639,10 +642,11 @@ export function RecipeEditor({
 					key={seed.version}
 					id="edit-notes"
 					name="notes"
-					maxLength={recipeNotesMax}
 					defaultValue={seed.notes ?? ''}
 					onChange={(event) =>
-						setNotesTooLong(event.target.value.trim().length > recipeNotesMax)
+						setNotesTooLong(
+							Array.from(event.target.value.trim()).length > recipeNotesMax,
+						)
 					}
 					aria-invalid={notesTooLong || undefined}
 					aria-describedby={notesTooLong ? 'notes-too-long' : undefined}

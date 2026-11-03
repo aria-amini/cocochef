@@ -101,6 +101,25 @@ describe('write a recipe', () => {
 			.not.toBeInTheDocument()
 	})
 
+	test('accepts notes with 1,001 emoji without treating them as too long', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('toast')
+		const notes = '😀'.repeat(1001)
+		await screen.getByRole('textbox', { name: 'notes' }).fill(notes)
+		await expect
+			.element(
+				screen.getByText(
+					'notes are too long to save — shorten them to 2,000 characters',
+				),
+			)
+			.not.toBeInTheDocument()
+		await expect.poll(latest).toEqual(expect.objectContaining({ notes }))
+	})
+
 	test('keeps long pasted notes visible and explains why they cannot yet be saved', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
