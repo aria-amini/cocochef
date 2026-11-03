@@ -34,11 +34,7 @@ import {
 } from '@/lib/cooking/server'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { categorySprites } from '@/lib/pantry/catalog'
-import {
-	hasOwnSections,
-	ingredientViewRows,
-} from '@/lib/recipes/ingredient-groups'
-import { splitIngredientAmount } from '@/lib/recipes/ingredient-line'
+import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import { formatMinutes } from '@/lib/recipes/model'
 import {
 	claimRecipe,
@@ -136,9 +132,7 @@ function RecipeView({
 	onEdit: () => void
 }) {
 	// A recipe that has its own sections reads in them; the rest sort by aisle.
-	const [grouped, setGrouped] = useState(
-		() => !hasOwnSections(recipe.ingredients),
-	)
+	const [grouped, setGrouped] = useState(false)
 
 	const [startPrompt, setStartPrompt] = useState<string | null>(null)
 	const versions = useRef(new Map<string, number>())
@@ -563,7 +557,7 @@ function RecipeView({
 													className="border-border bg-background border-b"
 												>
 													<th
-														colSpan={3}
+														colSpan={1}
 														scope="colgroup"
 														className="px-4 py-3 text-left text-sm font-semibold"
 													>
@@ -586,18 +580,13 @@ function RecipeView({
 										const id = `ingredient-${row.index}`
 										const done = cooking && checked.has(item)
 
-										const { amount, name } = splitIngredientAmount(row.text)
-
 										return (
 											<tr
 												key={row.key}
 												className="border-foreground/15 border-b align-top last:border-b-0"
 											>
-												<td className="w-px">
-													<label
-														htmlFor={id}
-														className="flex cursor-pointer py-3 pr-2 pl-4"
-													>
+												<td>
+													<label className="flex cursor-pointer items-start gap-3 px-4 py-3">
 														<input
 															type="checkbox"
 															id={id}
@@ -611,25 +600,7 @@ function RecipeView({
 															}
 															className="accent-kitchen-basil mt-1 size-6 shrink-0"
 														/>
-													</label>
-												</td>
-												<td className="w-px whitespace-nowrap">
-													<label
-														htmlFor={id}
-														className={cn(
-															'block cursor-pointer py-3 pr-3 pl-1 text-right text-base leading-relaxed font-normal',
-															done && 'text-muted-foreground line-through',
-														)}
-													>
-														{amount}
-													</label>
-												</td>
-												<td>
-													<label
-														htmlFor={id}
-														className="flex cursor-pointer py-3 pr-4"
-													>
-														<IngredientText text={name} done={done} />
+														<IngredientText text={row.text} done={done} />
 													</label>
 												</td>
 											</tr>
@@ -638,7 +609,7 @@ function RecipeView({
 								) : (
 									<tr>
 										<td
-											colSpan={3}
+											colSpan={1}
 											className="border-foreground/40 border-dashed p-4 text-sm font-semibold"
 										>
 											no ingredients yet

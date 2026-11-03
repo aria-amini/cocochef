@@ -318,6 +318,7 @@ describe('recipe detail', () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 limes', '1 lime']
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		await screen.getByRole('button', { name: 'by category' }).click()
 
 		await expect
 			.element(screen.getByRole('checkbox', { name: '2 limes' }))
@@ -332,6 +333,7 @@ describe('recipe detail', () => {
 		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
 		recipeState.recipe.ingredientCategories = { '2 large eggs': 'meat' }
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		await screen.getByRole('button', { name: 'by category' }).click()
 
 		await expect
 			.element(screen.getByText('meat & seafood', { exact: true }))
@@ -367,6 +369,8 @@ describe('recipe detail', () => {
 			ingredients: ['2 large eggs'],
 			ingredientCategories: { '2 large eggs': 'other' },
 		})
+		await screen.getByRole('button', { name: 'by category' }).click()
+
 		await expect
 			.element(screen.getByText('other', { exact: true }))
 			.toBeVisible()
@@ -444,73 +448,45 @@ describe('recipe detail', () => {
 		await expect.element(screen.getByText('no steps yet')).toBeVisible()
 	})
 
-	test('lays ingredients out as checkbox, amount and name columns, and switches between category and recipe order', async () => {
+	test('keeps ingredient text together in recipe order and offers category order', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'200g pasta',
-			'2 large eggs',
-			'⅓ cup flour',
-			'salt to taste',
+			'2 large eggs (, at room temperature)',
+			'12oz / 340g fresh spinach',
+			'500g beef mince ((ground beef), any fat % you like)',
 		]
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await expect
-			.element(screen.getByText('dairy & eggs', { exact: true }))
-			.toBeVisible()
 
-		const left = (text: string) =>
-			screen.getByText(text, { exact: true }).element().getBoundingClientRect()
-				.left
+		const row = screen
+			.getByRole('checkbox', { name: '2 large eggs (, at room temperature)' })
+			.element()
+			.closest('tr')
 
-		const right = (text: string) =>
-			screen.getByText(text, { exact: true }).element().getBoundingClientRect()
-				.right
-
-		expect(Math.abs(left('pasta') - left('flour'))).toBeLessThan(1)
-		expect(Math.abs(right('200 g') - right('⅓ cup'))).toBeLessThan(1)
-		expect(left('pasta')).toBeGreaterThanOrEqual(right('200 g'))
-		await expect
-			.element(screen.getByText('salt to taste', { exact: true }))
-			.toBeVisible()
-		await screen
-			.getByRole('button', { name: 'recipe order', exact: true })
-			.click()
+		expect(row?.textContent).toBe('2 large eggs (at room temperature)')
+		expect(
+			screen
+				.getByRole('checkbox', {
+					name: '500g beef mince ((ground beef), any fat % you like)',
+				})
+				.element()
+				.closest('tr')?.textContent,
+		).toBe('500g beef mince (ground beef, any fat % you like)')
+		expect(
+			screen
+				.getByRole('checkbox', { name: '12oz / 340g fresh spinach' })
+				.element()
+				.closest('tr')?.textContent,
+		).toBe('12oz / 340g fresh spinach')
 		await expect
 			.element(screen.getByText('dairy & eggs', { exact: true }))
 			.not.toBeInTheDocument()
-	})
-
-	test('keeps mixed fractions and dual-unit amounts visible in the amount column', async () => {
-		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = [
-			'## Ingredients',
-			'1 large onion - diced',
-			'4 large garlic cloves - diced',
-			'1 ½ tablespoons dried mint',
-			'1 1/2 teaspoons turmeric powder',
-			'½ cup dried chickpeas soaked overnight (or 1 cup canned chickpeas)',
-			'12oz / 340g fresh spinach',
-			'4oz / 120g reshteh noodles (or dried udon noodles / linguine)',
-			'½ cup liquid kashk mixture',
-			'2 tablespoons extra virgin olive oil',
-			'Salt and black pepper to taste',
-		]
-		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-
-		for (const amount of [
-			'1 ½ tablespoons',
-			'1 1/2 teaspoons',
-			'12 oz',
-			'fresh spinach · 340g',
-			'dried mint',
-			'reshteh noodles (or dried udon noodles / linguine) · 120g',
-		]) {
-			const element = screen.getByText(amount, { exact: true }).element()
-			expect(element.getBoundingClientRect().width).toBeGreaterThan(0)
-			expect(element.getBoundingClientRect().right).toBeLessThanOrEqual(
-				window.innerWidth - 16,
-			)
-		}
-
+		await screen
+			.getByRole('button', { name: 'by category', exact: true })
+			.click()
+		await expect
+			.element(screen.getByText('dairy & eggs', { exact: true }))
+			.toBeVisible()
 		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
 			window.innerWidth,
 		)
@@ -788,9 +764,6 @@ describe('recipe detail', () => {
 		})
 
 		await expect.element(start).toBeEnabled()
-		expect(
-			document.querySelector('img[src="/sprites/pantry/olive-oil.png"]'),
-		).not.toBeNull()
 
 		const save = screen.getByRole('button', {
 			name: 'save to shelf',
@@ -804,7 +777,7 @@ describe('recipe detail', () => {
 			save.element().getBoundingClientRect().top,
 		)
 		expect(cookingState.progress).toBeNull()
-		const checkbox = screen.getByRole('checkbox').first()
+		const checkbox = screen.getByRole('checkbox', { name: '200g pasta' })
 		await checkbox.click()
 		await expect.element(screen.getByRole('dialog')).toBeVisible()
 		expect(cookingState.progress).toBeNull()

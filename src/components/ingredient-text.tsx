@@ -8,7 +8,11 @@ export function IngredientText({
 	text: string
 	done?: boolean
 }) {
-	const name = ingredientNameRange(text)
+	const display = text
+		.replace(/\(\s*,\s*/g, '(')
+		.replace(/\(\(([^()]*)\)([^()]*)\)/g, '($1$2)')
+
+	const name = ingredientNameRange(display)
 
 	return (
 		<span
@@ -19,14 +23,14 @@ export function IngredientText({
 		>
 			{name ? (
 				<>
-					{text.slice(0, name.start)}
+					{display.slice(0, name.start)}
 					<strong className="font-semibold">
-						{text.slice(name.start, name.end)}
+						{display.slice(name.start, name.end)}
 					</strong>
-					{text.slice(name.end)}
+					{display.slice(name.end)}
 				</>
 			) : (
-				text
+				display
 			)}
 		</span>
 	)

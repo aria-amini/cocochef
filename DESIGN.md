@@ -350,12 +350,13 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 ### Ingredient overview and cooking
 
-The recipe overview offers category and source-order views. Categories reuse
-Ingredients' catalog assignments and food aliases; source sections appear only
-in recipe order and cooking mode. Unknown foods stay under Other. Display
-grouping never changes saved ingredient order. Ingredients and steps use
-bordered, rounded lists with separated rows and naturally wrapping text.
-Quantities stay verbatim, at the same weight as the ingredient. Category
+The recipe overview defaults to source order and offers a category view.
+Categories reuse Ingredients' catalog assignments and food aliases; source
+sections appear only in recipe order and cooking mode. Unknown foods stay under
+Other. Display grouping never changes saved ingredient order. Ingredients and
+steps use bordered, rounded lists with separated rows and naturally wrapping
+text. Quantities and ingredient details stay together; recognized food names
+use semibold text. Category
 headings use generic pantry sprites, including a bottle for oils and sauces;
 source headings stay text-only.
 
