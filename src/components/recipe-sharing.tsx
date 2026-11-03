@@ -1,7 +1,8 @@
 import { ShareNetworkIcon } from '@phosphor-icons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 import { FieldError, primaryActionClassName } from '@/components/recipe-form'
 import { ExportRecipeButton } from '@/components/recipe-transfer'
@@ -77,6 +78,11 @@ function SharingOptions({
 	const session = authClient.useSession()
 	const account = session.data?.user
 	const client = useQueryClient()
+	const navigate = useNavigate()
+
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	})
 
 	const profile = useQuery({
 		queryKey: ['sharing-profile', account?.id],
@@ -99,6 +105,19 @@ function SharingOptions({
 		onSuccess: (value) => {
 			client.setQueryData(shareKey, value)
 			setCopied(false)
+
+			// The readable address stops opening once the recipe is not public.
+			if (
+				value.visibility !== 'public' &&
+				pathname !== `/recipes/${recipeId}`
+			) {
+				toast.success('visibility saved')
+				void navigate({
+					to: '/recipes/$recipeId',
+					params: { recipeId },
+					replace: true,
+				})
+			}
 		},
 	})
 

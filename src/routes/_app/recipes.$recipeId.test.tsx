@@ -140,6 +140,7 @@ describe('recipe detail', () => {
 			lastCookedAt: null,
 			forkedFromId: null,
 			original: null,
+			publicPath: null,
 			savedAt: new Date(),
 			saved: true,
 			owned: true,
@@ -285,6 +286,16 @@ describe('recipe detail', () => {
 			ingredients: ['2 large eggs'],
 			ingredientCategories: { '2 large eggs': 'other' },
 		})
+	})
+
+	test('keeps a published recipe at its readable address', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.publicPath = '/aria-amini/miso-butter-pasta'
+		const { router } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.poll(() => router.state.location.pathname)
+			.toBe('/aria-amini/miso-butter-pasta')
 	})
 
 	test('points a copied web recipe back to its page and the original version', async () => {

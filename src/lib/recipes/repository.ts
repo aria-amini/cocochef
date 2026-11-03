@@ -25,6 +25,7 @@ import {
 	recipes,
 	recipeShares,
 	shelfRecipes,
+	sharingProfiles,
 } from '@/db/schema'
 import {
 	ownsRecipePhoto,
@@ -141,6 +142,39 @@ async function recipeContent(database: RecipeDatabase, recipeId: string) {
 	}
 }
 
+// The readable address of a published recipe: /handle/slug, from the viewer's
+// own publication of it, else its writer's. Null while it is not public, so
+// the page keeps the plain id address.
+async function publicPathFor(
+	database: RecipeDatabase,
+	userId: string,
+	recipe: { id: string; userId: string | null; finalizedAt: Date | null },
+) {
+	if (!recipe.finalizedAt) return null
+
+	const owners = [userId, ...(recipe.userId ? [recipe.userId] : [])]
+
+	const published = await database
+		.select({
+			ownerId: recipeShares.userId,
+			slug: recipeShares.slug,
+			handle: sharingProfiles.handle,
+		})
+		.from(recipeShares)
+		.innerJoin(sharingProfiles, eq(sharingProfiles.userId, recipeShares.userId))
+		.where(
+			and(
+				eq(recipeShares.recipeId, recipe.id),
+				eq(recipeShares.visibility, 'public'),
+				inArray(recipeShares.userId, owners),
+			),
+		)
+
+	const share = published.find((row) => row.ownerId === userId) ?? published[0]
+
+	return share ? `/${share.handle}/${share.slug}` : null
+}
+
 // The recipe a copy was made from, when this cook can still open it.
 async function visibleOriginal(
 	database: RecipeDatabase,
@@ -172,6 +206,7 @@ export async function getRecipeForUser(
 		...recipe,
 		...(await recipeContent(database, recipe.id)),
 		original: await visibleOriginal(database, userId, recipe.forkedFromId),
+		publicPath: await publicPathFor(database, userId, recipe),
 		saved: recipe.savedAt !== null,
 		owned: recipe.userId === userId,
 	}

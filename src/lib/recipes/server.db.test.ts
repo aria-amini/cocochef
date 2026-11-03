@@ -6,7 +6,11 @@ import {
 } from '@tests/support/fixtures/db'
 
 import { mealLogs, user } from '@/db/schema'
-import { getRecipeShare, saveSharingProfile } from '@/lib/sharing/repository'
+import {
+	getRecipeShare,
+	saveSharingProfile,
+	setRecipeShare,
+} from '@/lib/sharing/repository'
 
 import { recipeUpdateInput } from './model'
 import {
@@ -963,6 +967,109 @@ describe('shared recipes', () => {
 			forkedFromId: recipe.id,
 			sourceUrl: 'https://example.com/better-dal',
 		})
+	})
+
+	test('gives a published recipe its readable address, to its writer and to others', async ({
+		db,
+	}) => {
+		const writer = await seedUser(db)
+		const reader = await seedUser(db)
+
+		await saveSharingProfile(
+			writer,
+			{ handle: 'dal-cook', displayName: 'Dal', autoPublish: false },
+			db,
+		)
+
+		const recipe = await createRecipeForUser(writer, { title: 'red dal' }, db)
+
+		if (!recipe) throw new Error('recipe was not created')
+
+		// Private and unlisted recipes keep the id address.
+		await expect(
+			getRecipeForUser(writer, recipe.id, db),
+		).resolves.toMatchObject({ publicPath: null })
+
+		await setRecipeShare(
+			writer,
+			{ recipeId: recipe.id, visibility: 'unlisted' },
+			db,
+		)
+		await expect(
+			getRecipeForUser(writer, recipe.id, db),
+		).resolves.toMatchObject({ publicPath: null })
+
+		await setRecipeShare(
+			writer,
+			{ recipeId: recipe.id, visibility: 'public' },
+			db,
+		)
+
+		const path = (await getRecipeForUser(writer, recipe.id, db))?.publicPath
+		expect(path).toMatch(/^\/dal-cook\/[\w-]+$/)
+		await expect(
+			getRecipeForUser(reader, recipe.id, db),
+		).resolves.toMatchObject({ publicPath: path })
+	})
+
+	test('a private share of a saved web recipe is not its readable address', async ({
+		db,
+	}) => {
+		const cook = await seedUser(db)
+		const recipe = await seedShared(db)
+
+		await saveSharingProfile(
+			cook,
+			{ handle: 'web-cook', displayName: 'Web cook', autoPublish: false },
+			db,
+		)
+		await saveRecipeForUser(cook, recipe.id, db)
+		await setRecipeShare(
+			cook,
+			{ recipeId: recipe.id, visibility: 'private' },
+			db,
+		)
+
+		await expect(getRecipeForUser(cook, recipe.id, db)).resolves.toMatchObject({
+			publicPath: null,
+		})
+	})
+
+	test('credits a writer by their public name, never their account name', async ({
+		db,
+	}) => {
+		const writer = await seedUser(db)
+		const reader = await seedUser(db)
+		const recipe = await createRecipeForUser(writer, { title: 'red dal' }, db)
+
+		if (!recipe) throw new Error('recipe was not created')
+
+		// No public profile yet: no credit, and the account name stays private.
+		await expect(
+			getRecipeForUser(writer, recipe.id, db),
+		).resolves.toMatchObject({ authorName: null })
+
+		await saveSharingProfile(
+			writer,
+			{ handle: 'credit-cook', displayName: 'Dal Cook', autoPublish: false },
+			db,
+		)
+
+		// A profile with no public recipe is still not public, so not credited.
+		await expect(
+			getRecipeForUser(writer, recipe.id, db),
+		).resolves.toMatchObject({ authorName: null })
+
+		await setRecipeShare(
+			writer,
+			{ recipeId: recipe.id, visibility: 'public' },
+			db,
+		)
+
+		const seen = await getRecipeForUser(reader, recipe.id, db)
+
+		expect(seen).toMatchObject({ authorName: 'Dal Cook' })
+		expect(JSON.stringify(seen)).not.toContain('Test User')
 	})
 
 	test('removing a shared recipe only takes it off your shelf', async ({
