@@ -617,7 +617,7 @@ function RecipeView({
 													<label
 														htmlFor={id}
 														className={cn(
-															'block cursor-pointer py-3 pr-3 pl-1 text-right text-base leading-relaxed font-semibold',
+															'block cursor-pointer py-3 pr-3 pl-1 text-right text-base leading-relaxed font-normal',
 															done && 'text-muted-foreground line-through',
 														)}
 													>

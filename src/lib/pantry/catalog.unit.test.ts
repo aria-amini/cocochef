@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vite-plus/test'
 import {
 	catalogSections,
 	filterCatalogItems,
+	ingredientNameRange,
 	normalizeIngredientName,
 	sectionSprite,
 } from './catalog'
@@ -42,6 +43,23 @@ describe('ingredient catalog', () => {
 
 		expect(filterCatalogItems(items, 'jalapeno')).toEqual(['jalapeños'])
 		expect(filterCatalogItems(items, 'zaatar')).toEqual(["za'atar"])
+	})
+})
+
+describe('ingredientNameRange', () => {
+	test.each([
+		['diced Yellow Onion', 'Yellow Onion'],
+		['yellow onions, finely diced', 'yellow onions'],
+		['1 cup coconut milk (or water)', 'coconut milk'],
+		['2 cloves garlic, minced', 'garlic'],
+		['beef mince (ground beef)', 'beef mince'],
+	])('finds the food in %j', (text, expected) => {
+		const range = ingredientNameRange(text)
+		expect(range && text.slice(range.start, range.end)).toBe(expected)
+	})
+
+	test('leaves unfamiliar foods and notes unhighlighted', () => {
+		expect(ingredientNameRange('asafoetida, optional garlic')).toBeUndefined()
 	})
 })
 

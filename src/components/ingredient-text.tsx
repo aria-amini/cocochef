@@ -1,3 +1,4 @@
+import { ingredientNameRange } from '@/lib/pantry/catalog'
 import { cn } from '@/lib/utils/ui'
 
 export function IngredientText({
@@ -7,6 +8,8 @@ export function IngredientText({
 	text: string
 	done?: boolean
 }) {
+	const name = ingredientNameRange(text)
+
 	return (
 		<span
 			className={cn(
@@ -14,7 +17,17 @@ export function IngredientText({
 				done && 'text-muted-foreground line-through',
 			)}
 		>
-			{text}
+			{name ? (
+				<>
+					{text.slice(0, name.start)}
+					<strong className="font-semibold">
+						{text.slice(name.start, name.end)}
+					</strong>
+					{text.slice(name.end)}
+				</>
+			) : (
+				text
+			)}
 		</span>
 	)
 }
