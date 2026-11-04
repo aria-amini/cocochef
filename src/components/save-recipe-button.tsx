@@ -75,7 +75,10 @@ export function SaveRecipeButton({
 				disabled={
 					pending ||
 					session.isPending ||
-					(!!account && recipe.saved === undefined && query.isPending)
+					(!!account &&
+						!account.isAnonymous &&
+						recipe.saved === undefined &&
+						query.isPending)
 				}
 				onClick={() => {
 					if (!account || account.isAnonymous) setAuthOpen(true)

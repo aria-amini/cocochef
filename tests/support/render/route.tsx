@@ -72,7 +72,7 @@ export async function renderRoute(
 		<QueryClientProvider client={queryClient}>
 			<RouterProvider router={router} />
 			{/* the app's Toaster lives in the document shell, which tests don't mount */}
-			<Toaster />
+			<Toaster position="top-right" />
 		</QueryClientProvider>,
 		{ container },
 	)

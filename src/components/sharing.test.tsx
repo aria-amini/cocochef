@@ -193,6 +193,23 @@ describe('sharing', () => {
 		expect(api.deleteRecipe).not.toHaveBeenCalled()
 	})
 
+	test('lets an anonymous visitor open signup from save', async () => {
+		api.web.mockResolvedValue(recipe)
+		const guest = { ...session, user: { ...session.user, isAnonymous: true } }
+
+		const { screen } = await renderRoute({
+			path: '/sites/example.com/pasta',
+			session: guest,
+		})
+
+		const save = screen.getByRole('button', { name: 'save', exact: true })
+		await expect.element(save).toBeEnabled()
+		await save.click()
+		await expect
+			.element(screen.getByRole('dialog', { name: 'create an account' }))
+			.toBeVisible()
+	})
+
 	test('shows a private or unavailable recipe without exposing its contents', async () => {
 		api.publicRecipe.mockResolvedValue(null)
 		const { screen } = await renderRoute({ path: '/aria-amini/private-recipe' })
