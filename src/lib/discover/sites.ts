@@ -12,13 +12,11 @@ export type RecipeSite = {
 // Sites that publish crawlable sitemaps and recipe JSON-LD the link importer
 // reads. Each was checked against its robots.txt. Remove a site here to honor
 // an opt-out.
+//
+// Serious Eats is deliberately absent: its recipe sitemap answers our crawler
+// with a Cloudflare pay-per-crawl refusal, and its robots.txt asks for written
+// permission before building datasets. Pasted Serious Eats links still import.
 export const recipeSites: RecipeSite[] = [
-	{
-		id: 'seriouseats',
-		name: 'Serious Eats',
-		sitemap: 'https://www.seriouseats.com/sitemap.xml',
-		recipe: /^https:\/\/www\.seriouseats\.com\/[a-z0-9-]*recipe[a-z0-9-]*$/,
-	},
 	{
 		id: 'americastestkitchen',
 		name: 'America’s Test Kitchen',
