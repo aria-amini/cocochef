@@ -820,6 +820,8 @@ describe('recipe detail', () => {
 
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
 		expect(updateCalls.deleted).toEqual(['recipe-1'])
+		// The recipes tab must not lead back to a deleted recipe.
+		expect(sessionStorage.getItem('dutch-oven:last-recipe')).toBeNull()
 	})
 
 	test('adds a shared recipe to the shelf without offering cook logging', async () => {

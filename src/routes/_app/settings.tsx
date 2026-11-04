@@ -11,6 +11,7 @@ import { RecipeTransfer } from '@/components/recipe-transfer'
 import { SharingProfileSettings } from '@/components/sharing-profile'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
+import { forgetRecipe } from '@/lib/recipes/last-opened'
 import { getAvatarUploadUrl, getAvatarUrl } from '@/lib/s3'
 import { cn } from '@/lib/utils/ui'
 
@@ -161,6 +162,8 @@ function AccountProfile({
 			const { error } = await authClient.signOut()
 
 			if (error) throw new Error(error.message)
+			// The next account must not be sent to this one's last recipe.
+			forgetRecipe()
 			await navigate({ to: '/' })
 		} catch {
 			toast.error("couldn't sign you out — try again")
