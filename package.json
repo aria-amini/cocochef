@@ -33,6 +33,7 @@
 		"dead-code": "fallow dead-code",
 		"import:fetch": "uv run --locked scripts/import-fetch.py",
 		"recipes:index": "vpx scripts/recipe-data.ts index",
+		"recipes:corpus": "vpx scripts/recipe-corpus.ts",
 		"recipes:seed": "varlock run -- vpx scripts/recipe-data.ts seed"
 	},
 	"dependencies": {
