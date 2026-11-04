@@ -4,7 +4,7 @@ import {
 	PlusIcon,
 	ShoppingCartIcon,
 } from '@phosphor-icons/react'
-import { Link, useRouterState } from '@tanstack/react-router'
+import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
@@ -18,22 +18,7 @@ const navItems = [
 	{ label: 'groceries', icon: ShoppingCartIcon, to: '/groceries' },
 ] as const
 
-// Screens that own their bottom edge (forms and the cooking view pin their own
-// actions) leave the tab bar out; the rest of the app shows it.
-const tabBarRoutes = new Set([
-	'/recipes',
-	'/ingredients',
-	'/groceries',
-	'/settings',
-])
-
 type TabBarMode = 'none' | 'bar' | 'bar-fab'
-
-// An open recipe keeps the tab bar so the rest of the app stays one tap away.
-// While it is being edited the editor's own pinned actions take the bottom edge.
-export function isRecipePage(path: string) {
-	return /^\/recipes\/[^/]+$/.test(path) && path !== '/recipes/new'
-}
 
 let hiders = 0
 
@@ -60,11 +45,12 @@ export function useHideTabBar(hide: boolean) {
 	}, [hide])
 }
 
-// The round add button belongs to the recipes shelf alone.
+// Every page inside the app shell gets the tab bar. A route opts out, or adds
+// the shelf's round button, with its `tabBar` static data; the deepest match
+// decides. A screen that pins its own bottom actions only while editing calls
+// useHideTabBar.
 export function useTabBar(): TabBarMode {
-	const pathname = useRouterState({
-		select: (state) => state.location.pathname,
-	})
+	const matches = useMatches()
 
 	const hidden = useSyncExternalStore(
 		subscribeToHiders,
@@ -72,15 +58,15 @@ export function useTabBar(): TabBarMode {
 		() => false,
 	)
 
-	const path = pathname.replace(/\/$/, '') || '/'
+	if (!matches.some((match) => match.routeId === '/_app')) return 'none'
 
-	if (path === '/recipes') return 'bar-fab'
+	let mode: 'none' | 'fab' | undefined
 
-	if (isRecipePage(path)) return hidden ? 'none' : 'bar'
+	for (const match of matches) mode = match.staticData?.tabBar ?? mode
 
-	return tabBarRoutes.has(path) || path.startsWith('/coming-soon/')
-		? 'bar'
-		: 'none'
+	if (mode === 'none' || hidden) return 'none'
+
+	return mode === 'fab' ? 'bar-fab' : 'bar'
 }
 
 // The on-screen keyboard shoves fixed bars up over the field being typed in,
@@ -187,13 +173,14 @@ function Sidebar() {
 // taking a tab.
 function MobileHeader() {
 	const mode = useTabBar()
+	const matches = useMatches()
 
-	const pathname = useRouterState({
-		select: (state) => state.location.pathname,
-	})
-
-	// An open recipe leads with its own back bar instead.
-	if (mode === 'none' || isRecipePage(pathname.replace(/\/$/, ''))) return null
+	// A page that leads with its own back bar has no use for the header.
+	if (
+		mode === 'none' ||
+		matches.some((match) => match.staticData?.header === 'none')
+	)
+		return null
 
 	return (
 		<header className="flex items-center justify-between px-6 pt-3 md:hidden">

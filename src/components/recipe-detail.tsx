@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { useHideTabBar } from '@/components/app-nav'
 import { CopyRecipeButton } from '@/components/copy-recipe-button'
-import { BackLink } from '@/components/page'
+import { BackBar, BackLink } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
 import { RecipeReader } from '@/components/recipe-reader'
 import { RecipeSharing } from '@/components/recipe-sharing'
@@ -36,10 +36,9 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 			)}
 		>
 			<div className={cn(editing ? 'max-w-2xl' : 'max-w-5xl')}>
-				{/* On phones this is a bar that stays put while the recipe scrolls. */}
-				<div className="border-border bg-background sticky top-0 z-10 -mx-6 -mt-6 mb-4 border-b px-6 md:static md:m-0 md:mb-2 md:border-0 md:p-0">
+				<BackBar>
 					<BackLink to="/recipes">back to recipes</BackLink>
-				</div>
+				</BackBar>
 				{editing ? (
 					<>
 						<RecipeEditor
@@ -129,11 +128,6 @@ function RecipeView({
 							/>
 						) : null}
 					</div>
-					{!recipe.owned ? (
-						<p className="text-muted-foreground mt-2 text-sm">
-							save keeps this recipe; make a copy to edit your own version.
-						</p>
-					) : null}
 				</>
 			}
 		/>

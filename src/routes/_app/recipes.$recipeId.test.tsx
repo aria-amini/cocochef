@@ -178,8 +178,6 @@ describe('recipe detail', () => {
 		await vi.waitFor(() =>
 			expect(router.state.location.pathname).toBe('/recipes'),
 		)
-
-		sessionStorage.clear()
 	})
 
 	test('renders content and separate empty states', async () => {

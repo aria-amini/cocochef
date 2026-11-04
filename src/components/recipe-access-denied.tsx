@@ -4,9 +4,12 @@ import { useEffect } from 'react'
 import { PageTitle } from '@/components/page'
 import { forgetRecipe } from '@/lib/recipes/last-opened'
 
-export function RecipeAccessDenied() {
-	// A recipe that cannot be opened is not one to return to.
-	useEffect(() => forgetRecipe(), [])
+export function RecipeAccessDenied({ recipeId }: { recipeId?: string }) {
+	// A recipe that cannot be opened is not one to return to. A missing address
+	// has no recipe to forget, and a different recipe's memory stays.
+	useEffect(() => {
+		if (recipeId) forgetRecipe(recipeId)
+	}, [recipeId])
 
 	return (
 		<main className="flex flex-1 flex-col items-start gap-4 p-6 md:p-10">

@@ -46,3 +46,14 @@ const BackAnchor = React.forwardRef<
 })
 
 export const BackLink = createLink(BackAnchor)
+
+// The way back on phones is a bar that stays put while the page scrolls; on
+// desktop it is just the link above the title. It sits inside a page's padded
+// <main>, so it pulls out to the edges.
+export function BackBar({ children }: { children: React.ReactNode }) {
+	return (
+		<div className="border-border bg-background sticky top-[env(safe-area-inset-top,0px)] z-10 -mx-6 -mt-6 mb-4 border-b px-6 md:static md:m-0 md:mb-2 md:border-0 md:p-0">
+			{children}
+		</div>
+	)
+}

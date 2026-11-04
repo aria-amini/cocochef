@@ -27,6 +27,8 @@ import {
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/recipes/')({
+	// The shelf adds the round add button above the tab bar.
+	staticData: { tabBar: 'fab' },
 	loader: () => listShelf(),
 	component: Shelf,
 })

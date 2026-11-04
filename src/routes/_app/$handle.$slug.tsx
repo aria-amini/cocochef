@@ -1,6 +1,5 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 
-import { AppChrome } from '@/components/app-chrome'
 import { PublicRecipePage } from '@/components/public-recipes'
 import { RecipeAccessDenied } from '@/components/recipe-access-denied'
 import { RecipeDetail } from '@/components/recipe-detail'
@@ -8,7 +7,8 @@ import { getCurrentSession } from '@/lib/auth/session'
 import { getRecipe } from '@/lib/recipes/server'
 import { readOwnedRecipeAddress, readPublicRecipe } from '@/lib/sharing/server'
 
-export const Route = createFileRoute('/$handle/$slug')({
+export const Route = createFileRoute('/_app/$handle/$slug')({
+	staticData: { header: 'none' },
 	loader: async ({ params }) => {
 		const [recipe, session] = await Promise.all([
 			readPublicRecipe({ data: params }),
@@ -58,11 +58,7 @@ export const Route = createFileRoute('/$handle/$slug')({
 			},
 		],
 	}),
-	notFoundComponent: () => (
-		<AppChrome>
-			<RecipeAccessDenied />
-		</AppChrome>
-	),
+	notFoundComponent: () => <RecipeAccessDenied />,
 	component: SharedRecipe,
 })
 
@@ -70,9 +66,7 @@ function SharedRecipe() {
 	const data = Route.useLoaderData()
 
 	return data.kind === 'app' ? (
-		<AppChrome>
-			<RecipeDetail recipe={data.recipe} />
-		</AppChrome>
+		<RecipeDetail recipe={data.recipe} />
 	) : (
 		<PublicRecipePage recipe={data.recipe} />
 	)

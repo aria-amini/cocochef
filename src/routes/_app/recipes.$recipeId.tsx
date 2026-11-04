@@ -5,6 +5,7 @@ import { RecipeDetail } from '@/components/recipe-detail'
 import { getRecipe } from '@/lib/recipes/server'
 
 export const Route = createFileRoute('/_app/recipes/$recipeId')({
+	staticData: { header: 'none' },
 	loader: async ({ params }) => {
 		const recipe = await getRecipe({ data: { id: params.recipeId } })
 
@@ -22,6 +23,11 @@ export const Route = createFileRoute('/_app/recipes/$recipeId')({
 
 function RecipePage() {
 	const { recipe } = Route.useLoaderData()
+	const { recipeId } = Route.useParams()
 
-	return recipe ? <RecipeDetail recipe={recipe} /> : <RecipeAccessDenied />
+	return recipe ? (
+		<RecipeDetail recipe={recipe} />
+	) : (
+		<RecipeAccessDenied recipeId={recipeId} />
+	)
 }

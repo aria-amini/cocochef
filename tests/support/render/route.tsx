@@ -11,6 +11,7 @@ import { Toaster } from 'sonner'
 import { render, type RenderResult } from 'vitest-browser-react'
 
 import { pendingOptions } from '@/components/page-pending'
+import { forgetRecipe } from '@/lib/recipes/last-opened'
 
 import { createTestQueryClient } from './component'
 
@@ -62,6 +63,8 @@ export async function renderRoute(
 	await router.load()
 
 	localStorage.clear()
+	// The recipe last opened is remembered for the browser tab's session.
+	forgetRecipe()
 	document.body.replaceChildren()
 
 	const container = document.body.appendChild(document.createElement('div'))
