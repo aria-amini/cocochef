@@ -31,6 +31,20 @@ describe('ingredient sprites', () => {
 		['1 tbsp brown sugar', 'flour'],
 		['1 tbsp butter', 'butter'],
 		['2 tbsp sultanas', 'grapes'],
+		['2 pork sausages', 'sausage'],
+		['1 package turkey bacon', 'bacon'],
+		['2 beef steaks', 'steak'],
+		['2 lb beef brisket', 'steak'],
+		['1 pork shoulder', 'meat'],
+		['1 cup water', 'ice-cube'],
+		['1 cup warm water', 'ice-cube'],
+		['1 cup milk or water', 'milk'],
+		['1 cup coconut water', undefined],
+		['2 tbsp rose water', undefined],
+		['1 water chestnut', undefined],
+		['3 green onions', 'onion'],
+		['1 cup green olives', 'olives'],
+		['2 cups mixed greens', 'lettuce'],
 		['a mystery ingredient', undefined],
 		['', undefined],
 		['## herbs', undefined],
@@ -43,6 +57,36 @@ describe('ingredient sprites', () => {
 	])('uses a specific or familiar family icon for %s', (name, expected) => {
 		expect(ingredientItemSprite(name)).toBe(expected)
 	})
+	test.each([
+		['cream cheese', 'cheese'],
+		['ice cream', 'fallback-dairy'],
+		['beef tomatoes', 'tomato'],
+		['tuna in oil', 'fish'],
+		['1 can tuna packed in extra virgin olive oil', 'fish'],
+		['1 can tuna packed in extra-virgin olive oil', 'fish'],
+		['2 cans tuna in spring water', 'fish'],
+		['4 peach halves in heavy syrup', 'peach'],
+		['sun-dried tomatoes in oil', 'tomato'],
+		['salmon fillets with dill', 'salmon'],
+		['cod with parsley', 'fish'],
+		['herb butter', 'butter'],
+		['1 cup heavy cream', 'milk'],
+	])(
+		'keeps the food, not its compound or garnish, for %s',
+		(name, expected) => {
+			expect(ingredientItemSprite(name)).toBe(expected)
+		},
+	)
+
+	test.each([
+		['sugar snap peas', 'flour'],
+		['water chestnuts', 'ice-cube'],
+		['vanilla bean', 'fallback-protein'],
+		['coffee beans', 'fallback-protein'],
+	])('does not give %s the family icon %s', (name, wrong) => {
+		expect(ingredientItemSprite(name)).not.toBe(wrong)
+	})
+
 	test.each([
 		['pineapple', 'pineapple'],
 		['fresh green apples', 'apple'],

@@ -30,7 +30,7 @@ const sprite = <const Key extends string>(
 export const pantrySprites = [
 	sprite('apple', 'fruit', ['apple', 'apples']),
 	sprite('avocado', 'fruit', ['avocado', 'avocados']),
-	sprite('bacon', 'protein', ['bacon', 'pancetta']),
+	sprite('bacon', 'protein', ['bacon', 'turkey bacon', 'pancetta']),
 	sprite('banana', 'fruit', ['banana', 'bananas']),
 	sprite('bell-pepper', 'vegetable', ['bell pepper', 'bell peppers']),
 	sprite('black-pepper', 'spice', [
@@ -106,8 +106,10 @@ export const pantrySprites = [
 		'lettuce',
 		'romaine',
 		'arugula',
-		'greens',
+		// Not bare "greens": singularized it would match "green onions".
 		'salad greens',
+		'mixed greens',
+		'baby greens',
 		'iceberg',
 	]),
 	sprite('mango', 'fruit', ['mango', 'mangoes']),
@@ -505,19 +507,22 @@ const ingredientFamilySprites = [
 	['bread', /\b(?:breadcrumbs|panko|tortillas?|pita|bagels?)\b/],
 	[
 		'flour',
-		/\b(?:sugar|cornstarch|corn starch|baking powder|baking soda|bicarbonate|yeast)\b/,
+		/\b(?:sugar(?! snap)|cornstarch|corn starch|baking powder|baking soda|bicarbonate|yeast)\b/,
 	],
+	['fallback-dairy', /\bice cream\b/],
+	['cheese', /\b(?:cream cheese|ricotta|halloumi|paneer)\b/],
 	['milk', /\b(?:cream|yogurt|yoghurt|buttermilk|half and half|kefir)\b/],
-	['cheese', /\b(?:ricotta|halloumi|paneer)\b/],
 	[
 		'meat',
-		/\b(?:beef|pork|lamb|mutton|brisket|mince|turkey|duck|goose|venison|rabbit|veal)\b/,
+		// Cuts with a sprite of their own are left to it: "pork sausages" and
+		// "turkey bacon" are sausages and bacon, "beef brisket" is a steak.
+		/^(?!.*\b(?:sausages?|bacon|steaks?|brisket|ham)\b).*\b(?:beef(?! tomato)|pork|lamb|mutton|mince|turkey|duck|goose|venison|rabbit|veal)\b/,
 	],
 	['sausage', /\b(?:hot dogs?|frankfurters?)\b/],
 	['fallback-vegetable', /\b(?:green beans|runner beans|string beans)\b/],
 	[
 		'fallback-protein',
-		/\b(?:tofu|tempeh|beans?|lentils?|chickpeas?|garbanzo)\b/,
+		/\b(?:tofu|tempeh|(?<!vanilla |coffee |cocoa |cacao )beans?|lentils?|chickpeas?|garbanzo)\b/,
 	],
 	[
 		'kale',
@@ -528,13 +533,26 @@ const ingredientFamilySprites = [
 		/\b(?:fresh ginger|ginger root|celery|cauliflower|cabbage|brussels sprouts|green beans|asparagus|fennel bulb)\b/,
 	],
 	['grapes', /\b(?:sultanas?|currants?)\b/],
-	['ice-cube', /\b(?:ice|water)\b/],
+	// Plain water and ice. Not "coconut water" or "rose water", and not
+	// "milk or water", which is milk.
+	[
+		'ice-cube',
+		/^(?!.*\bor\b).*(?:\bice\b|(?<!coconut |rose |flower |orange blossom |tonic |soda |sparkling |mineral )\bwater\b(?! chestnut))/,
+	],
 ] as const
 
 // Recipe rows accept familiar family stand-ins: leafy greens for herbs, meat
 // for pork/lamb, and fish for seafood. Unknown foods still leave the slot empty.
 export function ingredientItemSprite(name: string) {
-	const main = normalizeName(name.split(/[,;(]/, 1)[0] ?? '')
+	// The food itself: before a comma, a bracket, "with ..." or "in oil/brine".
+	const main = normalizeName(
+		(name.split(/[,;(]/, 1)[0] ?? '')
+			.replace(
+				/\b(?:packed )?in (?:[\w-]+ )*(?:oil|brine|water|syrup|juice)\b.*$/i,
+				'',
+			)
+			.replace(/\bwith\b.*$/i, ''),
+	)
 
 	if (!main || name.trimStart().startsWith('#')) return undefined
 
@@ -545,16 +563,16 @@ export function ingredientItemSprite(name: string) {
 	if (familySprite) return familySprite[0]
 
 	const family = foodFamily(main)
-
-	if (family?.id === 'herb') return 'kale'
-
 	const normalized = ` ${singularIngredientWords(main)} `
 
 	const match = ingredientMatches.find(({ alias }) =>
 		normalized.includes(` ${alias} `),
 	)
 
+	// A food with its own picture wins over its family's stand-in.
 	if (match && !match.guess) return match.key
+
+	if (family?.id === 'herb') return 'kale'
 
 	if (family?.id === 'fish') return 'fish'
 
