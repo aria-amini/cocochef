@@ -2,8 +2,8 @@ import catalog from './catalog.json'
 import {
 	mergeLinks,
 	parseSitemap,
-	recipeLink,
 	titleFromUrl,
+	validLinks,
 	type RecipeLink,
 } from './recipe-index'
 import { recipeSites, type RecipeSite } from './sites'
@@ -20,7 +20,7 @@ const CRAWLER_HEADERS = {
 	accept: 'application/xml,text/xml;q=0.9,*/*;q=0.5',
 }
 
-const initial = recipeLink.array().parse(catalog)
+const initial = validLinks(catalog)
 
 const bySite = new Map<string, RecipeLink[]>(
 	recipeSites.map((site) => [

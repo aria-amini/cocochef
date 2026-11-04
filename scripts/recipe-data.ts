@@ -7,7 +7,7 @@ import { setTimeout as pause } from 'node:timers/promises'
 import { z } from 'zod'
 
 import { crawlRecipeSite } from '../src/lib/discover/crawl'
-import { recipeLink, spreadEvenly } from '../src/lib/discover/recipe-index'
+import { spreadEvenly, validLinks } from '../src/lib/discover/recipe-index'
 import { recipeSites } from '../src/lib/discover/sites'
 
 const command = process.argv[2]
@@ -48,9 +48,7 @@ async function persisted<T>(work: Promise<T>) {
 }
 
 if (command === 'index') {
-	const existing = recipeLink
-		.array()
-		.parse(JSON.parse(await readFile(catalogPath, 'utf8')))
+	const existing = validLinks(JSON.parse(await readFile(catalogPath, 'utf8')))
 
 	const groups = await Promise.all(
 		recipeSites.map(async (site) => {
@@ -81,8 +79,16 @@ if (command === 'index') {
 		}),
 	)
 
-	await writeFile(catalogPath, `${JSON.stringify(groups.flat())}\n`)
-	console.log(`${groups.flat().length} recipe links written to ${catalogPath}`)
+	// Only well-formed links reach the committed catalog.
+	const written = validLinks(groups.flat())
+
+	// Replaced in one step, so an interrupted run never leaves a truncated catalog
+	// for the discovery code that imports it.
+	const temp = `${catalogPath}.${process.pid}.tmp`
+
+	await writeFile(temp, `${JSON.stringify(written)}\n`)
+	await rename(temp, catalogPath)
+	console.log(`${written.length} recipe links written to ${catalogPath}`)
 } else if (command === 'seed') {
 	// Full recipes are collected only from Good Food, directly, never via the home relay.
 	// Reruns reuse the on-disk cache and existing shared source URLs.
@@ -138,10 +144,9 @@ if (command === 'index') {
 		at: new Date().toISOString(),
 	})
 
-	const links = recipeLink
-		.array()
-		.parse(JSON.parse(await readFile(catalogPath, 'utf8')))
-		.filter((link) => link.siteId === 'bbcgoodfood')
+	const links = validLinks(
+		JSON.parse(await readFile(catalogPath, 'utf8')),
+	).filter((link) => link.siteId === 'bbcgoodfood')
 
 	const selected = spreadEvenly(links, limit)
 

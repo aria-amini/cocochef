@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vite-plus/test'
 
 import {
+	validLinks,
 	featuredRecipeLinks,
 	mergeLinks,
 	parseSitemap,
@@ -69,6 +70,19 @@ test.each([
 	[
 		'https://www.epicurious.com/recipes/food/views/chicken-stew-51234',
 		'chicken stew',
+	],
+	[
+		'https://www.americastestkitchen.com/recipes/8890-jamaican-oxtail',
+		'jamaican oxtail',
+	],
+	[
+		'https://www.americastestkitchen.com/recipes/54-glazed-lemon-cookies',
+		'glazed lemon cookies',
+	],
+	['https://www.bbcgoodfood.com/recipes/15-minute-pasta', '15 minute pasta'],
+	[
+		'https://www.bonappetit.com/recipe/5-ingredient-chicken',
+		'5 ingredient chicken',
 	],
 ])('titles %s as %s', (url, title) => {
 	expect(titleFromUrl(url)).toBe(title)
@@ -177,6 +191,19 @@ describe('featuredRecipeLinks', () => {
 
 		expect(days.size).toBeGreaterThan(1)
 	})
+})
+
+test('keeps the well-formed links and drops a bad one', () => {
+	const good = { url: 'https://example.com/a', title: 'a', siteId: 'x' }
+
+	expect(
+		validLinks([
+			good,
+			{ ...good, url: '/relative/path' },
+			{ ...good, imageUrl: 'not a url' },
+			{ title: 'no url', siteId: 'x' },
+		]),
+	).toEqual([good])
 })
 
 describe('spreadEvenly', () => {

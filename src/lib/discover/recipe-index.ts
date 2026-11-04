@@ -9,6 +9,18 @@ export const recipeLink = z.object({
 
 export type RecipeLink = z.infer<typeof recipeLink>
 
+// The links in `raw` that are well formed. One bad entry in the catalog must
+// not take the rest, or the app that loads it, down with it.
+export function validLinks(
+	raw: readonly Partial<z.input<typeof recipeLink>>[],
+) {
+	return raw.flatMap((entry) => {
+		const parsed = recipeLink.safeParse(entry)
+
+		return parsed.success ? [parsed.data] : []
+	})
+}
+
 export type ParsedSitemap = {
 	sitemaps: string[]
 	pages: { url: string; imageUrl?: string | undefined }[]
@@ -83,13 +95,18 @@ export function spreadEvenly<T>(items: T[], limit: number) {
 
 // Recipe slugs read as titles: /recipes/crispy-chicken-thighs -> "crispy chicken thighs".
 export function titleFromUrl(url: string) {
-	const slug = new URL(url).pathname.split('/').filter(Boolean).at(-1) ?? ''
+	const { hostname, pathname } = new URL(url)
+	const slug = pathname.split('/').filter(Boolean).at(-1) ?? ''
+
+	// America's Test Kitchen leads its slugs with a numeric id; elsewhere a
+	// leading number belongs to the name, like 15-minute-pasta.
+	const id = hostname.endsWith('americastestkitchen.com') ? /^\d+-/ : /^$/
 
 	return decodeURIComponent(slug)
 		.toLowerCase()
 		.replace(/^(ba|epi)-syn-/, '')
 		.replace(/-\d+$/, '')
-		.replace(/^\d+-/, '')
+		.replace(id, '')
 		.replace(/(^|-)recipes?$/, '')
 		.replaceAll('-', ' ')
 		.trim()
