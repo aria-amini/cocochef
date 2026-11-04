@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vite-plus/test'
 import {
 	formatIngredientHeading,
 	ingredientHeading,
+	ingredientSubject,
 	parseIngredientLine,
 	splitIngredientAmount,
 	splitIngredientDetails,
@@ -93,5 +94,44 @@ describe('ingredient headings', () => {
 	test('formats a heading, dropping an empty one', () => {
 		expect(formatIngredientHeading(' for the sauce ')).toBe('## for the sauce')
 		expect(formatIngredientHeading('  ')).toBe('')
+	})
+})
+
+describe('ingredient subject', () => {
+	test.each([
+		['1 cup (240ml) milk', 'milk'],
+		['1 and 1/2 cups (300g) granulated sugar', 'granulated sugar'],
+		[
+			'10 Tablespoons (142g) unsalted butter, slightly soft',
+			'unsalted butter, slightly soft',
+		],
+		['1 (15-ounce) can chickpeas, rinsed', 'chickpeas, rinsed'],
+		['1 large can (28 ounces) diced tomatoes', 'diced tomatoes'],
+		['1 cup plus 2 tbsp. (155g) all-purpose flour', 'all-purpose flour'],
+		[
+			'1½ cups (188 g) all-purpose flour, plus more for pan',
+			'all-purpose flour, plus more for pan',
+		],
+		['2 tbsp chopped parsley', 'chopped parsley'],
+		['salt, to taste', 'salt, to taste'],
+		['2 large eggs', 'eggs'],
+		['1 cup / 240 ml orange juice', 'orange juice'],
+		['12oz / 340g fresh spinach', 'fresh spinach'],
+		['1 stick unsalted butter', 'unsalted butter'],
+		[
+			'4 boneless, skinless chicken breasts, trimmed',
+			'chicken breasts, trimmed',
+		],
+	])('finds the food in %s', (line, expected) => {
+		expect(ingredientSubject(line)).toBe(expected)
+	})
+
+	test('keeps a literal middle dot in the food name', () => {
+		expect(ingredientSubject('1 cup crème · fraîche')).toBe('crème · fraîche')
+	})
+
+	test('never strips a line to nothing', () => {
+		expect(ingredientSubject('1 cup')).toBe('1 cup')
+		expect(ingredientSubject('')).toBe('')
 	})
 })
