@@ -17,6 +17,12 @@ const limit = Number(process.argv[3] ?? (command === 'index' ? 5000 : 200))
 if (!Number.isSafeInteger(limit) || limit < 1 || limit > 20000)
 	throw new Error('Limit must be between 1 and 20000.')
 
+// `index [limit] [siteId]` crawls one site and keeps every other site's links.
+const onlySite = command === 'index' ? process.argv[4] : undefined
+
+if (onlySite && !recipeSites.some((site) => site.id === onlySite))
+	throw new Error(`Unknown site: ${onlySite}`)
+
 const catalogPath = resolve('src/lib/discover/catalog.json')
 
 // Every workspace shares one page cache outside the checkout, so a page is
@@ -52,6 +58,9 @@ if (command === 'index') {
 
 	const groups = await Promise.all(
 		recipeSites.map(async (site) => {
+			if (onlySite && site.id !== onlySite)
+				return existing.filter((link) => link.siteId === site.id)
+
 			try {
 				const { links, complete } = await crawlRecipeSite(site)
 
@@ -269,6 +278,6 @@ if (command === 'index') {
 	}
 } else {
 	throw new Error(
-		'Usage: vpx scripts/recipe-data.ts index [per-site limit] | seed [recipe count]',
+		'Usage: vpx scripts/recipe-data.ts index [per-site limit] [site id] | seed [recipe count]',
 	)
 }
