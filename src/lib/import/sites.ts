@@ -20,6 +20,10 @@ const logoSiteIds = [
 	...recipeSites.map((site) => site.id),
 ]
 
+// Whether `host` is the site `id`, or one of its subdomains.
+const onSite = (host: string, id: string) =>
+	host === `${id}.com` || host.endsWith(`.${id}.com`)
+
 // The logo for the site a recipe link points at, if we have one.
 export function siteLogoForUrl(url: string | undefined) {
 	if (!url) return undefined
@@ -27,9 +31,7 @@ export function siteLogoForUrl(url: string | undefined) {
 	try {
 		const host = new URL(url).hostname
 
-		const id = logoSiteIds.find(
-			(site) => host === `${site}.com` || host.endsWith(`.${site}.com`),
-		)
+		const id = logoSiteIds.find((site) => onSite(host, site))
 
 		return id ? importSiteLogo(id) : undefined
 	} catch {
@@ -41,9 +43,7 @@ export function importSiteForUrl(url: string) {
 	try {
 		const host = new URL(url).hostname
 
-		return importSites.find(
-			(site) => host === `${site.id}.com` || host.endsWith(`.${site.id}.com`),
-		)
+		return importSites.find((site) => onSite(host, site.id))
 	} catch {
 		return undefined
 	}

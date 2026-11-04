@@ -181,7 +181,7 @@ if (command === 'index') {
 					const response = await fetch(link.url, {
 						headers: { 'user-agent': 'DutchOvenBot/0.1 (recipe discovery)' },
 						signal: AbortSignal.timeout(20000),
-						redirect: 'error',
+						redirect: 'manual',
 					})
 
 					// Never push on after the site says no.
@@ -190,7 +190,10 @@ if (command === 'index') {
 							`${new URL(link.url).hostname} answered ${response.status}`,
 						)
 
-					if (response.status === 404 || response.status === 410) {
+					// A page that is gone, or has moved for good, is as good as gone for
+					// the catalog, and remembered so it is not asked for again. A
+					// temporary redirect (302, 303, 307) is retried next run.
+					if ([301, 308, 404, 410].includes(response.status)) {
 						await persisted(
 							writeEntry(sourceUrl, gone(`HTTP ${response.status}`)),
 						)
