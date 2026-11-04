@@ -179,6 +179,16 @@ describe('parseRecipe', () => {
 		])
 	})
 
+	test('decodes the fraction and accent entities some sites leave in ingredients', () => {
+		const html = `<script type="application/ld+json">{"@type":"Recipe","name":"Crème Brûlée","recipeIngredient":["&frac12; cup cr&egrave;me fra&icirc;che","&frac34; teaspoon salt","1 &amp; &frac14; cups sugar"],"recipeInstructions":"Bake."}</script>`
+
+		expect(parseRecipe(html)?.ingredients.map(({ raw }) => raw)).toEqual([
+			'½ cup crème fraîche',
+			'¾ teaspoon salt',
+			'1 & ¼ cups sugar',
+		])
+	})
+
 	test('handles @graph wrappers, array @type, and HowToSection flattening', () => {
 		const recipe = parseRecipe(GRAPH_PAGE)
 		expect(recipe?.title).toBe('Miso Butter Pasta')
