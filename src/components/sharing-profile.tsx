@@ -2,11 +2,9 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import {
-	fieldClassName,
-	primaryActionClassName,
-} from '@/components/recipe-form'
+import { FieldError, primaryActionClassName } from '@/components/recipe-form'
 import { Button } from '@/components/ui/button'
+import { fieldClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import { getMySharingProfile, updateSharingProfile } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
@@ -164,11 +162,7 @@ function SharingProfileForm({
 				drafts, personal notes, books, and cooking history stay private. each
 				finished recipe has its own sharing controls.
 			</p>
-			{update.isError ? (
-				<p role="alert" className="text-destructive text-sm">
-					{update.error.message}
-				</p>
-			) : null}
+			{update.isError ? <FieldError>{update.error.message}</FieldError> : null}
 			<div className="flex flex-wrap items-center gap-4">
 				<button
 					className={cn(primaryActionClassName, 'min-h-11')}

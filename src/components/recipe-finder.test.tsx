@@ -54,6 +54,7 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 		title,
 		imageUrl: null,
 		sourceUrl: null,
+		sourceNotes: null,
 		servings: null,
 		totalMinutes: null,
 		notes: null,
@@ -146,7 +147,7 @@ describe('the one box', () => {
 	test('opens a paste dialog and returns to the finder on cancel', async () => {
 		const { screen } = await openBox()
 		await screen.getByRole('option', { name: /paste text/ }).click()
-		const dialog = screen.getByRole('dialog', { name: 'Paste a recipe' })
+		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		await expect.element(dialog).toBeVisible()
 		await dialog.getByRole('textbox', { name: 'recipe text' }).fill('Pasta')
 		await dialog.getByRole('button', { name: 'cancel' }).click()
@@ -158,7 +159,7 @@ describe('the one box', () => {
 	test('adds pasted text from the finder dialog', async () => {
 		const { screen, router } = await openBox()
 		await screen.getByRole('option', { name: /paste text/ }).click()
-		const dialog = screen.getByRole('dialog', { name: 'Paste a recipe' })
+		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		await dialog
 			.getByRole('textbox', { name: 'recipe text' })
 			.fill('weeknight dal\ningredients\n1 cup lentils\nmethod\n1. simmer')

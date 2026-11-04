@@ -1,18 +1,25 @@
+import { CameraIcon } from '@phosphor-icons/react'
 import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/avatar'
+import { PageTitle } from '@/components/page'
+import { FieldError } from '@/components/recipe-form'
 import { RecipeTransfer } from '@/components/recipe-transfer'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import { getAvatarUploadUrl, getAvatarUrl } from '@/lib/s3'
+import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/profile')({
 	component: Profile,
 })
+
+const pageClassName = 'flex w-full max-w-2xl flex-col gap-8 p-6 md:p-10'
+
+const sectionTitleClassName = 'text-lg font-bold'
 
 function Profile() {
 	const session = authClient.useSession()
@@ -20,8 +27,8 @@ function Profile() {
 
 	if (session.isPending) {
 		return (
-			<main className="mx-auto min-h-dvh max-w-xl space-y-8 p-6">
-				<h1 className="text-4xl font-semibold">Profile</h1>
+			<main className={pageClassName}>
+				<PageTitle>profile</PageTitle>
 				<p className="text-muted-foreground animate-pulse">loading…</p>
 			</main>
 		)
@@ -29,11 +36,9 @@ function Profile() {
 
 	if (session.error) {
 		return (
-			<main className="mx-auto min-h-dvh max-w-xl space-y-8 p-6">
-				<h1 className="text-4xl font-semibold">Profile</h1>
-				<p role="alert" className="text-destructive">
-					we couldn&apos;t check your session.
-				</p>
+			<main className={pageClassName}>
+				<PageTitle>profile</PageTitle>
+				<FieldError>we couldn&apos;t check your session.</FieldError>
 				<Button onClick={() => void session.refetch()}>try again</Button>
 			</main>
 		)
@@ -41,8 +46,8 @@ function Profile() {
 
 	if (!user) {
 		return (
-			<main className="mx-auto min-h-dvh max-w-xl space-y-8 p-6">
-				<h1 className="text-4xl font-semibold">Profile</h1>
+			<main className={pageClassName}>
+				<PageTitle>profile</PageTitle>
 				<p className="text-muted-foreground">you are signed out.</p>
 				<Link to="/auth/login" className={buttonVariants()}>
 					sign in
@@ -53,9 +58,9 @@ function Profile() {
 
 	if (user.isAnonymous) {
 		return (
-			<main className="mx-auto min-h-dvh max-w-xl space-y-8 p-6">
-				<h1 className="text-4xl font-semibold">guest cook</h1>
-				<div className="border-border space-y-4 rounded-xl border border-dashed p-4">
+			<main className={pageClassName}>
+				<PageTitle>guest cook</PageTitle>
+				<div className="border-foreground/50 flex flex-col items-start gap-4 rounded-xl border border-dashed p-5">
 					<p className="text-sm font-semibold">
 						no account yet — your shelf lives only in this browser. make an
 						account to keep it on any device.
@@ -102,7 +107,7 @@ function AccountProfile({
 				if (!stale) setAvatar(url)
 			})
 			.catch(() => {
-				if (!stale) toast.error('Could not load your photo. Try again.')
+				if (!stale) toast.error("couldn't load your photo — try again")
 			})
 
 		return () => {
@@ -142,7 +147,7 @@ function AccountProfile({
 				tags: { upload: 'avatar' },
 				extra: { type: file.type, size: file.size },
 			})
-			toast.error('could not upload that photo — try again')
+			toast.error("couldn't upload that photo — try again")
 		} finally {
 			setUploading(false)
 		}
@@ -157,42 +162,58 @@ function AccountProfile({
 			if (error) throw new Error(error.message)
 			await navigate({ to: '/' })
 		} catch {
-			toast.error('Could not sign out. Try again.')
+			toast.error("couldn't sign you out — try again")
 		} finally {
 			setSigningOut(false)
 		}
 	}
 
 	return (
-		<main className="mx-auto min-h-dvh max-w-xl space-y-8 p-6">
-			<h1 className="text-4xl font-semibold">Profile</h1>
-			<Link
-				to="/profile/sharing"
-				className="inline-block text-sm font-semibold underline"
-			>
-				sharing & public profile
-			</Link>
-			<div className="space-y-4">
-				<p>{name}</p>
-				<p className="text-muted-foreground">{email}</p>
+		<main className={pageClassName}>
+			<PageTitle>profile</PageTitle>
+			<section className="flex items-center gap-5">
 				<Avatar name={name} src={avatar} size="xl" alt="Profile avatar" />
-				<Input
-					aria-label="Profile photo"
-					type="file"
-					accept="image/*"
-					onChange={upload}
-					disabled={uploading}
-				/>
-				{uploading ? (
-					<p className="text-muted-foreground animate-pulse text-sm">
-						uploading…
-					</p>
-				) : null}
-				<Button variant="outline" onClick={signOut} disabled={signingOut}>
-					{signingOut ? 'Signing out…' : 'Sign out'}
-				</Button>
-			</div>
+				<div className="flex min-w-0 flex-col items-start gap-1">
+					<p className="truncate text-lg font-bold">{name}</p>
+					<p className="text-muted-foreground truncate text-sm">{email}</p>
+					<label
+						className={cn(
+							buttonVariants({ variant: 'outline' }),
+							'focus-within:outline-kitchen-eggplant mt-2 cursor-pointer focus-within:outline-2 focus-within:outline-offset-2',
+							uploading && 'pointer-events-none opacity-50',
+						)}
+					>
+						<CameraIcon aria-hidden />
+						{uploading ? 'uploading…' : 'change photo'}
+						<input
+							aria-label="Profile photo"
+							type="file"
+							accept="image/*"
+							className="sr-only"
+							onChange={upload}
+							disabled={uploading}
+						/>
+					</label>
+				</div>
+			</section>
+			<section className="flex flex-col items-start gap-3">
+				<h2 className={sectionTitleClassName}>sharing</h2>
+				<p className="text-muted-foreground text-sm">
+					pick a handle and publish the recipes you want to pass around.
+				</p>
+				<Link
+					to="/profile/sharing"
+					className={buttonVariants({ variant: 'outline' })}
+				>
+					sharing &amp; public profile
+				</Link>
+			</section>
 			<RecipeTransfer />
+			<section className="border-border border-t pt-6">
+				<Button variant="outline" onClick={signOut} disabled={signingOut}>
+					{signingOut ? 'signing out…' : 'sign out'}
+				</Button>
+			</section>
 		</main>
 	)
 }

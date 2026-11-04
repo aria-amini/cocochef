@@ -10,6 +10,7 @@ import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
+import { AuthDialog } from '@/components/auth-dialog'
 import { Avatar } from '@/components/avatar'
 import { Badge } from '@/components/ui/badge'
 import { authClient } from '@/lib/auth/client'
@@ -37,6 +38,7 @@ const itemClassName =
 	'flex w-full cursor-default items-center gap-2.5 px-3 py-2.5 text-xs font-semibold outline-none select-none data-highlighted:bg-kitchen-yolk/40'
 
 export function AccountMenu({ variant }: { variant: Variant }) {
+	const [authOpen, setAuthOpen] = useState(false)
 	const session = authClient.useSession()
 	const router = useRouter()
 	const refetchSession = session.refetch
@@ -92,62 +94,67 @@ export function AccountMenu({ variant }: { variant: Variant }) {
 		const itemCount = stats ? stats.recipes + stats.pantryItems : 0
 
 		return (
-			<AccountMenuShell
-				variant={variant}
-				label="Guest account"
-				trigger={
-					<>
-						<Avatar
-							guest
-							name="guest"
-							size={variant === 'avatar' ? 'md' : 'sm'}
-						/>
-						{variant === 'rail' ? (
-							<span className="min-w-0 flex-1 truncate text-left">guest</span>
-						) : null}
-						{itemCount > 0 ? (
-							<span
-								className={cn(
-									'bg-foreground text-background rounded-md px-1 font-mono text-xs leading-4 font-semibold',
-									variant === 'avatar' && 'absolute -top-0.5 -right-0.5',
-								)}
-							>
-								{itemCount}
-							</span>
-						) : null}
-					</>
-				}
-				triggerClassName="border-border border-dashed"
-				header={
-					<div className="flex items-center gap-3">
-						<Avatar guest name="guest" size="lg" />
-						<div className="min-w-0">
-							<p className="text-sm font-bold">guest account</p>
-							<p className="text-muted-foreground mt-1 text-xs font-semibold">
-								create an account to save your recipes
-							</p>
+			<>
+				<AccountMenuShell
+					variant={variant}
+					label="Guest account"
+					trigger={
+						<>
+							<Avatar
+								guest
+								name="guest"
+								size={variant === 'avatar' ? 'md' : 'sm'}
+							/>
+							{variant === 'rail' ? (
+								<span className="min-w-0 flex-1 truncate text-left">guest</span>
+							) : null}
+							{itemCount > 0 ? (
+								<span
+									className={cn(
+										'bg-foreground text-background rounded-md px-1 font-mono text-xs leading-4 font-semibold',
+										variant === 'avatar' && 'absolute -top-0.5 -right-0.5',
+									)}
+								>
+									{itemCount}
+								</span>
+							) : null}
+						</>
+					}
+					triggerClassName="border-border border-dashed"
+					header={
+						<div className="flex items-center gap-3">
+							<Avatar guest name="guest" size="lg" />
+							<div className="min-w-0">
+								<p className="text-sm font-bold">guest account</p>
+								<p className="text-muted-foreground mt-1 text-xs font-semibold">
+									create an account to save your recipes
+								</p>
+							</div>
 						</div>
-					</div>
-				}
-			>
-				<Menu.LinkItem
-					className={cn(itemClassName, 'bg-kitchen-basil/30')}
-					render={<Link to="/auth/signup" />}
+					}
 				>
-					<UserPlusIcon size={16} weight="bold" aria-hidden />
-					create an account
-					<Badge variant="tag" className="ml-auto">
-						free
-					</Badge>
-				</Menu.LinkItem>
-				<Menu.LinkItem
-					className={itemClassName}
-					render={<Link to="/auth/login" />}
-				>
-					<SignInIcon size={16} weight="bold" aria-hidden />
-					sign in
-				</Menu.LinkItem>
-			</AccountMenuShell>
+					<Menu.Item
+						className={cn(itemClassName, 'bg-kitchen-basil/30')}
+						onClick={() => setAuthOpen(true)}
+					>
+						<UserPlusIcon size={16} weight="bold" aria-hidden />
+						create an account
+						<Badge className="ml-auto">free</Badge>
+					</Menu.Item>
+					<Menu.LinkItem
+						className={itemClassName}
+						render={<Link to="/auth/login" />}
+					>
+						<SignInIcon size={16} weight="bold" aria-hidden />
+						sign in
+					</Menu.LinkItem>
+				</AccountMenuShell>
+				<AuthDialog
+					open={authOpen}
+					onOpenChange={setAuthOpen}
+					redirect="/recipes"
+				/>
+			</>
 		)
 	}
 
@@ -250,7 +257,7 @@ function SignOutItem() {
 			if (error) throw new Error(error.message)
 			await navigate({ to: '/' })
 		} catch {
-			toast.error('Could not sign out. Try again.')
+			toast.error("couldn't sign you out — try again")
 		} finally {
 			setSigningOut(false)
 		}

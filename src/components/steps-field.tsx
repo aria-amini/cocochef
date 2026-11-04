@@ -1,31 +1,54 @@
 import { arrayMove } from '@dnd-kit/sortable'
-import { Plus, X } from '@phosphor-icons/react'
+import { Plus, TextIndent, TextOutdent, X } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 
-import {
-	fieldClassName,
-	fieldLabelClassName,
-	placeholderClassName,
-} from '@/components/recipe-form'
+import { fieldLabelClassName } from '@/components/recipe-form'
 import { SortableList, SortableRow } from '@/components/sortable-list'
-import { leadingNumber } from '@/lib/recipes/paste'
-import { formFields } from '@/lib/utils/form'
+import { fieldClassName, placeholderClassName } from '@/components/ui/input'
+import { pastedStepLines } from '@/lib/recipes/paste'
+import { formatSubStep, isSubStep } from '@/lib/recipes/step-groups'
 import { cn } from '@/lib/utils/ui'
 
-type Row = { id: string; text: string }
+// A sub-step is stored as "- text" under its step; in the editor it is a row
+// with `nested` set, and the marker is written back by `stepsFrom`.
+type Row = { id: string; text: string; nested: boolean }
 
-function toRows(lines: string[]): Row[] {
-	return (lines.length ? lines : ['']).map((text) => ({
+type NewRow = { text: string; nested: boolean }
+
+function toRows(lines: NewRow[]): Row[] {
+	return (lines.length ? lines : [{ text: '', nested: false }]).map((line) => ({
 		id: crypto.randomUUID(),
-		text,
+		...line,
 	}))
 }
 
-function pastedSteps(text: string) {
-	return text
-		.split(/\r?\n/)
-		.map((line) => line.replace(leadingNumber, '').trim())
-		.filter(Boolean)
+// The first row has nothing above it to nest under.
+function rowsFromSteps(steps: string[]) {
+	return toRows(
+		steps.map((step, index) => ({
+			text: isSubStep(step) ? step.trim().replace(/^-\s+/, '') : step,
+			nested: index > 0 && isSubStep(step),
+		})),
+	)
+}
+
+// "3" for a step and "3.2" for the second sub-step of step 3, as on the page.
+function labels(rows: Row[]) {
+	let number = 0
+	let sub = 0
+
+	return rows.map((row, index) => {
+		if (row.nested && index > 0) {
+			sub += 1
+
+			return `${number}.${sub}`
+		}
+
+		number += 1
+		sub = 0
+
+		return String(number)
+	})
 }
 
 const iconButtonClassName =
@@ -33,8 +56,9 @@ const iconButtonClassName =
 
 // One step per row, in the order you cook. Enter starts the next step, an empty
 // step backs out, a pasted list splits into rows, and the step's number drags
-// it to a new place. Each row submits as a
-// `step` field; read them with `stepsFrom`.
+// it to a new place. A row can be indented into a sub-step of the one above.
+// Each row submits as a `step` field with a `step-level` beside it; read them
+// with `stepsFrom`.
 export function StepsField({
 	defaultValue = [],
 	onCountChange,
@@ -42,7 +66,7 @@ export function StepsField({
 	defaultValue?: string[] | undefined
 	onCountChange?: (count: number) => void
 }) {
-	const [rows, setRows] = useState(() => toRows(defaultValue))
+	const [rows, setRows] = useState(() => rowsFromSteps(defaultValue))
 	const inputs = useRef(new Map<string, HTMLTextAreaElement>())
 	const focusNext = useRef<string>(undefined)
 
@@ -62,7 +86,13 @@ export function StepsField({
 		)
 	}
 
-	function insertAfter(index: number, lines: string[]) {
+	function setNested(id: string, nested: boolean) {
+		setRows((current) =>
+			current.map((row) => (row.id === id ? { ...row, nested } : row)),
+		)
+	}
+
+	function insertAfter(index: number, lines: NewRow[]) {
 		const added = toRows(lines)
 		focusNext.current = added.at(-1)?.id
 		setRows((current) => [
@@ -85,8 +115,10 @@ export function StepsField({
 	function describe(id: string) {
 		const index = rows.findIndex((row) => row.id === id)
 
-		return `step ${index + 1}`
+		return `step ${labels(rows)[index]}`
 	}
+
+	const numbered = labels(rows)
 
 	return (
 		<fieldset className="flex flex-col gap-2">
@@ -103,13 +135,13 @@ export function StepsField({
 						<SortableRow
 							key={row.id}
 							id={row.id}
-							label={`Reorder step ${index + 1}`}
+							label={`Reorder step ${numbered[index]}`}
 							grip={
 								<span className="text-sm font-semibold tabular-nums">
-									{index + 1}
+									{numbered[index]}
 								</span>
 							}
-							className="items-start"
+							className={cn('items-start', row.nested && index > 0 && 'pl-8')}
 						>
 							{(handle) => (
 								<>
@@ -122,7 +154,7 @@ export function StepsField({
 										name="step"
 										rows={1}
 										value={row.text}
-										aria-label={`Step ${index + 1}`}
+										aria-label={`Step ${numbered[index]}`}
 										enterKeyHint="next"
 										placeholder={
 											index === 0 ? 'boil the pasta' : 'stir in the miso'
@@ -134,7 +166,8 @@ export function StepsField({
 											if (event.key === 'Enter' && !event.shiftKey) {
 												event.preventDefault()
 
-												if (row.text.trim()) insertAfter(index, [''])
+												if (row.text.trim())
+													insertAfter(index, [{ text: '', nested: row.nested }])
 											} else if (
 												event.key === 'Backspace' &&
 												!row.text &&
@@ -145,15 +178,15 @@ export function StepsField({
 											}
 										}}
 										onPaste={(event) => {
-											const lines = pastedSteps(
+											const lines = pastedStepLines(
 												event.clipboardData.getData('text'),
 											)
 
 											if (lines.length < 2) return
 											event.preventDefault()
 
-											const [first = '', ...rest] = lines
-											update(row.id, first)
+											const [first, ...rest] = lines
+											update(row.id, first?.text ?? '')
 											insertAfter(index, rest)
 										}}
 										className={cn(
@@ -162,10 +195,33 @@ export function StepsField({
 											placeholderClassName,
 										)}
 									/>
+									<input
+										type="hidden"
+										name="step-level"
+										value={row.nested && index > 0 ? '1' : '0'}
+									/>
+									{index > 0 ? (
+										<button
+											type="button"
+											onClick={() => setNested(row.id, !row.nested)}
+											aria-label={
+												row.nested
+													? `Make step ${numbered[index]} a step`
+													: `Make step ${numbered[index]} a sub-step`
+											}
+											className={cn(iconButtonClassName, 'h-12')}
+										>
+											{row.nested ? (
+												<TextOutdent size={16} weight="bold" aria-hidden />
+											) : (
+												<TextIndent size={16} weight="bold" aria-hidden />
+											)}
+										</button>
+									) : null}
 									<button
 										type="button"
 										onClick={() => removeAt(index)}
-										aria-label={`Remove step ${index + 1}`}
+										aria-label={`Remove step ${numbered[index]}`}
 										className={cn(iconButtonClassName, 'h-12')}
 									>
 										<X size={14} weight="bold" aria-hidden />
@@ -178,7 +234,9 @@ export function StepsField({
 			</SortableList>
 			<button
 				type="button"
-				onClick={() => insertAfter(rows.length - 1, [''])}
+				onClick={() =>
+					insertAfter(rows.length - 1, [{ text: '', nested: false }])
+				}
 				className="border-input text-muted-foreground hover:text-foreground hover:bg-card focus-visible:outline-kitchen-eggplant ml-10 flex items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
 			>
 				<Plus size={14} weight="bold" aria-hidden />
@@ -189,5 +247,16 @@ export function StepsField({
 }
 
 export function stepsFrom(form: FormData) {
-	return formFields(form, 'step')
+	const levels = form.getAll('step-level').map(String)
+
+	return form
+		.getAll('step')
+		.map(String)
+		.flatMap((value, index) => {
+			const text = value.trim()
+
+			if (!text) return []
+
+			return levels[index] === '1' ? [formatSubStep(text)] : [text]
+		})
 }

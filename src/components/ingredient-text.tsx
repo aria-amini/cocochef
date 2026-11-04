@@ -1,3 +1,4 @@
+import { splitIngredientDetails } from '@/lib/recipes/ingredient-line'
 import { cn } from '@/lib/utils/ui'
 
 export function IngredientText({
@@ -7,6 +8,12 @@ export function IngredientText({
 	text: string
 	done?: boolean
 }) {
+	const display = text
+		.replace(/\(\s*,\s*/g, '(')
+		.replace(/\(\(([^()]*)\)([^()]*)\)/g, '($1$2)')
+
+	const { main, detail } = splitIngredientDetails(display)
+
 	return (
 		<span
 			className={cn(
@@ -14,7 +21,13 @@ export function IngredientText({
 				done && 'text-muted-foreground line-through',
 			)}
 		>
-			{text}
+			{main}
+			{detail ? (
+				<span className="text-muted-foreground block text-sm leading-normal">
+					{' '}
+					{detail}
+				</span>
+			) : null}
 		</span>
 	)
 }

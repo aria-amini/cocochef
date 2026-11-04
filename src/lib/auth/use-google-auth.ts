@@ -50,7 +50,7 @@ export function useGoogleAuth({ fallbackRedirect }: UseGoogleAuthOptions) {
 					'Google login is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.local.',
 				)
 			} else {
-				toast.error('Google sign-in failed. Try again.')
+				toast.error("google sign-in didn't work — try again")
 			}
 
 			setIsLoading(false)

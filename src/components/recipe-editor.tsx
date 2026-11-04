@@ -17,10 +17,8 @@ import { IngredientListField } from '@/components/ingredient-list-field'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import {
 	FieldError,
-	fieldClassName,
 	fieldLabelClassName,
 	FormActions,
-	placeholderClassName,
 	primaryActionClassName,
 	quietActionClassName,
 	RecipeIntro,
@@ -31,6 +29,7 @@ import {
 	RecipePhotoField,
 } from '@/components/recipe-photo-field'
 import { StepsField, stepsFrom } from '@/components/steps-field'
+import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import { createAutosaver, type SaveState } from '@/lib/recipes/autosave'
 import {
@@ -260,13 +259,21 @@ export function RecipeEditor({
 		ingredients: string[]
 		ingredientCategories?: IngredientCategories | undefined
 		steps: string[]
+		notes?: string | undefined
 	}>({
 		version: 0,
 		title: recipe?.title ?? arrived?.title ?? defaultTitle,
 		ingredients: recipe?.ingredients ?? arrived?.ingredients ?? [],
 		ingredientCategories: recipe?.ingredientCategories,
 		steps: recipe?.steps ?? arrived?.steps ?? [],
+		notes: recipe?.notes ?? arrived?.notes ?? '',
 	})
+
+	const [notesTooLong, setNotesTooLong] = useState(
+		() =>
+			Array.from((recipe?.notes ?? arrived?.notes ?? '').trim()).length >
+			recipeNotesMax,
+	)
 
 	// Read from the fields, not from `contentFrom`, which gives up without a name
 	// and would call a form with typed rows empty.
@@ -315,7 +322,7 @@ export function RecipeEditor({
 	const announceSorted = useCallback(
 		(
 			sorted: ReturnType<typeof parsePastedRecipe>,
-			before: { name: string; draft: string | undefined },
+			before: { name: string; draft: string | undefined; notes: string },
 		) => {
 			sortedToast.current = toast(
 				sortedLabel(sorted.ingredients.length, sorted.steps.length),
@@ -326,11 +333,15 @@ export function RecipeEditor({
 							if (finishing.current) return
 
 							setName(before.name)
+							setNotesTooLong(
+								Array.from(before.notes.trim()).length > recipeNotesMax,
+							)
 							setSeed((current) => ({
 								version: current.version + 1,
 								title: before.name,
 								ingredients: [],
 								steps: [],
+								notes: before.notes,
 							}))
 
 							if (!before.draft) void discardDraft()
@@ -348,18 +359,34 @@ export function RecipeEditor({
 		if (!arrived || announcedArrival.current) return
 		announcedArrival.current = true
 		scheduleAutosave()
-		announceSorted(arrived, { name: defaultTitle, draft: undefined })
+		announceSorted(arrived, { name: defaultTitle, draft: undefined, notes: '' })
 	}, [arrived, defaultTitle, scheduleAutosave, announceSorted])
 
 	// A pasted recipe is sorted at once, with a way back to the empty page.
 	const sortPasted = useCallback(
 		(text: string) => {
 			const sorted = parsePastedRecipe(text)
-			const before = { name, draft: recipeId.current }
+
+			const before = {
+				name,
+				draft: recipeId.current,
+				notes: form.current
+					? formField(new FormData(form.current), 'notes')
+					: '',
+			}
+
+			const mergedNotes = [before.notes, sorted.notes]
+				.filter(Boolean)
+				.join('\n\n')
 
 			setName(sorted.title)
 			setUnnamed(false)
-			setSeed((current) => ({ version: current.version + 1, ...sorted }))
+			setNotesTooLong(Array.from(mergedNotes.trim()).length > recipeNotesMax)
+			setSeed((current) => ({
+				version: current.version + 1,
+				...sorted,
+				notes: mergedNotes,
+			}))
 			scheduleAutosave()
 
 			announceSorted(sorted, before)
@@ -376,7 +403,7 @@ export function RecipeEditor({
 		if (recipe || !pasted || !form.current) return
 
 		if (!empty(form.current) || name.trim()) {
-			toast('Start with an empty recipe to paste text')
+			toast('start with an empty recipe to paste text')
 
 			return
 		}
@@ -388,6 +415,13 @@ export function RecipeEditor({
 
 	const done = async () => {
 		if (photoBusy || pending) return
+
+		if (notesTooLong) {
+			form.current?.querySelector<HTMLElement>('#edit-notes')?.focus()
+
+			return
+		}
+
 		const content = form.current ? contentFrom(form.current) : undefined
 
 		if (!content) {
@@ -481,7 +515,7 @@ export function RecipeEditor({
 							.querySelector<HTMLTextAreaElement>('#edit-title')
 							?.value.trim()
 					) {
-						toast('Start with an empty recipe to paste text')
+						toast('start with an empty recipe to paste text')
 
 						return
 					}
@@ -563,7 +597,7 @@ export function RecipeEditor({
 											.querySelector<HTMLInputElement>('#edit-title')
 											?.value.trim()
 									) {
-										toast('Start with an empty recipe to import a link')
+										toast('start with an empty recipe to import a link')
 
 										return
 									}
@@ -605,14 +639,26 @@ export function RecipeEditor({
 					notes
 				</label>
 				<textarea
+					key={seed.version}
 					id="edit-notes"
 					name="notes"
-					maxLength={recipeNotesMax}
-					defaultValue={recipe?.notes ?? ''}
+					defaultValue={seed.notes ?? ''}
+					onChange={(event) =>
+						setNotesTooLong(
+							Array.from(event.target.value.trim()).length > recipeNotesMax,
+						)
+					}
+					aria-invalid={notesTooLong || undefined}
+					aria-describedby={notesTooLong ? 'notes-too-long' : undefined}
 					rows={3}
 					placeholder="less salt next time"
 					className={cn(fieldClassName, 'resize-y', placeholderClassName)}
 				/>
+				{notesTooLong ? (
+					<FieldError id="notes-too-long">
+						notes are too long to save — shorten them to 2,000 characters
+					</FieldError>
+				) : null}
 			</div>
 			{error ? <FieldError>{error}</FieldError> : null}
 			<FormActions>

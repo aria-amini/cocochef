@@ -2,7 +2,11 @@ import { describe, expect, test } from 'vite-plus/test'
 
 import { catalogSections } from '@/lib/pantry/catalog'
 
-import { ingredientCategory, ingredientViewRows } from './ingredient-groups'
+import {
+	hasOwnSections,
+	ingredientCategory,
+	ingredientViewRows,
+} from './ingredient-groups'
 
 describe('ingredient display groups', () => {
 	test('matches catalog foods conservatively', () => {
@@ -105,5 +109,16 @@ describe('ingredient display groups', () => {
 			'1 carrot',
 		])
 		expect(lines[0]).toBe('## sauce')
+	})
+})
+
+describe('hasOwnSections', () => {
+	test('is true for a heading the recipe wrote', () => {
+		expect(hasOwnSections(['## Sauce', '1 onion'])).toBe(true)
+	})
+
+	test('is false for no heading or a lone "Ingredients" label', () => {
+		expect(hasOwnSections(['1 onion'])).toBe(false)
+		expect(hasOwnSections(['## Ingredients', '1 onion'])).toBe(false)
 	})
 })

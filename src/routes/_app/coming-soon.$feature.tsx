@@ -1,6 +1,8 @@
 import { CarrotIcon, ShoppingCartIcon } from '@phosphor-icons/react'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 
+import { PageTitle } from '@/components/page'
+
 export const Route = createFileRoute('/_app/coming-soon/$feature')({
 	loader: ({ params }) => {
 		if (params.feature !== 'ingredients' && params.feature !== 'groceries')
@@ -24,7 +26,7 @@ function ComingSoon() {
 					className="text-kitchen-basil mb-5"
 					aria-hidden
 				/>
-				<h1 className="text-4xl font-bold tracking-tight">{feature}</h1>
+				<PageTitle>{feature}</PageTitle>
 				<p className="mt-3 text-lg font-semibold">work in progress</p>
 				<p className="text-muted-foreground mt-2 text-sm leading-relaxed">
 					we’re still working on this part of the kitchen. your recipes are

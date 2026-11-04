@@ -101,6 +101,57 @@ describe('write a recipe', () => {
 			.not.toBeInTheDocument()
 	})
 
+	test('accepts notes with 1,001 emoji without treating them as too long', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('toast')
+		const notes = '😀'.repeat(1001)
+		await screen.getByRole('textbox', { name: 'notes' }).fill(notes)
+		await expect
+			.element(
+				screen.getByText(
+					'notes are too long to save — shorten them to 2,000 characters',
+				),
+			)
+			.not.toBeInTheDocument()
+		await expect.poll(latest).toEqual(expect.objectContaining({ notes }))
+	})
+
+	test('keeps long pasted notes visible and explains why they cannot yet be saved', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen
+			.getByRole('button', { name: 'paste text', exact: true })
+			.click()
+		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
+		const longNotes = 'a'.repeat(2001)
+		await dialog
+			.getByRole('textbox', { name: 'recipe text' })
+			.fill(
+				`Toast\nIngredients\n2 slices bread\nSteps\nToast.\nNotes\n${longNotes}`,
+			)
+		await dialog.getByRole('button', { name: 'add recipe' }).click()
+		const notes = screen.getByRole('textbox', { name: 'notes' })
+		await expect.element(notes).toHaveValue(longNotes)
+		await expect
+			.element(
+				screen.getByText(
+					'notes are too long to save — shorten them to 2,000 characters',
+				),
+			)
+			.toBeVisible()
+		await notes.fill('short note')
+		await expect
+			.poll(latest)
+			.toEqual(expect.objectContaining({ notes: 'short note' }))
+	})
+
 	test('sorts text pasted into the recipe dialog', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
@@ -110,13 +161,15 @@ describe('write a recipe', () => {
 		await screen
 			.getByRole('button', { name: 'paste text', exact: true })
 			.click()
-		const dialog = screen.getByRole('dialog', { name: 'Paste a recipe' })
+		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		await expect
 			.element(dialog.getByRole('button', { name: 'add recipe' }))
 			.toBeDisabled()
 		await dialog
 			.getByRole('textbox', { name: 'recipe text' })
-			.fill('Toast\nIngredients\n2 slices bread\nSteps\nToast the bread.')
+			.fill(
+				'Toast\nIngredients\n2 slices bread\nSteps\nToast the bread.\nNotes\nUse fresh bread.',
+			)
 		await dialog.getByRole('button', { name: 'add recipe' }).click()
 		await expect
 			.element(screen.getByRole('textbox', { name: 'name' }))
@@ -124,6 +177,16 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByRole('textbox', { name: 'Step 1' }))
 			.toHaveValue('Toast the bread.')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'notes' }))
+			.toHaveValue('Use fresh bread.')
+		await expect
+			.poll(latest)
+			.toEqual(expect.objectContaining({ notes: 'Use fresh bread.' }))
+		await screen.getByRole('button', { name: 'undo' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'notes' }))
+			.toHaveValue('')
 	})
 
 	test('offers import from the empty editor and keeps the editor when cancelled', async () => {
@@ -433,7 +496,7 @@ describe('write a recipe', () => {
 				to: '/recipes/new',
 				state: {
 					pasted:
-						'weeknight dal\ningredients\n1 cup red lentils\nmethod\n1. simmer',
+						'weeknight dal\ningredients\n1 cup red lentils\nmethod\n1. simmer\nnotes\nserve warm',
 				},
 			})
 
@@ -448,6 +511,7 @@ describe('write a recipe', () => {
 					title: 'weeknight dal',
 					ingredients: ['1 cup red lentils'],
 					steps: ['simmer'],
+					notes: 'serve warm',
 				}),
 			)
 			// The page forgets it, so a reload starts blank instead of a second draft.
@@ -487,7 +551,7 @@ describe('write a recipe', () => {
 			state: { pasted: 'dal\ningredients\n1 cup lentils\nmethod\n1. simmer' },
 		})
 		await expect
-			.element(screen.getByText('Start with an empty recipe to paste text'))
+			.element(screen.getByText('start with an empty recipe to paste text'))
 			.toBeVisible()
 		await expect
 			.element(screen.getByRole('textbox', { name: 'name' }))
@@ -701,7 +765,7 @@ describe('write a recipe', () => {
 			new File(['x'], 'toast.png', { type: 'image/png' }),
 		)
 		await expect
-			.element(screen.getByText('could not upload that photo — try again'))
+			.element(screen.getByText("couldn't upload that photo — try again"))
 			.toBeVisible()
 		expect(sentry.captureException).toHaveBeenCalledOnce()
 		expect(sentry.captureException).toHaveBeenCalledWith(

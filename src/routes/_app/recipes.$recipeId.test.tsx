@@ -3,7 +3,6 @@ import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
-import type { getCooking, updateCooking } from '@/lib/cooking/server'
 import type { getRecipe } from '@/lib/recipes/server'
 
 type Recipe = NonNullable<Awaited<ReturnType<typeof getRecipe>>>
@@ -26,71 +25,6 @@ const updateCalls = vi.hoisted(() => {
 
 	return { calls, deleted, saved, claimed, exported, refuseClaim: false }
 })
-
-const cookingState = vi.hoisted<{
-	progress: Awaited<ReturnType<typeof getCooking>>
-	checkGate: Promise<void> | null
-	failCheck: boolean
-	finishGate: Promise<void> | null
-	failFinish: boolean
-}>(() => ({
-	progress: null,
-	checkGate: null,
-	failCheck: false,
-	finishGate: null,
-	failFinish: false,
-}))
-
-vi.mock('@/lib/cooking/server', () => ({
-	listActiveCooking: () =>
-		Promise.resolve(
-			cookingState.progress?.active
-				? [{ ...cookingState.progress, title: 'Pasta', steps: 1 }]
-				: [],
-		),
-	getCooking: () => Promise.resolve(cookingState.progress),
-	updateCooking: async ({ data }: Parameters<typeof updateCooking>[0]) => {
-		if (data.action === 'check') {
-			await cookingState.checkGate
-
-			if (cookingState.failCheck) throw new Error('Could not save check')
-		}
-
-		if (data.action === 'finish') {
-			await cookingState.finishGate
-
-			if (cookingState.failFinish) throw new Error('Could not end cooking')
-			cookingState.progress = null
-
-			return null
-		}
-
-		const current = cookingState.progress ?? {
-			userId: 'user-1',
-			recipeId: data.recipeId,
-			active: false,
-			checked: [],
-			content: '',
-			startedAt: new Date(),
-			updatedAt: new Date(),
-		}
-
-		const checked = new Set(current.checked)
-
-		if (data.item) {
-			if (data.done) checked.add(data.item)
-			else checked.delete(data.item)
-		}
-
-		cookingState.progress = {
-			...current,
-			active: data.action !== 'pause',
-			checked: [...checked],
-		}
-
-		return cookingState.progress
-	},
-}))
 
 vi.mock('@/lib/recipes/server', () => ({
 	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
@@ -128,6 +62,7 @@ vi.mock('@/lib/recipes/server', () => ({
 				...recipeState.recipe,
 				forkedFromId: null,
 				sourceUrl: null,
+				sourceNotes: null,
 				owned: true,
 			}
 
@@ -187,11 +122,6 @@ describe('recipe detail', () => {
 	beforeEach(() => {
 		// A toast left over from the last test would cover the pinned actions.
 		toast.dismiss()
-		cookingState.progress = null
-		cookingState.checkGate = null
-		cookingState.failCheck = false
-		cookingState.finishGate = null
-		cookingState.failFinish = false
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
@@ -205,6 +135,7 @@ describe('recipe detail', () => {
 			title: 'miso butter pasta',
 			imageUrl: null,
 			sourceUrl: null,
+			sourceNotes: null,
 			servings: null,
 			totalMinutes: null,
 			notes: null,
@@ -255,21 +186,84 @@ describe('recipe detail', () => {
 		).toBeLessThan(1)
 	})
 
-	test("groups an ingredient where the cook put it, not where it's guessed", async () => {
+	test('nests sub-steps under their step, without a box for the step itself', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
-		recipeState.recipe.ingredientCategories = { '2 large eggs': 'meat' }
+		recipeState.recipe.ingredients = ['1 onion']
+		recipeState.recipe.steps = [
+			'Prep',
+			'- Chop the onion',
+			'- Wash the pot',
+			'Simmer',
+		]
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		await expect
-			.element(screen.getByText('meat & seafood', { exact: true }))
+			.element(
+				screen.getByRole('checkbox', { name: 'step 1.1: Chop the onion' }),
+			)
 			.toBeVisible()
 		await expect
-			.element(screen.getByText('dairy & eggs', { exact: true }))
+			.element(screen.getByRole('checkbox', { name: 'step 1.2: Wash the pot' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'step 2: Simmer' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'step 1: Prep' }))
 			.not.toBeInTheDocument()
 		await expect
-			.element(screen.getByText('vegetables & herbs', { exact: true }))
+			.element(screen.getByText('Prep', { exact: true }))
 			.toBeVisible()
+	})
+
+	test('puts ingredients beside the steps on a wide page and stacks them on a narrow one', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
+		recipeState.recipe.steps = ['whisk the eggs', 'fold in the carrot']
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'step 1: whisk the eggs' }))
+			.toBeVisible()
+
+		const ingredients = document.querySelector(
+			'table[aria-label="ingredients"]',
+		)
+
+		const steps = document.querySelector('ol')
+
+		if (!ingredients || !steps) throw new Error('lists missing')
+		const left = ingredients.getBoundingClientRect()
+		const right = steps.getBoundingClientRect()
+
+		// The sidebar takes room from the page, so "wide" is what the page gets.
+		if (window.innerWidth >= 1024) {
+			expect(right.left).toBeGreaterThanOrEqual(left.right)
+			expect(Math.abs(right.top - left.top)).toBeLessThan(80)
+		} else {
+			expect(right.top).toBeGreaterThanOrEqual(left.bottom)
+		}
+	})
+
+	test('shows matching icons on items without inventing one for lime', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 apples', '1 lime', '1 egg']
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		const rowFor = (name: string) =>
+			screen.getByRole('checkbox', { name }).element().closest('tr')
+
+		expect(rowFor('2 apples')?.querySelector('img')?.getAttribute('src')).toBe(
+			'/sprites/pantry/apple.png',
+		)
+		expect(rowFor('1 egg')?.querySelector('img')?.getAttribute('src')).toBe(
+			'/sprites/pantry/egg.png',
+		)
+		expect(rowFor('1 lime')?.querySelector('img')).toBeNull()
+		expect(
+			Array.from(
+				document.querySelectorAll('table[aria-label="ingredients"] input'),
+			).map((item) => item.getAttribute('aria-label')),
+		).toEqual(['2 apples', '1 lime', '1 egg'])
 	})
 
 	test('lets the cook pick the group an ingredient is shown under', async () => {
@@ -295,12 +289,6 @@ describe('recipe detail', () => {
 			ingredients: ['2 large eggs'],
 			ingredientCategories: { '2 large eggs': 'other' },
 		})
-		await expect
-			.element(screen.getByText('other', { exact: true }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByText('dairy & eggs', { exact: true }))
-			.not.toBeInTheDocument()
 	})
 
 	test('lets a cook take over a copied web recipe, dropping its credit', async () => {
@@ -311,16 +299,18 @@ describe('recipe detail', () => {
 
 		await expect.element(screen.getByText('your copy')).toBeVisible()
 		await expect.element(screen.getByText('from example.com')).toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'make it mine' }))
+			.not.toBeInTheDocument()
+		await screen.getByRole('button', { name: 'edit' }).click()
 		await screen.getByRole('button', { name: 'make it mine' }).click()
+		await expect.poll(() => updateCalls.claimed).toEqual(['recipe-1'])
+		await screen.getByRole('button', { name: 'done' }).click()
 
 		await expect.element(screen.getByText('your copy')).not.toBeInTheDocument()
 		await expect
 			.element(screen.getByText('from example.com'))
 			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByRole('button', { name: 'make it mine' }))
-			.not.toBeInTheDocument()
-		expect(updateCalls.claimed).toEqual(['recipe-1'])
 	})
 
 	test('says so when the server could not hand the recipe over', async () => {
@@ -330,12 +320,12 @@ describe('recipe detail', () => {
 		updateCalls.refuseClaim = true
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
+		await screen.getByRole('button', { name: 'edit' }).click()
 		await screen.getByRole('button', { name: 'make it mine' }).click()
 
 		await expect
 			.element(screen.getByText("couldn't take that over", { exact: false }))
 			.toBeVisible()
-		await expect.element(screen.getByText('your copy')).toBeVisible()
 	})
 
 	test("offers no take-over on a recipe that is already the cook's own", async () => {
@@ -349,14 +339,15 @@ describe('recipe detail', () => {
 			.not.toBeInTheDocument()
 	})
 
-	test('exports one recipe as a file from its action row', async () => {
+	test('exports one recipe as a file from the share dialog', async () => {
 		const click = vi
 			.spyOn(HTMLAnchorElement.prototype, 'click')
 			.mockImplementation(() => undefined)
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		await screen.getByRole('button', { name: 'export' }).click()
+		await screen.getByRole('button', { name: 'share' }).click()
+		await screen.getByRole('button', { name: 'export as file' }).click()
 		await expect.poll(() => click.mock.calls.length).toBe(1)
 		expect(updateCalls.exported).toEqual(['recipe-1'])
 		click.mockRestore()
@@ -372,79 +363,45 @@ describe('recipe detail', () => {
 		await expect.element(screen.getByText('no steps yet')).toBeVisible()
 	})
 
-	test('lays ingredients out as checkbox, amount and name columns, and switches between category and recipe order', async () => {
+	test('keeps ingredient text together in recipe order', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'200g pasta',
-			'2 large eggs',
-			'⅓ cup flour',
-			'salt to taste',
+			'2 large eggs (, at room temperature)',
+			'12oz / 340g fresh spinach',
+			'500g beef mince ((ground beef), any fat % you like)',
 		]
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await expect
-			.element(screen.getByText('dairy & eggs', { exact: true }))
-			.toBeVisible()
 
-		const left = (text: string) =>
-			screen.getByText(text, { exact: true }).element().getBoundingClientRect()
-				.left
+		const row = screen
+			.getByRole('checkbox', { name: '2 large eggs (, at room temperature)' })
+			.element()
+			.closest('tr')
 
-		const right = (text: string) =>
-			screen.getByText(text, { exact: true }).element().getBoundingClientRect()
-				.right
-
-		expect(Math.abs(left('pasta') - left('flour'))).toBeLessThan(1)
-		expect(Math.abs(right('200 g') - right('⅓ cup'))).toBeLessThan(1)
-		expect(left('pasta')).toBeGreaterThanOrEqual(right('200 g'))
-		await expect
-			.element(screen.getByText('salt to taste', { exact: true }))
-			.toBeVisible()
-		await screen
-			.getByRole('button', { name: 'recipe order', exact: true })
-			.click()
+		expect(row?.textContent).toBe('2 large eggs (at room temperature)')
+		expect(
+			screen
+				.getByRole('checkbox', {
+					name: '500g beef mince ((ground beef), any fat % you like)',
+				})
+				.element()
+				.closest('tr')?.textContent,
+		).toBe('500g beef mince (ground beef, any fat % you like)')
+		expect(
+			screen
+				.getByRole('checkbox', { name: '12oz / 340g fresh spinach' })
+				.element()
+				.closest('tr')?.textContent,
+		).toBe('12oz / 340g fresh spinach')
 		await expect
 			.element(screen.getByText('dairy & eggs', { exact: true }))
 			.not.toBeInTheDocument()
-	})
-
-	test('keeps mixed fractions and dual-unit amounts visible in the amount column', async () => {
-		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = [
-			'## Ingredients',
-			'1 large onion - diced',
-			'4 large garlic cloves - diced',
-			'1 ½ tablespoons dried mint',
-			'1 1/2 teaspoons turmeric powder',
-			'½ cup dried chickpeas soaked overnight (or 1 cup canned chickpeas)',
-			'12oz / 340g fresh spinach',
-			'4oz / 120g reshteh noodles (or dried udon noodles / linguine)',
-			'½ cup liquid kashk mixture',
-			'2 tablespoons extra virgin olive oil',
-			'Salt and black pepper to taste',
-		]
-		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-
-		for (const amount of [
-			'1 ½ tablespoons',
-			'1 1/2 teaspoons',
-			'12 oz',
-			'fresh spinach · 340g',
-			'dried mint',
-			'reshteh noodles (or dried udon noodles / linguine) · 120g',
-		]) {
-			const element = screen.getByText(amount, { exact: true }).element()
-			expect(element.getBoundingClientRect().width).toBeGreaterThan(0)
-			expect(element.getBoundingClientRect().right).toBeLessThanOrEqual(
-				window.innerWidth - 16,
-			)
-		}
-
 		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
 			window.innerWidth,
 		)
 	})
 
-	test('shows a heading line as a group label, not a checkbox', async () => {
+	test('does not treat a source heading as an ingredient', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['## for the sauce', '1 tbsp miso']
 
@@ -453,12 +410,6 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await expect
-			.element(screen.getByText('for the sauce'))
-			.not.toBeInTheDocument()
-		await screen
-			.getByRole('button', { name: 'recipe order', exact: true })
-			.click()
 		await expect.element(screen.getByText('for the sauce')).toBeVisible()
 		await expect
 			.element(screen.getByText('## for the sauce'))
@@ -469,6 +420,18 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('checkbox', { name: /for the sauce/ }))
 			.not.toBeInTheDocument()
+	})
+
+	test('shows publisher and personal notes separately', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.sourceNotes = 'Use a heavy pan.'
+		recipeState.recipe.notes = 'Add more lemon.'
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		await expect
+			.element(screen.getByRole('heading', { name: 'recipe notes' }))
+			.toBeVisible()
+		await expect.element(screen.getByText('Use a heavy pan.')).toBeVisible()
+		await expect.element(screen.getByText('Add more lemon.')).toBeVisible()
 	})
 
 	test('saves edited ingredients and free-form steps', async () => {
@@ -629,180 +592,39 @@ describe('recipe detail', () => {
 		expect(updateCalls.calls.at(-1)?.finalize).toBe(true)
 	})
 
-	test('starts cooking directly from the start button', async () => {
+	test('checks ingredients and steps temporarily and resets after leaving', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['1 carrot']
-		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await screen
-			.getByRole('button', { name: 'start cooking', exact: true })
-			.click()
-		await expect
-			.element(screen.getByRole('button', { name: 'end cooking' }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByRole('dialog', { name: 'Start cooking?' }))
-			.not.toBeInTheDocument()
-		expect(cookingState.progress?.active).toBe(true)
-	})
-
-	test('ends cooking immediately and restores the session if saving fails', async () => {
-		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = ['1 carrot']
-		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await screen
-			.getByRole('button', { name: 'start cooking', exact: true })
-			.click()
-		await expect
-			.element(screen.getByRole('button', { name: 'end cooking' }))
-			.toBeVisible()
-		await expect
-			.poll(
-				() => document.querySelector('[aria-label="Cooking tracker"]') !== null,
-			)
-			.toBe(true)
-		let release: () => void = () => {}
-
-		cookingState.finishGate = new Promise<void>((resolve) => {
-			release = resolve
-		})
-		cookingState.failFinish = true
-		await screen.getByRole('button', { name: 'end cooking' }).click()
-		await expect
-			.element(screen.getByRole('button', { name: 'end cooking' }))
-			.not.toBeInTheDocument()
-		await expect
-			.poll(() => document.querySelector('[aria-label="Cooking tracker"]'))
-			.toBeNull()
-		expect(cookingState.progress?.active).toBe(true)
-		release()
-		await expect
-			.element(screen.getByText('Could not end cooking'))
-			.toBeVisible()
-		await expect
-			.element(screen.getByRole('button', { name: 'end cooking' }))
-			.toBeVisible()
-		await expect
-			.poll(
-				() => document.querySelector('[aria-label="Cooking tracker"]') !== null,
-			)
-			.toBe(true)
-		cookingState.failFinish = false
-		cookingState.finishGate = null
-		await screen.getByRole('button', { name: 'end cooking' }).click()
-		await expect.poll(() => cookingState.progress).toBeNull()
-	})
-
-	test('starts from a checklist confirmation, persists checks, and finishes', async () => {
-		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.owned = false
-		recipeState.recipe.userId = null
-		recipeState.recipe.saved = false
-		recipeState.recipe.ingredients = ['1 tbsp olive oil', '200g pasta']
-		recipeState.recipe.steps = ['Boil pasta']
+		recipeState.recipe.steps = ['Chop carrot']
 
 		const { screen, router } = await renderRoute({
 			path: '/recipes/recipe-1',
 			session,
 		})
 
-		const start = screen.getByRole('button', {
-			name: 'start cooking',
-			exact: true,
-		})
-
-		await expect.element(start).toBeEnabled()
-		expect(
-			document.querySelector('img[src="/sprites/pantry/olive-oil.png"]'),
-		).not.toBeNull()
-
-		const save = screen.getByRole('button', {
-			name: 'save to shelf',
-			exact: true,
-		})
-
-		expect(start.element().getBoundingClientRect().height).toBe(
-			save.element().getBoundingClientRect().height,
-		)
-		expect(start.element().getBoundingClientRect().top).toBe(
-			save.element().getBoundingClientRect().top,
-		)
-		expect(cookingState.progress).toBeNull()
-		const checkbox = screen.getByRole('checkbox').first()
-		await checkbox.click()
-		await expect.element(screen.getByRole('dialog')).toBeVisible()
-		expect(cookingState.progress).toBeNull()
-		await screen.getByRole('button', { name: 'cancel', exact: true }).click()
-		await expect.element(checkbox).not.toBeChecked()
-		await checkbox.click()
-		await screen
-			.getByRole('dialog')
-			.getByRole('button', { name: 'start cooking', exact: true })
-			.click()
-		await expect.poll(() => cookingState.progress?.checked.length).toBe(1)
-		await expect
-			.poll(
-				() =>
-					document.querySelector('[aria-label="elapsed cooking time"]') !==
-					null,
-			)
-			.toBe(true)
-
-		let release: () => void = () => {}
-
-		cookingState.checkGate = new Promise<void>((resolve) => {
-			release = resolve
-		})
-		const step = screen.getByRole('checkbox', { name: /Boil pasta/ })
+		const ingredient = screen.getByRole('checkbox', { name: '1 carrot' })
+		const step = screen.getByRole('checkbox', { name: /Chop carrot/ })
+		await ingredient.click()
 		await step.click()
+		await expect.element(ingredient).toBeChecked()
 		await expect.element(step).toBeChecked()
-		await expect.element(step).toBeEnabled()
-		expect(
-			document.querySelector('[aria-label="Cooking tracker"]')?.textContent,
-		).toContain('1/1 steps')
-		expect(cookingState.progress?.checked).not.toContain('s0')
-		await step.click()
-		await expect.element(step).not.toBeChecked()
-		expect(
-			document.querySelector('[aria-label="Cooking tracker"]')?.textContent,
-		).toContain('0/1 steps')
-		release()
 		await expect
-			.poll(() =>
-				screen
-					.getByRole('button', { name: 'end cooking', exact: true })
-					.element()
-					.hasAttribute('disabled'),
-			)
-			.toBe(false)
-		cookingState.checkGate = null
-		cookingState.failCheck = true
-		await step.click()
-		await expect.element(screen.getByText('Could not save check')).toBeVisible()
-		await expect.element(step).not.toBeChecked()
-		cookingState.failCheck = false
+			.element(screen.getByRole('button', { name: 'start cooking' }))
+			.not.toBeInTheDocument()
 		await router.navigate({
 			to: '/coming-soon/$feature',
 			params: { feature: 'groceries' },
 		})
-		await expect
-			.element(screen.getByRole('heading', { name: /groceries/i }))
-			.toBeVisible()
-		expect(
-			document.querySelector('[aria-label="elapsed cooking time"]'),
-		).not.toBeNull()
 		await router.navigate({
 			to: '/recipes/$recipeId',
 			params: { recipeId: 'recipe-1' },
 		})
 		await expect
-			.element(
-				screen.getByRole('checkbox', { name: '200g pasta', exact: true }),
-			)
-			.toBeChecked()
-		await screen
-			.getByRole('button', { name: 'end cooking', exact: true })
-			.click()
-		await expect.poll(() => cookingState.progress).toBeNull()
+			.element(screen.getByRole('checkbox', { name: '1 carrot' }))
+			.not.toBeChecked()
+		await expect
+			.element(screen.getByRole('checkbox', { name: /Chop carrot/ }))
+			.not.toBeChecked()
 	})
 
 	test('edits the name and notes without asking for servings or time', async () => {
@@ -953,6 +775,10 @@ describe('recipe detail', () => {
 				screen.getByText('changing it makes your own copy', { exact: false }),
 			)
 			.toBeVisible()
+		// The first change already makes the copy, so there is nothing to take over.
+		await expect
+			.element(screen.getByRole('button', { name: 'make it mine' }))
+			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: 'remove from shelf' }))
 			.toBeVisible()

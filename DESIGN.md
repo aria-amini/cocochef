@@ -210,16 +210,28 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 ### Primary Button
 
-- Basil solid fill, no border, no shadow, lowercase 13px semibold. Hover dims
-  slightly. Secondary buttons are paper with a field-line border.
-- Open decision: the recipe screens' confirm actions are basil, but the shared
-  `Button` default (sign-in, sign-up, error retry) still fills with `--primary`,
-  which is tomato. Pick one before restyling those pages.
+- One `Button` family everywhere. Primary: basil solid fill (`--primary` is
+  basil), no border, no shadow, lowercase 14px semibold, 8px corners, at least
+  40px tall (44px for the large size). Hover dims slightly. Secondary
+  (`outline`): paper with a field-line border. Quiet (`ghost`): muted ink, a
+  muted fill on hover. Destructive: tomato tint.
+- Solid yolk is the one exception: an "add" action on the shelf or ingredients
+  page may use it instead of basil.
 
 ### Inputs
 
-- Paper (or card-cream) fill, 1px field-line border, 8px corners, semibold text.
-  Focus shows the eggplant outline.
+- Card-cream fill, 1px field-line border, 8px corners, semibold text, muted
+  regular-weight placeholders. Focus shows the eggplant outline; an invalid
+  field turns its border tomato. Every field has a visible lowercase label.
+
+### Page Structure
+
+- Every page leads with one `PageTitle` (700, 2.25–3rem, tight, balanced) and,
+  when it has a parent, a `BackLink` above it: muted, 14px semibold, an arrow,
+  and a 44px tap height.
+- Errors and messages are lowercase in one voice: "couldn't … — try again".
+  Inline errors use `FieldError` (ink text, tomato mark), never tomato text.
+- The wordmark is plain Open Sans bold, never mono, never on white.
 
 ### Search
 
@@ -250,10 +262,14 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 ### Shared Recipes
 
-- A recipe from the web exists once for everyone. An outlined “save to shelf”
-  action becomes “remove from shelf” once saved, inline with the compact Start
-  cooking action. Saving does not copy the recipe. Saved recipes can be
-  organized into books. Cook logging is not part of the current MVP.
+- A recipe from the web exists once for everyone. Its one solid basil action is
+  “save to shelf”, beside an outlined “edit”; once saved it becomes an outlined
+  “remove from shelf” and “edit” takes the solid fill. Saving does not copy the
+  recipe. Saved recipes can be organized into books. Cook logging is not part of
+  the current MVP.
+- The read view keeps actions few: the solid action, “edit”, and a muted
+  “share”. “Share” opens one dialog for the link settings and for exporting the
+  recipe as a file. “Make it mine” appears only while editing.
 - Editing a shared recipe makes your own copy on its first real change; an
   eggplant-tinted note in the editor explains this. Notes remain personal.
   Removing a shared recipe only takes it off your shelf.
@@ -338,27 +354,11 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 
 ### Ingredient overview and cooking
 
-The recipe overview offers category and source-order views. Categories reuse
-Ingredients' catalog assignments and food aliases; source sections appear only
-in recipe order and cooking mode. Unknown foods stay under Other. Display
-grouping never changes saved ingredient order. Ingredients and steps use
-bordered, rounded lists with separated rows and naturally wrapping text.
-Quantities stay verbatim, at the same weight as the ingredient. Category
-headings use generic pantry sprites, including a bottle for oils and sauces;
-source headings stay text-only.
+The recipe overview preserves the source order and its own section headings.
+Ingredients and steps use compact open checklists with quiet row dividers and
+naturally wrapping text. Quantities and ingredient details stay together at
+regular weight. A matching pantry sprite sits beside each recognizable item;
+items without a suitable sprite leave that space empty.
 
-Start cooking restores source order. Checkboxes are visible before cooking;
-clicking one asks to start, and confirmation checks the selected item. Cancel
-leaves the checklist unchanged. Progress is saved per user and recipe on the
-server, including across devices. End cooking clears the session without
-recording a meal. Changed ingredient or step content invalidates stale
-checkoffs.
-
-A warm yolk card at the bottom of the sidebar links to each active recipe, shows
-step progress, and counts elapsed time since starting (including time away). On
-phones it sits above the bottom navigation. Start cooking remains a compact
-action beside Save.
-
-Checklist changes appear immediately while serialized background requests save
-them. Failed changes roll back with a retryable error; checks remain interactive
-during saves.
+Checkboxes respond immediately and are temporary: leaving the recipe clears
+them. Existing stored progress is retained but has no current interface.

@@ -127,6 +127,30 @@ export function splitIngredientAmount(line: string) {
 	}
 }
 
+// Only separate a trailing parenthetical when the prefix already names an
+// ingredient. Nested parentheses are kept intact; ambiguous lines stay whole.
+export function splitIngredientDetails(line: string) {
+	const start = line.indexOf('(')
+
+	if (start < 1) return { main: line, detail: '' }
+	const main = line.slice(0, start).trimEnd()
+
+	if (!parseIngredientLine(main).name) return { main: line, detail: '' }
+	let depth = 0
+
+	for (const char of line.slice(start)) {
+		if (char === '(') depth += 1
+		else if (char === ')') depth -= 1
+		else if (depth === 0 && !/\s/.test(char)) return { main: line, detail: '' }
+
+		if (depth < 0) return { main: line, detail: '' }
+	}
+
+	return depth === 0
+		? { main, detail: line.slice(start) }
+		: { main: line, detail: '' }
+}
+
 // ===== Section headings =====
 
 // A recipe's ingredients are a list of lines. A line starting with `## ` names

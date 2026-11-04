@@ -1,5 +1,7 @@
+import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { describe, expect, test, vi } from 'vite-plus/test'
+import { userEvent } from 'vitest/browser'
 
 vi.mock('@/lib/recipes/server', () => ({
 	saveRecipe: () => Promise.resolve(null),
@@ -19,6 +21,41 @@ const guest = {
 }
 
 describe('landing page', () => {
+	test('shows sign-in failures in the dialog and clears them on edit', async () => {
+		getAuthMocks().signInEmail.mockRejectedValueOnce(new Error('network error'))
+		const { screen } = await renderRoute({ path: '/' })
+		await screen.getByRole('button', { name: 'sign in' }).click()
+		const dialog = screen.getByRole('dialog', { name: 'sign in' })
+		await dialog.getByLabelText('email').fill('cook@example.com')
+		await dialog.getByLabelText('password').fill('wrong password')
+		await dialog.getByRole('button', { name: 'sign in', exact: true }).click()
+		await expect
+			.element(dialog.getByRole('alert'))
+			.toHaveTextContent("couldn't sign you in — try again")
+		await dialog.getByLabelText('password').fill('new password')
+		await expect.element(dialog.getByRole('alert')).not.toBeInTheDocument()
+	})
+
+	test('opens sign in without leaving the landing page', async () => {
+		const { screen } = await renderRoute({ path: '/' })
+		await screen.getByRole('button', { name: 'sign in' }).click()
+		await expect
+			.element(screen.getByRole('dialog', { name: 'sign in' }))
+			.toBeVisible()
+	})
+
+	test('forgets what was typed when the dialog closes', async () => {
+		const { screen } = await renderRoute({ path: '/' })
+		await screen.getByRole('button', { name: 'sign in' }).click()
+		await screen.getByLabelText('email').fill('cook@example.com')
+		await userEvent.keyboard('{Escape}')
+		await expect
+			.element(screen.getByRole('dialog', { name: 'sign in' }))
+			.not.toBeInTheDocument()
+		await screen.getByRole('button', { name: 'sign in' }).click()
+		await expect.element(screen.getByLabelText('email')).toHaveValue('')
+	})
+
 	test('pitches the app and offers a guest start or sign in', async () => {
 		const { screen } = await renderRoute({ path: '/' })
 
@@ -34,8 +71,8 @@ describe('landing page', () => {
 			.element(screen.getByRole('link', { name: 'start your shelf' }).first())
 			.toHaveAttribute('href', '/recipes')
 		await expect
-			.element(screen.getByRole('link', { name: 'sign in' }))
-			.toHaveAttribute('href', '/auth/login')
+			.element(screen.getByRole('button', { name: 'sign in' }))
+			.toBeVisible()
 		await expect
 			.element(screen.getByRole('img', { name: 'BBC Good Food' }))
 			.toBeVisible()

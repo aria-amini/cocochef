@@ -22,7 +22,7 @@ export function GoogleAuthButton({
 	isLoading: externalIsLoading,
 	variant = 'outline',
 	className,
-	children = 'Continue with Google',
+	children = 'continue with google',
 	disabled = false,
 }: GoogleAuthButtonProps) {
 	const internal = useGoogleAuth({ fallbackRedirect })

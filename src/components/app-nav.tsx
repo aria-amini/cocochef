@@ -8,7 +8,6 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
-import { CookingTracker } from '@/components/cooking-tracker'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { cn } from '@/lib/utils/ui'
 
@@ -82,16 +81,11 @@ export function useTabBarVisible() {
 }
 
 export function AppNav() {
-	const tabsVisible = useTabBarVisible()
-
 	return (
 		<>
 			<MobileHeader />
 			<Sidebar />
 			<TabBar />
-			<div className={cn('md:hidden', tabsVisible && '[&_aside]:bottom-20')}>
-				<CookingTracker />
-			</div>
 		</>
 	)
 }
@@ -109,7 +103,7 @@ function Sidebar() {
 			<Link
 				to="/recipes"
 				aria-label="dutch-oven"
-				className="border-foreground/20 focus-visible:outline-kitchen-eggplant mb-6 flex w-full shrink-0 items-center justify-center gap-2 self-center rounded-md border bg-white px-3 py-2 font-mono text-sm font-bold tracking-tight whitespace-nowrap lowercase focus-visible:outline-2 focus-visible:outline-offset-2"
+				className="border-foreground/20 focus-visible:outline-kitchen-eggplant bg-card mb-6 flex w-full shrink-0 items-center justify-center gap-2 self-center rounded-md border px-3 py-2 text-sm font-bold whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2"
 			>
 				<img
 					src="/icon-192.png"
@@ -143,7 +137,6 @@ function Sidebar() {
 				)
 			})}
 			<div className="mt-auto flex flex-col gap-4 pt-6">
-				<CookingTracker />
 				<AccountMenu variant="rail" />
 			</div>
 		</nav>
@@ -162,7 +155,7 @@ function MobileHeader() {
 			<Link
 				to="/recipes"
 				aria-label="dutch-oven"
-				className="focus-visible:outline-kitchen-eggplant flex items-center gap-2 rounded-md font-mono text-sm font-bold tracking-tight lowercase focus-visible:outline-2 focus-visible:outline-offset-2"
+				className="focus-visible:outline-kitchen-eggplant flex items-center gap-2 rounded-md text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
 			>
 				<img
 					src="/icon-192.png"

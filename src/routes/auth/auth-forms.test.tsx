@@ -8,9 +8,9 @@ describe('auth forms', () => {
 	test('signs in from the submit button', async () => {
 		const { screen } = await renderRoute({ path: '/auth/login' })
 
-		await screen.getByPlaceholder('you@example.com').fill('cook@example.com')
-		await screen.getByPlaceholder('Password').fill('correct horse')
-		await screen.getByRole('button', { name: 'Sign in', exact: true }).click()
+		await screen.getByLabelText('email').fill('cook@example.com')
+		await screen.getByLabelText('password').fill('correct horse')
+		await screen.getByRole('button', { name: 'sign in', exact: true }).click()
 
 		await vi.waitFor(() => {
 			expect(authMocks.signInEmail).toHaveBeenCalledWith(
@@ -32,11 +32,11 @@ describe('auth forms', () => {
 
 		const { screen } = await renderRoute({ path: '/auth/login' })
 
-		await screen.getByPlaceholder('you@example.com').fill('cook@example.com')
-		await screen.getByPlaceholder('Password').fill('correct horse')
-		await screen.getByRole('button', { name: 'Sign in', exact: true }).click()
+		await screen.getByLabelText('email').fill('cook@example.com')
+		await screen.getByLabelText('password').fill('correct horse')
+		await screen.getByRole('button', { name: 'sign in', exact: true }).click()
 
-		const pending = screen.getByRole('button', { name: 'Signing in…' })
+		const pending = screen.getByRole('button', { name: 'signing in…' })
 		await expect.element(pending).toBeDisabled()
 		await pending.click({ force: true })
 
@@ -51,7 +51,7 @@ describe('auth forms', () => {
 			path: '/auth/login?redirect=%2Frecipes%2Fnew',
 		})
 
-		await screen.getByRole('button', { name: 'Continue with Google' }).click()
+		await screen.getByRole('button', { name: 'continue with google' }).click()
 
 		await vi.waitFor(() => {
 			expect(authMocks.signInSocial).toHaveBeenCalledWith({
@@ -66,7 +66,7 @@ describe('auth forms', () => {
 
 		const { screen } = await renderRoute({ path: '/auth/login' })
 
-		await screen.getByRole('button', { name: 'Continue with Google' }).click()
+		await screen.getByRole('button', { name: 'continue with google' }).click()
 
 		await vi.waitFor(() => {
 			expect(authMocks.signInSocial).toHaveBeenCalledWith({
@@ -79,10 +79,12 @@ describe('auth forms', () => {
 	test('signs up from the submit button', async () => {
 		const { screen } = await renderRoute({ path: '/auth/signup' })
 
-		await screen.getByPlaceholder('Name').fill('Cook')
-		await screen.getByPlaceholder('Email').fill('cook@example.com')
-		await screen.getByPlaceholder('Password').fill('correct horse')
-		await screen.getByRole('button', { name: 'Sign up', exact: true }).click()
+		await screen.getByLabelText('name').fill('Cook')
+		await screen.getByLabelText('email').fill('cook@example.com')
+		await screen.getByLabelText('password').fill('correct horse')
+		await screen
+			.getByRole('button', { name: 'create account', exact: true })
+			.click()
 
 		await vi.waitFor(() => {
 			expect(authMocks.signUpEmail).toHaveBeenCalledWith({

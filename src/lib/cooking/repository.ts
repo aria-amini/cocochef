@@ -4,6 +4,7 @@ import { type Database, getDb } from '@/db/connection'
 import { cookingProgress, recipes } from '@/db/schema'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import { getRecipeForUser } from '@/lib/recipes/repository'
+import { checkableStepIndexes } from '@/lib/recipes/step-groups'
 
 import { cookingCommand, type CookingCommand } from './schema'
 
@@ -94,8 +95,13 @@ export async function updateCookingForUser(
 			const line =
 				item[0] === 'i' ? recipe.ingredients[index] : recipe.steps[index]
 
-			if (!line || (item[0] === 'i' && ingredientHeading(line) !== undefined))
-				throw new Error('Cooking item not found')
+			// A heading or a group's label is not something to tick off.
+			const tickable =
+				item[0] === 'i'
+					? line !== undefined && ingredientHeading(line) === undefined
+					: checkableStepIndexes(recipe.steps).includes(index)
+
+			if (!line || !tickable) throw new Error('Cooking item not found')
 
 			if (data.done) checked.add(item)
 			else checked.delete(item)
@@ -142,9 +148,10 @@ export async function listActiveCookingForUser(
 					? {
 							...progress,
 							title: session.title,
-							steps:
+							steps: checkableStepIndexes(
 								(await getRecipeForUser(userId, session.recipeId, database))
-									?.steps.length ?? 0,
+									?.steps ?? [],
+							).length,
 						}
 					: null
 			}),

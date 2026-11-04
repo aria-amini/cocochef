@@ -111,6 +111,42 @@ describe('server cooking progress', () => {
 		).toHaveLength(0)
 	})
 
+	test('counts and ticks the sub-steps of a step, not the step that holds them', async ({
+		db,
+	}) => {
+		const { userId } = await setup(db)
+
+		const recipe = await createRecipeForUser(
+			userId,
+			{
+				title: 'Soup',
+				ingredients: ['1 onion'],
+				steps: ['Prep', '- Chop', '- Wash', 'Simmer'],
+				finalized: true,
+			},
+			db,
+		)
+
+		if (!recipe) throw new Error('Missing recipe')
+		const recipeId = recipe.id
+		await updateCookingForUser(userId, { recipeId, action: 'start' }, db)
+		await expect(
+			updateCookingForUser(
+				userId,
+				{ recipeId, action: 'check', item: 's0', done: true },
+				db,
+			),
+		).rejects.toThrow('Cooking item not found')
+		await updateCookingForUser(
+			userId,
+			{ recipeId, action: 'check', item: 's1', done: true },
+			db,
+		)
+		expect(await listActiveCookingForUser(userId, db)).toMatchObject([
+			{ recipeId, steps: 3 },
+		])
+	})
+
 	test('rejects private recipes, headings, and checks outside cooking; invalidates progress after an edit', async ({
 		db,
 	}) => {

@@ -4,6 +4,7 @@ import {
 	catalogSections,
 	filterCatalogItems,
 	normalizeIngredientName,
+	sectionSprite,
 } from './catalog'
 import { pantryCategories } from './model'
 
@@ -41,5 +42,23 @@ describe('ingredient catalog', () => {
 
 		expect(filterCatalogItems(items, 'jalapeno')).toEqual(['jalapeños'])
 		expect(filterCatalogItems(items, 'zaatar')).toEqual(["za'atar"])
+	})
+})
+
+describe('sectionSprite', () => {
+	test('shows the food in a section, not the category stand-in', () => {
+		expect(sectionSprite(['1 lime', '2 limes'], 'fruit')).toBe('lemon')
+	})
+
+	test('takes the food a section has most of, the first on a tie', () => {
+		expect(sectionSprite(['1 apple', '2 limes', '1 lime'], 'fruit')).toBe(
+			'lemon',
+		)
+		expect(sectionSprite(['2 limes', '1 apple'], 'fruit')).toBe('lemon')
+	})
+
+	test('falls back to the category picture for food with no sprite of its own', () => {
+		expect(sectionSprite(['1 dragonfruit'], 'fruit')).toBe('apple')
+		expect(sectionSprite([], 'vegetables')).toBe('carrot')
 	})
 })

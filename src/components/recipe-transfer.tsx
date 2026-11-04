@@ -45,8 +45,8 @@ export function ExportRecipeButton({
 	const [pending, setPending] = useState(false)
 
 	return (
-		<button
-			type="button"
+		<Button
+			variant="outline"
 			disabled={pending}
 			onClick={() => {
 				setPending(true)
@@ -55,11 +55,10 @@ export function ExportRecipeButton({
 					.catch(() => toast.error("couldn't export that — try again"))
 					.finally(() => setPending(false))
 			}}
-			className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex items-center gap-1 px-1 py-1 text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
 		>
-			<DownloadSimpleIcon size={12} weight="bold" aria-hidden />
-			export
-		</button>
+			<DownloadSimpleIcon size={14} weight="bold" aria-hidden />
+			export as file
+		</Button>
 	)
 }
 
@@ -131,7 +130,7 @@ export function RecipeTransfer() {
 
 	return (
 		<section className="space-y-3">
-			<h2 className="text-lg font-semibold">your recipes</h2>
+			<h2 className="text-lg font-bold">move your recipes</h2>
 			<p className="text-muted-foreground text-sm">
 				move your recipes to another kitchen, like a new account or the live
 				site, as a file. notes, books and ingredient groups come along; uploaded
@@ -149,7 +148,7 @@ export function RecipeTransfer() {
 				<label
 					className={cn(
 						buttonVariants({ variant: 'outline' }),
-						'focus-within:ring-ring/50 cursor-pointer focus-within:ring-3',
+						'focus-within:outline-kitchen-eggplant cursor-pointer focus-within:outline-2 focus-within:outline-offset-2',
 						busy !== undefined && 'pointer-events-none opacity-50',
 					)}
 				>
@@ -173,7 +172,7 @@ export function RecipeTransfer() {
 			</div>
 			{result ? (
 				<output
-					className={result.failed ? 'text-destructive text-sm' : 'text-sm'}
+					className={cn('text-sm', result.failed && 'font-semibold')}
 					role={result.failed ? 'alert' : undefined}
 				>
 					{result.text}

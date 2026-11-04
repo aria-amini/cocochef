@@ -6,6 +6,7 @@ import {
 } from '@phosphor-icons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 
+import { PageTitle } from '@/components/page'
 import { Badge } from '@/components/ui/badge'
 
 export const Route = createFileRoute('/_app/groceries')({
@@ -37,10 +38,8 @@ function Groceries() {
 		<main className="flex-1">
 			<div className="flex max-w-2xl flex-col gap-8 p-6 md:p-10">
 				<div className="flex flex-wrap items-center gap-3">
-					<h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-						groceries
-					</h1>
-					<Badge variant="tag">work in progress</Badge>
+					<PageTitle>groceries</PageTitle>
+					<Badge>work in progress</Badge>
 				</div>
 				<section className="border-foreground/50 bg-kitchen-yolk/25 flex flex-col items-start gap-4 rounded-xl border border-dashed p-6">
 					<span className="bg-kitchen-yolk grid size-12 place-items-center rounded-full">

@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Plus } from '@phosphor-icons/react'
+import { Check, Plus } from '@phosphor-icons/react'
 import {
 	createFileRoute,
 	Link,
@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { BackLink, PageTitle } from '@/components/page'
 import {
 	catalogSectionId,
 	catalogSections,
@@ -40,16 +41,15 @@ function BulkAdd() {
 		<main className="flex-1">
 			<div className="mx-auto flex max-w-6xl flex-col gap-5 p-6 pb-28 md:p-10 md:pb-28">
 				<div>
-					<Link
+					<BackLink
 						to={section ? '/ingredients/bulk' : '/ingredients'}
-						className="focus-visible:outline-kitchen-eggplant mb-4 inline-flex items-center gap-1.5 text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2"
+						className="mb-2"
 					>
-						<ArrowLeft size={14} weight="bold" aria-hidden />
-						{section ? 'all sections' : 'back to ingredients'}
-					</Link>
-					<h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+						{section ? 'all sections' : 'ingredients'}
+					</BackLink>
+					<PageTitle>
 						{section ? pantryCategoryLabels[section.id] : 'stock up fast'}
-					</h1>
+					</PageTitle>
 					<p className="text-muted-foreground mt-2 text-sm">
 						{section
 							? 'tap everything you have, then add them all at once'

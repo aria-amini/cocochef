@@ -10,6 +10,7 @@ import { getRecipeShare, saveSharingProfile } from '@/lib/sharing/repository'
 
 import { recipeUpdateInput } from './model'
 import {
+	addMissingSourceNotes,
 	claimRecipeForUser,
 	createCollectionForUser,
 	createRecipeForUser,
@@ -444,6 +445,36 @@ describe('shared recipes', () => {
 
 		return recipe
 	}
+
+	test('keeps publisher notes separate from private notes and copies them on edit', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const shared = await seedShared(db)
+		await addMissingSourceNotes(shared.id, 'Source tip', db)
+		await addMissingSourceNotes(shared.id, 'Replacement', db)
+		await saveRecipeForUser(userId, shared.id, db)
+
+		const copy = await updateRecipeForUser(
+			userId,
+			{
+				id: shared.id,
+				title: 'my dal',
+				imageUrl: null,
+				notes: 'My private note',
+				ingredients: ['lentils', 'salt'],
+				steps: ['simmer'],
+			},
+			db,
+		)
+
+		if (!copy) throw new Error('copy was not created')
+		expect(copy.id).not.toBe(shared.id)
+		expect(await getRecipeForUser(userId, copy.id, db)).toMatchObject({
+			sourceNotes: 'Source tip',
+			notes: 'My private note',
+		})
+	})
 
 	test('stores one recipe per page, for everyone', async ({ db }) => {
 		const first = await seedShared(db)
