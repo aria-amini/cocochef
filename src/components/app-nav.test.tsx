@@ -192,6 +192,7 @@ describe('app nav', () => {
 		await expect
 			.element(sheet.getByRole('combobox', { name: 'find a recipe' }))
 			.toHaveFocus()
+		await sheet.getByRole('button', { name: 'import' }).click()
 		await expect
 			.element(sheet.getByRole('option', { name: /blank recipe/ }))
 			.toBeVisible()

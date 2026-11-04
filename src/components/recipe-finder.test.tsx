@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
 import type { FoundRecipe } from '@/lib/discover/server'
+import { recipeSites } from '@/lib/discover/sites'
 import type { listShelf } from '@/lib/recipes/server'
 
 type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
@@ -124,6 +125,11 @@ describe('the one box', () => {
 
 		const { screen } = await openBox()
 
+		await expect
+			.element(screen.getByRole('option', { name: /paste text/ }))
+			.not.toBeInTheDocument()
+		await screen.getByRole('button', { name: 'import' }).click()
+
 		for (const name of [/blank recipe/, /import link/, /paste text/])
 			await expect.element(screen.getByRole('option', { name })).toBeVisible()
 
@@ -147,6 +153,7 @@ describe('the one box', () => {
 
 	test('opens a paste dialog and returns to the finder on cancel', async () => {
 		const { screen } = await openBox()
+		await screen.getByRole('button', { name: 'import' }).click()
 		await screen.getByRole('option', { name: /paste text/ }).click()
 		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		await expect.element(dialog).toBeVisible()
@@ -159,6 +166,7 @@ describe('the one box', () => {
 
 	test('adds pasted text from the finder dialog', async () => {
 		const { screen, router } = await openBox()
+		await screen.getByRole('button', { name: 'import' }).click()
 		await screen.getByRole('option', { name: /paste text/ }).click()
 		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		await dialog
@@ -185,6 +193,56 @@ describe('the one box', () => {
 		await expect
 			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
 			.not.toBeInTheDocument()
+	})
+
+	test('reveals more recipes a page at a time until none are left', async () => {
+		server.popular.mockResolvedValue({
+			warming: false,
+			results: Array.from({ length: 30 }, (_, i) =>
+				found({
+					title: `stew ${i + 1}`,
+					url: `https://example.com/stew-${i + 1}`,
+				}),
+			),
+		})
+
+		const { screen } = await openBox()
+
+		const shown = () =>
+			screen.getByRole('option', { name: /^stew \d+/ }).elements().length
+
+		await expect.poll(shown).toBe(12)
+		await screen.getByRole('button', { name: 'show more recipes' }).click()
+		await expect.poll(shown).toBe(24)
+		await screen.getByRole('button', { name: 'show more recipes' }).click()
+		await expect.poll(shown).toBe(30)
+		await expect
+			.element(screen.getByRole('button', { name: 'show more recipes' }))
+			.not.toBeInTheDocument()
+	})
+
+	test('names every searched site with a logo that loads', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const logos = screen
+			.getByRole('list', { name: 'Recipe search sources' })
+			.first()
+			.getByRole('img')
+
+		await expect.poll(() => logos.elements().length).toBe(recipeSites.length)
+
+		await expect
+			.poll(() =>
+				logos
+					.elements()
+					.every(
+						(logo) => logo instanceof HTMLImageElement && logo.naturalWidth > 0,
+					),
+			)
+			.toBe(true)
 	})
 
 	test('finds shelf recipes by name at once and opens one with enter', async () => {
@@ -348,7 +406,7 @@ describe('the one box', () => {
 
 		if (!dialog) throw new Error('missing finder dialog')
 		expect(dialog.getBoundingClientRect().height).toBe(
-			window.innerHeight - (isPhone() ? 48 : 64),
+			window.innerHeight - (isPhone() ? 24 : 64),
 		)
 		await expect
 			.element(screen.getByRole('button', { name: 'save', exact: true }))
@@ -581,6 +639,7 @@ describe('the one box', () => {
 
 	test('layers import over the finder and restores its search on close', async () => {
 		const { screen, input } = await openBox()
+		await screen.getByRole('button', { name: 'import' }).click()
 		await screen.getByRole('option', { name: /import link/ }).click()
 		await expect
 			.element(screen.getByRole('textbox', { name: 'recipe link' }))

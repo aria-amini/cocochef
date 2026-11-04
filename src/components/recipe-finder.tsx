@@ -11,6 +11,7 @@ import {
 	GlobeHemisphereWestIcon,
 	PencilSimpleIcon,
 	XIcon,
+	CaretDownIcon,
 } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -25,7 +26,6 @@ import {
 	useOnlineRecipes,
 } from '@/components/recipe-online'
 import { RecipeReader } from '@/components/recipe-reader'
-import { RecipeSources } from '@/components/recipe-sources'
 import { Skeleton } from '@/components/ui/skeleton'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
@@ -34,6 +34,7 @@ import { isPastedRecipe } from '@/lib/recipes/paste'
 import { getRecipe, listShelf } from '@/lib/recipes/server'
 import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
 import { cn } from '@/lib/utils/ui'
+import { useVisualViewportVars } from '@/lib/utils/viewport'
 
 type ShelfRecipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 
@@ -184,13 +185,15 @@ export function RecipeFinder({
 }) {
 	const input = useRef<HTMLInputElement>(null)
 
+	useVisualViewportVars(open)
+
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={input}
-					className="bg-background border-foreground/30 fixed inset-x-2 top-10 z-50 flex h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded-2xl border shadow-md outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl"
+					className="bg-background border-foreground/30 fixed inset-x-2 top-[calc(var(--vv-top,0px)+var(--vv-gap,1rem))] z-50 flex h-[calc(var(--vv-height,100dvh)-var(--vv-gap,1rem)-0.5rem)] flex-col overflow-hidden rounded-2xl border shadow-md outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl"
 				>
 					<Dialog.Title className="sr-only">find a recipe</Dialog.Title>
 					<FinderPanel
@@ -220,6 +223,8 @@ function FinderPanel({
 	const navigate = useNavigate()
 	const listboxId = useId()
 	const [pasteOpen, setPasteOpen] = useState(false)
+	// The ways to start stay tucked behind one button until asked for.
+	const [startsOpen, setStartsOpen] = useState(false)
 	const [value, setValue] = useState(defaultQuery)
 	const [picked, setPicked] = useState<string>()
 	// Picking a recipe fills the box; results stay mounted for the way back.
@@ -281,7 +286,9 @@ function FinderPanel({
 	} else if (!trimmed) {
 		section(
 			'',
-			starts.map(({ start }): Option => ({ kind: 'start', start })),
+			starts.flatMap(({ start }): Option[] =>
+				start === 'write' || startsOpen ? [{ kind: 'start', start }] : [],
+			),
 		)
 
 		const drafts = shelfRecipes.filter(
@@ -529,8 +536,17 @@ function FinderPanel({
 	const rowClassName = (index: number) =>
 		cn(
 			'flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors',
-			index === active && 'bg-kitchen-yolk/30',
+			index === active && 'bg-kitchen-yolk/40',
 			busy !== undefined && 'cursor-default opacity-60',
+		)
+
+	// A recipe row is outlined when selected, in a darker line than the faint
+	// hairline so it stands out from its neighbours.
+	const recipeRowClassName = (index: number) =>
+		cn(
+			rowClassName(index),
+			'mx-2 rounded-lg border',
+			index === active ? 'border-foreground/45' : 'border-transparent',
 		)
 
 	const searching = trimmed !== '' && !url
@@ -549,7 +565,7 @@ function FinderPanel({
 			/>
 			<div
 				className={cn(
-					'border-border flex items-center gap-2.5 border-b px-4 py-3',
+					'border-border flex shrink-0 items-center gap-2.5 border-b px-4 py-3',
 					previewing && 'hidden',
 				)}
 			>
@@ -585,18 +601,16 @@ function FinderPanel({
 					}}
 					className="placeholder:text-muted-foreground w-full min-w-0 bg-transparent text-lg font-semibold outline-none placeholder:font-normal"
 				/>
-				<Dialog.Close className="text-muted-foreground hover:text-foreground shrink-0 rounded-md px-2 py-1 text-sm font-semibold">
-					<span className="md:hidden">cancel</span>
+				<Dialog.Close
+					aria-label="cancel"
+					className="text-muted-foreground hover:text-foreground shrink-0 rounded-md px-2 py-1 text-sm font-semibold"
+				>
+					<XIcon size={20} weight="bold" aria-hidden className="md:hidden" />
 					<kbd className="border-border hidden rounded border px-1.5 text-xs md:inline">
 						esc
 					</kbd>
 				</Dialog.Close>
 			</div>
-			{!previewing ? (
-				<div className="border-border border-b px-4 py-2">
-					<RecipeSources />
-				</div>
-			) : null}
 			<div
 				className={cn(
 					'grid min-h-0 flex-1',
@@ -620,6 +634,9 @@ function FinderPanel({
 								busy={busy}
 								optionProps={optionProps}
 								rowClassName={rowClassName}
+								recipeRowClassName={recipeRowClassName}
+								startsOpen={startsOpen}
+								onToggleStarts={() => setStartsOpen((open) => !open)}
 							/>
 						))}
 						{searching && online.results.length === 0 ? (
@@ -738,6 +755,9 @@ function SectionRows({
 	busy,
 	optionProps,
 	rowClassName,
+	recipeRowClassName,
+	startsOpen,
+	onToggleStarts,
 }: {
 	label: string
 	options: Option[]
@@ -746,6 +766,9 @@ function SectionRows({
 	busy: string | undefined
 	optionProps: (index: number, option: Option) => object
 	rowClassName: (index: number) => string
+	recipeRowClassName: (index: number) => string
+	startsOpen: boolean
+	onToggleStarts: () => void
 }) {
 	const startRow = options.every((option) => option.kind === 'start')
 
@@ -753,10 +776,7 @@ function SectionRows({
 		<>
 			{label ? <SectionLabel>{label}</SectionLabel> : null}
 			{startRow ? (
-				<li
-					role="presentation"
-					className="grid grid-cols-3 gap-2 px-3 pt-3 pb-1"
-				>
+				<li role="presentation" className="flex flex-wrap gap-2 px-4 pt-1 pb-2">
 					<ul role="group" aria-label="start" className="contents">
 						{options.map((option, offset) => {
 							if (option.kind !== 'start') return null
@@ -775,17 +795,33 @@ function SectionRows({
 									{...optionProps(index, option)}
 									className={cn(
 										rowClassName(index),
-										'border-foreground/40 rounded-lg border px-3 py-2',
+										'border-border w-auto rounded-md border px-2.5 py-1.5',
+										option.start === 'write' ? 'order-1' : 'order-3',
 									)}
 								>
-									<span className="flex items-center gap-1.5 text-sm font-semibold">
-										<Icon size={16} weight="bold" aria-hidden />
+									<span className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap">
+										<Icon size={14} weight="bold" aria-hidden />
 										{name}
 									</span>
 								</li>
 							)
 						})}
 					</ul>
+					{/* Not an option: it only reveals the import ways below. */}
+					<button
+						type="button"
+						aria-expanded={startsOpen}
+						onClick={onToggleStarts}
+						className="text-muted-foreground hover:text-foreground order-2 flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold whitespace-nowrap"
+					>
+						import
+						<CaretDownIcon
+							size={12}
+							weight="bold"
+							aria-hidden
+							className={cn(startsOpen && 'rotate-180')}
+						/>
+					</button>
 				</li>
 			) : (
 				options.map((option, offset) => {
@@ -799,7 +835,7 @@ function SectionRows({
 							<li
 								key={key}
 								{...optionProps(index, option)}
-								className={rowClassName(index)}
+								className={recipeRowClassName(index)}
 							>
 								<RecipeThumb
 									imageUrl={recipe.imageUrl}
