@@ -29,7 +29,7 @@ const sprite = <const Key extends string>(
 ) => ({ key, category, aliases }) satisfies SpriteEntry
 
 export const pantrySprites = [
-	sprite('apple', 'fruit', ['apple', 'apples']),
+	sprite('apple', 'fruit', ['apple', 'apples', 'applesauce']),
 	sprite('avocado', 'fruit', ['avocado', 'avocados']),
 	sprite('bacon', 'protein', ['bacon', 'turkey bacon', 'pancetta']),
 	sprite('banana', 'fruit', ['banana', 'bananas']),
@@ -69,7 +69,7 @@ export const pantrySprites = [
 		'hot pepper',
 		'red pepper flakes',
 	]),
-	sprite('chocolate', 'other', ['chocolate', 'cocoa']),
+	sprite('chocolate', 'other', ['chocolate', 'cocoa', 'cacao']),
 	sprite('cinnamon', 'spice', ['cinnamon']),
 	sprite('coffee-beans', 'other', ['coffee', 'coffee beans', 'espresso']),
 	sprite('corn', 'vegetable', ['corn', 'cornmeal', 'polenta']),
@@ -327,6 +327,8 @@ const categoryKeywords: [SpriteCategory, string[]][] = [
 			'brussels sprouts',
 			'cabbage',
 			'bok choy',
+			'radicchio',
+			'broccolini',
 			'green beans',
 		],
 	],
@@ -492,27 +494,51 @@ export function specificSpriteKey(name: string) {
 // Compound foods take priority over the shorter food names inside them.
 // These are deliberately shared family pictures rather than exact depictions.
 const ingredientFamilySprites = [
+	// Plain "pepper" in a recipe is the grinder, not a vegetable.
+	[
+		'black-pepper',
+		/^(?:(?:freshly|fresh)\s+)?(?:(?:ground|cracked|white|black)\s+)*pepper(?:\s+to taste)?$/,
+	],
+	[
+		'chili-pepper',
+		/\b(?:chil+i?e? flakes|red pepper flakes|crushed red pepper|pepper flakes)\b/,
+	],
+	['butter', /\bghee\b/],
 	[
 		'fallback-other',
-		/\b(?:broth|stock|bouillon|consomme|sauce|vinegar|ketchup|sriracha|mayonnaise|mayo|tahini|pesto|salsa|jam|jelly|gelatin|extract|peanut butter|almond butter|coconut milk|coconut cream)\b/,
+		/\b(?:broth|stock|bouillon|consomme|sauce|vinegar|ketchup|sriracha|mayonnaise|mayo|tahini|pesto|salsa|jam|jelly|gelatin|extract|peanut butter|almond butter|coconut milk|coconut cream|miso|mirin|tamari|gochujang|sambal|harissa|molasses|hummus|tamarind|horseradish|capers|cornichons|kimchi|bitters|shredded coconut|desiccated coconut|coconut flakes)\b/,
 	],
-	['olive-oil', /\b(?:oil|oils)\b/],
+	// Spirits and mixers have no picture of their own.
+	[
+		'fallback-other',
+		/\b(?:bourbon|whiskey|whisky|vodka|gin|rum|tequila|brandy|cognac|sake|triple sec|liqueur|vermouth|seltzer)\b/,
+	],
+	['olive-oil', /\b(?:oil|oils|(?:cooking|baking|nonstick) spray)\b/],
 	[
 		'fallback-spice',
-		/\b(?:garlic powder|onion powder|mustard seeds?|sesame seeds?|chili powder|chilli powder|cayenne|garam masala|za atar|sumac|seasoning|five spice)\b/,
+		/\b(?:garlic powder|onion powder|mustard seeds?|sesame seeds?|chili powder|chilli powder|cayenne|garam masala|za atar|sumac|seasoning|five spice|msg|star anise|fenugreek|herbes de provence)\b/,
 	],
 	[
 		'wheat',
 		/\b(?:pasta|spaghetti|noodles|linguine|fettuccine|penne|macaroni|orzo|lasagne|lasagna)\b/,
 	],
-	['bread', /\b(?:breadcrumbs|panko|tortillas?|pita|bagels?)\b/],
+	[
+		'bread',
+		/\b(?:breadcrumbs|panko|tortillas?|pita|bagels?|baguettes?|ciabatta|focaccia|english muffins?|naan|brioche|croissants?|pretzels?)\b/,
+	],
 	[
 		'flour',
-		/\b(?:sugar(?! snap)|cornstarch|corn starch|baking powder|baking soda|bicarbonate|yeast)\b/,
+		/\b(?:sugar(?! snap)|cornstarch|corn starch|cornflour|cream of tartar|tapioca starch|potato starch|arrowroot|custard powder|baking powder|baking soda|bicarbonate|yeast)\b/,
 	],
 	['fallback-dairy', /\bice cream\b/],
-	['cheese', /\b(?:cream cheese|ricotta|halloumi|paneer)\b/],
-	['milk', /\b(?:cream|yogurt|yoghurt|buttermilk|half and half|kefir)\b/],
+	[
+		'cheese',
+		/\b(?:cream cheese|ricotta|halloumi|paneer|mascarpone|pecorino|manchego|gorgonzola|burrata|cotija|queso)\b/,
+	],
+	[
+		'milk',
+		/\b(?:cream|yogurt|yoghurt|buttermilk|half and half|kefir|labneh|skyr|quark)\b/,
+	],
 	[
 		'meat',
 		// Cuts with a sprite of their own are left to it: "pork sausages" and
@@ -533,7 +559,10 @@ const ingredientFamilySprites = [
 		'fallback-vegetable',
 		/\b(?:fresh ginger|ginger root|celery|cauliflower|cabbage|brussels sprouts|green beans|asparagus|fennel bulb)\b/,
 	],
-	['grapes', /\b(?:sultanas?|currants?)\b/],
+	[
+		'grapes',
+		/\b(?:sultanas?|currants?|raisins?|dates|prunes?|dried (?:cranberries|figs?|apricots?|cherries|mango))\b/,
+	],
 	// Plain water and ice. Not "coconut water" or "rose water", and not
 	// "milk or water", which is milk.
 	[
