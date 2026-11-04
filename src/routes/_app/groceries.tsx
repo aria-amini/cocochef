@@ -53,7 +53,7 @@ function Groceries() {
 					</div>
 					<Link
 						to="/recipes"
-						className="bg-kitchen-yolk focus-visible:outline-kitchen-eggplant rounded-md px-4 py-2.5 text-sm font-semibold transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
+						className="bg-kitchen-yolk rounded-md px-4 py-2.5 text-sm font-semibold transition-colors hover:brightness-95"
 					>
 						back to recipes
 					</Link>

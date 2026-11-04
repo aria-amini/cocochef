@@ -64,7 +64,7 @@ function Landing() {
 						<button
 							type="button"
 							onClick={() => setAuthOpen(true)}
-							className="focus-visible:outline-kitchen-eggplant text-xs font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2"
+							className="text-xs font-semibold underline"
 						>
 							sign in
 						</button>

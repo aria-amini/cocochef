@@ -34,7 +34,7 @@ function ComingSoon() {
 				</p>
 				<Link
 					to="/recipes"
-					className="bg-kitchen-yolk focus-visible:outline-kitchen-eggplant mt-6 inline-flex rounded-xl px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+					className="bg-kitchen-yolk mt-6 inline-flex rounded-xl px-4 py-3 text-sm font-semibold"
 				>
 					back to recipes
 				</Link>

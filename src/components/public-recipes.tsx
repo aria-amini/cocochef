@@ -20,10 +20,7 @@ import type {
 export function PublicHeader() {
 	return (
 		<header className="border-border border-b px-6 py-5 md:px-10">
-			<Link
-				to="/"
-				className="focus-visible:outline-kitchen-eggplant text-lg font-bold tracking-tight focus-visible:outline-2"
-			>
+			<Link to="/" className="text-lg font-bold tracking-tight">
 				dutch-oven
 			</Link>
 		</header>
@@ -49,7 +46,7 @@ export function PublicProfile({
 							key={recipe.slug}
 							to="/$handle/$slug"
 							params={{ handle: profile.handle, slug: recipe.slug }}
-							className="border-border bg-kitchen-tomato/15 focus-visible:outline-kitchen-eggplant overflow-hidden rounded-xl border focus-visible:outline-2 focus-visible:outline-offset-2"
+							className="border-border bg-kitchen-tomato/15 overflow-hidden rounded-xl border"
 						>
 							<div className="bg-kitchen-yolk/15 aspect-[4/3]">
 								{recipe.imageUrl ? (

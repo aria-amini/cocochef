@@ -174,9 +174,7 @@ function SharingProfileForm({
 					<Link
 						to="/$handle"
 						params={{ handle: profile.handle }}
-						className={cn(
-							'focus-visible:outline-kitchen-eggplant text-sm font-semibold underline focus-visible:outline-2',
-						)}
+						className={cn('text-sm font-semibold underline ')}
 					>
 						view public profile
 					</Link>

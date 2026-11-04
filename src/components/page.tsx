@@ -34,7 +34,7 @@ const BackAnchor = React.forwardRef<
 		<a
 			ref={ref}
 			className={cn(
-				'text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2',
+				'text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold ',
 				className,
 			)}
 			{...props}

@@ -103,7 +103,7 @@ function Sidebar() {
 			<Link
 				to="/recipes"
 				aria-label="dutch-oven"
-				className="border-foreground/20 focus-visible:outline-kitchen-eggplant bg-card mb-6 flex w-full shrink-0 items-center justify-center gap-2 self-center rounded-md border px-3 py-2 text-sm font-bold whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2"
+				className="border-foreground/20 bg-card mb-6 flex w-full shrink-0 items-center justify-center gap-2 self-center rounded-md border px-3 py-2 text-sm font-bold whitespace-nowrap"
 			>
 				<img
 					src="/icon-192.png"
@@ -125,7 +125,7 @@ function Sidebar() {
 						params={to === '/recipes' ? {} : { feature: label }}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
-							'focus-visible:outline-kitchen-eggplant flex w-full shrink-0 items-center gap-2 border px-2.5 py-1.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 rounded-md',
+							'flex w-full shrink-0 items-center gap-2 border px-2.5 py-1.5 text-xs font-semibold rounded-md',
 							active
 								? 'border-foreground/15 bg-kitchen-yolk/30'
 								: 'border-transparent hover:bg-card focus-visible:border-border',
@@ -155,7 +155,7 @@ function MobileHeader() {
 			<Link
 				to="/recipes"
 				aria-label="dutch-oven"
-				className="focus-visible:outline-kitchen-eggplant flex items-center gap-2 rounded-md text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+				className="flex items-center gap-2 rounded-md text-sm font-bold"
 			>
 				<img
 					src="/icon-192.png"
@@ -218,7 +218,7 @@ function TabBar() {
 					type="button"
 					aria-label="add recipe"
 					onClick={() => find()}
-					className="bg-kitchen-yolk focus-visible:outline-kitchen-eggplant bottom-fab fixed right-4 z-20 grid size-14 place-items-center rounded-full shadow-md transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 md:hidden"
+					className="bg-kitchen-yolk bottom-fab fixed right-4 z-20 grid size-14 place-items-center rounded-full shadow-md transition-colors hover:brightness-95 md:hidden"
 				>
 					<PlusIcon size={26} weight="bold" aria-hidden />
 				</button>

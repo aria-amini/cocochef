@@ -24,7 +24,7 @@ export function AuthShell({
 			<div className="flex w-full max-w-sm flex-col gap-6">
 				<Link
 					to="/"
-					className="focus-visible:outline-kitchen-eggplant self-start rounded-md text-sm font-bold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-2"
+					className="self-start rounded-md text-sm font-bold tracking-tight"
 				>
 					dutch-oven
 				</Link>

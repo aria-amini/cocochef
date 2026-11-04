@@ -137,7 +137,7 @@ export function SortableRow({
 					{...attributes}
 					{...listeners}
 					aria-label={label}
-					className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant grid w-9 shrink-0 cursor-grab touch-none place-items-center focus-visible:outline-2 focus-visible:outline-offset-2 active:cursor-grabbing"
+					className="text-muted-foreground hover:text-foreground grid w-9 shrink-0 cursor-grab touch-none place-items-center active:cursor-grabbing"
 				>
 					{grip ?? <DotsSixVertical size={16} weight="bold" aria-hidden />}
 				</button>,
