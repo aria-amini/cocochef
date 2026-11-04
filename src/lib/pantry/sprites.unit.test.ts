@@ -53,6 +53,11 @@ describe('ingredient sprites', () => {
 		['raspberries', 'strawberry'],
 		['coconut milk', 'fallback-other'],
 		['egg noodles', 'wheat'],
+		['1 cup (240ml) milk', 'milk'],
+		['1 and 1/2 cups (190g) all-purpose flour', 'flour'],
+		['1 (15-ounce) can chickpeas, rinsed', 'fallback-protein'],
+		['1 (14 oz) can diced tomatoes', 'tomato'],
+		['1 cup (2 sticks) unsalted butter', 'butter'],
 		['1 cup broth (or milk)', 'fallback-other'],
 	])('uses a specific or familiar family icon for %s', (name, expected) => {
 		expect(ingredientItemSprite(name)).toBe(expected)

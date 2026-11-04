@@ -151,6 +151,38 @@ export function splitIngredientDetails(line: string) {
 		: { main: line, detail: '' }
 }
 
+// ===== Subject =====
+
+// What a package or portion is counted in, between the amount and the food.
+const CONTAINER =
+	/^(?:cans?|jars?|packages?|packets?|sticks?|bottles?|boxes|box|bags?|bunch(?:es)?|heads?|cloves?|pinch(?:es)?|dash(?:es)?|handfuls?|sprigs?|slices?|pieces?|cups?|tbsp|tsp|tablespoons?|teaspoons?|ounces?|oz|g|kg|ml|l|lbs?|pounds?)\.?(?:\s+of)?\s+/i
+
+const SIZE =
+	/^(?:(?:heaping|scant|generous|level|packed|rounded|extra-large|large|medium|small|boneless|skinless|bone-in|skin-on)\s*,?\s+)+/i
+
+// The food a line is about, with the measuring around it taken off:
+// "1 cup (240ml) milk" and "1 and 1/2 cups (300g) sugar" are milk and sugar,
+// "1 (15-ounce) can chickpeas, rinsed" is chickpeas. Anything after the first
+// comma is preparation and stays on.
+export function ingredientSubject(line: string) {
+	let rest = line.trim()
+
+	// Each pass takes off one layer of measuring; a few cover any real line.
+	for (let pass = 0; pass < 5; pass++) {
+		const next = splitIngredientAmount(rest)
+			.name.replace(/^\([^()]*\)\s*/, '')
+			.replace(/^(?:and|plus|\+)\s+/i, '')
+			.replace(SIZE, '')
+			.replace(CONTAINER, '')
+			.trim()
+
+		if (!next || next === rest) break
+		rest = next
+	}
+
+	return rest
+}
+
 // ===== Section headings =====
 
 // A recipe's ingredients are a list of lines. A line starting with `## ` names
