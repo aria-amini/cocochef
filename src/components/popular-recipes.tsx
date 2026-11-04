@@ -23,7 +23,7 @@ export const shelfHeadingClassName =
 	'inline-block self-start border-b-3 pb-0.5 text-xs font-semibold'
 
 const tileClassName =
-	'border-border bg-card focus-visible:outline-kitchen-eggplant relative flex h-28 min-w-0 flex-col overflow-hidden rounded-xl border text-left transition-colors hover:border-foreground/40 focus-visible:outline-2 focus-visible:outline-offset-2'
+	'border-border bg-card relative flex h-28 min-w-0 flex-col overflow-hidden rounded-xl border text-left transition-colors hover:border-foreground/40 '
 
 // What other cooks keep, and recipes from the sites, under your own. Shared
 // recipes open at once; a page from a site is brought in when picked, without
@@ -68,7 +68,7 @@ export function PopularRecipes() {
 				<button
 					type="button"
 					onClick={() => find()}
-					className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex min-h-10 items-center gap-2 rounded-md text-xs font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
+					className="text-muted-foreground hover:text-foreground inline-flex min-h-10 items-center gap-2 rounded-md text-xs font-semibold underline underline-offset-4"
 				>
 					browse more recipes
 					<ArrowRightIcon size={16} weight="bold" aria-hidden />

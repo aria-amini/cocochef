@@ -27,7 +27,7 @@ function linkFrom(value: string) {
 // Secondary to the search: paper with a field line that fills with card cream
 // on hover, like the sidebar rows. As tall as the search.
 const secondaryActionClassName =
-	'border-input hover:bg-card focus-visible:outline-kitchen-eggplant inline-flex items-center justify-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm leading-6 font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2'
+	'border-input hover:bg-card inline-flex items-center justify-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm leading-6 font-semibold transition-colors '
 
 // The sites the importer is checked against, and most others.
 function ImportSites() {
@@ -179,7 +179,7 @@ export function ImportDialog({
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={field}
-					className="bg-background border-foreground/30 fixed top-[18%] left-1/2 z-50 flex w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-4 rounded-xl border p-5 shadow-md outline-none"
+					className="floating bg-background fixed top-[18%] left-1/2 z-50 flex w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-4 p-5 outline-none"
 				>
 					<div className="flex items-start justify-between gap-3">
 						<Dialog.Title className="text-lg font-bold">
@@ -187,7 +187,7 @@ export function ImportDialog({
 						</Dialog.Title>
 						<Dialog.Close
 							aria-label="Close"
-							className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant -m-1 grid size-8 place-items-center rounded-md focus-visible:outline-2"
+							className="text-muted-foreground hover:text-foreground -m-1 grid size-8 place-items-center rounded-md"
 						>
 							<XIcon size={16} weight="bold" aria-hidden />
 						</Dialog.Close>

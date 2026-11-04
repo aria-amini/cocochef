@@ -113,6 +113,13 @@
 	padding-bottom: calc(5rem + env(safe-area-inset-bottom));
 }
 
+/* Floating panels (menus, listboxes, dialogs, toasts, a dragged row) are the
+   only surfaces that carry both a border and a shadow, so they hold their edge
+   on the cream ground. Add the background at the call site. */
+@utility floating {
+	@apply border-foreground/30 rounded-xl border shadow-md;
+}
+
 @keyframes progress-slide {
 	from {
 		transform: translateX(-100%);
@@ -126,6 +133,13 @@
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
+	}
+
+	/* One focus ring for every control: eggplant, 2px, offset. A component that
+	   needs a different offset sets its own (utilities outrank this layer). */
+	:focus-visible {
+		outline: 2px solid var(--kitchen-eggplant);
+		outline-offset: 2px;
 	}
 
 	body {

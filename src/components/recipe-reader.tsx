@@ -354,7 +354,7 @@ function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
 				href={recipe.sourceUrl}
 				target="_blank"
 				rel="noreferrer"
-				className="hover:text-foreground focus-visible:outline-kitchen-eggplant inline-flex items-center gap-1.5 underline focus-visible:outline-2 focus-visible:outline-offset-2"
+				className="hover:text-foreground inline-flex items-center gap-1.5 underline"
 			>
 				{video ? (
 					<YoutubeLogoIcon size={16} weight="fill" aria-hidden />

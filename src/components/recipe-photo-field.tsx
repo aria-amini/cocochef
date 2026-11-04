@@ -18,7 +18,7 @@ export function GuestPhotoSlot() {
 		<Link
 			to="/auth/login"
 			search={{ redirect: location.href }}
-			className="border-input bg-background hover:bg-card focus-visible:outline-kitchen-eggplant text-foreground/60 grid size-20 shrink-0 place-items-center rounded-xl border border-dashed p-1 focus-visible:outline-2 focus-visible:outline-offset-2 md:size-24"
+			className="border-input bg-background hover:bg-card text-foreground/60 grid size-20 shrink-0 place-items-center rounded-xl border border-dashed p-1 md:size-24"
 		>
 			<span className="flex flex-col items-center gap-1 text-center text-xs font-semibold">
 				<ImageSquare size={28} weight="duotone" aria-hidden />
@@ -137,7 +137,7 @@ export function RecipePhotoField({
 						setPhoto(undefined)
 						setRemoved(true)
 					}}
-					className="border-border bg-background focus-visible:outline-kitchen-eggplant absolute -top-2 -right-2 grid size-6 place-items-center rounded-full border focus-visible:outline-2"
+					className="border-border bg-background absolute -top-2 -right-2 grid size-6 place-items-center rounded-full border"
 				>
 					<X size={12} weight="bold" aria-hidden />
 				</button>

@@ -581,7 +581,7 @@ function FinderPanel({
 					}}
 					className="placeholder:text-muted-foreground w-full min-w-0 bg-transparent text-lg font-semibold outline-none placeholder:font-normal"
 				/>
-				<Dialog.Close className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant shrink-0 rounded-md px-2 py-1 text-sm font-semibold focus-visible:outline-2">
+				<Dialog.Close className="text-muted-foreground hover:text-foreground shrink-0 rounded-md px-2 py-1 text-sm font-semibold">
 					<span className="md:hidden">cancel</span>
 					<kbd className="border-border hidden rounded border px-1.5 text-xs md:inline">
 						esc
@@ -649,14 +649,14 @@ function FinderPanel({
 								onClick={() => {
 									setPreviewing(false)
 								}}
-								className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant flex min-h-11 items-center gap-1.5 px-4 text-sm font-semibold focus-visible:outline-2"
+								className="text-muted-foreground hover:text-foreground flex min-h-11 items-center gap-1.5 px-4 text-sm font-semibold"
 							>
 								<ArrowLeftIcon size={14} weight="bold" aria-hidden />
 								back to results
 							</button>
 							<Dialog.Close
 								aria-label="close"
-								className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant grid size-11 place-items-center rounded-md focus-visible:outline-2 md:hidden"
+								className="text-muted-foreground hover:text-foreground grid size-11 place-items-center rounded-md md:hidden"
 							>
 								<XIcon size={18} weight="bold" aria-hidden />
 							</Dialog.Close>
@@ -697,7 +697,7 @@ function FinderPanel({
 								type="button"
 								disabled={busy !== undefined}
 								onClick={() => void openRecipe(current.recipe)}
-								className="bg-kitchen-basil focus-visible:outline-kitchen-eggplant flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
+								className="bg-kitchen-basil flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold disabled:opacity-50"
 							>
 								<ArrowRightIcon size={18} weight="bold" aria-hidden />
 								{busy ? 'one moment…' : 'open recipe'}

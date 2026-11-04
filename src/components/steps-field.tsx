@@ -52,7 +52,7 @@ function labels(rows: Row[]) {
 }
 
 const iconButtonClassName =
-	'text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant grid size-11 shrink-0 place-items-center focus-visible:outline-2 focus-visible:outline-offset-2'
+	'text-muted-foreground hover:text-foreground grid size-11 shrink-0 place-items-center '
 
 // One step per row, in the order you cook. Enter starts the next step, an empty
 // step backs out, a pasted list splits into rows, and the step's number drags
@@ -237,7 +237,7 @@ export function StepsField({
 				onClick={() =>
 					insertAfter(rows.length - 1, [{ text: '', nested: false }])
 				}
-				className="border-input text-muted-foreground hover:text-foreground hover:bg-card focus-visible:outline-kitchen-eggplant ml-10 flex items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+				className="border-input text-muted-foreground hover:text-foreground hover:bg-card ml-10 flex items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-semibold transition-colors"
 			>
 				<Plus size={14} weight="bold" aria-hidden />
 				add step

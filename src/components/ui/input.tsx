@@ -8,7 +8,7 @@ export const placeholderClassName =
 
 // A filled, softly rounded field: the one look every text control shares.
 export const fieldClassName =
-	'border-input bg-card focus-visible:outline-kitchen-eggplant aria-invalid:border-kitchen-tomato w-full rounded-md border px-4 py-3 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50'
+	'border-input bg-card aria-invalid:border-kitchen-tomato w-full rounded-md border px-4 py-3 text-base font-semibold disabled:opacity-50'
 
 function Input(
 	{ className, ...props }: React.ComponentProps<'input'>,

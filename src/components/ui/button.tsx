@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils/ui'
 // with a field line for the rest, 8px corners, semibold lowercase labels, and
 // the eggplant focus outline.
 const buttonStyles = cva(
-	"group/button focus-visible:outline-kitchen-eggplant inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-transparent text-sm font-semibold whitespace-nowrap transition-colors select-none focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+	"group/button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-transparent text-sm font-semibold whitespace-nowrap transition-colors select-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 	{
 		variants: {
 			variant: {

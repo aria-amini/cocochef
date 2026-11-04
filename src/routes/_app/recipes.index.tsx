@@ -75,7 +75,7 @@ function Shelf() {
 							type="button"
 							aria-label="add recipe"
 							onClick={() => find()}
-							className="bg-kitchen-basil focus-visible:outline-kitchen-eggplant grid size-12 shrink-0 place-items-center rounded-full transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
+							className="bg-kitchen-basil grid size-12 shrink-0 place-items-center rounded-full transition-colors hover:brightness-95"
 						>
 							<PlusIcon size={22} weight="bold" aria-hidden />
 						</button>
@@ -85,7 +85,7 @@ function Shelf() {
 					<button
 						type="button"
 						onClick={() => find()}
-						className="border-foreground/50 bg-kitchen-yolk/25 text-foreground hover:bg-kitchen-yolk/40 focus-visible:outline-kitchen-eggplant relative block aspect-square w-full max-w-md cursor-pointer rounded-xl border border-dashed text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 md:aspect-auto md:h-[calc(var(--spacing-tile)*2+16px)] md:w-[calc(var(--spacing-tile)*2+16px)]"
+						className="border-foreground/50 bg-kitchen-yolk/25 text-foreground hover:bg-kitchen-yolk/40 relative block aspect-square w-full max-w-md cursor-pointer rounded-xl border border-dashed text-left transition-colors md:aspect-auto md:h-[calc(var(--spacing-tile)*2+16px)] md:w-[calc(var(--spacing-tile)*2+16px)]"
 					>
 						<span className="bg-kitchen-yolk absolute top-4 right-4 grid size-12 place-items-center rounded-full">
 							<ArrowRight weight="bold" className="size-6" aria-hidden />
@@ -160,7 +160,7 @@ function FinderBox({ onOpen }: { onOpen: () => void }) {
 		<button
 			type="button"
 			onClick={onOpen}
-			className="border-input bg-card text-muted-foreground hover:border-foreground/60 focus-visible:outline-kitchen-eggplant flex max-w-xl min-w-0 flex-1 basis-64 items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+			className="border-input bg-card text-muted-foreground hover:border-foreground/60 flex max-w-xl min-w-0 flex-1 basis-64 items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-base transition-colors"
 		>
 			<MagnifyingGlassIcon
 				size={18}
@@ -191,7 +191,7 @@ function RecipeTile({ recipe, color }: { recipe: Recipe; color: TileColor }) {
 			to="/recipes/$recipeId"
 			params={{ recipeId: recipe.id }}
 			className={cn(
-				'border-border focus-visible:outline-kitchen-eggplant relative flex aspect-square flex-col overflow-hidden border transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 md:aspect-auto rounded-xl',
+				'border-border relative flex aspect-square flex-col overflow-hidden border transition-shadow hover:shadow-md md:aspect-auto rounded-xl',
 				draft
 					? 'border-input bg-card border-dashed'
 					: recipe.imageUrl

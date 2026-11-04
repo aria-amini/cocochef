@@ -60,10 +60,10 @@ const completion: LineCompletion = {
 }
 
 const addButtonClassName =
-	'border-input text-muted-foreground hover:text-foreground hover:bg-card focus-visible:outline-kitchen-eggplant flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2'
+	'border-input text-muted-foreground hover:text-foreground hover:bg-card flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-semibold transition-colors '
 
 const iconButtonClassName =
-	'text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant grid size-11 shrink-0 place-items-center focus-visible:outline-2 focus-visible:outline-offset-2'
+	'text-muted-foreground hover:text-foreground grid size-11 shrink-0 place-items-center '
 
 // One ingredient per row, written the way it would be on a card: amount, unit
 // and food in one line, with the food's icon beside it. Enter starts the next
@@ -231,7 +231,7 @@ export function IngredientListField({
 											}
 											onKeyDown={(event) => handleKey(event, row, index)}
 											className={cn(
-												'border-border focus-visible:outline-kitchen-eggplant min-w-0 flex-1 rounded-md border-b bg-transparent px-1 pt-3 pb-1.5 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-2',
+												'border-border min-w-0 flex-1 rounded-md border-b bg-transparent px-1 pt-3 pb-1.5 text-base font-bold ',
 												placeholderClassName,
 											)}
 										/>

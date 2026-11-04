@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils/ui'
 type Variant = 'rail' | 'avatar'
 
 export const tabClassName =
-	'focus-visible:outline-kitchen-eggplant flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-xs font-semibold focus-visible:-outline-offset-2 focus-visible:outline-2'
+	'flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-xs font-semibold focus-visible:-outline-offset-2 '
 
 // The sidebar row on wide screens; a small avatar button in the header on
 // phones, where the account is a rare visit and not worth a tab.
@@ -33,7 +33,7 @@ const triggerClassNames: Record<Variant, string> = {
 }
 
 const interactiveClassName =
-	'hover:bg-card hover:border-border focus-visible:outline-kitchen-eggplant focus-visible:outline-2 focus-visible:outline-offset-2 data-popup-open:bg-card data-popup-open:border-border data-popup-open:'
+	'hover:bg-card hover:border-border data-popup-open:bg-card data-popup-open:border-border data-popup-open:'
 
 const itemClassName =
 	'flex w-full cursor-default items-center gap-2.5 px-3 py-2.5 text-xs font-semibold outline-none select-none data-highlighted:bg-kitchen-yolk/40'
@@ -235,7 +235,7 @@ function AccountMenuShell({
 					align={variant === 'avatar' ? 'end' : 'start'}
 					sideOffset={6}
 				>
-					<Menu.Popup className="bg-background border-foreground/30 w-64 overflow-hidden rounded-xl border shadow-md outline-none">
+					<Menu.Popup className="floating bg-background w-64 overflow-hidden outline-none">
 						<div className="border-border border-b px-3 py-3">{header}</div>
 						<div className="flex flex-col py-1">{children}</div>
 					</Menu.Popup>
