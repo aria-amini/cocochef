@@ -5,10 +5,11 @@ import {
 	ShoppingCartIcon,
 } from '@phosphor-icons/react'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
 import { useRecipeActions } from '@/components/recipe-actions'
+import { useLastOpenedRecipe } from '@/lib/recipes/last-opened'
 import { cn } from '@/lib/utils/ui'
 
 const navItems = [
@@ -28,15 +29,54 @@ const tabBarRoutes = new Set([
 
 type TabBarMode = 'none' | 'bar' | 'bar-fab'
 
+// An open recipe keeps the tab bar so the rest of the app stays one tap away.
+// While it is being edited the editor's own pinned actions take the bottom edge.
+export function isRecipePage(path: string) {
+	return /^\/recipes\/[^/]+$/.test(path) && path !== '/recipes/new'
+}
+
+let hiders = 0
+
+const hiderListeners = new Set<() => void>()
+
+function subscribeToHiders(listener: () => void) {
+	hiderListeners.add(listener)
+
+	return () => hiderListeners.delete(listener)
+}
+
+// A screen that pins its own bottom actions calls this while they are showing.
+export function useHideTabBar(hide: boolean) {
+	useEffect(() => {
+		if (!hide) return
+
+		hiders++
+		hiderListeners.forEach((listener) => listener())
+
+		return () => {
+			hiders--
+			hiderListeners.forEach((listener) => listener())
+		}
+	}, [hide])
+}
+
 // The round add button belongs to the recipes shelf alone.
 export function useTabBar(): TabBarMode {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	})
 
+	const hidden = useSyncExternalStore(
+		subscribeToHiders,
+		() => hiders > 0,
+		() => false,
+	)
+
 	const path = pathname.replace(/\/$/, '') || '/'
 
 	if (path === '/recipes') return 'bar-fab'
+
+	if (isRecipePage(path)) return hidden ? 'none' : 'bar'
 
 	return tabBarRoutes.has(path) || path.startsWith('/coming-soon/')
 		? 'bar'
@@ -148,7 +188,12 @@ function Sidebar() {
 function MobileHeader() {
 	const mode = useTabBar()
 
-	if (mode === 'none') return null
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	})
+
+	// An open recipe leads with its own back bar instead.
+	if (mode === 'none' || isRecipePage(pathname.replace(/\/$/, ''))) return null
 
 	return (
 		<header className="flex items-center justify-between px-6 pt-3 md:hidden">
@@ -169,18 +214,32 @@ function MobileHeader() {
 	)
 }
 
+function tabTarget(to: string, label: string, lastRecipe: string | undefined) {
+	if (to !== '/recipes')
+		return { to: '/coming-soon/$feature', params: { feature: label } } as const
+
+	return lastRecipe
+		? ({ to: '/recipes/$recipeId', params: { recipeId: lastRecipe } } as const)
+		: ({ to: '/recipes' } as const)
+}
+
 // Thumb-reach navigation on phones: the two places you go. The recipes shelf
 // adds one round action for its one job.
 function TabBar() {
 	const mode = useTabBar()
 	const visible = useTabBarVisible()
 	const { find } = useRecipeActions()
+	const lastRecipe = useLastOpenedRecipe()
 
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	})
 
 	if (!visible) return null
+
+	// Coming back from another tab reopens the recipe you were reading; from the
+	// recipe itself, the tab goes up to the shelf.
+	const inRecipes = pathname === '/recipes' || pathname.startsWith('/recipes/')
 
 	return (
 		<>
@@ -197,8 +256,7 @@ function TabBar() {
 					return (
 						<Link
 							key={to}
-							to={to === '/recipes' ? '/recipes' : '/coming-soon/$feature'}
-							params={to === '/recipes' ? {} : { feature: label }}
+							{...tabTarget(to, label, !inRecipes ? lastRecipe : undefined)}
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,
