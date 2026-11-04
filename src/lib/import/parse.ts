@@ -30,9 +30,45 @@ const ENTITY_MAP = new Map([
 	['lsquo', '‘'],
 	['ldquo', '“'],
 	['rdquo', '”'],
+	['hellip', '…'],
+	['deg', '°'],
+	['times', '×'],
+	// Recipe quantities and the accented names recipes use.
+	['frac12', '½'],
+	['frac14', '¼'],
+	['frac34', '¾'],
+	['frac13', '⅓'],
+	['frac23', '⅔'],
+	['frac15', '⅕'],
+	['frac25', '⅖'],
+	['frac35', '⅗'],
+	['frac45', '⅘'],
+	['frac16', '⅙'],
+	['frac56', '⅚'],
+	['frac18', '⅛'],
+	['frac38', '⅜'],
+	['frac58', '⅝'],
+	['frac78', '⅞'],
+	['agrave', 'à'],
+	['aacute', 'á'],
+	['acirc', 'â'],
+	['auml', 'ä'],
+	['ccedil', 'ç'],
+	['egrave', 'è'],
+	['eacute', 'é'],
+	['ecirc', 'ê'],
+	['iacute', 'í'],
+	['icirc', 'î'],
+	['ntilde', 'ñ'],
+	['oacute', 'ó'],
+	['ocirc', 'ô'],
+	['ouml', 'ö'],
+	['uacute', 'ú'],
+	['ucirc', 'û'],
+	['uuml', 'ü'],
 ])
 
-function decodeEntities(text: string) {
+export function decodeEntities(text: string) {
 	return text.replaceAll(/&(#x?[\da-f]+|\w+);/gi, (entity, body: string) => {
 		if (body.startsWith('#x') || body.startsWith('#X'))
 			return decodeCodePoint(Number.parseInt(body.slice(2), 16), entity)
