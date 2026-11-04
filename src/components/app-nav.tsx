@@ -20,6 +20,16 @@ const navItems = [
 
 type TabBarMode = 'none' | 'bar' | 'bar-fab'
 
+// What a nav item does between a tap and the next page showing. It answers at
+// once: pressed while the finger is down, then highlighted with a pulsing icon
+// (the router marks the tapped link `data-transitioning` until the page is
+// ready) so a slow load never reads as a dead tap.
+const navFeedbackClassName =
+	'group transition duration-100 active:bg-kitchen-yolk/50 motion-safe:active:scale-95 data-[transitioning=transitioning]:bg-kitchen-yolk/30'
+
+const navIconFeedbackClassName =
+	'group-data-[transitioning=transitioning]:animate-pulse motion-reduce:animate-none'
+
 let hiders = 0
 
 const hiderListeners = new Set<() => void>()
@@ -174,13 +184,19 @@ function Sidebar() {
 						params={to === '/recipes' ? {} : { feature: label }}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
+							navFeedbackClassName,
 							'flex w-full shrink-0 items-center gap-2 border px-2.5 py-1.5 text-xs font-semibold rounded-md',
 							active
 								? 'border-foreground/15 bg-kitchen-yolk/30'
 								: 'border-transparent hover:bg-card focus-visible:border-border',
 						)}
 					>
-						<Icon size={18} weight={active ? 'fill' : 'regular'} aria-hidden />
+						<Icon
+							size={18}
+							weight={active ? 'fill' : 'regular'}
+							aria-hidden
+							className={navIconFeedbackClassName}
+						/>
 						{label}
 					</Link>
 				)
@@ -264,10 +280,17 @@ function TabBar() {
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,
+								navFeedbackClassName,
 								active ? 'bg-kitchen-yolk/30' : 'hover:bg-card',
 							)}
 						>
-							<span aria-hidden className="grid size-8 place-items-center">
+							<span
+								aria-hidden
+								className={cn(
+									'grid size-8 place-items-center',
+									navIconFeedbackClassName,
+								)}
+							>
 								<Icon size={22} weight={active ? 'fill' : 'regular'} />
 							</span>
 							{label}
