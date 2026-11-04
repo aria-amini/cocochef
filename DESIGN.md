@@ -137,6 +137,9 @@ solid.
 Component styles live in the components themselves (`src/components/ui` and the
 `cva` variants); this section records only the conventions code can't show.
 
+- **Ingredient icons** may use familiar family stand-ins: leafy greens for
+  herbs, meat for cuts, and fish for seafood. Match compound foods before the
+  names inside them; leave unknown ingredients blank.
 - **One solid action.** Basil is the confirm/save fill. Solid yolk is the one
   exception: an "add" action on the shelf or ingredients page may use it
   instead. Secondary is paper with a field line, quiet is muted ink, destructive

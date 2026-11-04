@@ -235,9 +235,17 @@ describe('recipe detail', () => {
 		}
 	})
 
-	test('shows matching icons on items without inventing one for lime', async () => {
+	test('shows specific and family icons while leaving unknown ingredients empty', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = ['2 apples', '1 lime', '1 egg']
+		recipeState.recipe.ingredients = [
+			'2 apples',
+			'1 lime',
+			'1 egg',
+			'chopped parsley',
+			'200g pork',
+			'1 cup chicken broth',
+			'mystery ingredient',
+		]
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		const rowFor = (name: string) =>
@@ -249,12 +257,24 @@ describe('recipe detail', () => {
 		expect(rowFor('1 egg')?.querySelector('img')?.getAttribute('src')).toBe(
 			'/sprites/pantry/egg.png',
 		)
-		expect(rowFor('1 lime')?.querySelector('img')).toBeNull()
+
+		for (const [name, key] of [
+			['1 lime', 'lemon'],
+			['chopped parsley', 'kale'],
+			['200g pork', 'meat'],
+			['1 cup chicken broth', 'fallback-other'],
+		] as const) {
+			expect(rowFor(name)?.querySelector('img')?.getAttribute('src')).toBe(
+				`/sprites/pantry/${key}.png`,
+			)
+		}
+
+		expect(rowFor('mystery ingredient')?.querySelector('img')).toBeNull()
 		expect(
 			Array.from(
 				document.querySelectorAll('table[aria-label="ingredients"] input'),
 			).map((item) => item.getAttribute('aria-label')),
-		).toEqual(['2 apples', '1 lime', '1 egg'])
+		).toEqual(recipeState.recipe.ingredients)
 	})
 
 	test('keeps existing ingredient categories without showing grouping controls', async () => {

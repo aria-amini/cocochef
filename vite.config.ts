@@ -15,7 +15,11 @@ export default defineToolkit({
 	},
 	config: {
 		fmt: {
-			ignorePatterns: (preset) => [...preset, 'src/db/migrations/**'],
+			ignorePatterns: (preset) => [
+				...preset,
+				'src/db/migrations/**',
+				'src/lib/discover/catalog.json',
+			],
 		},
 		lint: {
 			rules: {

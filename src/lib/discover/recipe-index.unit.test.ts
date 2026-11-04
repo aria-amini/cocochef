@@ -2,8 +2,10 @@ import { describe, expect, test } from 'vite-plus/test'
 
 import {
 	featuredRecipeLinks,
+	mergeLinks,
 	parseSitemap,
 	searchRecipeLinks,
+	spreadEvenly,
 	titleFromUrl,
 	type RecipeLink,
 } from './recipe-index'
@@ -145,22 +147,24 @@ describe('featuredRecipeLinks', () => {
 		link('c', 'dal', 'https://c.example/dal.jpg'),
 	]
 
-	test('takes only pictured recipes, with sites taking turns', () => {
+	test('prefers pictured recipes, with sites taking turns', () => {
 		const picked = featuredRecipeLinks(links, 3, 1)
 
 		expect(new Set(picked.map((item) => item.siteId))).toEqual(
 			new Set(['a', 'b', 'c']),
 		)
-		expect(picked.every((item) => item.imageUrl)).toBe(true)
+		expect(
+			picked.filter((item) => item.imageUrl).length,
+		).toBeGreaterThanOrEqual(2)
 	})
 
 	test('stays the same within a day and skips repeated titles', () => {
 		const today = featuredRecipeLinks(links, 10, 20_000)
 
 		expect(featuredRecipeLinks(links, 10, 20_000)).toEqual(today)
-		expect(today.map((item) => item.title)).not.toContain('no picture')
+		expect(today.map((item) => item.title)).toContain('no picture')
 		expect(today.filter((item) => item.title === 'dal')).toHaveLength(1)
-		expect(today).toHaveLength(5)
+		expect(today).toHaveLength(6)
 	})
 
 	test('changes from one day to the next', () => {
@@ -172,5 +176,50 @@ describe('featuredRecipeLinks', () => {
 		)
 
 		expect(days.size).toBeGreaterThan(1)
+	})
+})
+
+describe('spreadEvenly', () => {
+	test('keeps a list that already fits', () => {
+		const items = [1, 2, 3]
+
+		expect(spreadEvenly(items, 3)).toBe(items)
+		expect(spreadEvenly(items, 10)).toBe(items)
+	})
+
+	test('samples a long list from end to end, not its first entries', () => {
+		const items = Array.from({ length: 7000 }, (_, i) => i)
+		const picked = spreadEvenly(items, 5000)
+
+		expect(picked).toHaveLength(5000)
+		expect(picked[0]).toBe(0)
+		// The old stride of 1 stopped at index 4999.
+		expect(picked.at(-1)).toBeGreaterThan(6900)
+		expect(new Set(picked).size).toBe(5000)
+	})
+})
+
+describe('mergeLinks', () => {
+	const link = (url: string, title: string) => ({
+		url,
+		title,
+		siteId: 'x',
+	})
+
+	test('keeps held links a partial crawl could not re-read', () => {
+		const held = [link('https://x.com/a', 'a'), link('https://x.com/b', 'b')]
+
+		expect(
+			mergeLinks(held, [link('https://x.com/c', 'c')]).map((l) => l.url),
+		).toEqual(['https://x.com/a', 'https://x.com/b', 'https://x.com/c'])
+	})
+
+	test('updates a held link the crawl found again', () => {
+		const merged = mergeLinks(
+			[link('https://x.com/a', 'old')],
+			[link('https://x.com/a', 'new')],
+		)
+
+		expect(merged).toEqual([link('https://x.com/a', 'new')])
 	})
 })

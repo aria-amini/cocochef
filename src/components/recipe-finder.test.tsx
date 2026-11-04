@@ -87,7 +87,9 @@ const dal = shelfRecipe('recipe-2', 'dal')
 async function openBox() {
 	const rendered = await renderRoute({ path: '/recipes', session: testSession })
 
-	await rendered.screen.getByRole('button', { name: /find a recipe/ }).click()
+	await rendered.screen
+		.getByRole('button', { name: /Search any Recipe/ })
+		.click()
 	const input = rendered.screen.getByRole('combobox', { name: 'find a recipe' })
 
 	await expect.element(input).toHaveFocus()

@@ -1,4 +1,11 @@
-import { parseSitemap, titleFromUrl, type RecipeLink } from './recipe-index'
+import catalog from './catalog.json'
+import {
+	mergeLinks,
+	parseSitemap,
+	recipeLink,
+	titleFromUrl,
+	type RecipeLink,
+} from './recipe-index'
 import { recipeSites, type RecipeSite } from './sites'
 
 // Prototype index: crawled into process memory on first search and refreshed
@@ -13,9 +20,16 @@ const CRAWLER_HEADERS = {
 	accept: 'application/xml,text/xml;q=0.9,*/*;q=0.5',
 }
 
-const bySite = new Map<string, RecipeLink[]>()
+const initial = recipeLink.array().parse(catalog)
 
-let flat: RecipeLink[] = []
+const bySite = new Map<string, RecipeLink[]>(
+	recipeSites.map((site) => [
+		site.id,
+		initial.filter((link) => link.siteId === site.id),
+	]),
+)
+
+let flat: RecipeLink[] = initial
 
 let crawling: Promise<void> | undefined
 
@@ -35,28 +49,34 @@ async function fetchSitemap(url: string, site: RecipeSite) {
 	return parseSitemap(await response.text())
 }
 
-async function crawlSite(site: RecipeSite) {
+// `complete` is false when a child sitemap failed or was past the cap, so what
+// came back is only part of the site and must not replace links already held
+// for it.
+export async function crawlRecipeSite(site: RecipeSite) {
 	const root = await fetchSitemap(site.sitemap, site)
 
-	if (!root) return []
+	if (!root) return { links: [], complete: true }
 
-	const children = root.sitemaps
-		.filter((url) => !site.children || site.children.test(url))
-		.slice(0, MAX_SITEMAPS_PER_SITE)
+	const matching = root.sitemaps.filter(
+		(url) => !site.children || site.children.test(url),
+	)
 
+	const children = matching.slice(0, MAX_SITEMAPS_PER_SITE)
 	const pages = [...root.pages]
+	let complete = matching.length <= MAX_SITEMAPS_PER_SITE
 
 	for (const child of children) {
 		try {
 			pages.push(...((await fetchSitemap(child, site))?.pages ?? []))
 		} catch (error) {
+			complete = false
 			console.warn(`[discover] skipped ${child}`, error)
 		}
 	}
 
 	const seen = new Set<string>()
 
-	return pages.flatMap((page) => {
+	const links = pages.flatMap((page) => {
 		if (!site.recipe.test(page.url) || seen.has(page.url)) return []
 		seen.add(page.url)
 		const title = titleFromUrl(page.url)
@@ -65,13 +85,23 @@ async function crawlSite(site: RecipeSite) {
 			? [{ url: page.url, title, siteId: site.id, imageUrl: page.imageUrl }]
 			: []
 	})
+
+	return { links, complete }
 }
 
 function crawl() {
 	crawling = Promise.all(
 		recipeSites.map(async (site) => {
 			try {
-				bySite.set(site.id, await crawlSite(site))
+				const { links, complete } = await crawlRecipeSite(site)
+
+				// A partial crawl adds what it found but never drops the links it could
+				// not re-read.
+				const next = complete
+					? links
+					: mergeLinks(bySite.get(site.id) ?? [], links)
+
+				if (next.length) bySite.set(site.id, next)
 				flat = [...bySite.values()].flat()
 			} catch (error) {
 				console.warn(`[discover] couldn't crawl ${site.name}`, error)
@@ -86,5 +116,7 @@ function crawl() {
 export function recipeIndex() {
 	if (!crawling && Date.now() - crawledAt > REFRESH_MS) crawl()
 
+	// Warming until the first crawl lands, even while the bundled catalog is
+	// already answering: the client keeps asking, so fresh links replace it.
 	return { links: flat, warming: crawledAt === 0 }
 }

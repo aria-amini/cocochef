@@ -8,7 +8,7 @@ import {
 	ArrowRightIcon,
 	ClipboardTextIcon,
 	LinkSimpleIcon,
-	MagnifyingGlassIcon,
+	GlobeHemisphereWestIcon,
 	PencilSimpleIcon,
 	XIcon,
 } from '@phosphor-icons/react'
@@ -25,6 +25,7 @@ import {
 	useOnlineRecipes,
 } from '@/components/recipe-online'
 import { RecipeReader } from '@/components/recipe-reader'
+import { RecipeSources } from '@/components/recipe-sources'
 import { Skeleton } from '@/components/ui/skeleton'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
@@ -71,11 +72,9 @@ const starts: {
 const shelfLimit = 5
 
 // Enough to choose from, and few enough that writing your own stays in view.
-const foundLimit = 6
+const foundLimit = 12
 
 const glanceLimit = 3
-
-const popularGlance = 4
 
 // Long enough to pass over a row without fetching its page.
 const lookDelayMs = 350
@@ -250,6 +249,8 @@ function FinderPanel({
 		queryFn: () => listShelf(),
 	})
 
+	const [visibleRecipes, setVisibleRecipes] = useState(foundLimit)
+
 	const popular = useQuery({
 		queryKey: ['popular-recipes'],
 		queryFn: () => popularRecipes(),
@@ -303,7 +304,7 @@ function FinderPanel({
 		)
 		section(
 			'popular',
-			asOptions((popular.data?.results ?? []).slice(0, popularGlance)),
+			asOptions((popular.data?.results ?? []).slice(0, visibleRecipes)),
 		)
 	} else {
 		// Names on the shelf match at once; the server adds ingredients.
@@ -317,7 +318,9 @@ function FinderPanel({
 		section(
 			'more recipes',
 			asOptions(
-				online.results.filter((recipe) => !recipe.saved).slice(0, foundLimit),
+				online.results
+					.filter((recipe) => !recipe.saved)
+					.slice(0, visibleRecipes),
 			),
 		)
 		section('', [{ kind: 'write', title: trimmed }])
@@ -474,6 +477,7 @@ function FinderPanel({
 	}
 
 	function change(next: string) {
+		setVisibleRecipes(foundLimit)
 		setValue(next)
 		setPicked(undefined)
 		setPreviewing(false)
@@ -552,7 +556,7 @@ function FinderPanel({
 				{url ? (
 					<LinkSimpleIcon size={20} weight="bold" aria-hidden />
 				) : (
-					<MagnifyingGlassIcon size={20} weight="bold" aria-hidden />
+					<GlobeHemisphereWestIcon size={20} weight="bold" aria-hidden />
 				)}
 				<input
 					ref={inputRef}
@@ -569,7 +573,7 @@ function FinderPanel({
 					autoComplete="off"
 					value={value}
 					maxLength={2000}
-					placeholder="find a recipe to cook or start from"
+					placeholder="Search any Recipe"
 					onChange={(event) => change(event.target.value)}
 					onKeyDown={handleKey}
 					onPaste={(event) => {
@@ -588,6 +592,11 @@ function FinderPanel({
 					</kbd>
 				</Dialog.Close>
 			</div>
+			{!previewing ? (
+				<div className="border-border border-b px-4 py-2">
+					<RecipeSources />
+				</div>
+			) : null}
 			<div
 				className={cn(
 					'grid min-h-0 flex-1',
@@ -625,6 +634,17 @@ function FinderPanel({
 							</Status>
 						) : null}
 					</ul>
+					{(trimmed
+						? online.results.filter((recipe) => !recipe.saved).length
+						: (popular.data?.results.length ?? 0)) > visibleRecipes ? (
+						<button
+							type="button"
+							onClick={() => setVisibleRecipes((count) => count + foundLimit)}
+							className="text-muted-foreground mx-3 mb-3 min-h-11 rounded-md px-3 text-sm font-semibold underline underline-offset-4"
+						>
+							show more recipes
+						</button>
+					) : null}
 					{error ? (
 						<p
 							role="alert"

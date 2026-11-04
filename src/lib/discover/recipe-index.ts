@@ -1,9 +1,13 @@
-export type RecipeLink = {
-	url: string
-	title: string
-	siteId: string
-	imageUrl?: string | undefined
-}
+import { z } from 'zod'
+
+export const recipeLink = z.object({
+	url: z.url(),
+	title: z.string().min(1),
+	siteId: z.string().min(1),
+	imageUrl: z.url().optional(),
+})
+
+export type RecipeLink = z.infer<typeof recipeLink>
 
 export type ParsedSitemap = {
 	sitemaps: string[]
@@ -53,6 +57,30 @@ export function parseSitemap(xml: string): ParsedSitemap {
 	return { sitemaps: [], pages }
 }
 
+// Fresh links over held ones by URL: what a partial crawl found is added or
+// updated, and the rest stays.
+export function mergeLinks(held: RecipeLink[], fresh: RecipeLink[]) {
+	const byUrl = new Map(held.map((link) => [link.url, link]))
+
+	for (const link of fresh) byUrl.set(link.url, link)
+
+	return [...byUrl.values()]
+}
+
+// At most `limit` picks, evenly spaced across the whole list, rather than its
+// first `limit` entries, so a big sitemap is sampled end to end.
+export function spreadEvenly<T>(items: T[], limit: number) {
+	if (items.length <= limit) return items
+
+	const picks = new Set(
+		Array.from({ length: limit }, (_, i) =>
+			Math.floor((i * items.length) / limit),
+		),
+	)
+
+	return items.filter((_, i) => picks.has(i))
+}
+
 // Recipe slugs read as titles: /recipes/crispy-chicken-thighs -> "crispy chicken thighs".
 export function titleFromUrl(url: string) {
 	const slug = new URL(url).pathname.split('/').filter(Boolean).at(-1) ?? ''
@@ -61,6 +89,7 @@ export function titleFromUrl(url: string) {
 		.toLowerCase()
 		.replace(/^(ba|epi)-syn-/, '')
 		.replace(/-\d+$/, '')
+		.replace(/^\d+-/, '')
 		.replace(/(^|-)recipes?$/, '')
 		.replaceAll('-', ' ')
 		.trim()
@@ -120,7 +149,7 @@ function hashOf(text: string) {
 	return hash >>> 0
 }
 
-// A handful of pictured recipes from across the sites, the same all day and
+// Recipes from across the sites, the same all day and
 // different the next. Sites take turns so no one site fills the row.
 export function featuredRecipeLinks(
 	links: readonly RecipeLink[],
@@ -130,8 +159,6 @@ export function featuredRecipeLinks(
 	const bySite = new Map<string, { link: RecipeLink; rank: number }[]>()
 
 	for (const link of links) {
-		if (!link.imageUrl) continue
-
 		const ranked = { link, rank: hashOf(`${day}:${link.url}`) }
 		const site = bySite.get(link.siteId)
 
@@ -140,7 +167,11 @@ export function featuredRecipeLinks(
 	}
 
 	const queues = [...bySite.values()].map((site) =>
-		site.sort((a, b) => a.rank - b.rank),
+		site.sort(
+			(a, b) =>
+				Number(Boolean(b.link.imageUrl)) - Number(Boolean(a.link.imageUrl)) ||
+				a.rank - b.rank,
+		),
 	)
 
 	const picked: RecipeLink[] = []

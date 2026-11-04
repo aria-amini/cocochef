@@ -2,7 +2,7 @@ import {
 	ArrowRight,
 	BookmarkSimpleIcon,
 	UserIcon,
-	MagnifyingGlassIcon,
+	GlobeHemisphereWestIcon,
 	PlusIcon,
 } from '@phosphor-icons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
@@ -16,6 +16,7 @@ import {
 } from '@/components/popular-recipes'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { RecipeGlyph } from '@/components/recipe-glyph'
+import { RecipeSources } from '@/components/recipe-sources'
 import { authClient } from '@/lib/auth/client'
 import { listShelf } from '@/lib/recipes/server'
 import {
@@ -66,8 +67,11 @@ function Shelf() {
 				className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
 			>
 				<h1 className="sr-only">recipes</h1>
-				<div className="flex w-full max-w-3xl flex-wrap items-center gap-3">
-					<FinderBox onOpen={() => find()} />
+				<div className="flex w-full max-w-3xl flex-wrap items-start gap-3">
+					<div className="flex min-w-0 flex-1 basis-64 flex-col gap-2">
+						<FinderBox onOpen={() => find()} />
+						<RecipeSources />
+					</div>
 					<div className="hidden items-center gap-3 md:flex">
 						<ImportLinkButton onClick={() => importLink()} />
 						{/* The page's one solid action: every way to add a recipe. */}
@@ -160,17 +164,15 @@ function FinderBox({ onOpen }: { onOpen: () => void }) {
 		<button
 			type="button"
 			onClick={onOpen}
-			className="border-input bg-card text-muted-foreground hover:border-foreground/60 flex max-w-xl min-w-0 flex-1 basis-64 items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-base transition-colors"
+			className="border-input bg-card text-muted-foreground hover:border-foreground/60 flex w-full min-w-0 items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-base transition-colors"
 		>
-			<MagnifyingGlassIcon
+			<GlobeHemisphereWestIcon
 				size={18}
 				weight="bold"
 				aria-hidden
 				className="text-foreground shrink-0"
 			/>
-			<span className="min-w-0 flex-1 truncate">
-				find a recipe to cook or start from
-			</span>
+			<span className="min-w-0 flex-1 truncate">Search any Recipe</span>
 			<kbd
 				aria-hidden
 				className="border-border hidden shrink-0 rounded border px-1.5 text-xs font-semibold md:inline"

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { foodFamily } from './food-family'
 import type { PantryCategory } from './model'
 
 const spriteCategory = z.enum([
@@ -485,30 +486,100 @@ export function specificSpriteKey(name: string) {
 	return match && !match.guess ? match.key : undefined
 }
 
-const ingredientItemPatterns = pantrySprites
-	.map(({ key }) => ({
-		key,
-		pattern: new RegExp(`(?:^| )${key.replaceAll('-', ' ')}s?(?: |$)`),
-	}))
-	.sort((a, b) => b.key.length - a.key.length)
+// Compound foods take priority over the shorter food names inside them.
+// These are deliberately shared family pictures rather than exact depictions.
+const ingredientFamilySprites = [
+	[
+		'fallback-other',
+		/\b(?:broth|stock|bouillon|consomme|sauce|vinegar|ketchup|sriracha|mayonnaise|mayo|tahini|pesto|salsa|jam|jelly|gelatin|extract|peanut butter|almond butter|coconut milk|coconut cream)\b/,
+	],
+	['olive-oil', /\b(?:oil|oils)\b/],
+	[
+		'fallback-spice',
+		/\b(?:garlic powder|onion powder|mustard seeds?|sesame seeds?|chili powder|chilli powder|cayenne|garam masala|za atar|sumac|seasoning|five spice)\b/,
+	],
+	[
+		'wheat',
+		/\b(?:pasta|spaghetti|noodles|linguine|fettuccine|penne|macaroni|orzo|lasagne|lasagna)\b/,
+	],
+	['bread', /\b(?:breadcrumbs|panko|tortillas?|pita|bagels?)\b/],
+	[
+		'flour',
+		/\b(?:sugar|cornstarch|corn starch|baking powder|baking soda|bicarbonate|yeast)\b/,
+	],
+	['milk', /\b(?:cream|yogurt|yoghurt|buttermilk|half and half|kefir)\b/],
+	['cheese', /\b(?:ricotta|halloumi|paneer)\b/],
+	[
+		'meat',
+		/\b(?:beef|pork|lamb|mutton|brisket|mince|turkey|duck|goose|venison|rabbit|veal)\b/,
+	],
+	['sausage', /\b(?:hot dogs?|frankfurters?)\b/],
+	['fallback-vegetable', /\b(?:green beans|runner beans|string beans)\b/],
+	[
+		'fallback-protein',
+		/\b(?:tofu|tempeh|beans?|lentils?|chickpeas?|garbanzo)\b/,
+	],
+	[
+		'kale',
+		/\b(?:coriander (?:leaves|leaf)|(?:fresh|chopped) coriander|coriander to serve|celery leaves)\b/,
+	],
+	[
+		'fallback-vegetable',
+		/\b(?:fresh ginger|ginger root|celery|cauliflower|cabbage|brussels sprouts|green beans|asparagus|fennel bulb)\b/,
+	],
+	['grapes', /\b(?:sultanas?|currants?)\b/],
+	['ice-cube', /\b(?:ice|water)\b/],
+] as const
 
-// Item icons must depict the named food, not a related food used as a category
-// stand-in (for example, the lemon sprite must never represent a lime).
+// Recipe rows accept familiar family stand-ins: leafy greens for herbs, meat
+// for pork/lamb, and fish for seafood. Unknown foods still leave the slot empty.
 export function ingredientItemSprite(name: string) {
 	const main = normalizeName(name.split(/[,;(]/, 1)[0] ?? '')
 
-	if (/\b(?:ground beef|beef mince)\b/.test(main)) return 'meat'
+	if (!main || name.trimStart().startsWith('#')) return undefined
 
-	const match = ingredientItemPatterns.find(({ pattern }) => pattern.test(main))
+	const familySprite = ingredientFamilySprites.find(([, pattern]) =>
+		pattern.test(main),
+	)
 
-	if (!match) return undefined
+	if (familySprite) return familySprite[0]
 
-	// These are ingredients in their own right, not the food pictured by a
-	// shorter match inside their name.
-	if (/\b(?:egg noodles|coconut milk|garlic powder|onion powder)\b/.test(main))
-		return undefined
+	const family = foodFamily(main)
 
-	return match.key
+	if (family?.id === 'herb') return 'kale'
+
+	const normalized = ` ${singularIngredientWords(main)} `
+
+	const match = ingredientMatches.find(({ alias }) =>
+		normalized.includes(` ${alias} `),
+	)
+
+	if (match && !match.guess) return match.key
+
+	if (family?.id === 'fish') return 'fish'
+
+	if (family?.id === 'meat') return 'meat'
+
+	if (family?.id === 'grain') return 'wheat'
+
+	if (family?.id === 'seed') return 'fallback-grain'
+
+	return match?.key
+}
+
+function singularIngredientWords(name: string) {
+	return name
+		.split(' ')
+		.map((word) => {
+			if (word.endsWith('ies')) return `${word.slice(0, -3)}y`
+
+			if (word.endsWith('oes')) return word.slice(0, -2)
+
+			if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1)
+
+			return word
+		})
+		.join(' ')
 }
 
 function normalizeName(name: string) {
@@ -536,3 +607,7 @@ const spriteMatches = [
 		})),
 	),
 ].sort((a, b) => b.alias.length - a.alias.length)
+
+const ingredientMatches = spriteMatches
+	.map((match) => ({ ...match, alias: singularIngredientWords(match.alias) }))
+	.sort((a, b) => b.alias.length - a.alias.length)
