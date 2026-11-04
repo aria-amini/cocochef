@@ -46,18 +46,29 @@ opens a work-in-progress page), and nothing like books or folders for the shelf
 deferred. Undecided: nutrition/macro detail depth. Four pantry storage locations
 are planned; the data model has none yet.
 
+## Product Behavior
+
+- A recipe from the web exists once for everyone; saving it to a shelf does not
+  copy it. Editing a shared recipe makes your own copy on the first real change.
+  Removing a shared recipe only takes it off your shelf. Notes stay personal.
+- A recipe can say where it came from with its original link: a web page, or a
+  video such as a YouTube link. It is just a link; it can be added, changed or
+  cleared in the editor. A copy of someone's public recipe credits the original
+  author by their public profile name (never the account name) and otherwise
+  stands on its own; removing a link never changes that credit.
+- A recipe is written on its own page and saved on purpose: the editor lists
+  what changed, "save" keeps it, and "cancel" leaves the recipe as it was.
+- Ingredient and step checkboxes are temporary: leaving the recipe clears them.
+- Cook logging is not part of the current MVP.
+
 ## Brand Commitments
 
 Name: dutch-oven. User-pinned visual direction (2026-10-27, third revision): the
-soft kitchen — butcher-paper cream ground, ink drawn as 1px hairlines (18% for
-surfaces, 46% for fields), soft 8px/14px corners, lowercase semibold type, no
-resting shadows, and ingredient colors (tomato #ff4b26, yolk #ffc21c, basil
-#2fa84f, eggplant #5b3df5) used as tints with one solid primary action. The left
-sidebar is the reference for the whole system. Earlier directions the user moved
-past: neobrutalist kitchen (2px ink borders, hard offset shadows, uppercase
-stickers — rejected as too harsh), metro tiles (cyan/magenta/lime), and homey
-pantry-shelf with mustard/ketchup accents. Explicitly rejected: restaurant/diner
-ticket-rail world — too commercial, not homey.
+soft kitchen — see DESIGN.md for the system. The left sidebar is the reference
+for the whole system. Earlier directions the user moved past: neobrutalist
+kitchen (rejected as too harsh), metro tiles, and homey pantry-shelf with
+mustard/ketchup accents. Explicitly rejected: restaurant/diner ticket-rail world
+— too commercial, not homey.
 
 ## Evidence on Hand
 
