@@ -31,7 +31,10 @@ import {
 	type IngredientCategories,
 	type RecipeUpdate,
 } from '@/lib/recipes/model'
-import { publishFinishedRecipe } from '@/lib/sharing/repository'
+import {
+	publishFinishedRecipe,
+	reservePrivateRecipeAddress,
+} from '@/lib/sharing/repository'
 
 type RecipeDatabase =
 	| Database
@@ -85,6 +88,7 @@ function recipesForUser(database: Database, userId: string) {
 			savedAt: shelfRecipes.addedAt,
 			cookCount: sql<number>`coalesce(${stats.cookCount}, 0)`.mapWith(Number),
 			lastCookedAt: stats.lastCookedAt,
+			visibility: recipeShares.visibility,
 		})
 		.from(recipes)
 		.leftJoin(
@@ -92,6 +96,13 @@ function recipesForUser(database: Database, userId: string) {
 			and(
 				eq(shelfRecipes.recipeId, recipes.id),
 				eq(shelfRecipes.userId, userId),
+			),
+		)
+		.leftJoin(
+			recipeShares,
+			and(
+				eq(recipeShares.recipeId, recipes.id),
+				eq(recipeShares.userId, userId),
 			),
 		)
 		.leftJoin(stats, eq(stats.recipeId, recipes.id))
@@ -145,8 +156,6 @@ async function publicPathFor(
 	userId: string,
 	recipe: { id: string; userId: string | null; finalizedAt: Date | null },
 ) {
-	if (!recipe.finalizedAt) return null
-
 	const owners = [userId, ...(recipe.userId ? [recipe.userId] : [])]
 
 	const published = await database
@@ -160,7 +169,12 @@ async function publicPathFor(
 		.where(
 			and(
 				eq(recipeShares.recipeId, recipe.id),
-				eq(recipeShares.visibility, 'public'),
+				or(
+					eq(recipeShares.visibility, 'public'),
+					recipe.userId === userId
+						? eq(recipeShares.userId, userId)
+						: sql`false`,
+				),
 				inArray(recipeShares.userId, owners),
 			),
 		)
@@ -181,8 +195,51 @@ export async function getRecipeForUser(
 
 	if (!recipe) return null
 
+	// Credit goes by the public profile name, never the account name, which may
+	// be a real name an identity provider supplied. A profile with no public
+	// recipe is not public, so it is not credited.
+	const publicProfile = (userIdColumn: typeof sharingProfiles.userId) =>
+		exists(
+			database
+				.select({ one: sql`1` })
+				.from(recipeShares)
+				.where(
+					and(
+						eq(recipeShares.userId, userIdColumn),
+						eq(recipeShares.visibility, 'public'),
+					),
+				),
+		)
+
+	const [author] = recipe.userId
+		? await database
+				.select({ name: sharingProfiles.displayName })
+				.from(sharingProfiles)
+				.where(
+					and(
+						eq(sharingProfiles.userId, recipe.userId),
+						publicProfile(sharingProfiles.userId),
+					),
+				)
+		: []
+
+	const [original] = recipe.forkedFromId
+		? await database
+				.select({ name: sharingProfiles.displayName })
+				.from(recipes)
+				.innerJoin(sharingProfiles, eq(sharingProfiles.userId, recipes.userId))
+				.where(
+					and(
+						eq(recipes.id, recipe.forkedFromId),
+						publicProfile(sharingProfiles.userId),
+					),
+				)
+		: []
+
 	return {
 		...recipe,
+		authorName: author?.name ?? null,
+		originalAuthorName: original?.name ?? null,
 		...(await recipeContent(database, recipe.id)),
 		publicPath: await publicPathFor(database, userId, recipe),
 		saved: recipe.savedAt !== null,
@@ -381,6 +438,57 @@ export async function saveRecipeForUser(
 		})
 
 	return recipe
+}
+
+// Copy only content the viewer may read. The copy belongs to the account and
+// starts private, independently of the original and its future edits.
+export async function copyRecipeForUser(
+	userId: string,
+	id: string,
+	database: Database = getDb(),
+) {
+	return database.transaction(async (tx) => {
+		const original = await assertVisibleRecipe(tx, userId, id)
+
+		if (!original || !original.finalizedAt) return null
+		const content = await recipeContent(tx, id)
+
+		const [copy] = await tx
+			.insert(recipes)
+			.values({
+				id: crypto.randomUUID(),
+				userId,
+				forkedFromId: original.id,
+				title: original.title,
+				imageUrl: original.imageUrl,
+				sourceUrl: original.sourceUrl,
+				sourceNotes: original.sourceNotes,
+				servings: original.servings,
+				totalMinutes: original.totalMinutes,
+				createdAt: new Date(),
+				finalizedAt: new Date(),
+			})
+			.returning()
+
+		if (!copy) return null
+		await insertRecipeContent(
+			tx,
+			copy.id,
+			content.ingredients,
+			content.steps,
+			content.ingredientCategories,
+		)
+		await tx.insert(shelfRecipes).values({
+			id: crypto.randomUUID(),
+			userId,
+			recipeId: copy.id,
+			addedAt: copy.createdAt,
+		})
+
+		const path = await reservePrivateRecipeAddress(userId, copy, tx)
+
+		return { ...copy, path }
+	})
 }
 
 // Imports keep a public URL; uploads must sit under the owner's prefix.
@@ -737,6 +845,48 @@ export async function updateRecipeForUser(
 			await publishFinishedRecipe(userId, recipe, tx)
 
 		return recipe
+	})
+}
+
+// Unsave only a shared recipe; this operation must never delete an owned recipe.
+export async function removeSavedRecipeForUser(
+	userId: string,
+	id: string,
+	database: Database = getDb(),
+) {
+	return database.transaction(async (tx) => {
+		const [removed] = await tx
+			.delete(shelfRecipes)
+			.where(
+				and(
+					eq(shelfRecipes.userId, userId),
+					eq(shelfRecipes.recipeId, id),
+					exists(
+						tx
+							.select({ id: recipes.id })
+							.from(recipes)
+							.where(
+								and(
+									eq(recipes.id, id),
+									or(
+										isNull(recipes.userId),
+										sql`${recipes.userId} <> ${userId}`,
+									),
+								),
+							),
+					),
+				),
+			)
+			.returning({ id: shelfRecipes.recipeId })
+
+		if (removed)
+			await tx
+				.delete(recipeShares)
+				.where(
+					and(eq(recipeShares.userId, userId), eq(recipeShares.recipeId, id)),
+				)
+
+		return removed ?? null
 	})
 }
 

@@ -61,6 +61,7 @@ function createAuth() {
 
 	return betterAuth({
 		appName: 'dutch-oven',
+		disabledPaths: ['/sign-in/anonymous'],
 		baseURL: {
 			allowedHosts,
 			protocol: 'auto',

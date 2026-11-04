@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm'
 
 import { recipes, user } from '@/db/schema'
 import {
+	copyRecipeForUser,
 	createRecipeForUser,
 	createSharedRecipe,
 	deleteRecipeForUser,
@@ -123,47 +124,50 @@ describe('recipe publication boundaries', () => {
 		])
 			expect(serialized).not.toContain(secret)
 	})
-	test('unlisted links stay off profiles/search and are revoked when made private', async ({
-		db,
-	}) => {
-		const { userId, handle } = await profile(db)
-		const other = await account(db)
-		const row = await recipe(db, userId)
+	test('credits the original author on a published copy', async ({ db }) => {
+		const author = await profile(db)
+		const copier = await profile(db)
+		await saveSharingProfile(
+			author.userId,
+			{
+				handle: author.handle,
+				displayName: 'Original cook',
+				autoPublish: false,
+			},
+			db,
+		)
+		const source = await recipe(db, author.userId)
+		await setRecipeShare(
+			author.userId,
+			{ recipeId: source.id, visibility: 'public' },
+			db,
+		)
+		const copy = await copyRecipeForUser(copier.userId, source.id, db)
+
+		if (!copy) throw new Error('missing copy')
 
 		const share = await setRecipeShare(
-			userId,
-			{ recipeId: row.id, visibility: 'unlisted' },
+			copier.userId,
+			{ recipeId: copy.id, visibility: 'public' },
 			db,
 		)
 
-		expect(await getPublishedRecipe({ token: share.token }, db)).toMatchObject({
-			id: row.id,
-		})
-		expect(
-			await getPublishedRecipe({ handle, slug: share.slug }, db),
-		).toBeNull()
-		expect(await getPublicProfile(handle, db)).toMatchObject({ recipes: [] })
-		expect(
-			(await findRecipesForUser(other, 'weeknight', 20, db)).some(
-				(found) => found.id === row.id,
-			),
-		).toBe(false)
-		expect(await getRecipeForUser(other, row.id, db)).toBeNull()
+		await expect(
+			getPublishedRecipe({ handle: copier.handle, slug: share.slug }, db),
+		).resolves.toMatchObject({ originalAuthorName: 'Original cook' })
+
+		// Once the author has no public recipe left, their profile is not public
+		// and the credit goes with it; the copy itself stays published.
 		await setRecipeShare(
-			userId,
-			{ recipeId: row.id, visibility: 'private' },
+			author.userId,
+			{ recipeId: source.id, visibility: 'private' },
 			db,
 		)
-		expect(await getPublishedRecipe({ token: share.token }, db)).toBeNull()
-
-		const again = await setRecipeShare(
-			userId,
-			{ recipeId: row.id, visibility: 'unlisted' },
-			db,
-		)
-
-		expect(again.token).not.toBe(share.token)
+		await expect(
+			getPublishedRecipe({ handle: copier.handle, slug: share.slug }, db),
+		).resolves.toMatchObject({ originalAuthorName: null })
 	})
+
 	test('unpublishing removes access through saved shelves, search, direct reads, and public pages', async ({
 		db,
 	}) => {
@@ -291,13 +295,6 @@ describe('recipe publication boundaries', () => {
 		).rejects.toThrow()
 		await expect(
 			saveSharingProfile(
-				userId,
-				{ handle: 'changed-handle', displayName: 'No', autoPublish: false },
-				db,
-			),
-		).rejects.toThrow('cannot be changed')
-		await expect(
-			saveSharingProfile(
 				await account(db),
 				{ handle, displayName: 'Duplicate', autoPublish: false },
 				db,
@@ -318,10 +315,20 @@ describe('recipe publication boundaries', () => {
 			db,
 		)
 
+		await expect(
+			saveSharingProfile(
+				userId,
+				{ handle: 'changed-handle', displayName: 'No', autoPublish: false },
+				db,
+			),
+		).resolves.toMatchObject({ handle: 'changed-handle' })
+		await expect(
+			getPublishedRecipe({ handle, slug: a.slug }, db),
+		).resolves.toBeNull()
 		expect(a.slug).not.toBe(b.slug)
 		await updateRecipeForUser(userId, edits(first.id, 'Changed name'), db)
 		expect(
-			await getPublishedRecipe({ handle, slug: a.slug }, db),
+			await getPublishedRecipe({ handle: 'changed-handle', slug: a.slug }, db),
 		).toMatchObject({ title: 'Changed name' })
 	})
 	test('source links credit the website and do not publish anyone’s saving history', async ({

@@ -28,6 +28,8 @@ vi.mock('@/lib/discover/server', () => ({
 vi.mock('@/lib/import/server', () => ({ importRecipe: discovery.import }))
 
 vi.mock('@/lib/recipes/server', () => ({
+	removeSavedRecipe: () => Promise.resolve(null),
+	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: ({ data }: { data: { id: string } }) => {
@@ -52,6 +54,7 @@ const testSession = {
 const misoButterPasta: Recipe = {
 	id: 'recipe-1',
 	userId: 'user-1',
+	visibility: null,
 	title: 'miso butter pasta',
 	imageUrl: null,
 	sourceUrl: null,
@@ -70,6 +73,7 @@ const misoButterPasta: Recipe = {
 const dal: Recipe = {
 	id: 'recipe-2',
 	userId: 'user-1',
+	visibility: null,
 	title: 'dal',
 	imageUrl: null,
 	sourceUrl: null,
@@ -109,6 +113,24 @@ describe('recipes shelf', () => {
 		discovery.import
 			.mockReset()
 			.mockRejectedValue(new Error('Import failed. Please retry.'))
+	})
+
+	test('separates owned and saved recipes into their own sections', async () => {
+		shelfState.recipes = [
+			{ ...misoButterPasta, visibility: 'public' },
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const yours = screen.getByRole('region', { name: 'your recipes' })
+		const saved = screen.getByRole('region', { name: 'saved recipes' })
+		await expect.element(yours.getByText('miso butter pasta')).toBeVisible()
+		await expect.element(saved.getByText('shared soup')).toBeVisible()
+		await expect.element(yours.getByText('shared soup')).not.toBeInTheDocument()
 	})
 
 	test('invites the first save when the shelf is empty', async () => {

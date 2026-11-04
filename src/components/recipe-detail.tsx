@@ -1,16 +1,18 @@
-import { BookmarkSimpleIcon, PencilSimple } from '@phosphor-icons/react'
-import { useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useRouter } from '@tanstack/react-router'
+import { PencilSimple } from '@phosphor-icons/react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { toast } from 'sonner'
 
-import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
+import { CopyRecipeButton } from '@/components/copy-recipe-button'
 import { BackLink } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
 import { RecipeReader } from '@/components/recipe-reader'
 import { RecipeSharing } from '@/components/recipe-sharing'
+import { SaveRecipeButton } from '@/components/save-recipe-button'
 import { buttonVariants } from '@/components/ui/button'
-import { deleteRecipe, getRecipe, saveRecipe } from '@/lib/recipes/server'
+import { authClient } from '@/lib/auth/client'
+import { getRecipe } from '@/lib/recipes/server'
+import { getMyRecipeShare } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
 
 export type Recipe = NonNullable<Awaited<ReturnType<typeof getRecipe>>>
@@ -72,105 +74,62 @@ function RecipeView({
 	recipe: Recipe
 	onEdit: () => void
 }) {
+	const account = authClient.useSession().data?.user
+
+	const share = useQuery({
+		queryKey: ['recipe-share', account?.id, recipe.id],
+		queryFn: () => getMyRecipeShare({ data: { id: recipe.id } }),
+		enabled: recipe.owned && !!account && !account.isAnonymous,
+	})
+
 	return (
 		<RecipeReader
 			recipe={recipe}
+			status={{
+				saved: recipe.saved && !recipe.owned,
+				visibility: recipe.owned
+					? (share.data?.visibility ?? recipe.visibility) === 'public'
+						? 'public'
+						: 'private'
+					: undefined,
+			}}
+			authorship={
+				recipe.originalAuthorName
+					? `copied from ${recipe.originalAuthorName}`
+					: recipe.authorName
+						? `created by ${recipe.authorName}`
+						: undefined
+			}
 			actions={
 				<>
 					<div className="mt-6 flex flex-wrap items-center gap-2">
-						{recipe.owned ? null : <SaveButton recipe={recipe} />}
-						<button
-							type="button"
-							className={buttonVariants({
-								variant: recipe.owned || recipe.saved ? 'default' : 'outline',
-							})}
-							onClick={onEdit}
-						>
-							<PencilSimple size={14} weight="bold" aria-hidden />
-							edit
-						</button>
-						{recipe.finalizedAt ? (
+						{!recipe.owned ? <SaveRecipeButton recipe={recipe} /> : null}
+						{recipe.owned ? (
+							<button
+								type="button"
+								className={buttonVariants({ variant: 'outline' })}
+								onClick={onEdit}
+							>
+								<PencilSimple size={14} weight="bold" aria-hidden /> edit
+							</button>
+						) : (
+							<CopyRecipeButton recipeId={recipe.id} />
+						)}
+
+						{recipe.owned && recipe.finalizedAt ? (
 							<RecipeSharing
 								recipe={recipe}
 								imported={!recipe.owned && !!recipe.sourceUrl}
 							/>
 						) : null}
 					</div>
+					{!recipe.owned ? (
+						<p className="text-muted-foreground mt-2 text-sm">
+							save keeps this recipe; make a copy to edit your own version.
+						</p>
+					) : null}
 				</>
 			}
 		/>
-	)
-}
-
-// A shared recipe someone opened from a search or a link. Saving it puts it on
-// the shelf as is. Solid until it is saved. Once saved it
-// says so, and pressing it asks before taking the recipe off the shelf.
-function SaveButton({ recipe }: { recipe: Recipe }) {
-	const router = useRouter()
-	const navigate = useNavigate()
-	const queryClient = useQueryClient()
-	const [pending, setPending] = useState(false)
-	const [confirming, setConfirming] = useState(false)
-
-	const save = async () => {
-		setPending(true)
-
-		try {
-			if (recipe.saved) {
-				await deleteRecipe({ data: { id: recipe.id } })
-				// This cook's own readable address went with the recipe; the id address
-				// still opens it.
-				await navigate({
-					to: '/recipes/$recipeId',
-					params: { recipeId: recipe.id },
-					replace: true,
-				})
-			} else await saveRecipe({ data: { id: recipe.id } })
-
-			await Promise.all([
-				router.invalidate(),
-				queryClient.invalidateQueries({ queryKey: ['shelf'] }),
-				queryClient.invalidateQueries({ queryKey: ['recipe', recipe.id] }),
-			])
-			setConfirming(false)
-			toast.success(
-				recipe.saved
-					? 'removed from your shelf'
-					: `${recipe.title} is on your shelf`,
-			)
-		} catch {
-			toast.error("couldn't update your shelf — try again")
-		} finally {
-			setPending(false)
-		}
-	}
-
-	return (
-		<div className="contents">
-			<button
-				type="button"
-				disabled={pending}
-				onClick={() => (recipe.saved ? setConfirming(true) : void save())}
-				className={buttonVariants({
-					variant: recipe.saved ? 'outline' : 'default',
-				})}
-			>
-				<BookmarkSimpleIcon
-					size={14}
-					weight={recipe.saved ? 'fill' : 'bold'}
-					aria-hidden
-					className="size-3.5"
-				/>
-				{recipe.saved ? 'saved' : 'save'}
-			</button>
-			<DeleteRecipeDialog
-				open={confirming}
-				onOpenChange={setConfirming}
-				title={recipe.title}
-				shared
-				pending={pending}
-				onConfirm={() => void save()}
-			/>
-		</div>
 	)
 }

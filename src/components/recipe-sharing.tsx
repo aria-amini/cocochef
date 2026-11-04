@@ -1,10 +1,9 @@
-import { ShareNetworkIcon } from '@phosphor-icons/react'
+import { GlobeHemisphereWestIcon } from '@phosphor-icons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { toast } from 'sonner'
 
-import { FieldError, primaryActionClassName } from '@/components/recipe-form'
+import { FieldError } from '@/components/recipe-form'
 import { ExportRecipeButton } from '@/components/recipe-transfer'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -31,6 +30,13 @@ export function RecipeSharing({
 	imported: boolean
 }) {
 	const [open, setOpen] = useState(false)
+	const session = authClient.useSession()
+
+	const share = useQuery({
+		queryKey: ['recipe-share', session.data?.user.id, recipe.id],
+		queryFn: () => getMyRecipeShare({ data: { id: recipe.id } }),
+		enabled: !!session.data?.user && !session.data.user.isAnonymous,
+	})
 
 	return (
 		<>
@@ -39,8 +45,8 @@ export function RecipeSharing({
 				className={buttonVariants({ variant: 'ghost' })}
 				onClick={() => setOpen(true)}
 			>
-				<ShareNetworkIcon size={14} weight="bold" aria-hidden />
-				share
+				<GlobeHemisphereWestIcon size={14} weight="bold" aria-hidden />
+				{share.data?.visibility === 'public' ? 'share · public' : 'share'}
 			</button>
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent>
@@ -78,11 +84,6 @@ function SharingOptions({
 	const session = authClient.useSession()
 	const account = session.data?.user
 	const client = useQueryClient()
-	const navigate = useNavigate()
-
-	const pathname = useRouterState({
-		select: (state) => state.location.pathname,
-	})
 
 	const profile = useQuery({
 		queryKey: ['sharing-profile', account?.id],
@@ -105,19 +106,6 @@ function SharingOptions({
 		onSuccess: (value) => {
 			client.setQueryData(shareKey, value)
 			setCopied(false)
-
-			// The readable address stops opening once the recipe is not public.
-			if (
-				value.visibility !== 'public' &&
-				pathname !== `/recipes/${recipeId}`
-			) {
-				toast.success('visibility saved')
-				void navigate({
-					to: '/recipes/$recipeId',
-					params: { recipeId },
-					replace: true,
-				})
-			}
 		},
 	})
 
@@ -128,14 +116,12 @@ function SharingOptions({
 		},
 	})
 
-	const visibility = share.data?.visibility ?? 'private'
+	const visibility = share.data?.visibility === 'public' ? 'public' : 'private'
 
 	const path =
 		visibility === 'public' && profile.data && share.data
 			? `/${profile.data.handle}/${share.data.slug}`
-			: visibility === 'unlisted' && share.data
-				? `/s/${share.data.token}`
-				: undefined
+			: undefined
 
 	const copy = async (value: string) => {
 		try {
@@ -208,11 +194,7 @@ function SharingOptions({
 						event.preventDefault()
 						const value = new FormData(event.currentTarget).get('visibility')
 
-						if (
-							value === 'private' ||
-							value === 'unlisted' ||
-							value === 'public'
-						)
+						if (value === 'private' || value === 'public')
 							update.mutate({ data: { recipeId, visibility: value } })
 					}}
 				>
@@ -225,11 +207,6 @@ function SharingOptions({
 						{(
 							[
 								['private', 'private', 'only you; no working sharing link'],
-								[
-									'unlisted',
-									'anyone with the link',
-									'hidden from your public profile and search engines',
-								],
 								[
 									'public',
 									'public',
@@ -253,7 +230,12 @@ function SharingOptions({
 									id={`visibility-${value}`}
 									name="visibility"
 									value={value}
-									defaultChecked={visibility === value}
+									checked={visibility === value}
+									onChange={() => {
+										if (!update.isPending)
+											update.mutate({ data: { recipeId, visibility: value } })
+									}}
+									aria-disabled={update.isPending || undefined}
 									className="accent-kitchen-basil mt-1 size-4 shrink-0"
 								/>
 								<span>
@@ -271,13 +253,6 @@ function SharingOptions({
 							original shared web recipe remains available separately.
 						</p>
 					) : null}
-					<button
-						className={cn(primaryActionClassName, 'min-h-11')}
-						type="submit"
-						disabled={update.isPending}
-					>
-						{update.isPending ? 'saving…' : 'save visibility'}
-					</button>
 					{update.isError ? (
 						<FieldError>{update.error.message}</FieldError>
 					) : null}

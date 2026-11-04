@@ -7,6 +7,7 @@ import {
 
 import { mealLogs, user } from '@/db/schema'
 import {
+	getOwnedRecipeAtAddress,
 	getRecipeShare,
 	saveSharingProfile,
 	setRecipeShare,
@@ -15,10 +16,12 @@ import {
 import { recipeUpdateInput } from './model'
 import {
 	addMissingSourceNotes,
+	copyRecipeForUser,
 	createRecipeForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
 	listShelfForUser,
+	removeSavedRecipeForUser,
 	popularSharedRecipes,
 	saveRecipeForUser,
 	createSharedRecipe,
@@ -42,6 +45,99 @@ async function seedUser(db: Database) {
 }
 
 describe('recipe shelf', () => {
+	test('copies a public recipe into a private independent shelf entry', async ({
+		db,
+	}) => {
+		const writer = await seedUser(db)
+		const reader = await seedUser(db)
+		await saveSharingProfile(
+			writer,
+			{ handle: 'writer', displayName: 'Writer', autoPublish: false },
+			db,
+		)
+		await saveSharingProfile(
+			reader,
+			{ handle: 'reader', displayName: 'Reader', autoPublish: false },
+			db,
+		)
+
+		const original = await createRecipeForUser(
+			writer,
+			{ title: 'lentil soup', ingredients: ['lentils'], steps: ['simmer'] },
+			db,
+		)
+
+		if (!original) throw new Error('missing original')
+		await setRecipeShare(
+			writer,
+			{ recipeId: original.id, visibility: 'public' },
+			db,
+		)
+		const copy = await copyRecipeForUser(reader, original.id, db)
+
+		if (!copy) throw new Error('copy failed')
+		expect(copy.path).toBe('/reader/lentil-soup')
+		expect(copy.forkedFromId).toBe(original.id)
+		expect(await getRecipeForUser(reader, copy.id, db)).toMatchObject({
+			owned: true,
+			saved: true,
+			ingredients: ['lentils'],
+			steps: ['simmer'],
+		})
+		expect(await getRecipeShare(reader, copy.id, db)).toMatchObject({
+			visibility: 'private',
+		})
+		expect(await getRecipeForUser(writer, copy.id, db)).toBeNull()
+		expect(await getRecipeForUser(writer, original.id, db)).toMatchObject({
+			title: 'lentil soup',
+		})
+	})
+
+	test('gives a first copy a private profile address automatically', async ({
+		db,
+	}) => {
+		const cook = await seedUser(db)
+		const other = await seedUser(db)
+
+		const source = await createSharedRecipe(
+			{
+				title: 'tomato soup',
+				sourceUrl: 'https://example.com/soup',
+				ingredients: ['tomato'],
+			},
+			db,
+		)
+
+		if (!source) throw new Error('missing source')
+		const copy = await copyRecipeForUser(cook, source.id, db)
+
+		if (!copy) throw new Error('missing copy')
+		const [, handle, slug] = copy.path.split('/')
+
+		if (!handle || !slug) throw new Error('missing address')
+		expect(handle).toBe('test-user')
+		expect(slug).toBe('tomato-soup')
+		expect(await getOwnedRecipeAtAddress(cook, handle, slug, db)).toEqual({
+			id: copy.id,
+		})
+		expect(await getOwnedRecipeAtAddress(other, handle, slug, db)).toBeNull()
+		const otherCopy = await copyRecipeForUser(other, source.id, db)
+
+		if (!otherCopy) throw new Error('missing second copy')
+		expect(otherCopy.path).toMatch(/^\/test-user-[a-f0-9]{8}\/tomato-soup$/)
+	})
+
+	test('unsave cannot delete a recipe owned by the caller', async ({ db }) => {
+		const owner = await seedUser(db)
+		const recipe = await createRecipeForUser(owner, { title: 'soup' }, db)
+
+		if (!recipe) throw new Error('missing recipe')
+		expect(await removeSavedRecipeForUser(owner, recipe.id, db)).toBeNull()
+		await expect(getRecipeForUser(owner, recipe.id, db)).resolves.toMatchObject(
+			{ saved: true, owned: true },
+		)
+	})
+
 	test('shelves a new recipe', async ({ db }) => {
 		const userId = await seedUser(db)
 		const recipe = await createRecipeForUser(userId, { title: 'dal' }, db)
@@ -860,16 +956,7 @@ describe('shared recipes', () => {
 
 		if (!recipe) throw new Error('recipe was not created')
 
-		// Private and unlisted recipes keep the id address.
-		await expect(
-			getRecipeForUser(writer, recipe.id, db),
-		).resolves.toMatchObject({ publicPath: null })
-
-		await setRecipeShare(
-			writer,
-			{ recipeId: recipe.id, visibility: 'unlisted' },
-			db,
-		)
+		// Private recipes keep the id address.
 		await expect(
 			getRecipeForUser(writer, recipe.id, db),
 		).resolves.toMatchObject({ publicPath: null })

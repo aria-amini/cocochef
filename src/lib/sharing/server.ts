@@ -7,6 +7,7 @@ import { recipeIdInput } from '@/lib/recipes/model'
 import { resolveStoredImage } from '@/lib/s3'
 
 import {
+	getOwnedRecipeAtAddress,
 	getPublishedRecipe,
 	getPublicProfile,
 	getRecipeShare,
@@ -115,6 +116,17 @@ export const readPublicProfile = createServerFn({ method: 'GET' })
 			: null
 	})
 
+export const readOwnedRecipeAddress = createServerFn({ method: 'GET' })
+	.validator(publicRecipeInput)
+	.handler(async ({ data }) => {
+		preventCaching()
+		const session = await getCurrentSession()
+
+		if (!session || session.user.isAnonymous) return null
+
+		return getOwnedRecipeAtAddress(session.user.id, data.handle, data.slug)
+	})
+
 export const readPublicRecipe = createServerFn({ method: 'GET' })
 	.validator(publicRecipeInput)
 	.handler(async ({ data }) => {
@@ -124,13 +136,13 @@ export const readPublicRecipe = createServerFn({ method: 'GET' })
 		return recipe ? withPublicImage(recipe) : null
 	})
 
+// Legacy unlisted links no longer grant access.
 export const readUnlistedRecipe = createServerFn({ method: 'GET' })
 	.validator(unlistedRecipeInput)
-	.handler(async ({ data }) => {
+	.handler(() => {
 		preventCaching()
-		const recipe = await getPublishedRecipe(data)
 
-		return recipe ? withPublicImage(recipe) : null
+		return null
 	})
 
 export const readWebRecipe = createServerFn({ method: 'GET' })

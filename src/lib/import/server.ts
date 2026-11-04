@@ -3,7 +3,7 @@ import { getRequestIP } from '@tanstack/react-start/server'
 import { z } from 'zod'
 
 import { serverEnv as env } from '@/env.server'
-import { requireUserId } from '@/lib/auth/session'
+import { getViewerId, requireAccountId } from '@/lib/auth/session'
 import { clampRecipeTitle, recipeInput } from '@/lib/recipes/model'
 import {
 	addMissingSourceNotes,
@@ -73,7 +73,16 @@ export const importRecipe = createServerFn({ method: 'POST' })
 		}),
 	)
 	.handler(async ({ data }) => {
-		const userId = await requireUserId()
+		const viewerId = data.keep
+			? await requireAccountId('save recipes')
+			: await getViewerId()
+
+		// Visitors share one id, so they are limited per request address instead.
+		const userId =
+			viewerId === 'visitor'
+				? `visitor:${getRequestIP() ?? 'unknown'}`
+				: viewerId
+
 		const sourceUrl = canonicalRecipeUrl(data.url)
 
 		// A page already in dutch-oven costs nothing to open, so looking through

@@ -1,3 +1,4 @@
+import { getAuthMocks, setMockSession } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
@@ -16,6 +17,7 @@ const api = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/sharing/server', () => ({
+	readOwnedRecipeAddress: () => Promise.resolve(null),
 	getMySharingProfile: api.profile,
 	updateSharingProfile: api.updateProfile,
 	getMyRecipeShare: api.share,
@@ -32,6 +34,7 @@ vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: api.getRecipe,
 	deleteRecipe: api.deleteRecipe,
+	removeSavedRecipe: api.deleteRecipe,
 }))
 
 vi.mock('@/lib/s3', async (importOriginal) => ({
@@ -122,6 +125,12 @@ describe('sharing', () => {
 				screen.getByRole('heading', { name: 'ingredients', exact: true }),
 			)
 			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'make copy' }))
+			.toBeVisible()
 		await expect.element(screen.getByText('1 onion')).toBeVisible()
 		await expect.element(screen.getByText('Chop the onion')).toBeVisible()
 		await expect
@@ -130,6 +139,72 @@ describe('sharing', () => {
 		await expect
 			.element(screen.getByText('private@example.com'))
 			.not.toBeInTheDocument()
+	})
+	test('shows original authorship on a public copy', async () => {
+		api.publicRecipe.mockResolvedValue({
+			...recipe,
+			originalAuthorName: 'Original cook',
+		})
+
+		const { screen } = await renderRoute({
+			path: '/aria-amini/weeknight-pasta',
+		})
+
+		await expect
+			.element(screen.getByText('copied from Original cook'))
+			.toBeVisible()
+	})
+
+	test('does not offer unsave when the signed-in viewer owns the public recipe', async () => {
+		api.web.mockResolvedValue(recipe)
+		api.getRecipe.mockResolvedValue({
+			...recipe,
+			owned: true,
+			saved: true,
+			visibility: 'public',
+		})
+
+		const { screen } = await renderRoute({
+			path: '/sites/example.com/pasta',
+		})
+
+		await expect
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
+			.toBeVisible()
+		getAuthMocks().signUpEmail.mockImplementationOnce(async () => {
+			setMockSession(session)
+
+			return { error: null }
+		})
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		const signup = screen.getByRole('dialog', { name: 'create an account' })
+		await signup.getByLabelText('name').fill('Cook')
+		await signup.getByLabelText('email').fill('cook@example.com')
+		await signup.getByLabelText('password').fill('password123')
+		await signup
+			.getByRole('button', { name: 'create account', exact: true })
+			.click()
+		await expect
+			.element(screen.getByRole('link', { name: 'open your recipe' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'saved', exact: true }))
+			.not.toBeInTheDocument()
+		expect(api.deleteRecipe).not.toHaveBeenCalled()
+	})
+
+	test('shows a private or unavailable recipe without exposing its contents', async () => {
+		api.publicRecipe.mockResolvedValue(null)
+		const { screen } = await renderRoute({ path: '/aria-amini/private-recipe' })
+		await expect
+			.element(
+				screen.getByRole('heading', { name: 'you can’t open this recipe' }),
+			)
+			.toBeVisible()
+		await expect.element(screen.getByText('1 onion')).not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('link', { name: 'back to recipes' }))
+			.toBeVisible()
 	})
 	test('opens a shared recipe in the app for someone with a session, at the same readable address', async () => {
 		api.getRecipe.mockResolvedValue({
@@ -152,7 +227,7 @@ describe('sharing', () => {
 			.toBeVisible()
 		expect(router.state.location.pathname).toBe('/aria-amini/weeknight-pasta')
 	})
-	test('moves to the id address when a published recipe stops being public', async () => {
+	test('keeps the owner at the readable address when made private', async () => {
 		const mine = {
 			...recipe,
 			userId: 'cook-1',
@@ -190,13 +265,12 @@ describe('sharing', () => {
 			session,
 		})
 
-		await screen.getByRole('button', { name: 'share' }).click()
+		await screen.getByRole('button', { name: /share/ }).click()
 		await screen.getByRole('radio', { name: 'private' }).click()
-		await screen.getByRole('button', { name: 'save visibility' }).click()
 
 		await expect
 			.poll(() => router.state.location.pathname)
-			.toBe('/recipes/pasta')
+			.toBe('/aria-amini/weeknight-pasta')
 	})
 	test('stays at the readable address after taking a saved recipe off the shelf', async () => {
 		const saved = {
@@ -227,11 +301,11 @@ describe('sharing', () => {
 		})
 
 		await screen.getByRole('button', { name: 'saved', exact: true }).click()
-		await page.getByRole('button', { name: 'delete', exact: true }).click()
+		await page.getByRole('button', { name: 'remove', exact: true }).click()
 
 		await expect
 			.poll(() => router.state.location.pathname)
-			.toBe('/recipes/pasta')
+			.toBe('/aria-amini/weeknight-pasta')
 		expect(api.deleteRecipe).toHaveBeenCalledWith({ data: { id: 'pasta' } })
 	})
 	test('unlisted recipe can be read without an account and cannot be opened by its database id', async () => {

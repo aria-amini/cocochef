@@ -85,7 +85,7 @@ function SharingProfileForm({
 				const data = new FormData(event.currentTarget)
 				update.mutate({
 					data: {
-						handle: profile?.handle ?? handle,
+						handle,
 						displayName: displayName,
 						autoPublish: data.get('autoPublish') === 'on',
 					},
@@ -107,14 +107,12 @@ function SharingProfileForm({
 					maxLength={40}
 					pattern="[a-z0-9]+(-[a-z0-9]+)*"
 					required
-					disabled={!!profile}
 					autoCapitalize="none"
 					autoCorrect="off"
 				/>
 				<p className="text-muted-foreground text-sm">
-					your address is /{profile?.handle ?? 'your-handle'}. choose carefully;
-					handles stay fixed so links keep working. your real name isn&apos;t
-					required.
+					your address is /{handle || 'your-handle'}. changing it changes your
+					recipe links. your real name isn&apos;t required.
 				</p>
 			</div>
 			<div className="space-y-2">

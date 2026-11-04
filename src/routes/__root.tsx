@@ -80,7 +80,7 @@ function RootComponent() {
 					)}
 				</QueryClientProvider>
 				<Toaster
-					position="bottom-right"
+					position="top-right"
 					{...(tabBar && {
 						offset: { bottom: tabBarOffset },
 						mobileOffset: { bottom: tabBarOffset },

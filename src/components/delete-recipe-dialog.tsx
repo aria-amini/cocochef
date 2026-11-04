@@ -30,7 +30,9 @@ export function DeleteRecipeDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent showCloseButton={false}>
 				<DialogHeader>
-					<DialogTitle>delete {title || 'this recipe'}?</DialogTitle>
+					<DialogTitle>
+						{shared ? 'remove' : 'delete'} {title || 'this recipe'}?
+					</DialogTitle>
 					<DialogDescription>
 						{shared
 							? 'it comes off your shelf, along with your notes. the recipe stays up for everyone else, and you can save it again.'
@@ -46,7 +48,13 @@ export function DeleteRecipeDialog({
 						keep it
 					</Button>
 					<Button variant="destructive" disabled={pending} onClick={onConfirm}>
-						{pending ? 'deleting…' : 'delete'}
+						{pending
+							? shared
+								? 'removing…'
+								: 'deleting…'
+							: shared
+								? 'remove'
+								: 'delete'}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

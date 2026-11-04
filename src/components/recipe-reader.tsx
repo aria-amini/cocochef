@@ -1,4 +1,9 @@
-import { YoutubeLogoIcon } from '@phosphor-icons/react'
+import {
+	BookmarkSimpleIcon,
+	GlobeHemisphereWestIcon,
+	LockSimpleIcon,
+	YoutubeLogoIcon,
+} from '@phosphor-icons/react'
 import { Fragment, useState } from 'react'
 
 import { IngredientText } from '@/components/ingredient-text'
@@ -37,12 +42,18 @@ export function RecipeReader({
 	recipe,
 	actions,
 	terms = [],
+	authorship,
+	status,
 	heading = 'h1',
 }: {
 	recipe: ReadableRecipe
 	// What the reader can do with it, under the title: save, edit, share.
 	actions?: React.ReactNode
 	// Search words to mark wherever they appear.
+	authorship?: string | undefined
+	status?:
+		| { saved: boolean; visibility?: 'public' | 'private' | undefined }
+		| undefined
 	terms?: string[]
 	heading?: 'h1' | 'h2'
 }) {
@@ -107,27 +118,71 @@ export function RecipeReader({
 	return (
 		<div className="@container">
 			<div className="flex items-start gap-4">
-				{recipe.imageUrl ? (
-					<img
-						src={recipe.imageUrl}
-						alt={recipe.title}
-						className="border-border size-16 shrink-0 rounded-xl border object-cover md:size-24"
-					/>
-				) : (
-					<span
-						aria-hidden
-						className={cn(
-							'border-border grid size-16 shrink-0 place-items-center rounded-xl border md:size-24',
-							tileColors[tileColorFor(recipe.id)],
-						)}
-					>
-						<RecipeGlyph title={recipe.title} className="size-9 md:size-14" />
-					</span>
-				)}
+				<div className="relative shrink-0">
+					{recipe.imageUrl ? (
+						<img
+							src={recipe.imageUrl}
+							alt={recipe.title}
+							className="border-border size-16 shrink-0 rounded-xl border object-cover md:size-24"
+						/>
+					) : (
+						<span
+							aria-hidden
+							className={cn(
+								'border-border grid size-16 shrink-0 place-items-center rounded-xl border md:size-24',
+								tileColors[tileColorFor(recipe.id)],
+							)}
+						>
+							<RecipeGlyph title={recipe.title} className="size-9 md:size-14" />
+						</span>
+					)}
+					{status?.saved || status?.visibility ? (
+						<span className="absolute -top-1 -right-1 flex gap-1">
+							{status.saved && !status.visibility ? (
+								<span
+									className="bg-card border-border grid size-6 place-items-center rounded-md border"
+									title="saved recipe"
+								>
+									<span className="sr-only">saved recipe</span>
+									<BookmarkSimpleIcon
+										size={14}
+										weight="fill"
+										aria-hidden
+										className="text-saved-blue"
+									/>
+								</span>
+							) : null}
+							{status.visibility ? (
+								<span
+									className="bg-card border-border grid size-6 place-items-center rounded-md border"
+									title={
+										status.visibility === 'public'
+											? 'public recipe'
+											: 'private recipe'
+									}
+								>
+									<span className="sr-only">
+										{status.visibility === 'public'
+											? 'public recipe'
+											: 'private recipe'}
+									</span>
+									{status.visibility === 'public' ? (
+										<GlobeHemisphereWestIcon size={14} aria-hidden />
+									) : (
+										<LockSimpleIcon size={14} aria-hidden />
+									)}
+								</span>
+							) : null}
+						</span>
+					) : null}
+				</div>
 				<div className="min-w-0">
 					<PageTitle as={heading} className="text-2xl md:text-4xl">
 						<Marked text={recipe.title} terms={terms} />
 					</PageTitle>
+					{authorship ? (
+						<p className="text-muted-foreground mt-2 text-sm">{authorship}</p>
+					) : null}
 					<RecipeMeta recipe={recipe} />
 				</div>
 			</div>

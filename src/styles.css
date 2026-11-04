@@ -31,6 +31,7 @@
 	--kitchen-yolk: #ffc21c;
 	--kitchen-basil: #2fa84f;
 	--kitchen-eggplant: #5b3df5;
+	--saved-blue: #1d4f9d;
 
 	--shadow-md:
 		0 6px 20px -4px rgb(22 19 14 / 0.14), 0 1px 3px rgb(22 19 14 / 0.06);
@@ -61,6 +62,7 @@
 	--color-kitchen-yolk: var(--kitchen-yolk);
 	--color-kitchen-basil: var(--kitchen-basil);
 	--color-kitchen-eggplant: var(--kitchen-eggplant);
+	--color-saved-blue: var(--saved-blue);
 
 	--spacing-tile: clamp(8.5rem, 16vh, 10.5rem);
 

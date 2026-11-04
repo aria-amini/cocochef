@@ -26,6 +26,8 @@ vi.mock('@/lib/discover/server', () => ({
 vi.mock('@/lib/import/server', () => ({ importRecipe: server.import }))
 
 vi.mock('@/lib/recipes/server', () => ({
+	removeSavedRecipe: () => Promise.resolve(null),
+	copyRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: server.getRecipe,
 	saveRecipe: server.save,
@@ -60,6 +62,7 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 		lastCookedAt: null,
 		forkedFromId: null,
 		savedAt: new Date(),
+		visibility: null,
 		...extra,
 	} satisfies Recipe
 }

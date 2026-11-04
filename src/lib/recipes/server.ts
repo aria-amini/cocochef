@@ -1,15 +1,25 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
-import { requireUserId } from '@/lib/auth/session'
+import {
+	getCurrentSession,
+	getViewerId,
+	requireAccountId,
+} from '@/lib/auth/session'
 import { resolveStoredImage } from '@/lib/s3'
+import {
+	getWebRecipeLink,
+	reservePrivateRecipeAddress,
+} from '@/lib/sharing/repository'
 
 import { recipeIdInput, recipeInput, recipeUpdateInput } from './model'
 import {
+	copyRecipeForUser,
 	createRecipeForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
 	listShelfForUser,
+	removeSavedRecipeForUser,
 	saveRecipeForUser,
 	updateRecipeForUser,
 } from './repository'
@@ -33,7 +43,7 @@ async function withSignedImage<T extends { imageUrl: string | null }>(
 }
 
 export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
-	const shelf = await listShelfForUser(await requireUserId())
+	const shelf = await listShelfForUser(await getViewerId())
 
 	return {
 		...shelf,
@@ -44,10 +54,42 @@ export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
 export const getRecipe = createServerFn({ method: 'GET' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) => {
-		const recipe = await getRecipeForUser(await requireUserId(), data.id)
+		const viewerId = await getViewerId()
+		const recipe = await getRecipeForUser(viewerId, data.id)
 
-		return recipe ? withSignedImage(recipe) : recipe
+		if (!recipe) return recipe
+
+		// Reserving an address writes a profile, which only an account has; a guest
+		// who still owns an older recipe can open it without one.
+		const session = await getCurrentSession()
+
+		if (
+			!recipe.publicPath &&
+			recipe.owned &&
+			session &&
+			!session.user.isAnonymous
+		)
+			recipe.publicPath = await reservePrivateRecipeAddress(viewerId, recipe)
+
+		if (
+			!recipe.publicPath &&
+			!recipe.userId &&
+			recipe.sourceUrl &&
+			recipe.finalizedAt
+		) {
+			const link = await getWebRecipeLink(viewerId, recipe.id)
+
+			if (link) recipe.publicPath = `/sites/${link.site}/${link.slug}`
+		}
+
+		return withSignedImage(recipe)
 	})
+
+export const copyRecipe = createServerFn({ method: 'POST' })
+	.validator(recipeIdInput)
+	.handler(async ({ data }) =>
+		copyRecipeForUser(await requireAccountId('copy recipes'), data.id),
+	)
 
 export const createRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeInput)
@@ -73,6 +115,12 @@ export const saveRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) =>
 		saveRecipeForUser(await requireUserId(), data.id),
+	)
+
+export const removeSavedRecipe = createServerFn({ method: 'POST' })
+	.validator(recipeIdInput)
+	.handler(async ({ data }) =>
+		removeSavedRecipeForUser(await requireAccountId('save recipes'), data.id),
 	)
 
 export const updateRecipe = createServerFn({ method: 'POST' })

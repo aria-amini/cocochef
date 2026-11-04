@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
-import { requireUserId } from '@/lib/auth/session'
+import { getViewerId } from '@/lib/auth/session'
 import { canonicalRecipeUrl } from '@/lib/import/url'
 import {
 	findRecipesForUser,
@@ -105,7 +105,7 @@ async function notYetShared(links: RecipeLink[]) {
 export const searchRecipes = createServerFn({ method: 'GET' })
 	.validator(z.object({ q: z.string().trim().max(80) }))
 	.handler(async ({ data }) => {
-		const userId = await requireUserId()
+		const userId = await getViewerId()
 
 		const found = data.q ? await findRecipesForUser(userId, data.q, 16) : []
 
@@ -146,10 +146,7 @@ const dayMs = 24 * 60 * 60 * 1000
 // shelf never ends in an empty row while few people use dutch-oven.
 export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 	async () => {
-		const shared = await popularSharedRecipes(
-			await requireUserId(),
-			popularLimit,
-		)
+		const shared = await popularSharedRecipes(await getViewerId(), popularLimit)
 
 		const { links, warming } = recipeIndex()
 		const missing = popularLimit - shared.length
