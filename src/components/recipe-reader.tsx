@@ -117,13 +117,20 @@ export function RecipeReader({
 
 	return (
 		<div className="@container">
-			<div className="flex items-start gap-4">
-				<div className="relative shrink-0">
+			<div
+				className={cn(
+					'flex gap-4',
+					recipe.imageUrl
+						? 'flex-col @xl:flex-row @xl:items-start @xl:gap-6'
+						: 'items-start',
+				)}
+			>
+				<div className={cn('relative shrink-0', recipe.imageUrl && '@xl:w-72')}>
 					{recipe.imageUrl ? (
 						<img
 							src={recipe.imageUrl}
 							alt={recipe.title}
-							className="border-border size-16 shrink-0 rounded-xl border object-cover md:size-24"
+							className="border-border aspect-[4/3] w-full rounded-xl border object-cover"
 						/>
 					) : (
 						<span
