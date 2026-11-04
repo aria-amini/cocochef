@@ -20,9 +20,9 @@ import { recipeIcon } from './recipe-icon'
 // recognizes to that file.
 const floors = {
 	// Ingredients that get any sprite; the rest leave an empty slot.
-	sprite: 0.84,
+	sprite: 0.92,
 	// Ingredients that get a picture of their own, not a generic jar or crate.
-	ownSprite: 0.67,
+	ownSprite: 0.74,
 	// Ingredients that land in a shopping category other than "other".
 	category: 0.88,
 	// Recipe titles that get an icon other than the default pot.

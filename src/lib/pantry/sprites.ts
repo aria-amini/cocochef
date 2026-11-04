@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { ingredientSubject } from '../recipes/ingredient-line'
 import { foodFamily } from './food-family'
 import type { PantryCategory } from './model'
 
@@ -544,9 +545,10 @@ const ingredientFamilySprites = [
 // Recipe rows accept familiar family stand-ins: leafy greens for herbs, meat
 // for pork/lamb, and fish for seafood. Unknown foods still leave the slot empty.
 export function ingredientItemSprite(name: string) {
-	// The food itself: before a comma, a bracket, "with ..." or "in oil/brine".
+	// The food itself: the measuring is taken off, then everything from a
+	// comma, a bracket, "with ..." or "in oil/brine" on.
 	const main = normalizeName(
-		(name.split(/[,;(]/, 1)[0] ?? '')
+		(ingredientSubject(name).split(/[,;(]/, 1)[0] ?? '')
 			.replace(
 				/\b(?:packed )?in (?:[\w-]+ )*(?:oil|brine|water|syrup|juice)\b.*$/i,
 				'',
