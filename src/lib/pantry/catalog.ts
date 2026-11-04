@@ -18,7 +18,7 @@ export const categorySprites: Record<PantryCategory, string> = {
 }
 
 // A section's picture comes from what is in it: a fruit section holding limes
-// shows the lemon, not the apple that stands for fruit in general. Whatever its
+// shows the lime, not the apple that stands for fruit in general. Whatever its
 // lines have most of wins, the first one on a tie, and a section with nothing
 // recognizable falls back to the category's own picture.
 export function sectionSprite(lines: string[], category: PantryCategory) {

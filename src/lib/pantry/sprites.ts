@@ -102,7 +102,7 @@ export const pantrySprites = [
 		'collards',
 		'spinach',
 	]),
-	sprite('lemon', 'fruit', ['lemon', 'lemons', 'lime', 'limes']),
+	sprite('lemon', 'fruit', ['lemon', 'lemons']),
 	sprite('lettuce', 'vegetable', [
 		'lettuce',
 		'romaine',
@@ -290,6 +290,96 @@ export const pantrySprites = [
 		'summer squash',
 		'pumpkin',
 		'butternut squash',
+	]),
+	// Pantry staples the recipe corpus showed with only a generic jar.
+	sprite('beans', 'other', [
+		'beans',
+		'black beans',
+		'kidney beans',
+		'pinto beans',
+		'cannellini beans',
+		'chickpeas',
+		'lentils',
+	]),
+	// Stock cubes are a seasoning, so only broth names are aliases here; the
+	// family rule picks up "stock" and "bouillon" that are not cubes.
+	sprite('broth', 'other', [
+		'broth',
+		'chicken broth',
+		'vegetable broth',
+		'beef broth',
+		'bone broth',
+	]),
+	sprite('can', 'other', [
+		'coconut milk',
+		'coconut cream',
+		'condensed milk',
+		'evaporated milk',
+	]),
+	sprite('extract', 'other', [
+		'vanilla extract',
+		'vanilla bean',
+		'vanilla paste',
+		'almond extract',
+		'peppermint extract',
+	]),
+	sprite('ginger', 'vegetable', ['ginger', 'fresh ginger', 'ginger root']),
+	sprite('lime', 'fruit', ['lime', 'limes', 'lime juice']),
+	sprite('sauce', 'other', [
+		'soy sauce',
+		'tamari',
+		'fish sauce',
+		'worcestershire sauce',
+		'oyster sauce',
+		'hot sauce',
+		'sriracha',
+		'ketchup',
+		'bbq sauce',
+		'teriyaki',
+		'hoisin',
+	]),
+	sprite('seeds', 'other', [
+		'chia seeds',
+		'flaxseed',
+		'sesame seeds',
+		'poppy seeds',
+		'sunflower seeds',
+		'pumpkin seeds',
+		'pepitas',
+	]),
+	sprite('spirits', 'other', [
+		'bourbon',
+		'whiskey',
+		'vodka',
+		'gin',
+		'rum',
+		'tequila',
+		'brandy',
+	]),
+	sprite('spread', 'other', [
+		'mayonnaise',
+		'tahini',
+		'hummus',
+		'peanut butter',
+		'almond butter',
+		'miso',
+		'jam',
+	]),
+	sprite('vinegar', 'other', [
+		'vinegar',
+		'balsamic vinegar',
+		'red wine vinegar',
+		'white wine vinegar',
+		'apple cider vinegar',
+		'rice vinegar',
+	]),
+	sprite('wine', 'other', [
+		'wine',
+		'red wine',
+		'white wine',
+		'sherry',
+		'vermouth',
+		'sake',
 	]),
 ] as const
 
@@ -504,19 +594,46 @@ const ingredientFamilySprites = [
 		/\b(?:chil+i?e? flakes|red pepper flakes|crushed red pepper|pepper flakes)\b/,
 	],
 	['butter', /\bghee\b/],
+	// Not vanilla bean ice cream, which is ice cream.
 	[
-		'fallback-other',
-		/\b(?:broth|stock|bouillon|consomme|sauce|vinegar|ketchup|sriracha|mayonnaise|mayo|tahini|pesto|salsa|jam|jelly|gelatin|extract|peanut butter|almond butter|coconut milk|coconut cream|miso|mirin|tamari|gochujang|sambal|harissa|molasses|hummus|tamarind|horseradish|capers|cornichons|kimchi|bitters|shredded coconut|desiccated coconut|coconut flakes)\b/,
+		'extract',
+		/^(?!.*\bice cream\b)(?:.*\b(?:extract|vanilla (?:bean|paste))\b|(?:pure )?vanilla$)/,
 	],
-	// Spirits and mixers have no picture of their own.
+	['can', /\b(?:coconut (?:milk|cream)|condensed milk|evaporated milk)\b/],
+	// A stock cube is a seasoning, not a carton of stock.
+	['broth', /\b(?:broth|stock(?! cubes?)|bouillon(?! cubes?)|consomme)\b/],
+	['vinegar', /\bvinegar\b/],
+	[
+		'spread',
+		/\b(?:mayonnaise|mayo|tahini|hummus|(?:almond|peanut|nut|cashew) butter|miso|gochujang|harissa|pesto|salsa|jam|jelly|marmalade|preserves)\b/,
+	],
+	[
+		'sauce',
+		/\b(?:(?<!apple )sauce|ketchup|sriracha|tamari|mirin|worcestershire|teriyaki|hoisin|sambal)\b/,
+	],
+	['wine', /\b(?:wine|sherry|vermouth|sake|marsala)\b/],
+	[
+		'spirits',
+		/\b(?:bourbon|whiskey|whisky|vodka|gin|rum|tequila|brandy|cognac|triple sec|liqueur)\b/,
+	],
+	[
+		'seeds',
+		// Not the oils pressed from them.
+		/^(?!.*\boils?\b).*\b(?:(?:chia|flax|sesame|poppy|sunflower|pumpkin|hemp) seeds?|chia|flaxseeds?|flax meal|pepitas)\b/,
+	],
+	[
+		'ginger',
+		/\b(?<!ground |powdered |crystallized |candied |pickled )ginger\b(?! powder| ale| beer| snaps?)/,
+	],
+	// Whatever else has no picture of its own.
 	[
 		'fallback-other',
-		/\b(?:bourbon|whiskey|whisky|vodka|gin|rum|tequila|brandy|cognac|sake|triple sec|liqueur|vermouth|seltzer)\b/,
+		/\b(?:(?:stock|bouillon) cubes?|gelatin|molasses|tamarind|horseradish|capers|cornichons|kimchi|bitters|seltzer|shredded coconut|desiccated coconut|coconut flakes)\b/,
 	],
 	['olive-oil', /\b(?:oil|oils|(?:cooking|baking|nonstick) spray)\b/],
 	[
 		'fallback-spice',
-		/\b(?:garlic powder|onion powder|mustard seeds?|sesame seeds?|chili powder|chilli powder|cayenne|garam masala|za atar|sumac|seasoning|five spice|msg|star anise|fenugreek|herbes de provence)\b/,
+		/\b(?:garlic powder|onion powder|mustard seeds?|ground ginger|ginger powder|powdered ginger|chili powder|chilli powder|cayenne|garam masala|za atar|sumac|seasoning|five spice|msg|star anise|fenugreek|herbes de provence)\b/,
 	],
 	[
 		'wheat',
@@ -548,16 +665,17 @@ const ingredientFamilySprites = [
 	['sausage', /\b(?:hot dogs?|frankfurters?)\b/],
 	['fallback-vegetable', /\b(?:green beans|runner beans|string beans)\b/],
 	[
-		'fallback-protein',
-		/\b(?:tofu|tempeh|(?<!vanilla |coffee |cocoa |cacao )beans?|lentils?|chickpeas?|garbanzo)\b/,
+		'beans',
+		/\b(?<!coffee |vanilla |cocoa |cacao |jelly )beans?\b|\b(?:chickpeas?|garbanzo|lentils?|edamame)\b/,
 	],
+	['fallback-protein', /\b(?:tofu|tempeh)\b/],
 	[
 		'kale',
 		/\b(?:coriander (?:leaves|leaf)|(?:fresh|chopped) coriander|coriander to serve|celery leaves)\b/,
 	],
 	[
 		'fallback-vegetable',
-		/\b(?:fresh ginger|ginger root|celery|cauliflower|cabbage|brussels sprouts|green beans|asparagus|fennel bulb)\b/,
+		/\b(?:celery|cauliflower|cabbage|brussels sprouts|green beans|asparagus|fennel bulb)\b/,
 	],
 	[
 		'grapes',
@@ -596,12 +714,18 @@ export function ingredientItemSprite(name: string) {
 	const family = foodFamily(main)
 	const normalized = ` ${singularIngredientWords(main)} `
 
+	// A food with its own picture wins over its family's stand-in, and over a
+	// generic keyword however long the keyword: "juice of 1 lime" is a lime, not
+	// just some juice.
+	const named = ingredientMatches.find(
+		({ alias, guess }) => !guess && normalized.includes(` ${alias} `),
+	)
+
+	if (named) return named.key
+
 	const match = ingredientMatches.find(({ alias }) =>
 		normalized.includes(` ${alias} `),
 	)
-
-	// A food with its own picture wins over its family's stand-in.
-	if (match && !match.guess) return match.key
 
 	if (family?.id === 'herb') return 'kale'
 

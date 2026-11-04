@@ -47,14 +47,14 @@ describe('ingredient catalog', () => {
 
 describe('sectionSprite', () => {
 	test('shows the food in a section, not the category stand-in', () => {
-		expect(sectionSprite(['1 lime', '2 limes'], 'fruit')).toBe('lemon')
+		expect(sectionSprite(['1 lime', '2 limes'], 'fruit')).toBe('lime')
 	})
 
 	test('takes the food a section has most of, the first on a tie', () => {
 		expect(sectionSprite(['1 apple', '2 limes', '1 lime'], 'fruit')).toBe(
-			'lemon',
+			'lime',
 		)
-		expect(sectionSprite(['2 limes', '1 apple'], 'fruit')).toBe('lemon')
+		expect(sectionSprite(['2 limes', '1 apple'], 'fruit')).toBe('lime')
 	})
 
 	test('falls back to the category picture for food with no sprite of its own', () => {

@@ -14,3 +14,9 @@ Contributing sets used here:
 
 All licensed Creative Commons Zero (CC0). No attribution required; this file
 exists so future maintainers know where replacements can be sourced.
+
+The twelve sprites for staples the set lacked (beans, broth, can, extract,
+ginger, lime, sauce, seeds, spirits, spread, vinegar, wine) were made with
+ChatGPT image generation, prompted with this set as the style reference, then
+cut out, downscaled to 32x32 with a nearest-neighbour fit, and reduced to a
+20-colour palette. They are not from the CC0 collection above.
