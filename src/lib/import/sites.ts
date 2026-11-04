@@ -1,3 +1,5 @@
+import { recipeSites } from '@/lib/discover/sites'
+
 // Sites the link importer is verified against; most recipe sites work. Each id
 // matches its logo in public/import-sites and the site's `<id>.com` domain.
 export const importSites = [
@@ -10,6 +12,30 @@ export const importSites = [
 ] as const
 
 export const importSiteLogo = (id: string) => `/import-sites/${id}.png`
+
+// Every site with a logo in public/import-sites: the ones imports are verified
+// against and the ones recipe discovery reads.
+const logoSiteIds = [
+	...importSites.map((site) => site.id),
+	...recipeSites.map((site) => site.id),
+]
+
+// The logo for the site a recipe link points at, if we have one.
+export function siteLogoForUrl(url: string | undefined) {
+	if (!url) return undefined
+
+	try {
+		const host = new URL(url).hostname
+
+		const id = logoSiteIds.find(
+			(site) => host === `${site}.com` || host.endsWith(`.${site}.com`),
+		)
+
+		return id ? importSiteLogo(id) : undefined
+	} catch {
+		return undefined
+	}
+}
 
 export function importSiteForUrl(url: string) {
 	try {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import { importSiteForUrl } from './sites'
+import { importSiteForUrl, siteLogoForUrl } from './sites'
 
 describe('importSiteForUrl', () => {
 	test.each([
@@ -19,4 +19,22 @@ describe('importSiteForUrl', () => {
 	])('ignores %s', (url) => {
 		expect(importSiteForUrl(url)).toBeUndefined()
 	})
+})
+
+describe('siteLogoForUrl', () => {
+	test.each([
+		['https://www.bbcgoodfood.com/recipes/quick-kimchi', 'bbcgoodfood'],
+		['https://recipetineats.com/dal', 'recipetineats'],
+		['https://cooking.nytimes.com/recipes/1-stew', 'nytimes'],
+		['https://www.americastestkitchen.com/recipes/1', 'americastestkitchen'],
+	])('finds the logo for %s', (url, id) => {
+		expect(siteLogoForUrl(url)).toBe(`/import-sites/${id}.png`)
+	})
+
+	test.each([undefined, 'https://example.com/a', 'nope'])(
+		'has none for %s',
+		(url) => {
+			expect(siteLogoForUrl(url)).toBeUndefined()
+		},
+	)
 })

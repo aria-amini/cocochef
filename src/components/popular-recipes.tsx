@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { FieldError } from '@/components/recipe-form'
 import { useRecipeImport } from '@/components/recipe-online'
+import { SiteIcon } from '@/components/site-icon'
 import { Skeleton } from '@/components/ui/skeleton'
 import { popularRecipes } from '@/lib/discover/server'
 import { cn } from '@/lib/utils/ui'
@@ -147,8 +148,11 @@ function PopularTileBody({
 				<span className="line-clamp-2 text-xs leading-tight font-semibold wrap-anywhere">
 					{recipe.title}
 				</span>
-				<span className="text-muted-foreground truncate text-xs font-semibold">
-					{busy ? 'grabbing the page…' : recipe.siteName}
+				<span className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold">
+					<SiteIcon url={recipe.url} />
+					<span className="truncate">
+						{busy ? 'grabbing the page…' : recipe.siteName}
+					</span>
 				</span>
 			</span>
 		</>

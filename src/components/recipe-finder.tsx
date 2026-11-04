@@ -26,6 +26,7 @@ import {
 	useOnlineRecipes,
 } from '@/components/recipe-online'
 import { RecipeReader } from '@/components/recipe-reader'
+import { SiteIcon } from '@/components/site-icon'
 import { Skeleton } from '@/components/ui/skeleton'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
@@ -123,8 +124,8 @@ function fromShelf(recipe: ShelfRecipe): FoundRecipe {
 		url: recipe.sourceUrl ?? undefined,
 		title: recipe.title,
 		imageUrl: recipe.imageUrl ?? undefined,
-		siteName:
-			owned || !recipe.sourceUrl ? 'your recipe' : hostOf(recipe.sourceUrl),
+		// Named only while the source link is still set.
+		siteName: recipe.sourceUrl ? hostOf(recipe.sourceUrl) : '',
 		saved: true,
 		draft: owned && !recipe.finalizedAt,
 		ingredientMatches: [],
@@ -134,22 +135,22 @@ function fromShelf(recipe: ShelfRecipe): FoundRecipe {
 // Marks every search word in `text`.
 // Why a recipe is in the list, in a few words.
 function recipeNote(recipe: FoundRecipe) {
-	const base = recipe.saved
-		? recipe.draft
-			? 'draft'
-			: 'on your shelf'
-		: recipe.siteName
+	const parts = [
+		recipe.saved && recipe.draft ? 'draft' : '',
+		recipe.siteName,
+		recipe.ingredientMatches.length
+			? `has ${recipe.ingredientMatches.join(', ')}`
+			: '',
+	]
 
-	return recipe.ingredientMatches.length
-		? `${base} · has ${recipe.ingredientMatches.join(', ')}`
-		: base
+	return parts.filter(Boolean).join(' · ')
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
 	return (
 		<li
 			role="presentation"
-			className="text-muted-foreground px-3 pt-3 pb-1 text-xs font-semibold"
+			className="text-foreground px-5 pt-4 pb-1.5 text-sm font-bold"
 		>
 			{children}
 		</li>
@@ -193,7 +194,7 @@ export function RecipeFinder({
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={input}
-					className="bg-background border-foreground/30 fixed inset-x-2 top-[calc(var(--vv-top,0px)+var(--vv-gap,1rem))] z-50 flex h-[calc(var(--vv-height,100dvh)-var(--vv-gap,1rem)-0.5rem)] flex-col overflow-hidden rounded-2xl border shadow-md outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl"
+					className="bg-background border-foreground/30 fixed inset-x-2 top-[calc(var(--vv-top)+var(--vv-gap))] z-50 flex h-[calc(var(--vv-height)-var(--vv-gap)-0.5rem)] flex-col overflow-hidden rounded-2xl border shadow-md outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl"
 				>
 					<Dialog.Title className="sr-only">find a recipe</Dialog.Title>
 					<FinderPanel
@@ -657,7 +658,7 @@ function FinderPanel({
 						<button
 							type="button"
 							onClick={() => setVisibleRecipes((count) => count + foundLimit)}
-							className="text-muted-foreground mx-3 mb-3 min-h-11 rounded-md px-3 text-sm font-semibold underline underline-offset-4"
+							className="text-muted-foreground mx-2 mb-3 min-h-11 rounded-md px-3 text-sm font-semibold underline underline-offset-4"
 						>
 							show more recipes
 						</button>
@@ -850,9 +851,14 @@ function SectionRows({
 									<span className="block truncate text-sm font-medium">
 										<Marked text={recipe.title} terms={terms} />
 									</span>
-									<span className="text-muted-foreground block truncate text-xs font-semibold">
-										{busy === key ? 'one moment…' : recipeNote(recipe)}
-									</span>
+									{busy === key || recipeNote(recipe) ? (
+										<span className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold">
+											{recipe.siteName ? <SiteIcon url={recipe.url} /> : null}
+											<span className="truncate">
+												{busy === key ? 'one moment…' : recipeNote(recipe)}
+											</span>
+										</span>
+									) : null}
 								</span>
 							</li>
 						)
@@ -1030,9 +1036,12 @@ function RecipePreview({
 					<h2 className="text-xl leading-tight font-bold">
 						<Marked text={recipe.title} terms={terms} />
 					</h2>
-					<p className="text-muted-foreground text-sm font-semibold">
-						{recipe.siteName}
-					</p>
+					{recipe.siteName ? (
+						<p className="text-muted-foreground flex items-center gap-1.5 text-sm font-semibold">
+							<SiteIcon url={recipe.url} />
+							{recipe.siteName}
+						</p>
+					) : null}
 				</div>
 			</div>
 			{recipeId === undefined && lookError ? (

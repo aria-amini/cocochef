@@ -174,8 +174,11 @@ describe('the one box', () => {
 			.fill('weeknight dal\ningredients\n1 cup lentils\nmethod\n1. simmer')
 		await dialog.getByRole('button', { name: 'add recipe' }).click()
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes/new')
+		// The editor loads on first visit, which can be slow when cold.
 		await expect
-			.element(screen.getByRole('textbox', { name: 'name', exact: true }))
+			.element(screen.getByRole('textbox', { name: 'name', exact: true }), {
+				timeout: 10_000,
+			})
 			.toHaveValue('weeknight dal')
 	})
 
@@ -219,6 +222,60 @@ describe('the one box', () => {
 		await expect
 			.element(screen.getByRole('button', { name: 'show more recipes' }))
 			.not.toBeInTheDocument()
+	})
+
+	test('marks each recipe with the logo of its site', async () => {
+		server.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				found({
+					title: 'quick kimchi',
+					url: 'https://www.bbcgoodfood.com/recipes/quick-kimchi',
+					siteName: 'BBC Good Food',
+				}),
+				found({ title: 'plain stew', url: 'https://example.com/stew' }),
+			],
+		})
+
+		const { screen } = await openBox()
+
+		const logoOf = (name: RegExp) =>
+			screen.getByRole('option', { name }).element().querySelector('img')
+
+		await expect
+			.element(screen.getByRole('option', { name: /quick kimchi/ }))
+			.toBeVisible()
+		expect(logoOf(/quick kimchi/)?.getAttribute('src')).toBe(
+			'/import-sites/bbcgoodfood.png',
+		)
+		expect(logoOf(/plain stew/)).toBeNull()
+	})
+
+	test("names a shelf recipe's site only while its source link is set", async () => {
+		shelfState.recipes = [
+			shelfRecipe('recipe-1', 'quick kimchi', {
+				sourceUrl: 'https://www.bbcgoodfood.com/recipes/quick-kimchi',
+			}),
+			dal,
+		]
+
+		const { screen } = await openBox()
+
+		const row = (name: RegExp) => screen.getByRole('option', { name })
+
+		await expect.element(row(/quick kimchi/)).toBeVisible()
+		expect(
+			row(/quick kimchi/)
+				.element()
+				.querySelector('img'),
+		).not.toBeNull()
+		expect(row(/quick kimchi/).element().textContent).toContain(
+			'bbcgoodfood.com',
+		)
+
+		// Made your own: no site, no logo, and no text in its place.
+		expect(row(/^dal/).element().querySelector('img')).toBeNull()
+		expect(row(/^dal/).element().textContent).toBe('dal')
 	})
 
 	test('names every searched site with a logo that loads', async () => {

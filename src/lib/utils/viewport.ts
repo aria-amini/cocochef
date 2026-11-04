@@ -3,8 +3,9 @@ import { useEffect } from 'react'
 // Phones keep the layout viewport at full height when the on-screen keyboard
 // opens (`100dvh` does not shrink), so a tall fixed panel ends up behind it.
 // While `active`, this publishes the visible area as CSS variables the panel can
-// size itself with: `--vv-top` and `--vv-height` for the area, and `--vv-gap`
-// for the space to leave above the panel, which tightens when the keyboard is up.
+// size itself with: `--vv-top` and `--vv-height` for the area, and `--vv-gap` for
+// the space to leave above the panel, which tightens when the keyboard is up.
+// The defaults, for no keyboard, live in styles.css.
 export function useVisualViewportVars(active: boolean) {
 	useEffect(() => {
 		const viewport = window.visualViewport
@@ -18,7 +19,14 @@ export function useVisualViewportVars(active: boolean) {
 
 			root.setProperty('--vv-top', `${viewport.offsetTop}px`)
 			root.setProperty('--vv-height', `${viewport.height}px`)
-			root.setProperty('--vv-gap', keyboard ? '0.5rem' : '1rem')
+
+			// Still below a notch or status bar, which the keyboard does not move.
+			if (keyboard)
+				root.setProperty(
+					'--vv-gap',
+					'calc(0.5rem + env(safe-area-inset-top, 0px))',
+				)
+			else root.removeProperty('--vv-gap')
 		}
 
 		update()

@@ -126,9 +126,11 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 				...found.map((recipe, index): FoundRecipe => ({
 					...fromShared(recipe),
 					imageUrl: images[index] ?? undefined,
-					siteName: recipe.owned
-						? 'your recipe'
-						: (siteNameFor(recipe.sourceUrl) ?? 'dutch-oven'),
+					// On your shelf, the site shows only while the source link is
+					// still set; a recipe made your own names no site.
+					siteName:
+						siteNameFor(recipe.sourceUrl) ??
+						(recipe.owned || recipe.saved ? '' : 'dutch-oven'),
 					saved: recipe.saved,
 					draft: recipe.owned && !recipe.finalizedAt,
 					ingredientMatches: recipe.ingredientMatches,
