@@ -4,8 +4,9 @@
    stays in the input, which handles the keys, so options need no key events. */
 import { useId, useRef, useState } from 'react'
 
+import { PantrySprite } from '@/components/pantry-sprite'
 import { placeholderClassName } from '@/components/ui/input'
-import { pantrySprites, resolveSpriteSrc } from '@/lib/pantry/sprites'
+import { pantrySprites, resolveSpriteLook } from '@/lib/pantry/sprites'
 import { cn } from '@/lib/utils/ui'
 
 const ingredients = [
@@ -191,10 +192,9 @@ export function IngredientCombobox({
 								index === activeIndex && 'bg-kitchen-yolk/40',
 							)}
 						>
-							<img
-								src={resolveSpriteSrc(suggestion)}
-								alt=""
-								className="size-8 object-contain [image-rendering:pixelated]"
+							<PantrySprite
+								look={resolveSpriteLook(suggestion)}
+								className="size-8"
 							/>
 							{suggestion}
 						</li>
