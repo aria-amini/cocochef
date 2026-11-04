@@ -295,10 +295,10 @@ describe('recipe detail', () => {
 		)
 
 		for (const [name, key] of [
-			['1 lime', 'lemon'],
+			['1 lime', 'lime'],
 			['chopped parsley', 'kale'],
 			['200g pork', 'meat'],
-			['1 cup chicken broth', 'fallback-other'],
+			['1 cup chicken broth', 'broth'],
 		] as const) {
 			expect(rowFor(name)?.querySelector('img')?.getAttribute('src')).toBe(
 				`/sprites/pantry/${key}.png`,
