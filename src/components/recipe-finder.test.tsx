@@ -295,6 +295,22 @@ describe('the one box', () => {
 			.not.toBeInTheDocument()
 	})
 
+	test('says so when a previewed recipe can no longer be read', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
+		})
+		// A recipe made private after the results loaded comes back empty.
+		server.getRecipe.mockResolvedValue(null)
+		const { screen, input } = await openBox()
+		await input.fill('lemon')
+		await screen.getByRole('option', { name: /lemon chicken/ }).click()
+
+		await expect
+			.element(screen.getByRole('alert'))
+			.toHaveTextContent("couldn't read this recipe — try opening it.")
+	})
+
 	test('selects a full-height preview and opens without saving', async () => {
 		server.search.mockResolvedValue({
 			warming: false,

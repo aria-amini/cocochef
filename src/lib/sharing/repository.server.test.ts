@@ -22,6 +22,7 @@ import {
 import {
 	getPublishedRecipe,
 	getPublicProfile,
+	hasPublicRecipe,
 	getRecipeShare,
 	getWebRecipe,
 	getWebRecipeLink,
@@ -89,7 +90,7 @@ describe('recipe publication boundaries', () => {
 	}) => {
 		const { userId, handle } = await profile(db)
 		const row = await recipe(db, userId)
-		expect(await getPublicProfile(handle, db)).toMatchObject({ recipes: [] })
+		expect(await getPublicProfile(handle, db)).toBeNull()
 		expect(await getRecipeForUser(await account(db), row.id, db)).toBeNull()
 
 		const share = await setRecipeShare(
@@ -353,7 +354,7 @@ describe('recipe publication boundaries', () => {
 			title: 'Meatballs',
 			sourceUrl: imported.sourceUrl,
 		})
-		expect(await getPublicProfile(handle, db)).toMatchObject({ recipes: [] })
+		expect(await getPublicProfile(handle, db)).toBeNull()
 		await expect(
 			setRecipeShare(
 				userId,
@@ -373,8 +374,31 @@ describe('recipe publication boundaries', () => {
 			recipes: [{ slug: share.slug }],
 		})
 		await deleteRecipeForUser(userId, imported.id, db)
-		expect(await getPublicProfile(handle, db)).toMatchObject({ recipes: [] })
+		expect(await getPublicProfile(handle, db)).toBeNull()
 		expect(await getWebRecipeLink(userId, imported.id, db)).toEqual(link)
+	})
+	test('a profile is public only once one of its recipes is', async ({
+		db,
+	}) => {
+		const { userId, handle } = await profile(db)
+		const row = await recipe(db, userId)
+
+		expect(await hasPublicRecipe(userId, db)).toBe(false)
+		expect(await getPublicProfile(handle, db)).toBeNull()
+
+		await setRecipeShare(userId, { recipeId: row.id, visibility: 'public' }, db)
+		expect(await hasPublicRecipe(userId, db)).toBe(true)
+		expect(await getPublicProfile(handle, db)).toMatchObject({
+			displayName: 'A public kitchen',
+		})
+
+		await setRecipeShare(
+			userId,
+			{ recipeId: row.id, visibility: 'private' },
+			db,
+		)
+		expect(await hasPublicRecipe(userId, db)).toBe(false)
+		expect(await getPublicProfile(handle, db)).toBeNull()
 	})
 	test('stale publications cannot expose drafts or recipes transferred to a different owner', async ({
 		db,
@@ -402,6 +426,6 @@ describe('recipe publication boundaries', () => {
 		expect(
 			await getPublishedRecipe({ handle, slug: share.slug }, db),
 		).toBeNull()
-		expect(await getPublicProfile(handle, db)).toMatchObject({ recipes: [] })
+		expect(await getPublicProfile(handle, db)).toBeNull()
 	})
 })

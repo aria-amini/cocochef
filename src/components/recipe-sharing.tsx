@@ -198,7 +198,7 @@ function SharingOptions({
 							update.mutate({ data: { recipeId, visibility: value } })
 					}}
 				>
-					<fieldset key={visibility} className="space-y-3">
+					<fieldset className="space-y-3">
 						<legend className="mb-3 text-sm font-semibold">
 							{imported
 								? 'on your public profile'

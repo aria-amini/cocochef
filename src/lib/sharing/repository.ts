@@ -31,6 +31,25 @@ export async function getSharingProfile(
 	return profile ?? null
 }
 
+// A profile is public only once one of its recipes is.
+export async function hasPublicRecipe(
+	userId: string,
+	database: SharingDatabase = getDb(),
+) {
+	const [row] = await database
+		.select({ id: recipeShares.id })
+		.from(recipeShares)
+		.where(
+			and(
+				eq(recipeShares.userId, userId),
+				eq(recipeShares.visibility, 'public'),
+			),
+		)
+		.limit(1)
+
+	return row !== undefined
+}
+
 async function requireAccount(userId: string, database: SharingDatabase) {
 	const [account] = await database
 		.select({ anonymous: user.isAnonymous })
@@ -352,6 +371,9 @@ export async function getPublicProfile(
 			),
 		)
 		.orderBy(desc(recipeShares.createdAt))
+
+	// A profile, and the name on it, is public only once it has a public recipe.
+	if (published.length === 0) return null
 
 	return {
 		handle: profile.handle,

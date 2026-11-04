@@ -108,6 +108,36 @@ describe('sharing', () => {
 			.element(screen.getByText('saved', { exact: true }))
 			.toBeVisible()
 	})
+	test('offers the public profile link only once it has a public recipe', async () => {
+		const mine = {
+			userId: 'cook-1',
+			handle: 'aria-amini',
+			displayName: 'Aria’s kitchen',
+			autoPublish: false,
+		}
+
+		api.profile.mockResolvedValue({ ...mine, isPublic: false })
+		const first = await renderRoute({ path: '/settings', session })
+
+		await expect
+			.element(
+				first.screen.getByText('your profile goes public once you publish', {
+					exact: false,
+				}),
+			)
+			.toBeVisible()
+		await expect
+			.element(first.screen.getByRole('link', { name: 'view public profile' }))
+			.not.toBeInTheDocument()
+		await first.screen.unmount()
+
+		api.profile.mockResolvedValue({ ...mine, isPublic: true })
+		const second = await renderRoute({ path: '/settings', session })
+
+		await expect
+			.element(second.screen.getByRole('link', { name: 'view public profile' }))
+			.toBeVisible()
+	})
 	test('public profile is readable without signing in and opens a readable recipe address', async () => {
 		const { screen, router } = await renderRoute({
 			path: '/aria-amini',

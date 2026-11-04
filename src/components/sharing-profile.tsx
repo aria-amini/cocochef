@@ -170,7 +170,7 @@ function SharingProfileForm({
 					{update.isPending ? 'saving…' : 'save settings'}
 				</button>
 				{saved ? <output className="text-sm">saved</output> : null}
-				{profile ? (
+				{profile?.isPublic ? (
 					<Link
 						to="/$handle"
 						params={{ handle: profile.handle }}
@@ -180,6 +180,10 @@ function SharingProfileForm({
 					>
 						view public profile
 					</Link>
+				) : profile ? (
+					<span className="text-muted-foreground text-sm">
+						your profile goes public once you publish a recipe.
+					</span>
 				) : null}
 			</div>
 		</form>

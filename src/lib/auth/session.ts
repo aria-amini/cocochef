@@ -34,3 +34,13 @@ export const requireUserId = createServerFn({ method: 'POST' }).handler(
 		return anonymous.user.id
 	},
 )
+
+// For actions that keep or publish recipes, which a guest session can't do.
+export async function requireAccountId(action: string) {
+	const session = await getCurrentSession()
+
+	if (!session || session.user.isAnonymous)
+		throw new Error(`sign in to ${action}`)
+
+	return session.user.id
+}

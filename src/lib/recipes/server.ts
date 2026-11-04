@@ -93,12 +93,14 @@ export const copyRecipe = createServerFn({ method: 'POST' })
 
 export const createRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeInput)
-	.handler(async ({ data }) => createRecipeForUser(await requireUserId(), data))
+	.handler(async ({ data }) =>
+		createRecipeForUser(await requireAccountId('save recipes'), data),
+	)
 
 export const exportRecipes = createServerFn({ method: 'GET' })
 	.validator(z.object({ id: z.string().min(1).optional() }))
 	.handler(async ({ data }) =>
-		exportRecipesForUser(await requireUserId(), data.id),
+		exportRecipesForUser(await getViewerId(), data.id),
 	)
 
 export const importRecipes = createServerFn({ method: 'POST' })
@@ -108,13 +110,16 @@ export const importRecipes = createServerFn({ method: 'POST' })
 
 		if (!parsed.ok) throw new Error(parsed.error)
 
-		return importRecipesForUser(await requireUserId(), parsed.recipes)
+		return importRecipesForUser(
+			await requireAccountId('import recipes'),
+			parsed.recipes,
+		)
 	})
 
 export const saveRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) =>
-		saveRecipeForUser(await requireUserId(), data.id),
+		saveRecipeForUser(await requireAccountId('save recipes'), data.id),
 	)
 
 export const removeSavedRecipe = createServerFn({ method: 'POST' })
@@ -125,10 +130,12 @@ export const removeSavedRecipe = createServerFn({ method: 'POST' })
 
 export const updateRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeUpdateInput)
-	.handler(async ({ data }) => updateRecipeForUser(await requireUserId(), data))
+	.handler(async ({ data }) =>
+		updateRecipeForUser(await requireAccountId('save recipes'), data),
+	)
 
 export const deleteRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) =>
-		deleteRecipeForUser(await requireUserId(), data.id),
+		deleteRecipeForUser(await requireAccountId('save recipes'), data.id),
 	)

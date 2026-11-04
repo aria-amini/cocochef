@@ -10,6 +10,7 @@ import {
 	getOwnedRecipeAtAddress,
 	getPublishedRecipe,
 	getPublicProfile,
+	hasPublicRecipe,
 	getRecipeShare,
 	getSharingProfile,
 	getWebRecipe,
@@ -56,8 +57,12 @@ export const getMySharingProfile = createServerFn({ method: 'GET' }).handler(
 	async () => {
 		const session = await getCurrentSession()
 
-		return session && !session.user.isAnonymous
-			? getSharingProfile(session.user.id)
+		if (!session || session.user.isAnonymous) return null
+
+		const profile = await getSharingProfile(session.user.id)
+
+		return profile
+			? { ...profile, isPublic: await hasPublicRecipe(session.user.id) }
 			: null
 	},
 )

@@ -169,6 +169,7 @@ async function publicPathFor(
 		.where(
 			and(
 				eq(recipeShares.recipeId, recipe.id),
+				// A private or unlisted share only counts for the cook who owns it.
 				or(
 					eq(recipeShares.visibility, 'public'),
 					recipe.userId === userId

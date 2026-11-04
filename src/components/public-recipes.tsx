@@ -43,40 +43,34 @@ export function PublicProfile({
 				<p className="text-muted-foreground mt-3">
 					recipes to pass around the table.
 				</p>
-				{profile.recipes.length ? (
-					<div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-						{profile.recipes.map((recipe) => (
-							<Link
-								key={recipe.slug}
-								to="/$handle/$slug"
-								params={{ handle: profile.handle, slug: recipe.slug }}
-								className="border-border bg-kitchen-tomato/15 focus-visible:outline-kitchen-eggplant overflow-hidden rounded-xl border focus-visible:outline-2 focus-visible:outline-offset-2"
-							>
-								<div className="bg-kitchen-yolk/15 aspect-[4/3]">
-									{recipe.imageUrl ? (
-										<img
-											src={recipe.imageUrl}
-											alt=""
-											loading="lazy"
-											className="h-full w-full object-cover"
-										/>
-									) : (
-										<span className="text-foreground/60 grid h-full place-items-center">
-											<RecipeGlyph title={recipe.title} size={48} />
-										</span>
-									)}
-								</div>
-								<h2 className="p-4 text-lg leading-snug font-bold break-words">
-									{recipe.title}
-								</h2>
-							</Link>
-						))}
-					</div>
-				) : (
-					<p className="border-border mt-8 rounded-xl border border-dashed p-6 text-sm">
-						no public recipes yet. check back when something&apos;s cooking.
-					</p>
-				)}
+				<div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+					{profile.recipes.map((recipe) => (
+						<Link
+							key={recipe.slug}
+							to="/$handle/$slug"
+							params={{ handle: profile.handle, slug: recipe.slug }}
+							className="border-border bg-kitchen-tomato/15 focus-visible:outline-kitchen-eggplant overflow-hidden rounded-xl border focus-visible:outline-2 focus-visible:outline-offset-2"
+						>
+							<div className="bg-kitchen-yolk/15 aspect-[4/3]">
+								{recipe.imageUrl ? (
+									<img
+										src={recipe.imageUrl}
+										alt=""
+										loading="lazy"
+										className="h-full w-full object-cover"
+									/>
+								) : (
+									<span className="text-foreground/60 grid h-full place-items-center">
+										<RecipeGlyph title={recipe.title} size={48} />
+									</span>
+								)}
+							</div>
+							<h2 className="p-4 text-lg leading-snug font-bold break-words">
+								{recipe.title}
+							</h2>
+						</Link>
+					))}
+				</div>
 			</main>
 		</>
 	)

@@ -269,7 +269,7 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
   Cook logging is not part of the current MVP.
 - The read view keeps actions few: the solid action, “edit”, and a muted
   “share”. “Share” opens one dialog for the link settings and for exporting the
-  recipe as a file. “Make it mine” appears only while editing.
+  recipe as a file. There is no “make it mine” button.
 - Editing a shared recipe makes your own copy on its first real change; an
   eggplant-tinted note in the editor explains this. Notes remain personal.
   Removing a shared recipe only takes it off your shelf.
