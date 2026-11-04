@@ -194,7 +194,7 @@ export function RecipeFinder({
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={input}
-					className="bg-background border-foreground/30 fixed inset-x-2 top-[calc(var(--vv-top)+var(--vv-gap))] z-50 flex h-[calc(var(--vv-height)-var(--vv-gap)-0.5rem)] flex-col overflow-hidden rounded-2xl border shadow-md outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl"
+					className="bg-background border-foreground/30 fixed inset-x-2 top-[calc(var(--vv-top)+var(--vv-gap))] z-50 flex h-[min(28rem,calc(var(--vv-height)-var(--vv-gap)-0.5rem))] flex-col overflow-hidden rounded-2xl border shadow-md outline-none has-[[data-previewing]]:h-[calc(var(--vv-height)-var(--vv-gap)-0.5rem)] md:inset-auto md:top-[calc(var(--vv-top)+2rem)] md:left-1/2 md:h-[calc(var(--vv-height)-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl md:has-[[data-previewing]]:h-[calc(var(--vv-height)-4rem)]"
 				>
 					<Dialog.Title className="sr-only">find a recipe</Dialog.Title>
 					<FinderPanel
@@ -564,12 +564,8 @@ function FinderPanel({
 					else writePasted(text)
 				}}
 			/>
-			<div
-				className={cn(
-					'border-border flex shrink-0 items-center gap-2.5 border-b px-4 py-3',
-					previewing && 'hidden',
-				)}
-			>
+			{/* Always on screen, so a recipe can be left for another search. */}
+			<div className="border-border flex shrink-0 items-center gap-2.5 border-b px-4 py-3">
 				{url ? (
 					<LinkSimpleIcon size={20} weight="bold" aria-hidden />
 				) : (
@@ -692,12 +688,6 @@ function FinderPanel({
 								<ArrowLeftIcon size={14} weight="bold" aria-hidden />
 								back to results
 							</button>
-							<Dialog.Close
-								aria-label="close"
-								className="text-muted-foreground hover:text-foreground grid size-11 place-items-center rounded-md md:hidden"
-							>
-								<XIcon size={18} weight="bold" aria-hidden />
-							</Dialog.Close>
 						</div>
 					) : null}
 					{previewing && error ? (
@@ -708,7 +698,11 @@ function FinderPanel({
 							{error}
 						</p>
 					) : null}
-					<div ref={previewRef} className="min-h-0 flex-1 overflow-y-auto">
+					<div
+						ref={previewRef}
+						data-previewing={previewing || undefined}
+						className="min-h-0 flex-1 overflow-y-auto"
+					>
 						<Preview
 							option={current}
 							terms={terms}

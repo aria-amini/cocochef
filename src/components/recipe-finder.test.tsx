@@ -113,6 +113,30 @@ describe('the one box', () => {
 		server.getRecipe.mockReset().mockResolvedValue(null)
 	})
 
+	test('keeps the popup in the visible area when a keyboard is up on a wide screen', async () => {
+		await openBox()
+
+		// Narrow screens size from the same variables; this guards the wide layout.
+		if (window.innerWidth < 768) return
+
+		const popup = document.querySelector('[role="dialog"]')
+
+		if (!(popup instanceof HTMLElement)) throw new Error('no popup')
+
+		const rect = () => popup.getBoundingClientRect()
+
+		// Without a keyboard the popup keeps its 2rem margins around the viewport.
+		expect(rect().top).toBe(32)
+		expect(Math.round(rect().height)).toBe(window.innerHeight - 64)
+
+		// The visible area a keyboard leaves: the popup fits it, margins kept.
+		document.documentElement.style.setProperty('--vv-top', '20px')
+		document.documentElement.style.setProperty('--vv-height', '500px')
+
+		await expect.poll(() => Math.round(rect().height)).toBe(500 - 64)
+		expect(Math.round(rect().top)).toBe(20 + 32)
+	})
+
 	test('lays out every way to start before anything is typed', async () => {
 		shelfState.recipes = [
 			shelfRecipe('draft-1', 'shakshuka', { finalizedAt: null }),
@@ -328,6 +352,40 @@ describe('the one box', () => {
 		await expect
 			.poll(() => router.state.location.pathname)
 			.toBe('/recipes/recipe-1')
+	})
+
+	test('opens compact on phones so the keyboard has nothing to shrink', async () => {
+		if (!isPhone()) return
+
+		const { input } = await openBox()
+		const dialog = document.querySelector('[role="dialog"]')
+
+		if (!dialog) throw new Error('missing finder dialog')
+		expect(dialog.getBoundingClientRect().height).toBeLessThanOrEqual(448)
+		await expect.element(input).toBeVisible()
+		expect(input.element().getBoundingClientRect().top).toBeGreaterThanOrEqual(
+			0,
+		)
+	})
+
+	test('keeps the search bar on screen while a recipe is previewed', async () => {
+		shelfState.recipes = [miso]
+		server.search.mockReturnValue(new Promise(() => {}))
+
+		const { screen, input } = await openBox()
+
+		await input.fill('mis')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.element(screen.getByRole('button', { name: 'back to results' }))
+			.toBeVisible()
+		await expect.element(input).toBeVisible()
+
+		// Typing again leaves the preview for the new search.
+		await input.fill('dal')
+		await expect
+			.element(screen.getByRole('button', { name: 'back to results' }))
+			.not.toBeInTheDocument()
 	})
 
 	test('moves through recipes with the keyboard', async () => {
