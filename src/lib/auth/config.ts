@@ -8,6 +8,7 @@ import { account, session, user, verification } from '@/db/schema'
 import { serverEnv as env } from '@/env.server'
 
 import { moveGuestDataToNewUser } from './link-account'
+import { proxyCredentials, proxyUrls } from './proxy-config'
 
 const appUrl = new URL(env.BETTER_AUTH_URL)
 
@@ -27,20 +28,40 @@ export const allowedHosts = [
 ]
 
 function createAuth() {
-	// Preview and production must share this secret, or Google sign-in fails.
+	const {
+		clientId: googleClientId,
+		clientSecret: googleClientSecret,
+		proxySecret,
+	} = proxyCredentials({
+		appEnv: env.APP_ENV,
+		brokerUrl: env.OAUTH_BROKER_URL,
+		standard: {
+			clientId: env.GOOGLE_CLIENT_ID,
+			clientSecret: env.GOOGLE_CLIENT_SECRET,
+			proxySecret: env.OAUTH_PROXY_SECRET,
+		},
+		broker: {
+			clientId: env.OAUTH_BROKER_GOOGLE_CLIENT_ID,
+			clientSecret: env.OAUTH_BROKER_GOOGLE_CLIENT_SECRET,
+			proxySecret: env.OAUTH_BROKER_SECRET,
+		},
+	})
+
+	// Every environment using a proxy must share that proxy’s secret.
 	if (
-		env.GOOGLE_CLIENT_ID &&
-		env.GOOGLE_CLIENT_SECRET &&
-		!env.OAUTH_PROXY_SECRET &&
-		env.APP_ENV !== 'development'
+		googleClientId &&
+		googleClientSecret &&
+		!proxySecret &&
+		(env.APP_ENV !== 'development' || env.OAUTH_BROKER_URL)
 	) {
 		throw new Error(
-			'OAUTH_PROXY_SECRET is not set. Google sign-in needs the same value in preview and production.',
+			'OAUTH_PROXY_SECRET is not set. Google sign-in needs the same value as its OAuth proxy.',
 		)
 	}
 
 	return betterAuth({
 		appName: 'dutch-oven',
+		disabledPaths: ['/sign-in/anonymous'],
 		baseURL: {
 			allowedHosts,
 			protocol: 'auto',
@@ -53,22 +74,25 @@ function createAuth() {
 		}),
 		emailAndPassword: { enabled: true, autoSignIn: true },
 		socialProviders:
-			env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+			googleClientId && googleClientSecret
 				? {
 						google: {
-							clientId: env.GOOGLE_CLIENT_ID,
-							clientSecret: env.GOOGLE_CLIENT_SECRET,
+							clientId: googleClientId,
+							clientSecret: googleClientSecret,
 						},
 					}
 				: {},
 		plugins: [
-			// Dev uses a shared "Desktop app" Google OAuth client, which accepts
-			// any loopback port without registration — so every app/workspace
-			// bounces through its own daemon (appOrigin is localhost:<port> in
-			// dev). In prod appOrigin is the real domain and the proxy no-ops.
+			// Keep production on its own proxy; trusted development and preview
+			// environments can opt into the shared broker independently.
 			oAuthProxy({
-				productionURL: appOrigin,
-				secret: env.OAUTH_PROXY_SECRET,
+				...proxyUrls({
+					appEnv: env.APP_ENV,
+					appOrigin,
+					brokerUrl: env.OAUTH_BROKER_URL,
+					workspaceUrl: env.BASE_URL,
+				}),
+				secret: proxySecret,
 			}),
 			anonymous({
 				emailDomainName: appHostname,

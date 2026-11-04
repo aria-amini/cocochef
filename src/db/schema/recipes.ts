@@ -23,28 +23,9 @@ export type RecipeIngredient = {
 	note?: string | null
 }
 
-export const collections = snakeCase.table(
-	'collections',
-	{
-		id: text().primaryKey(),
-		userId: text().notNull(),
-		name: text().notNull(),
-		position: integer().notNull(),
-		createdAt: timestamp({ withTimezone: true }).notNull(),
-	},
-	(table) => [
-		index('collections_user_id_index').on(table.userId),
-		foreignKey({
-			columns: [table.userId],
-			foreignColumns: [user.id],
-			name: 'collections_user_id_fk',
-		}).onDelete('cascade'),
-	],
-)
-
 // One recipe, shared by everyone who saves it. A recipe from the web has no
 // owner and one row per page; a recipe someone writes, or a copy they edit, is
-// theirs alone. Who saved what, and in which book, lives in `shelfRecipes`.
+// theirs alone. Who saved what lives in `shelfRecipes`.
 export const recipes = snakeCase.table(
 	'recipes',
 	{
@@ -82,15 +63,14 @@ export const recipes = snakeCase.table(
 	],
 )
 
-// A recipe on someone's shelf, with what is theirs about it: its book and their
-// notes. Cooking counts come from meal logs.
+// A recipe on someone's shelf, with what is theirs about it: their notes.
+// Cooking counts come from meal logs.
 export const shelfRecipes = snakeCase.table(
 	'shelf_recipes',
 	{
 		id: text().primaryKey(),
 		userId: text().notNull(),
 		recipeId: text().notNull(),
-		collectionId: text(),
 		notes: text(),
 		addedAt: timestamp({ withTimezone: true }).notNull(),
 	},
@@ -100,7 +80,6 @@ export const shelfRecipes = snakeCase.table(
 			table.recipeId,
 		),
 		index('shelf_recipes_recipe_id_index').on(table.recipeId),
-		index('shelf_recipes_collection_id_index').on(table.collectionId),
 		foreignKey({
 			columns: [table.userId],
 			foreignColumns: [user.id],
@@ -111,11 +90,6 @@ export const shelfRecipes = snakeCase.table(
 			foreignColumns: [recipes.id],
 			name: 'shelf_recipes_recipe_id_fk',
 		}).onDelete('cascade'),
-		foreignKey({
-			columns: [table.collectionId],
-			foreignColumns: [collections.id],
-			name: 'shelf_recipes_collection_id_fk',
-		}).onDelete('set null'),
 	],
 )
 

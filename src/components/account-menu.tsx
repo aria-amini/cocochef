@@ -1,6 +1,7 @@
 import { Menu } from '@base-ui/react/menu'
 import {
 	CaretUpDownIcon,
+	GearIcon,
 	SignInIcon,
 	SignOutIcon,
 	UserIcon,
@@ -189,9 +190,9 @@ export function AccountMenu({ variant }: { variant: Variant }) {
 				</div>
 			}
 		>
-			<Menu.LinkItem className={itemClassName} render={<Link to="/profile" />}>
-				<UserIcon size={16} weight="bold" aria-hidden />
-				profile & photo
+			<Menu.LinkItem className={itemClassName} render={<Link to="/settings" />}>
+				<GearIcon size={16} weight="bold" aria-hidden />
+				settings
 			</Menu.LinkItem>
 			<SignOutItem />
 		</AccountMenuShell>

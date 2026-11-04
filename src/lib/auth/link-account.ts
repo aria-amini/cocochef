@@ -1,13 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 
 import { type Database, getDb } from '@/db/connection'
-import {
-	collections,
-	mealLogs,
-	pantryItems,
-	recipes,
-	shelfRecipes,
-} from '@/db/schema'
+import { mealLogs, pantryItems, recipes, shelfRecipes } from '@/db/schema'
 
 interface LinkAccountParams {
 	anonymousUser: { user: { id: string } }
@@ -42,13 +36,7 @@ export async function moveGuestDataToNewUser(
 				),
 			)
 
-		for (const table of [
-			recipes,
-			shelfRecipes,
-			collections,
-			mealLogs,
-			pantryItems,
-		]) {
+		for (const table of [recipes, shelfRecipes, mealLogs, pantryItems]) {
 			await tx
 				.update(table)
 				.set({ userId: toId })

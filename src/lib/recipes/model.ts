@@ -6,6 +6,9 @@ export const recipeTitleMax = 120
 
 export const recipeNotesMax = 2000
 
+// Publisher notes are kept as imported, including line breaks and empty checked markers.
+export const recipeSourceNotes = z.string()
+
 // zod measures string length in code points, so truncate the same way to avoid splitting a surrogate pair
 export const clampRecipeTitle = (title: string) =>
 	Array.from(title.trim()).slice(0, recipeTitleMax).join('')
@@ -47,7 +50,6 @@ export const recipeInput = z.object({
 		z.union([recipeFields.imageUrl, recipePhotoPath]).optional(),
 	),
 	sourceUrl: recipeFields.sourceUrl.optional(),
-	collectionId: z.string().min(1).optional(),
 	finalized: z.boolean().optional(),
 	notes: recipeFields.notes.optional().transform((notes) => notes || undefined),
 	ingredients: contentLines.optional(),
@@ -60,6 +62,8 @@ export const recipeUpdateInput = z.object({
 	title: recipeFields.title,
 	// Omitted keeps the current photo; null removes it.
 	imageUrl: z.union([recipeFields.imageUrl, recipePhotoPath]).nullish(),
+	// Omitted keeps the link to where the recipe came from; null removes it.
+	sourceUrl: recipeFields.sourceUrl.nullish(),
 	notes: recipeFields.notes.nullable().transform((notes) => notes || null),
 	finalize: z.boolean().optional(),
 	ingredients: contentLines,
@@ -87,24 +91,6 @@ export function formatMinutes(minutes: number) {
 
 	return rest ? `${hours} hr ${rest} min` : `${hours} hr`
 }
-
-export const bookNameMax = 40
-
-export const bookName = z.string().trim().min(1).max(bookNameMax)
-
-export const bookInput = z.object({ name: bookName })
-
-export const bookIdInput = z.object({ id: z.string().min(1) })
-
-export const bookRenameInput = z.object({
-	id: z.string().min(1),
-	name: bookName,
-})
-
-export const recipeMoveInput = z.object({
-	id: z.string().min(1),
-	collectionId: z.string().min(1).nullable(),
-})
 
 export function matchesRecipeQuery(title: string, query: string | undefined) {
 	return !query || title.toLocaleLowerCase().includes(query.toLocaleLowerCase())

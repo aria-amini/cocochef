@@ -9,11 +9,9 @@ import { user } from '@/db/schema'
 import { getRecipeShare, saveSharingProfile } from '@/lib/sharing/repository'
 
 import {
-	createCollectionForUser,
 	createRecipeForUser,
 	createSharedRecipe,
 	getRecipeForUser,
-	listCollectionsForUser,
 	listShelfForUser,
 	saveRecipeForUser,
 } from './repository'
@@ -48,12 +46,11 @@ async function carry(db: Database, from: string) {
 }
 
 describe('moving recipes between kitchens', () => {
-	test('carries a recipe, its notes, groups and book to another kitchen', async ({
+	test('carries a recipe, its notes and groups to another kitchen', async ({
 		db,
 	}) => {
 		const preview = await seedUser(db)
 		const prod = await seedUser(db)
-		const book = await createCollectionForUser(preview, 'soups', db)
 
 		await createRecipeForUser(
 			preview,
@@ -62,7 +59,7 @@ describe('moving recipes between kitchens', () => {
 				sourceUrl: 'https://example.com/resteh',
 				imageUrl: `recipes/${preview}-photo`,
 				notes: 'less salt',
-				collectionId: book?.id,
+				sourceNotes: 'Publisher tip\nKeep chilled.',
 				ingredients: ['## sauce', '2 large eggs'],
 				ingredientCategories: { '2 large eggs': 'other' },
 				steps: ['simmer'],
@@ -91,6 +88,7 @@ describe('moving recipes between kitchens', () => {
 		expect(copied).toMatchObject({
 			owned: true,
 			notes: 'less salt',
+			sourceNotes: 'Publisher tip\nKeep chilled.',
 			sourceUrl: 'https://example.com/resteh',
 			// A photo stored on the other deployment cannot come along.
 			imageUrl: null,
@@ -98,15 +96,10 @@ describe('moving recipes between kitchens', () => {
 			ingredientCategories: { '2 large eggs': 'other' },
 			steps: ['simmer'],
 		})
-		await expect(listCollectionsForUser(prod, db)).resolves.toMatchObject([
-			{ name: 'soups' },
-		])
-		expect(copied?.collectionId).toBe(
-			(await listCollectionsForUser(prod, db))[0]?.id,
-		)
 
+		// A draft in the file arrives as a finished recipe.
 		const draft = shelf.recipes.find((recipe) => recipe.title === 'half done')
-		expect(draft?.finalizedAt).toBeNull()
+		expect(draft?.finalizedAt).not.toBeNull()
 	})
 
 	test('does not double a recipe that is already there', async ({ db }) => {

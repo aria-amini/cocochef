@@ -1,8 +1,12 @@
-import { createFileRoute, notFound, redirect } from '@tanstack/react-router'
+import { createFileRoute, notFound } from '@tanstack/react-router'
 
+import { AppChrome } from '@/components/app-chrome'
 import { PublicRecipePage } from '@/components/public-recipes'
+import { RecipeAccessDenied } from '@/components/recipe-access-denied'
+import { RecipeDetail } from '@/components/recipe-detail'
 import { getCurrentSession } from '@/lib/auth/session'
-import { readPublicRecipe } from '@/lib/sharing/server'
+import { getRecipe } from '@/lib/recipes/server'
+import { readOwnedRecipeAddress, readPublicRecipe } from '@/lib/sharing/server'
 
 export const Route = createFileRoute('/$handle/$slug')({
 	loader: async ({ params }) => {
@@ -11,18 +15,32 @@ export const Route = createFileRoute('/$handle/$slug')({
 			getCurrentSession(),
 		])
 
-		if (!recipe) throw notFound()
+		if (!recipe) {
+			if (session && !session.user.isAnonymous) {
+				const owned = await readOwnedRecipeAddress({ data: params })
+
+				if (owned) {
+					const full = await getRecipe({ data: { id: owned.id } })
+
+					if (full) return { kind: 'app' as const, recipe: full }
+				}
+			}
+
+			// Missing and private recipes look the same, and both are a real 404.
+			throw notFound()
+		}
 
 		// Anyone the app already knows gets the recipe in the app, with the
-		// sidebar, cooking, and saving. Visitors with no session (readers,
-		// crawlers, link previews) get this page; no guest account is made for them.
-		if (session)
-			throw redirect({
-				to: '/recipes/$recipeId',
-				params: { recipeId: recipe.id },
-			})
+		// sidebar, cooking, and saving, at this same readable address. Visitors
+		// with no session (readers, crawlers, link previews) get the plain page;
+		// no guest account is made for them.
+		if (session) {
+			const full = await getRecipe({ data: { id: recipe.id } })
 
-		return recipe
+			if (full) return { kind: 'app' as const, recipe: full }
+		}
+
+		return { kind: 'public' as const, recipe }
 	},
 	staleTime: 0,
 	gcTime: 0,
@@ -31,11 +49,31 @@ export const Route = createFileRoute('/$handle/$slug')({
 		meta: [
 			{
 				title: loaderData
-					? `${loaderData.title} · dutch-oven`
+					? `${loaderData.recipe.title} · dutch-oven`
 					: 'recipe · dutch-oven',
 			},
-			{ property: 'og:title', content: loaderData?.title ?? 'recipe' },
+			{
+				property: 'og:title',
+				content: loaderData?.recipe.title ?? 'recipe',
+			},
 		],
 	}),
-	component: () => <PublicRecipePage recipe={Route.useLoaderData()} />,
+	notFoundComponent: () => (
+		<AppChrome>
+			<RecipeAccessDenied />
+		</AppChrome>
+	),
+	component: SharedRecipe,
 })
+
+function SharedRecipe() {
+	const data = Route.useLoaderData()
+
+	return data.kind === 'app' ? (
+		<AppChrome>
+			<RecipeDetail recipe={data.recipe} />
+		</AppChrome>
+	) : (
+		<PublicRecipePage recipe={data.recipe} />
+	)
+}

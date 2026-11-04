@@ -18,20 +18,23 @@ import {
 
 import { type Database, getDb } from '@/db/connection'
 import {
-	collections,
 	mealLogs,
 	recipeIngredients,
 	recipeSteps,
 	recipes,
 	recipeShares,
 	shelfRecipes,
+	sharingProfiles,
 } from '@/db/schema'
 import {
 	ownsRecipePhoto,
 	type IngredientCategories,
 	type RecipeUpdate,
 } from '@/lib/recipes/model'
-import { publishFinishedRecipe } from '@/lib/sharing/repository'
+import {
+	publishFinishedRecipe,
+	reservePrivateRecipeAddress,
+} from '@/lib/sharing/repository'
 
 type RecipeDatabase =
 	| Database
@@ -73,19 +76,19 @@ function cookStatsForUser(database: Database, userId: string) {
 		.as('cook_stats')
 }
 
-// A recipe as one user sees it: the shared content, plus their shelf row (book
-// and notes, when saved) and how often they cooked it.
+// A recipe as one user sees it: the shared content, plus their shelf row (notes,
+// when saved) and how often they cooked it.
 function recipesForUser(database: Database, userId: string) {
 	const stats = cookStatsForUser(database, userId)
 
 	return database
 		.select({
 			...getColumns(recipes),
-			collectionId: shelfRecipes.collectionId,
 			notes: shelfRecipes.notes,
 			savedAt: shelfRecipes.addedAt,
 			cookCount: sql<number>`coalesce(${stats.cookCount}, 0)`.mapWith(Number),
 			lastCookedAt: stats.lastCookedAt,
+			visibility: recipeShares.visibility,
 		})
 		.from(recipes)
 		.leftJoin(
@@ -93,6 +96,13 @@ function recipesForUser(database: Database, userId: string) {
 			and(
 				eq(shelfRecipes.recipeId, recipes.id),
 				eq(shelfRecipes.userId, userId),
+			),
+		)
+		.leftJoin(
+			recipeShares,
+			and(
+				eq(recipeShares.recipeId, recipes.id),
+				eq(recipeShares.userId, userId),
 			),
 		)
 		.leftJoin(stats, eq(stats.recipeId, recipes.id))
@@ -103,14 +113,11 @@ export async function listShelfForUser(
 	userId: string,
 	database: Database = getDb(),
 ) {
-	const [userCollections, userRecipes] = await Promise.all([
-		listCollectionsForUser(userId, database),
-		recipesForUser(database, userId)
-			.where(and(eq(shelfRecipes.userId, userId), visibleTo(userId, database)))
-			.orderBy(desc(shelfRecipes.addedAt)),
-	])
+	const userRecipes = await recipesForUser(database, userId)
+		.where(and(eq(shelfRecipes.userId, userId), visibleTo(userId, database)))
+		.orderBy(desc(shelfRecipes.addedAt))
 
-	return { collections: userCollections, recipes: userRecipes }
+	return { recipes: userRecipes }
 }
 
 async function recipeContent(database: RecipeDatabase, recipeId: string) {
@@ -141,6 +148,43 @@ async function recipeContent(database: RecipeDatabase, recipeId: string) {
 	}
 }
 
+// The readable address of a published recipe: /handle/slug, from the viewer's
+// own publication of it, else its writer's. Null while it is not public, so
+// the page keeps the plain id address.
+async function publicPathFor(
+	database: RecipeDatabase,
+	userId: string,
+	recipe: { id: string; userId: string | null; finalizedAt: Date | null },
+) {
+	const owners = [userId, ...(recipe.userId ? [recipe.userId] : [])]
+
+	const published = await database
+		.select({
+			ownerId: recipeShares.userId,
+			slug: recipeShares.slug,
+			handle: sharingProfiles.handle,
+		})
+		.from(recipeShares)
+		.innerJoin(sharingProfiles, eq(sharingProfiles.userId, recipeShares.userId))
+		.where(
+			and(
+				eq(recipeShares.recipeId, recipe.id),
+				// A private or unlisted share only counts for the cook who owns it.
+				or(
+					eq(recipeShares.visibility, 'public'),
+					recipe.userId === userId
+						? eq(recipeShares.userId, userId)
+						: sql`false`,
+				),
+				inArray(recipeShares.userId, owners),
+			),
+		)
+
+	const share = published.find((row) => row.ownerId === userId) ?? published[0]
+
+	return share ? `/${share.handle}/${share.slug}` : null
+}
+
 export async function getRecipeForUser(
 	userId: string,
 	id: string,
@@ -152,9 +196,53 @@ export async function getRecipeForUser(
 
 	if (!recipe) return null
 
+	// Credit goes by the public profile name, never the account name, which may
+	// be a real name an identity provider supplied. A profile with no public
+	// recipe is not public, so it is not credited.
+	const publicProfile = (userIdColumn: typeof sharingProfiles.userId) =>
+		exists(
+			database
+				.select({ one: sql`1` })
+				.from(recipeShares)
+				.where(
+					and(
+						eq(recipeShares.userId, userIdColumn),
+						eq(recipeShares.visibility, 'public'),
+					),
+				),
+		)
+
+	const [author] = recipe.userId
+		? await database
+				.select({ name: sharingProfiles.displayName })
+				.from(sharingProfiles)
+				.where(
+					and(
+						eq(sharingProfiles.userId, recipe.userId),
+						publicProfile(sharingProfiles.userId),
+					),
+				)
+		: []
+
+	const [original] = recipe.forkedFromId
+		? await database
+				.select({ name: sharingProfiles.displayName })
+				.from(recipes)
+				.innerJoin(sharingProfiles, eq(sharingProfiles.userId, recipes.userId))
+				.where(
+					and(
+						eq(recipes.id, recipe.forkedFromId),
+						publicProfile(sharingProfiles.userId),
+					),
+				)
+		: []
+
 	return {
 		...recipe,
+		authorName: author?.name ?? null,
+		originalAuthorName: original?.name ?? null,
 		...(await recipeContent(database, recipe.id)),
+		publicPath: await publicPathFor(database, userId, recipe),
 		saved: recipe.savedAt !== null,
 		owned: recipe.userId === userId,
 	}
@@ -315,82 +403,6 @@ export async function popularSharedRecipes(
 		.limit(limit)
 }
 
-async function assertOwnedCollection(
-	database: RecipeDatabase,
-	userId: string,
-	id: string,
-) {
-	const [owned] = await database
-		.select({ id: collections.id })
-		.from(collections)
-		.where(and(eq(collections.id, id), eq(collections.userId, userId)))
-
-	if (!owned) throw new Error('collection not found')
-}
-
-export async function listCollectionsForUser(
-	userId: string,
-	database: Database = getDb(),
-) {
-	return database
-		.select()
-		.from(collections)
-		.where(eq(collections.userId, userId))
-		.orderBy(asc(collections.position), asc(collections.createdAt))
-}
-
-export async function renameCollectionForUser(
-	userId: string,
-	id: string,
-	name: string,
-	database: Database = getDb(),
-) {
-	const [collection] = await database
-		.update(collections)
-		.set({ name })
-		.where(and(eq(collections.id, id), eq(collections.userId, userId)))
-		.returning()
-
-	return collection ?? null
-}
-
-export async function deleteCollectionForUser(
-	userId: string,
-	id: string,
-	database: Database = getDb(),
-) {
-	const [collection] = await database
-		.delete(collections)
-		.where(and(eq(collections.id, id), eq(collections.userId, userId)))
-		.returning({ id: collections.id })
-
-	return collection ?? null
-}
-
-export async function createCollectionForUser(
-	userId: string,
-	name: string,
-	database: Database = getDb(),
-) {
-	const [row] = await database
-		.select({ value: max(collections.position) })
-		.from(collections)
-		.where(eq(collections.userId, userId))
-
-	const [collection] = await database
-		.insert(collections)
-		.values({
-			id: crypto.randomUUID(),
-			userId,
-			name,
-			position: (row?.value ?? -1) + 1,
-			createdAt: new Date(),
-		})
-		.returning()
-
-	return collection
-}
-
 async function assertVisibleRecipe(
 	database: RecipeDatabase,
 	userId: string,
@@ -429,24 +441,54 @@ export async function saveRecipeForUser(
 	return recipe
 }
 
-export async function moveRecipeForUser(
+// Copy only content the viewer may read. The copy belongs to the account and
+// starts private, independently of the original and its future edits.
+export async function copyRecipeForUser(
 	userId: string,
 	id: string,
-	collectionId: string | null,
 	database: Database = getDb(),
 ) {
 	return database.transaction(async (tx) => {
-		if (collectionId) await assertOwnedCollection(tx, userId, collectionId)
+		const original = await assertVisibleRecipe(tx, userId, id)
 
-		const [shelved] = await tx
-			.update(shelfRecipes)
-			.set({ collectionId })
-			.where(
-				and(eq(shelfRecipes.recipeId, id), eq(shelfRecipes.userId, userId)),
-			)
+		if (!original || !original.finalizedAt) return null
+		const content = await recipeContent(tx, id)
+
+		const [copy] = await tx
+			.insert(recipes)
+			.values({
+				id: crypto.randomUUID(),
+				userId,
+				forkedFromId: original.id,
+				title: original.title,
+				imageUrl: original.imageUrl,
+				sourceUrl: original.sourceUrl,
+				sourceNotes: original.sourceNotes,
+				servings: original.servings,
+				totalMinutes: original.totalMinutes,
+				createdAt: new Date(),
+				finalizedAt: new Date(),
+			})
 			.returning()
 
-		return shelved ?? null
+		if (!copy) return null
+		await insertRecipeContent(
+			tx,
+			copy.id,
+			content.ingredients,
+			content.steps,
+			content.ingredientCategories,
+		)
+		await tx.insert(shelfRecipes).values({
+			id: crypto.randomUUID(),
+			userId,
+			recipeId: copy.id,
+			addedAt: copy.createdAt,
+		})
+
+		const path = await reservePrivateRecipeAddress(userId, copy, tx)
+
+		return { ...copy, path }
 	})
 }
 
@@ -470,7 +512,9 @@ export async function createRecipeForUser(
 		title: string
 		imageUrl?: string | undefined
 		sourceUrl?: string | undefined
-		collectionId?: string | undefined
+		sourceNotes?:
+			| NonNullable<typeof recipes.$inferSelect.sourceNotes>
+			| undefined
 		notes?: string | undefined
 		ingredients?: string[] | undefined
 		ingredientCategories?: IngredientCategories | undefined
@@ -485,10 +529,6 @@ export async function createRecipeForUser(
 	assertRecipePhoto(userId, input.imageUrl)
 
 	return database.transaction(async (tx) => {
-		if (input.collectionId) {
-			await assertOwnedCollection(tx, userId, input.collectionId)
-		}
-
 		const [recipe] = await tx
 			.insert(recipes)
 			.values({
@@ -497,6 +537,7 @@ export async function createRecipeForUser(
 				title: input.title,
 				imageUrl: input.imageUrl ?? null,
 				sourceUrl: input.sourceUrl ?? null,
+				sourceNotes: input.sourceNotes ?? null,
 				createdAt: new Date(),
 				finalizedAt: input.finalized === false ? null : new Date(),
 			})
@@ -514,7 +555,6 @@ export async function createRecipeForUser(
 			id: crypto.randomUUID(),
 			userId,
 			recipeId: recipe.id,
-			collectionId: input.collectionId ?? null,
 			notes: input.notes ?? null,
 			addedAt: recipe.createdAt,
 		})
@@ -691,64 +731,10 @@ async function moveShelfToCopy(
 		.where(and(eq(mealLogs.userId, userId), eq(mealLogs.recipeId, originalId)))
 }
 
-// Takes a recipe over: it becomes the user's own, with no link back to the
-// recipe it was copied from or the website it came from. A shared recipe is
-// copied first, as the first edit would; the original stays as it was.
-export async function claimRecipeForUser(
-	userId: string,
-	id: string,
-	database: Database = getDb(),
-) {
-	return database.transaction(async (tx) => {
-		const current = await assertVisibleRecipe(tx, userId, id)
-
-		if (!current) return null
-
-		if (current.userId === userId) {
-			const [claimed] = await tx
-				.update(recipes)
-				.set({ forkedFromId: null, sourceUrl: null })
-				.where(and(eq(recipes.id, id), eq(recipes.userId, userId)))
-				.returning()
-
-			return claimed ?? null
-		}
-
-		const content = await recipeContent(tx, id)
-
-		const [copy] = await tx
-			.insert(recipes)
-			.values({
-				id: crypto.randomUUID(),
-				userId,
-				title: current.title,
-				imageUrl: current.imageUrl,
-				sourceNotes: current.sourceNotes,
-				servings: current.servings,
-				totalMinutes: current.totalMinutes,
-				createdAt: new Date(),
-				finalizedAt: new Date(),
-			})
-			.returning()
-
-		if (!copy) return null
-		await insertRecipeContent(
-			tx,
-			copy.id,
-			content.ingredients,
-			content.steps,
-			content.ingredientCategories,
-		)
-		await moveShelfToCopy(tx, userId, current.id, copy.id)
-		await publishFinishedRecipe(userId, copy, tx)
-
-		return copy
-	})
-}
-
 // Edits land on the user's own recipe. A shared recipe is never changed: the
 // first real edit copies it for them, and their shelf row and cooks move to the
-// copy. Notes are theirs either way and never copy anything.
+// copy. Notes are theirs either way and never copy anything. A new or removed
+// source link counts as a change, so it copies a shared recipe too.
 export async function updateRecipeForUser(
 	userId: string,
 	{
@@ -758,6 +744,7 @@ export async function updateRecipeForUser(
 		steps,
 		finalize,
 		notes,
+		sourceUrl,
 		...details
 	}: RecipeUpdate,
 	database: Database = getDb(),
@@ -774,7 +761,11 @@ export async function updateRecipeForUser(
 		if (current.userId === userId) {
 			const [updated] = await tx
 				.update(recipes)
-				.set(finalize ? { ...details, finalizedAt: new Date() } : details)
+				.set({
+					...details,
+					...(sourceUrl !== undefined && { sourceUrl }),
+					...(finalize && { finalizedAt: new Date() }),
+				})
 				.where(eq(recipes.id, id))
 				.returning()
 
@@ -798,6 +789,7 @@ export async function updateRecipeForUser(
 				details.title !== current.title ||
 				(details.imageUrl !== undefined &&
 					details.imageUrl !== current.imageUrl) ||
+				(sourceUrl !== undefined && sourceUrl !== current.sourceUrl) ||
 				!sameLines(contentLines(ingredients), content.ingredients) ||
 				!sameCategories(
 					categoriesFor(contentLines(ingredients), ingredientCategories),
@@ -817,7 +809,7 @@ export async function updateRecipeForUser(
 							details.imageUrl === undefined
 								? current.imageUrl
 								: details.imageUrl,
-						sourceUrl: current.sourceUrl,
+						sourceUrl: sourceUrl === undefined ? current.sourceUrl : sourceUrl,
 						sourceNotes: current.sourceNotes,
 						servings: current.servings,
 						totalMinutes: current.totalMinutes,
@@ -854,6 +846,48 @@ export async function updateRecipeForUser(
 			await publishFinishedRecipe(userId, recipe, tx)
 
 		return recipe
+	})
+}
+
+// Unsave only a shared recipe; this operation must never delete an owned recipe.
+export async function removeSavedRecipeForUser(
+	userId: string,
+	id: string,
+	database: Database = getDb(),
+) {
+	return database.transaction(async (tx) => {
+		const [removed] = await tx
+			.delete(shelfRecipes)
+			.where(
+				and(
+					eq(shelfRecipes.userId, userId),
+					eq(shelfRecipes.recipeId, id),
+					exists(
+						tx
+							.select({ id: recipes.id })
+							.from(recipes)
+							.where(
+								and(
+									eq(recipes.id, id),
+									or(
+										isNull(recipes.userId),
+										sql`${recipes.userId} <> ${userId}`,
+									),
+								),
+							),
+					),
+				),
+			)
+			.returning({ id: shelfRecipes.recipeId })
+
+		if (removed)
+			await tx
+				.delete(recipeShares)
+				.where(
+					and(eq(recipeShares.userId, userId), eq(recipeShares.recipeId, id)),
+				)
+
+		return removed ?? null
 	})
 }
 

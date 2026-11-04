@@ -10,23 +10,25 @@ import {
 	LinkSimpleIcon,
 	MagnifyingGlassIcon,
 	PencilSimpleIcon,
+	XIcon,
 } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
+import { Marked } from '@/components/marked'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import {
 	asRecipeUrl,
 	RecipeThumb,
 	useOnlineRecipes,
 } from '@/components/recipe-online'
+import { RecipeReader } from '@/components/recipe-reader'
 import { Skeleton } from '@/components/ui/skeleton'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
-import { ingredientHeading } from '@/lib/recipes/ingredient-line'
-import { formatMinutes, matchesRecipeQuery } from '@/lib/recipes/model'
+import { matchesRecipeQuery } from '@/lib/recipes/model'
 import { isPastedRecipe } from '@/lib/recipes/paste'
 import { getRecipe, listShelf } from '@/lib/recipes/server'
 import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
@@ -130,30 +132,6 @@ function fromShelf(recipe: ShelfRecipe): FoundRecipe {
 }
 
 // Marks every search word in `text`.
-function Marked({ text, terms }: { text: string; terms: string[] }) {
-	if (terms.length === 0) return text
-
-	const pattern = new RegExp(
-		`(${terms.map((term) => term.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
-		'gi',
-	)
-
-	return text.split(pattern).map((part, index) =>
-		index % 2 === 1 ? (
-			<mark
-				// Parts repeat; their place in the line is what tells them apart.
-				// oxlint-disable-next-line react/no-array-index-key
-				key={index}
-				className="bg-kitchen-yolk/45 text-foreground rounded-sm px-0.5"
-			>
-				{part}
-			</mark>
-		) : (
-			part
-		),
-	)
-}
-
 // Why a recipe is in the list, in a few words.
 function recipeNote(recipe: FoundRecipe) {
 	const base = recipe.saved
@@ -213,7 +191,7 @@ export function RecipeFinder({
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={input}
-					className="bg-background md:border-foreground/30 fixed inset-0 z-50 flex flex-col overflow-hidden outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl md:border md:shadow-md"
+					className="bg-background border-foreground/30 fixed inset-x-2 top-10 z-50 flex h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded-2xl border shadow-md outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl"
 				>
 					<Dialog.Title className="sr-only">find a recipe</Dialog.Title>
 					<FinderPanel
@@ -664,17 +642,25 @@ function FinderPanel({
 					)}
 				>
 					{previewing ? (
-						<button
-							type="button"
-							ref={backRef}
-							onClick={() => {
-								setPreviewing(false)
-							}}
-							className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant flex items-center gap-1.5 px-4 py-3 text-sm font-semibold focus-visible:outline-2"
-						>
-							<ArrowLeftIcon size={14} weight="bold" aria-hidden />
-							back to results
-						</button>
+						<div className="border-border flex items-center justify-between border-b pr-2">
+							<button
+								type="button"
+								ref={backRef}
+								onClick={() => {
+									setPreviewing(false)
+								}}
+								className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant flex min-h-11 items-center gap-1.5 px-4 text-sm font-semibold focus-visible:outline-2"
+							>
+								<ArrowLeftIcon size={14} weight="bold" aria-hidden />
+								back to results
+							</button>
+							<Dialog.Close
+								aria-label="close"
+								className="text-muted-foreground hover:text-foreground focus-visible:outline-kitchen-eggplant grid size-11 place-items-center rounded-md focus-visible:outline-2 md:hidden"
+							>
+								<XIcon size={18} weight="bold" aria-hidden />
+							</Dialog.Close>
+						</div>
 					) : null}
 					{previewing && error ? (
 						<p
@@ -943,6 +929,10 @@ function IngredientsLoading({ label }: { label: string }) {
 	)
 }
 
+// A found recipe up close. Once it is on the shelf it reads exactly as it does
+// on its own page; before that, a title and a note while it is fetched.
+// A found recipe up close. Once it is on the shelf it reads exactly as it does
+// on its own page; before that, a title and a note while it is fetched.
 function RecipePreview({
 	recipe,
 	recipeId,
@@ -962,141 +952,62 @@ function RecipePreview({
 		enabled: recipeId !== undefined,
 	})
 
-	const details = full.data
-	const imageUrl = details?.imageUrl ?? recipe.imageUrl
-
-	const facts = [
-		details?.owned ? 'your recipe' : recipe.siteName,
-		details?.totalMinutes ? formatMinutes(details.totalMinutes) : undefined,
-		details?.servings ? `serves ${details.servings}` : undefined,
-		details?.ingredients.length
-			? `${details.ingredients.length} ingredients`
-			: undefined,
-	].filter((fact) => fact !== undefined)
+	if (full.data)
+		return (
+			<div className="p-4 md:p-6">
+				<RecipeReader recipe={full.data} terms={terms} heading="h2" />
+			</div>
+		)
 
 	return (
-		<div className="flex flex-col">
-			<div className="flex flex-col gap-3 p-4">
-				<div className="flex items-start gap-3">
-					{imageUrl ? (
-						<img
-							src={imageUrl}
-							alt=""
-							referrerPolicy="no-referrer"
-							className="border-border size-20 shrink-0 rounded-xl border object-cover md:size-24"
-						/>
-					) : null}
-					<div className="flex min-w-0 flex-1 flex-col gap-2">
-						<h2 className="text-xl leading-tight font-bold">
-							<Marked text={recipe.title} terms={terms} />
-						</h2>
-						<ul
-							className="flex flex-wrap gap-1.5"
-							aria-label="about this recipe"
-						>
-							{facts.map((fact) => (
-								<li
-									key={fact}
-									className="border-border rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-								>
-									{fact}
-								</li>
-							))}
-						</ul>
-					</div>
-				</div>
-
-				{recipeId === undefined ? (
-					lookError ? (
-						<p className="text-muted-foreground text-sm font-semibold">
-							{lookError}.{' '}
-							{recipe.url ? (
-								<a
-									href={recipe.url}
-									target="_blank"
-									rel="noreferrer"
-									className="hover:text-foreground underline"
-								>
-									see the page on {hostOf(recipe.url)}
-								</a>
-							) : null}
-						</p>
-					) : (
-						<IngredientsLoading
-							label={
-								looking
-									? `reading the recipe from ${recipe.siteName}…`
-									: 'one moment…'
-							}
-						/>
-					)
-				) : full.isPending ? (
-					<IngredientsLoading label="reading the recipe…" />
-				) : details?.ingredients.length ? (
-					<section className="mt-5">
-						<h3 className="mb-4 text-xs font-semibold">
-							<span className="border-kitchen-tomato inline-block border-b-3 pb-0.5">
-								ingredients
-							</span>
-						</h3>
-						<ul
-							className="border-border bg-card overflow-hidden rounded-xl border"
-							aria-label="ingredients"
-						>
-							{details.ingredients.map((line, index) => {
-								const heading = ingredientHeading(line)
-
-								return heading !== undefined ? (
-									<li
-										key={line + index}
-										className="border-foreground/15 bg-muted/50 border-b px-4 pt-3 pb-2 text-sm font-bold last:border-b-0"
-									>
-										{heading}
-									</li>
-								) : (
-									<li
-										key={line + index}
-										className="border-foreground/15 flex items-center gap-3 border-b px-4 py-2.5 text-sm font-semibold last:border-b-0"
-									>
-										<span>
-											<Marked text={line} terms={terms} />
-										</span>
-									</li>
-								)
-							})}
-						</ul>
-					</section>
-				) : (
-					<p className="text-muted-foreground text-sm font-semibold">
-						no ingredients written yet.
-					</p>
-				)}
-				{details?.steps.length ? (
-					<section className="mt-5">
-						<h3 className="mb-4 text-xs font-semibold">
-							<span className="border-kitchen-eggplant inline-block border-b-3 pb-0.5">
-								steps
-							</span>
-						</h3>
-						<ol className="border-border bg-card overflow-hidden rounded-xl border">
-							{details.steps.map((step, index) => (
-								// oxlint-disable-next-line react/no-array-index-key
-								<li
-									key={index}
-									className="border-foreground/15 flex items-start gap-3 border-b px-4 py-3 text-sm leading-relaxed font-semibold last:border-b-0"
-								>
-									<span className="text-muted-foreground mt-0.5 text-xs font-bold">
-										{index + 1}
-									</span>
-									<span>
-										<Marked text={step} terms={terms} />
-									</span>
-								</li>
-							))}
-						</ol>
-					</section>
+		<div className="flex flex-col gap-3 p-4">
+			<div className="flex items-start gap-3">
+				{recipe.imageUrl ? (
+					<img
+						src={recipe.imageUrl}
+						alt=""
+						referrerPolicy="no-referrer"
+						className="border-border size-20 shrink-0 rounded-xl border object-cover md:size-24"
+					/>
 				) : null}
+				<div className="flex min-w-0 flex-1 flex-col gap-2">
+					<h2 className="text-xl leading-tight font-bold">
+						<Marked text={recipe.title} terms={terms} />
+					</h2>
+					<p className="text-muted-foreground text-sm font-semibold">
+						{recipe.siteName}
+					</p>
+				</div>
 			</div>
+			{recipeId === undefined && lookError ? (
+				<p className="text-muted-foreground text-sm font-semibold">
+					{lookError}.{' '}
+					{recipe.url ? (
+						<a
+							href={recipe.url}
+							target="_blank"
+							rel="noreferrer"
+							className="hover:text-foreground underline"
+						>
+							see the page on {hostOf(recipe.url)}
+						</a>
+					) : null}
+				</p>
+			) : full.isError || full.isSuccess ? (
+				<p role="alert" className="text-muted-foreground text-sm font-semibold">
+					couldn&apos;t read this recipe — try opening it.
+				</p>
+			) : (
+				<IngredientsLoading
+					label={
+						recipeId === undefined
+							? looking
+								? `reading the recipe from ${recipe.siteName}…`
+								: 'one moment…'
+							: 'reading the recipe…'
+					}
+				/>
+			)}
 		</div>
 	)
 }

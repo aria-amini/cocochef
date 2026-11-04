@@ -9,12 +9,7 @@ import {
 import { fieldLabelClassName } from '@/components/recipe-form'
 import { SortableList, SortableRow } from '@/components/sortable-list'
 import { placeholderClassName } from '@/components/ui/input'
-import {
-	pantryCategories,
-	pantryCategoryLabels,
-	type PantryCategory,
-} from '@/lib/pantry/model'
-import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
+import type { PantryCategory } from '@/lib/pantry/model'
 import {
 	formatIngredientHeading,
 	ingredientHeading,
@@ -293,14 +288,6 @@ export function IngredientListField({
 													<X size={14} weight="bold" aria-hidden />
 												</button>
 											</div>
-											{row.text.trim() ? (
-												<CategoryPicker
-													label={`Group for ingredient ${index + 1}`}
-													guess={ingredientCategory(row.text)}
-													value={row.category}
-													onChange={(category) => update(row.id, { category })}
-												/>
-											) : null}
 										</div>
 									</>
 								)
@@ -328,47 +315,5 @@ export function IngredientListField({
 				</button>
 			</div>
 		</fieldset>
-	)
-}
-
-// The by-category view groups an ingredient by guessing from its food; this
-// lets the cook put it somewhere else, or hand the choice back to the guess.
-function CategoryPicker({
-	label,
-	guess,
-	value,
-	onChange,
-}: {
-	label: string
-	guess: PantryCategory
-	value: PantryCategory | undefined
-	onChange: (category: PantryCategory | undefined) => void
-}) {
-	return (
-		<div className="text-muted-foreground flex items-center gap-1.5 px-3 pb-2 text-xs font-semibold">
-			<span aria-hidden>group</span>
-			<select
-				aria-label={label}
-				value={value ?? ''}
-				onChange={(event) =>
-					onChange(
-						pantryCategories.find(
-							(category) => category === event.target.value,
-						),
-					)
-				}
-				className={cn(
-					'border-input bg-card focus-visible:outline-kitchen-eggplant min-w-0 rounded-md border px-1.5 py-1 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2',
-					value ? 'text-foreground' : 'text-muted-foreground',
-				)}
-			>
-				<option value="">auto · {pantryCategoryLabels[guess]}</option>
-				{pantryCategories.map((category) => (
-					<option key={category} value={category}>
-						{pantryCategoryLabels[category]}
-					</option>
-				))}
-			</select>
-		</div>
 	)
 }

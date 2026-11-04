@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, isNull, or } from 'drizzle-orm'
+import { sql, and, asc, desc, eq, isNotNull, isNull, or } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { getDb, type Database } from '@/db/connection'
@@ -31,6 +31,25 @@ export async function getSharingProfile(
 	return profile ?? null
 }
 
+// A profile is public only once one of its recipes is.
+export async function hasPublicRecipe(
+	userId: string,
+	database: SharingDatabase = getDb(),
+) {
+	const [row] = await database
+		.select({ id: recipeShares.id })
+		.from(recipeShares)
+		.where(
+			and(
+				eq(recipeShares.userId, userId),
+				eq(recipeShares.visibility, 'public'),
+			),
+		)
+		.limit(1)
+
+	return row !== undefined
+}
+
 async function requireAccount(userId: string, database: SharingDatabase) {
 	const [account] = await database
 		.select({ anonymous: user.isAnonymous })
@@ -49,17 +68,16 @@ export async function saveSharingProfile(
 	await requireAccount(userId, database)
 
 	return database.transaction(async (tx) => {
-		const existing = await getSharingProfile(userId, tx)
-
-		if (existing && existing.handle !== data.handle)
-			throw new Error('your public handle cannot be changed')
-
 		const [profile] = await tx
 			.insert(sharingProfiles)
 			.values({ userId, ...data })
 			.onConflictDoUpdate({
 				target: sharingProfiles.userId,
-				set: { displayName: data.displayName, autoPublish: data.autoPublish },
+				set: {
+					handle: data.handle,
+					displayName: data.displayName,
+					autoPublish: data.autoPublish,
+				},
 			})
 			.returning()
 
@@ -157,6 +175,89 @@ async function writeRecipeShare(
 	throw new Error('could not create a sharing address — try again')
 }
 
+// Accounts receive a profile when they first need a recipe address. Use the
+// readable name when available, adding a suffix only to resolve collisions.
+async function ensureSharingProfile(userId: string, database: SharingDatabase) {
+	const existing = await getSharingProfile(userId, database)
+
+	if (existing) return existing
+
+	const [account] = await database
+		.select({ name: user.name, anonymous: user.isAnonymous })
+		.from(user)
+		.where(eq(user.id, userId))
+
+	if (!account || account.anonymous) throw new Error('sign in to save recipes')
+	const rawBase = sharingSlug(account.name).slice(0, 30) || 'cook'
+
+	const base =
+		rawBase.length >= 3 &&
+		sharingProfileInput.shape.handle.safeParse(rawBase).success
+			? rawBase
+			: `cook-${rawBase}`
+
+	for (let attempt = 0; attempt < 6; attempt++) {
+		const handle =
+			attempt === 0 ? base : `${base}-${crypto.randomUUID().slice(0, 8)}`
+
+		const [profile] = await database
+			.insert(sharingProfiles)
+			.values({
+				userId,
+				handle,
+				displayName: account.name.slice(0, 80) || 'cook',
+				autoPublish: false,
+			})
+			.onConflictDoNothing()
+			.returning()
+
+		if (profile) return profile
+		const concurrent = await getSharingProfile(userId, database)
+
+		if (concurrent) return concurrent
+	}
+
+	throw new Error('could not create your profile — try again')
+}
+
+// The address exists even while the recipe is private; only its owner can read it.
+export async function reservePrivateRecipeAddress(
+	userId: string,
+	recipe: typeof recipes.$inferSelect,
+	database: SharingDatabase = getDb(),
+) {
+	const profile = await ensureSharingProfile(userId, database)
+	const existing = await getRecipeShare(userId, recipe.id, database)
+
+	const share =
+		existing ?? (await writeRecipeShare(userId, recipe, 'private', database))
+
+	return `/${profile.handle}/${share.slug}`
+}
+
+export async function getOwnedRecipeAtAddress(
+	userId: string,
+	handle: string,
+	slug: string,
+	database: SharingDatabase = getDb(),
+) {
+	const [row] = await database
+		.select({ id: recipes.id })
+		.from(recipeShares)
+		.innerJoin(sharingProfiles, eq(sharingProfiles.userId, recipeShares.userId))
+		.innerJoin(recipes, eq(recipes.id, recipeShares.recipeId))
+		.where(
+			and(
+				eq(sharingProfiles.handle, handle),
+				eq(recipeShares.slug, slug),
+				eq(recipeShares.userId, userId),
+				eq(recipes.userId, userId),
+			),
+		)
+
+	return row ?? null
+}
+
 export async function setRecipeShare(
 	userId: string,
 	input: z.infer<typeof recipeShareInput>,
@@ -213,6 +314,7 @@ const publicFields = {
 	title: recipes.title,
 	imageUrl: recipes.imageUrl,
 	sourceUrl: recipes.sourceUrl,
+	sourceNotes: recipes.sourceNotes,
 	servings: recipes.servings,
 	totalMinutes: recipes.totalMinutes,
 }
@@ -270,6 +372,9 @@ export async function getPublicProfile(
 		)
 		.orderBy(desc(recipeShares.createdAt))
 
+	// A profile, and the name on it, is public only once it has a public recipe.
+	if (published.length === 0) return null
+
 	return {
 		handle: profile.handle,
 		displayName: profile.displayName,
@@ -284,6 +389,7 @@ export async function getPublishedRecipe(
 	const [row] = await database
 		.select({
 			recipe: publicFields,
+			forkedFromId: recipes.forkedFromId,
 			handle: sharingProfiles.handle,
 			displayName: sharingProfiles.displayName,
 		})
@@ -295,7 +401,8 @@ export async function getPublishedRecipe(
 				'token' in address
 					? and(
 							eq(recipeShares.token, address.token),
-							eq(recipeShares.visibility, 'unlisted'),
+							eq(recipeShares.visibility, 'public'),
+							sql`false`,
 						)
 					: and(
 							eq(sharingProfiles.handle, address.handle),
@@ -307,12 +414,31 @@ export async function getPublishedRecipe(
 			),
 		)
 
-	return row
-		? {
-				...(await publicContent(row.recipe, database)),
-				publisher: { handle: row.handle, displayName: row.displayName },
-			}
-		: null
+	if (!row) return null
+
+	const [original] = row.forkedFromId
+		? await database
+				.select({
+					userId: sharingProfiles.userId,
+					displayName: sharingProfiles.displayName,
+				})
+				.from(recipes)
+				.innerJoin(sharingProfiles, eq(sharingProfiles.userId, recipes.userId))
+				.where(eq(recipes.id, row.forkedFromId))
+		: []
+
+	// The original author is credited only while their profile is public, which
+	// means any public recipe of theirs, not just the one this was copied from.
+	const credited =
+		original && (await hasPublicRecipe(original.userId, database))
+			? original.displayName
+			: null
+
+	return {
+		...(await publicContent(row.recipe, database)),
+		publisher: { handle: row.handle, displayName: row.displayName },
+		originalAuthorName: credited,
+	}
 }
 
 export async function getWebRecipeLink(

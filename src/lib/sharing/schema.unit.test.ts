@@ -25,6 +25,10 @@ describe('public addresses', () => {
 			)
 	})
 	test('requires explicit visibility and makes bounded readable slugs', () => {
+		expect(
+			recipeShareInput.safeParse({ recipeId: 'recipe', visibility: 'unlisted' })
+				.success,
+		).toBe(false)
 		expect(recipeShareInput.safeParse({ recipeId: 'recipe' }).success).toBe(
 			false,
 		)

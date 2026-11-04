@@ -1,12 +1,15 @@
+import { Marked } from '@/components/marked'
 import { splitIngredientDetails } from '@/lib/recipes/ingredient-line'
 import { cn } from '@/lib/utils/ui'
 
 export function IngredientText({
 	text,
 	done = false,
+	terms = [],
 }: {
 	text: string
 	done?: boolean
+	terms?: string[]
 }) {
 	const display = text
 		.replace(/\(\s*,\s*/g, '(')
@@ -21,11 +24,11 @@ export function IngredientText({
 				done && 'text-muted-foreground line-through',
 			)}
 		>
-			{main}
+			<Marked text={main} terms={terms} />
 			{detail ? (
 				<span className="text-muted-foreground block text-sm leading-normal">
 					{' '}
-					{detail}
+					<Marked text={detail} terms={terms} />
 				</span>
 			) : null}
 		</span>

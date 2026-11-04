@@ -1,5 +1,7 @@
 import {
 	ArrowRight,
+	BookmarkSimpleIcon,
+	UserIcon,
 	MagnifyingGlassIcon,
 	PlusIcon,
 } from '@phosphor-icons/react'
@@ -13,6 +15,8 @@ import {
 	shelfHeadingClassName,
 } from '@/components/popular-recipes'
 import { useRecipeActions } from '@/components/recipe-actions'
+import { RecipeGlyph } from '@/components/recipe-glyph'
+import { authClient } from '@/lib/auth/client'
 import { listShelf } from '@/lib/recipes/server'
 import {
 	tileColorFor,
@@ -31,7 +35,8 @@ const ease = [0.16, 1, 0.3, 1] as const
 type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 
 function Shelf() {
-	const { recipes: userRecipes } = Route.useLoaderData()
+	const { recipes: shelfRecipes } = Route.useLoaderData()
+	const account = authClient.useSession().data?.user
 	const { find, importLink } = useRecipeActions()
 
 	const reduce = useReducedMotion()
@@ -44,11 +49,22 @@ function Shelf() {
 				transition: { duration: 0.6, ease },
 			}
 
-	const isEmpty = userRecipes.length === 0
+	const ownRecipes = shelfRecipes.filter(
+		(recipe) => !!account && recipe.userId === account.id,
+	)
+
+	const savedRecipes = shelfRecipes.filter(
+		(recipe) => !account || recipe.userId !== account.id,
+	)
+
+	const isEmpty = shelfRecipes.length === 0
 
 	return (
-		<main className="flex-1">
-			<motion.div {...enter} className="flex flex-col gap-8 p-6 md:p-10">
+		<main className="min-w-0 flex-1">
+			<motion.div
+				{...enter}
+				className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
+			>
 				<h1 className="sr-only">recipes</h1>
 				<div className="flex w-full max-w-3xl flex-wrap items-center gap-3">
 					<FinderBox onOpen={() => find()} />
@@ -84,27 +100,53 @@ function Shelf() {
 						</span>
 					</button>
 				) : null}
-				{isEmpty ? null : (
-					<section
-						aria-labelledby="your-recipes"
-						className="flex flex-col gap-3"
-					>
-						<h2
-							id="your-recipes"
-							className={cn(shelfHeadingClassName, 'border-kitchen-yolk')}
+				{[
+					{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes },
+					{
+						id: 'saved-recipes',
+						title: 'saved recipes',
+						recipes: savedRecipes,
+					},
+				].map(({ id, title, recipes }) =>
+					recipes.length ? (
+						<section
+							key={id}
+							aria-labelledby={id}
+							className="flex min-w-0 flex-col gap-3"
 						>
-							your recipes
-						</h2>
-						<div className={shelfGridClassName}>
-							{userRecipes.map((recipe) => (
-								<RecipeTile
-									key={recipe.id}
-									recipe={recipe}
-									color={tileColorFor(recipe.id)}
-								/>
-							))}
-						</div>
-					</section>
+							<h2
+								id={id}
+								className={cn(
+									shelfHeadingClassName,
+									'flex items-center gap-1.5',
+									id === 'your-recipes'
+										? 'border-kitchen-yolk'
+										: 'border-saved-blue/60',
+								)}
+							>
+								{id === 'your-recipes' ? (
+									<UserIcon size={15} weight="bold" aria-hidden />
+								) : (
+									<BookmarkSimpleIcon
+										size={15}
+										weight="fill"
+										aria-hidden
+										className="text-saved-blue"
+									/>
+								)}
+								{title}
+							</h2>
+							<div className={shelfGridClassName}>
+								{recipes.map((recipe) => (
+									<RecipeTile
+										key={recipe.id}
+										recipe={recipe}
+										color={tileColorFor(recipe.id)}
+									/>
+								))}
+							</div>
+						</section>
+					) : null,
 				)}
 				<PopularRecipes />
 			</motion.div>
@@ -177,15 +219,22 @@ function RecipeTile({ recipe, color }: { recipe: Recipe; color: TileColor }) {
 					</h3>
 				</>
 			) : (
-				// Long names stop short of the draft label rather than run under it.
-				<h3
-					className={cn(
-						'absolute right-3 bottom-2.5 left-3 text-xl leading-tight font-bold wrap-anywhere',
-						draft ? 'line-clamp-3' : 'line-clamp-4',
-					)}
-				>
-					{recipe.title}
-				</h3>
+				<>
+					<RecipeGlyph
+						title={recipe.title}
+						size={40}
+						className="text-foreground/60 absolute top-3 right-3"
+					/>
+					{/* Long names stop short of the draft label rather than run under it. */}
+					<h3
+						className={cn(
+							'absolute right-3 bottom-2.5 left-3 text-xl leading-tight font-bold wrap-anywhere',
+							draft ? 'line-clamp-3' : 'line-clamp-4',
+						)}
+					>
+						{recipe.title}
+					</h3>
+				</>
 			)}
 		</Link>
 	)

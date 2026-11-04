@@ -1,29 +1,25 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
-import { requireUserId } from '@/lib/auth/session'
+import {
+	getCurrentSession,
+	getViewerId,
+	requireAccountId,
+} from '@/lib/auth/session'
 import { resolveStoredImage } from '@/lib/s3'
+import {
+	getWebRecipeLink,
+	reservePrivateRecipeAddress,
+} from '@/lib/sharing/repository'
 
+import { recipeIdInput, recipeInput, recipeUpdateInput } from './model'
 import {
-	bookIdInput,
-	bookInput,
-	bookRenameInput,
-	recipeIdInput,
-	recipeInput,
-	recipeMoveInput,
-	recipeUpdateInput,
-} from './model'
-import {
-	createCollectionForUser,
-	claimRecipeForUser,
+	copyRecipeForUser,
 	createRecipeForUser,
-	deleteCollectionForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
-	listCollectionsForUser,
 	listShelfForUser,
-	moveRecipeForUser,
-	renameCollectionForUser,
+	removeSavedRecipeForUser,
 	saveRecipeForUser,
 	updateRecipeForUser,
 } from './repository'
@@ -47,7 +43,7 @@ async function withSignedImage<T extends { imageUrl: string | null }>(
 }
 
 export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
-	const shelf = await listShelfForUser(await requireUserId())
+	const shelf = await listShelfForUser(await getViewerId())
 
 	return {
 		...shelf,
@@ -58,19 +54,53 @@ export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
 export const getRecipe = createServerFn({ method: 'GET' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) => {
-		const recipe = await getRecipeForUser(await requireUserId(), data.id)
+		const viewerId = await getViewerId()
+		const recipe = await getRecipeForUser(viewerId, data.id)
 
-		return recipe ? withSignedImage(recipe) : recipe
+		if (!recipe) return recipe
+
+		// Reserving an address writes a profile, which only an account has; a guest
+		// who still owns an older recipe can open it without one.
+		const session = await getCurrentSession()
+
+		if (
+			!recipe.publicPath &&
+			recipe.owned &&
+			session &&
+			!session.user.isAnonymous
+		)
+			recipe.publicPath = await reservePrivateRecipeAddress(viewerId, recipe)
+
+		if (
+			!recipe.publicPath &&
+			!recipe.userId &&
+			recipe.sourceUrl &&
+			recipe.finalizedAt
+		) {
+			const link = await getWebRecipeLink(viewerId, recipe.id)
+
+			if (link) recipe.publicPath = `/sites/${link.site}/${link.slug}`
+		}
+
+		return withSignedImage(recipe)
 	})
+
+export const copyRecipe = createServerFn({ method: 'POST' })
+	.validator(recipeIdInput)
+	.handler(async ({ data }) =>
+		copyRecipeForUser(await requireAccountId('copy recipes'), data.id),
+	)
 
 export const createRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeInput)
-	.handler(async ({ data }) => createRecipeForUser(await requireUserId(), data))
+	.handler(async ({ data }) =>
+		createRecipeForUser(await requireAccountId('save recipes'), data),
+	)
 
 export const exportRecipes = createServerFn({ method: 'GET' })
 	.validator(z.object({ id: z.string().min(1).optional() }))
 	.handler(async ({ data }) =>
-		exportRecipesForUser(await requireUserId(), data.id),
+		exportRecipesForUser(await getViewerId(), data.id),
 	)
 
 export const importRecipes = createServerFn({ method: 'POST' })
@@ -80,55 +110,32 @@ export const importRecipes = createServerFn({ method: 'POST' })
 
 		if (!parsed.ok) throw new Error(parsed.error)
 
-		return importRecipesForUser(await requireUserId(), parsed.recipes)
+		return importRecipesForUser(
+			await requireAccountId('import recipes'),
+			parsed.recipes,
+		)
 	})
-
-export const claimRecipe = createServerFn({ method: 'POST' })
-	.validator(recipeIdInput)
-	.handler(async ({ data }) =>
-		claimRecipeForUser(await requireUserId(), data.id),
-	)
 
 export const saveRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) =>
-		saveRecipeForUser(await requireUserId(), data.id),
+		saveRecipeForUser(await requireAccountId('save recipes'), data.id),
+	)
+
+export const removeSavedRecipe = createServerFn({ method: 'POST' })
+	.validator(recipeIdInput)
+	.handler(async ({ data }) =>
+		removeSavedRecipeForUser(await requireAccountId('save recipes'), data.id),
 	)
 
 export const updateRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeUpdateInput)
-	.handler(async ({ data }) => updateRecipeForUser(await requireUserId(), data))
+	.handler(async ({ data }) =>
+		updateRecipeForUser(await requireAccountId('save recipes'), data),
+	)
 
 export const deleteRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) =>
-		deleteRecipeForUser(await requireUserId(), data.id),
-	)
-
-export const moveRecipe = createServerFn({ method: 'POST' })
-	.validator(recipeMoveInput)
-	.handler(async ({ data }) =>
-		moveRecipeForUser(await requireUserId(), data.id, data.collectionId),
-	)
-
-export const listBooks = createServerFn({ method: 'GET' }).handler(async () =>
-	listCollectionsForUser(await requireUserId()),
-)
-
-export const createBook = createServerFn({ method: 'POST' })
-	.validator(bookInput)
-	.handler(async ({ data }) =>
-		createCollectionForUser(await requireUserId(), data.name),
-	)
-
-export const renameBook = createServerFn({ method: 'POST' })
-	.validator(bookRenameInput)
-	.handler(async ({ data }) =>
-		renameCollectionForUser(await requireUserId(), data.id, data.name),
-	)
-
-export const deleteBook = createServerFn({ method: 'POST' })
-	.validator(bookIdInput)
-	.handler(async ({ data }) =>
-		deleteCollectionForUser(await requireUserId(), data.id),
+		deleteRecipeForUser(await requireAccountId('save recipes'), data.id),
 	)

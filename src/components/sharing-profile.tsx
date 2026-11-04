@@ -85,7 +85,7 @@ function SharingProfileForm({
 				const data = new FormData(event.currentTarget)
 				update.mutate({
 					data: {
-						handle: profile?.handle ?? handle,
+						handle,
 						displayName: displayName,
 						autoPublish: data.get('autoPublish') === 'on',
 					},
@@ -107,14 +107,12 @@ function SharingProfileForm({
 					maxLength={40}
 					pattern="[a-z0-9]+(-[a-z0-9]+)*"
 					required
-					disabled={!!profile}
 					autoCapitalize="none"
 					autoCorrect="off"
 				/>
 				<p className="text-muted-foreground text-sm">
-					your address is /{profile?.handle ?? 'your-handle'}. choose carefully;
-					handles stay fixed so links keep working. your real name isn&apos;t
-					required.
+					your address is /{handle || 'your-handle'}. changing it changes your
+					recipe links. your real name isn&apos;t required.
 				</p>
 			</div>
 			<div className="space-y-2">
@@ -159,8 +157,8 @@ function SharingProfileForm({
 				</span>
 			</label>
 			<p className="border-border border-t pt-4 text-sm">
-				drafts, personal notes, books, and cooking history stay private. each
-				finished recipe has its own sharing controls.
+				drafts, personal notes, and cooking history stay private. each finished
+				recipe has its own sharing controls.
 			</p>
 			{update.isError ? <FieldError>{update.error.message}</FieldError> : null}
 			<div className="flex flex-wrap items-center gap-4">
@@ -169,10 +167,10 @@ function SharingProfileForm({
 					type="submit"
 					disabled={update.isPending}
 				>
-					{update.isPending ? 'saving…' : 'save sharing settings'}
+					{update.isPending ? 'saving…' : 'save settings'}
 				</button>
 				{saved ? <output className="text-sm">saved</output> : null}
-				{profile ? (
+				{profile?.isPublic ? (
 					<Link
 						to="/$handle"
 						params={{ handle: profile.handle }}
@@ -182,6 +180,10 @@ function SharingProfileForm({
 					>
 						view public profile
 					</Link>
+				) : profile ? (
+					<span className="text-muted-foreground text-sm">
+						your profile goes public once you publish a recipe.
+					</span>
 				) : null}
 			</div>
 		</form>

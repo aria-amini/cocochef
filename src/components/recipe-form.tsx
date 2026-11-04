@@ -109,11 +109,10 @@ export function FieldError({
 	)
 }
 
-// Done stays in reach on a long form: pinned to the bottom on phones, inline
-// on wider screens.
+// Keep recipe actions in reach at the bottom while the form scrolls.
 export function FormActions({ children }: { children: React.ReactNode }) {
 	return (
-		<div className="border-border bg-background pb-bar sticky bottom-0 z-10 -mx-6 flex flex-wrap items-center gap-2 border-t px-6 pt-3 md:static md:mx-0 md:border-t-0 md:bg-transparent md:p-0">
+		<div className="border-border bg-background pb-bar sticky bottom-0 z-10 -mx-6 flex flex-wrap items-center gap-2 border-t px-6 pt-3 md:mx-0 md:px-0 md:pb-3">
 			{children}
 		</div>
 	)

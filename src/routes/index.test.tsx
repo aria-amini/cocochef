@@ -4,10 +4,11 @@ import { describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
 vi.mock('@/lib/recipes/server', () => ({
+	removeSavedRecipe: () => Promise.resolve(null),
+	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
+	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: () => Promise.resolve(null),
-	listBooks: () => Promise.resolve([]),
 }))
 
 const guest = {

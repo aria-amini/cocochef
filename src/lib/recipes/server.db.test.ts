@@ -6,22 +6,23 @@ import {
 } from '@tests/support/fixtures/db'
 
 import { mealLogs, user } from '@/db/schema'
-import { getRecipeShare, saveSharingProfile } from '@/lib/sharing/repository'
+import {
+	getOwnedRecipeAtAddress,
+	getRecipeShare,
+	saveSharingProfile,
+	setRecipeShare,
+} from '@/lib/sharing/repository'
 
 import { recipeUpdateInput } from './model'
 import {
 	addMissingSourceNotes,
-	claimRecipeForUser,
-	createCollectionForUser,
+	copyRecipeForUser,
 	createRecipeForUser,
-	deleteCollectionForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
-	listCollectionsForUser,
 	listShelfForUser,
+	removeSavedRecipeForUser,
 	popularSharedRecipes,
-	moveRecipeForUser,
-	renameCollectionForUser,
 	saveRecipeForUser,
 	createSharedRecipe,
 	findSharedRecipeByUrl,
@@ -44,48 +45,108 @@ async function seedUser(db: Database) {
 }
 
 describe('recipe shelf', () => {
-	test('creates collections in order and shelves recipes in them', async ({
+	test('copies a public recipe into a private independent shelf entry', async ({
 		db,
 	}) => {
-		const userId = await seedUser(db)
-
-		const weeknight = await createCollectionForUser(
-			userId,
-			'weeknight heroes',
+		const writer = await seedUser(db)
+		const reader = await seedUser(db)
+		await saveSharingProfile(
+			writer,
+			{ handle: 'writer', displayName: 'Writer', autoPublish: false },
+			db,
+		)
+		await saveSharingProfile(
+			reader,
+			{ handle: 'reader', displayName: 'Reader', autoPublish: false },
 			db,
 		)
 
-		const sunday = await createCollectionForUser(userId, 'slow sunday', db)
-		expect(weeknight?.position).toBe(0)
-		expect(sunday?.position).toBe(1)
-
-		const recipe = await createRecipeForUser(
-			userId,
-			{ title: 'miso butter pasta', collectionId: weeknight?.id },
+		const original = await createRecipeForUser(
+			writer,
+			{ title: 'lentil soup', ingredients: ['lentils'], steps: ['simmer'] },
 			db,
 		)
 
-		if (!recipe) throw new Error('recipe was not created')
-		await expect(
-			getRecipeForUser(userId, recipe.id, db),
-		).resolves.toMatchObject({ collectionId: weeknight?.id, saved: true })
+		if (!original) throw new Error('missing original')
+		await setRecipeShare(
+			writer,
+			{ recipeId: original.id, visibility: 'public' },
+			db,
+		)
+		const copy = await copyRecipeForUser(reader, original.id, db)
 
-		const shelf = await listShelfForUser(userId, db)
-		expect(shelf.collections.map((c) => c.name)).toEqual([
-			'weeknight heroes',
-			'slow sunday',
-		])
-		expect(shelf.recipes).toHaveLength(1)
+		if (!copy) throw new Error('copy failed')
+		expect(copy.path).toBe('/reader/lentil-soup')
+		expect(copy.forkedFromId).toBe(original.id)
+		expect(await getRecipeForUser(reader, copy.id, db)).toMatchObject({
+			owned: true,
+			saved: true,
+			ingredients: ['lentils'],
+			steps: ['simmer'],
+		})
+		expect(await getRecipeShare(reader, copy.id, db)).toMatchObject({
+			visibility: 'private',
+		})
+		expect(await getRecipeForUser(writer, copy.id, db)).toBeNull()
+		expect(await getRecipeForUser(writer, original.id, db)).toMatchObject({
+			title: 'lentil soup',
+		})
 	})
 
-	test('shelves recipes without a group', async ({ db }) => {
+	test('gives a first copy a private profile address automatically', async ({
+		db,
+	}) => {
+		const cook = await seedUser(db)
+		const other = await seedUser(db)
+
+		const source = await createSharedRecipe(
+			{
+				title: 'tomato soup',
+				sourceUrl: 'https://example.com/soup',
+				ingredients: ['tomato'],
+			},
+			db,
+		)
+
+		if (!source) throw new Error('missing source')
+		const copy = await copyRecipeForUser(cook, source.id, db)
+
+		if (!copy) throw new Error('missing copy')
+		const [, handle, slug] = copy.path.split('/')
+
+		if (!handle || !slug) throw new Error('missing address')
+		expect(handle).toBe('test-user')
+		expect(slug).toBe('tomato-soup')
+		expect(await getOwnedRecipeAtAddress(cook, handle, slug, db)).toEqual({
+			id: copy.id,
+		})
+		expect(await getOwnedRecipeAtAddress(other, handle, slug, db)).toBeNull()
+		const otherCopy = await copyRecipeForUser(other, source.id, db)
+
+		if (!otherCopy) throw new Error('missing second copy')
+		expect(otherCopy.path).toMatch(/^\/test-user-[a-f0-9]{8}\/tomato-soup$/)
+	})
+
+	test('unsave cannot delete a recipe owned by the caller', async ({ db }) => {
+		const owner = await seedUser(db)
+		const recipe = await createRecipeForUser(owner, { title: 'soup' }, db)
+
+		if (!recipe) throw new Error('missing recipe')
+		expect(await removeSavedRecipeForUser(owner, recipe.id, db)).toBeNull()
+		await expect(getRecipeForUser(owner, recipe.id, db)).resolves.toMatchObject(
+			{ saved: true, owned: true },
+		)
+	})
+
+	test('shelves a new recipe', async ({ db }) => {
 		const userId = await seedUser(db)
 		const recipe = await createRecipeForUser(userId, { title: 'dal' }, db)
 
 		if (!recipe) throw new Error('recipe was not created')
 		await expect(
 			getRecipeForUser(userId, recipe.id, db),
-		).resolves.toMatchObject({ collectionId: null })
+		).resolves.toMatchObject({ saved: true })
+		expect((await listShelfForUser(userId, db)).recipes).toHaveLength(1)
 	})
 
 	test('scopes the shelf to the user', async ({ db }) => {
@@ -94,7 +155,6 @@ describe('recipe shelf', () => {
 
 		const other = await listShelfForUser('user-2', db)
 		expect(other.recipes).toHaveLength(0)
-		expect(other.collections).toHaveLength(0)
 		expect(await getRecipeForUser('user-2', 'missing', db)).toBeNull()
 	})
 
@@ -239,20 +299,6 @@ describe('recipe shelf', () => {
 		await expect(getRecipeForUser(userId, recipe.id, db)).resolves.toBeNull()
 	})
 
-	test('rejects collections owned by another user', async ({ db }) => {
-		const userId = await seedUser(db)
-		const otherId = await seedUser(db)
-		const foreign = await createCollectionForUser(otherId, 'not yours', db)
-
-		await expect(
-			createRecipeForUser(
-				userId,
-				{ title: 'dal', collectionId: foreign?.id },
-				db,
-			),
-		).rejects.toThrow('collection not found')
-	})
-
 	test('finalizes new recipes unless they are drafts, and finalizes on update', async ({
 		db,
 	}) => {
@@ -369,63 +415,6 @@ describe('recipe shelf', () => {
 		await expect(
 			getRecipeForUser(userId, recipe.id, db),
 		).resolves.toMatchObject({ imageUrl: null })
-	})
-})
-
-describe('books', () => {
-	test('renames, moves recipes, and deletes without losing recipes', async ({
-		db,
-	}) => {
-		const userId = await seedUser(db)
-		const book = await createCollectionForUser(userId, 'weeknight', db)
-		const recipe = await createRecipeForUser(userId, { title: 'dal' }, db)
-
-		if (!book || !recipe) throw new Error('seed failed')
-
-		await expect(
-			renameCollectionForUser(userId, book.id, 'school nights', db),
-		).resolves.toMatchObject({ name: 'school nights' })
-		await expect(
-			moveRecipeForUser(userId, recipe.id, book.id, db),
-		).resolves.toMatchObject({ collectionId: book.id })
-
-		await expect(deleteCollectionForUser(userId, book.id, db)).resolves.toEqual(
-			{ id: book.id },
-		)
-		await expect(
-			getRecipeForUser(userId, recipe.id, db),
-		).resolves.toMatchObject({ title: 'dal', collectionId: null })
-	})
-
-	test("ignores other users' books and recipes", async ({ db }) => {
-		const userId = await seedUser(db)
-		const otherId = await seedUser(db)
-		const foreignBook = await createCollectionForUser(otherId, 'theirs', db)
-		const recipe = await createRecipeForUser(userId, { title: 'dal' }, db)
-
-		const foreignRecipe = await createRecipeForUser(
-			otherId,
-			{ title: 'stew' },
-			db,
-		)
-
-		if (!foreignBook || !recipe || !foreignRecipe) {
-			throw new Error('seed failed')
-		}
-
-		await expect(
-			moveRecipeForUser(userId, recipe.id, foreignBook.id, db),
-		).rejects.toThrow('collection not found')
-		await expect(
-			moveRecipeForUser(userId, foreignRecipe.id, null, db),
-		).resolves.toBeNull()
-		await expect(
-			renameCollectionForUser(userId, foreignBook.id, 'mine', db),
-		).resolves.toBeNull()
-		await expect(
-			deleteCollectionForUser(userId, foreignBook.id, db),
-		).resolves.toBeNull()
-		await expect(listCollectionsForUser(otherId, db)).resolves.toHaveLength(1)
 	})
 })
 
@@ -661,11 +650,9 @@ describe('shared recipes', () => {
 	}) => {
 		const userId = await seedUser(db)
 		const otherId = await seedUser(db)
-		const book = await createCollectionForUser(userId, 'weeknight', db)
 		const recipe = await seedShared(db)
 		await saveRecipeForUser(userId, recipe.id, db)
 		await saveRecipeForUser(otherId, recipe.id, db)
-		await moveRecipeForUser(userId, recipe.id, book?.id ?? null, db)
 		await db.insert(mealLogs).values({
 			id: crypto.randomUUID(),
 			userId,
@@ -695,7 +682,6 @@ describe('shared recipes', () => {
 		await expect(getRecipeForUser(userId, copy.id, db)).resolves.toMatchObject({
 			title: 'my dal',
 			ingredients: ['lentils', 'salt', 'lime'],
-			collectionId: book?.id,
 			cookCount: 1,
 			owned: true,
 		})
@@ -768,14 +754,25 @@ describe('shared recipes', () => {
 			db,
 		)
 
-		const claimed = await claimRecipeForUser(userId, recipe.id, db)
+		const claimed = await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: 'shared dal',
+				notes: null,
+				sourceUrl: null,
+				ingredients: ['lentils', 'salt'],
+				steps: ['simmer'],
+			}),
+			db,
+		)
 
 		await expect(
 			getRecipeShare(userId, claimed?.id ?? '', db),
 		).resolves.toMatchObject({ visibility: 'public' })
 	})
 
-	test('lets a cook take a recipe over, dropping the source and the copy label', async ({
+	test('a source link can be removed, replaced or added back', async ({
 		db,
 	}) => {
 		const userId = await seedUser(db)
@@ -791,14 +788,27 @@ describe('shared recipes', () => {
 			cookedAt: new Date(),
 		})
 
-		// A shared recipe is copied for them, with no link back.
-		const claimed = await claimRecipeForUser(userId, recipe.id, db)
+		const unlink = (id: string, who: string) =>
+			updateRecipeForUser(
+				who,
+				recipeUpdateInput.parse({
+					id,
+					title: 'shared dal',
+					notes: null,
+					sourceUrl: null,
+					ingredients: ['lentils', 'salt'],
+					steps: ['simmer'],
+				}),
+				db,
+			)
 
-		if (!claimed) throw new Error('recipe was not claimed')
+		// Removing a shared recipe's link is a change, so it is copied for them.
+		const claimed = await unlink(recipe.id, userId)
+
+		if (!claimed) throw new Error('recipe was not copied')
 		expect(claimed.id).not.toBe(recipe.id)
 		expect(claimed).toMatchObject({
 			userId,
-			forkedFromId: null,
 			sourceUrl: null,
 			title: 'shared dal',
 		})
@@ -819,7 +829,7 @@ describe('shared recipes', () => {
 			sourceUrl: 'https://example.com/dal',
 		})
 
-		// Their own copy of one just drops the links.
+		// Another cook's copy keeps the link until it is changed.
 		const edited = await updateRecipeForUser(
 			otherId,
 			recipeUpdateInput.parse({
@@ -836,18 +846,192 @@ describe('shared recipes', () => {
 			forkedFromId: recipe.id,
 			sourceUrl: 'https://example.com/dal',
 		})
-		await expect(
-			claimRecipeForUser(otherId, edited?.id ?? '', db),
-		).resolves.toMatchObject({
-			id: edited?.id,
-			forkedFromId: null,
-			sourceUrl: null,
+
+		const unlinked = await updateRecipeForUser(
+			otherId,
+			recipeUpdateInput.parse({
+				id: edited?.id,
+				title: 'my dal',
+				notes: null,
+				sourceUrl: null,
+				ingredients: ['lentils'],
+				steps: [],
+			}),
+			db,
+		)
+
+		// Their own copy is changed in place.
+		expect(unlinked).toMatchObject({ id: edited?.id, sourceUrl: null })
+
+		// A link can be pointed back at any web page, such as a video.
+		const relinked = await updateRecipeForUser(
+			otherId,
+			recipeUpdateInput.parse({
+				id: edited?.id,
+				title: 'my dal',
+				notes: null,
+				sourceUrl: 'https://www.youtube.com/watch?v=abc',
+				ingredients: ['lentils'],
+				steps: [],
+			}),
+			db,
+		)
+
+		expect(relinked).toMatchObject({
+			sourceUrl: 'https://www.youtube.com/watch?v=abc',
 		})
 
-		// Someone else's own recipe cannot be taken over.
+		// Someone else's recipe cannot be changed.
 		await expect(
-			claimRecipeForUser(userId, edited?.id ?? '', db),
+			updateRecipeForUser(
+				userId,
+				recipeUpdateInput.parse({
+					id: edited?.id,
+					title: 'hijack',
+					notes: null,
+					sourceUrl: null,
+					ingredients: [],
+					steps: [],
+				}),
+				db,
+			),
 		).resolves.toBeNull()
+	})
+
+	test('changing only the link of a shared recipe copies it, and an unchanged link does not', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const recipe = await seedShared(db)
+		await saveRecipeForUser(userId, recipe.id, db)
+
+		const same = await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: 'shared dal',
+				notes: 'mine',
+				sourceUrl: 'https://example.com/dal',
+				ingredients: ['lentils', 'salt'],
+				steps: ['simmer'],
+			}),
+			db,
+		)
+
+		expect(same?.id).toBe(recipe.id)
+
+		const moved = await updateRecipeForUser(
+			userId,
+			recipeUpdateInput.parse({
+				id: recipe.id,
+				title: 'shared dal',
+				notes: 'mine',
+				sourceUrl: 'https://example.com/better-dal',
+				ingredients: ['lentils', 'salt'],
+				steps: ['simmer'],
+			}),
+			db,
+		)
+
+		expect(moved?.id).not.toBe(recipe.id)
+		expect(moved).toMatchObject({
+			forkedFromId: recipe.id,
+			sourceUrl: 'https://example.com/better-dal',
+		})
+	})
+
+	test('gives a published recipe its readable address, to its writer and to others', async ({
+		db,
+	}) => {
+		const writer = await seedUser(db)
+		const reader = await seedUser(db)
+
+		await saveSharingProfile(
+			writer,
+			{ handle: 'dal-cook', displayName: 'Dal', autoPublish: false },
+			db,
+		)
+
+		const recipe = await createRecipeForUser(writer, { title: 'red dal' }, db)
+
+		if (!recipe) throw new Error('recipe was not created')
+
+		// Private recipes keep the id address.
+		await expect(
+			getRecipeForUser(writer, recipe.id, db),
+		).resolves.toMatchObject({ publicPath: null })
+
+		await setRecipeShare(
+			writer,
+			{ recipeId: recipe.id, visibility: 'public' },
+			db,
+		)
+
+		const path = (await getRecipeForUser(writer, recipe.id, db))?.publicPath
+		expect(path).toMatch(/^\/dal-cook\/[\w-]+$/)
+		await expect(
+			getRecipeForUser(reader, recipe.id, db),
+		).resolves.toMatchObject({ publicPath: path })
+	})
+
+	test('a private share of a saved web recipe is not its readable address', async ({
+		db,
+	}) => {
+		const cook = await seedUser(db)
+		const recipe = await seedShared(db)
+
+		await saveSharingProfile(
+			cook,
+			{ handle: 'web-cook', displayName: 'Web cook', autoPublish: false },
+			db,
+		)
+		await saveRecipeForUser(cook, recipe.id, db)
+		await setRecipeShare(
+			cook,
+			{ recipeId: recipe.id, visibility: 'private' },
+			db,
+		)
+
+		await expect(getRecipeForUser(cook, recipe.id, db)).resolves.toMatchObject({
+			publicPath: null,
+		})
+	})
+
+	test('credits a writer by their public name, never their account name', async ({
+		db,
+	}) => {
+		const writer = await seedUser(db)
+		const reader = await seedUser(db)
+		const recipe = await createRecipeForUser(writer, { title: 'red dal' }, db)
+
+		if (!recipe) throw new Error('recipe was not created')
+
+		// No public profile yet: no credit, and the account name stays private.
+		await expect(
+			getRecipeForUser(writer, recipe.id, db),
+		).resolves.toMatchObject({ authorName: null })
+
+		await saveSharingProfile(
+			writer,
+			{ handle: 'credit-cook', displayName: 'Dal Cook', autoPublish: false },
+			db,
+		)
+
+		// A profile with no public recipe is still not public, so not credited.
+		await expect(
+			getRecipeForUser(writer, recipe.id, db),
+		).resolves.toMatchObject({ authorName: null })
+
+		await setRecipeShare(
+			writer,
+			{ recipeId: recipe.id, visibility: 'public' },
+			db,
+		)
+
+		const seen = await getRecipeForUser(reader, recipe.id, db)
+
+		expect(seen).toMatchObject({ authorName: 'Dal Cook' })
+		expect(JSON.stringify(seen)).not.toContain('Test User')
 	})
 
 	test('removing a shared recipe only takes it off your shelf', async ({

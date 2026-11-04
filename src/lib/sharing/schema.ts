@@ -42,7 +42,9 @@ export const sharingProfileInput = createInsertSchema(sharingProfiles, {
 	.pick({ handle: true, displayName: true, autoPublish: true })
 	.required()
 
-export const recipeShareInput = createInsertSchema(recipeShares)
+export const recipeShareInput = createInsertSchema(recipeShares, {
+	visibility: z.enum(['private', 'public']),
+})
 	.pick({
 		recipeId: true,
 		visibility: true,

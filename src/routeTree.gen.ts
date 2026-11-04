@@ -17,6 +17,7 @@ import { Route as AppGroceriesRouteImport } from './routes/_app/groceries'
 import { Route as AppHomeRouteImport } from './routes/_app/home'
 import { Route as AppPantryRouteImport } from './routes/_app/pantry'
 import { Route as AppProfileRouteImport } from './routes/_app/profile'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
@@ -25,7 +26,7 @@ import { Route as AppComingSoonFeatureRouteImport } from './routes/_app/coming-s
 import { Route as AppIngredientsIndexRouteImport } from './routes/_app/ingredients.index'
 import { Route as AppIngredientsBulkRouteImport } from './routes/_app/ingredients.bulk'
 import { Route as AppIngredientsNewRouteImport } from './routes/_app/ingredients.new'
-import { Route as AppProfileSharingRouteImport } from './routes/_app/profile_.sharing'
+import { Route as AppProfileSplatRouteImport } from './routes/_app/profile.$'
 import { Route as AppRecipesIndexRouteImport } from './routes/_app/recipes.index'
 import { Route as AppRecipesRecipeIdRouteImport } from './routes/_app/recipes.$recipeId'
 import { Route as AppRecipesNewRouteImport } from './routes/_app/recipes.new'
@@ -72,6 +73,11 @@ const AppProfileRoute = AppProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -112,10 +118,10 @@ const AppIngredientsNewRoute = AppIngredientsNewRouteImport.update({
   path: '/ingredients/new',
   getParentRoute: () => AppRoute,
 } as any)
-const AppProfileSharingRoute = AppProfileSharingRouteImport.update({
-  id: '/profile_/sharing',
-  path: '/profile/sharing',
-  getParentRoute: () => AppRoute,
+const AppProfileSplatRoute = AppProfileSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => AppProfileRoute,
 } as any)
 const AppRecipesIndexRoute = AppRecipesIndexRouteImport.update({
   id: '/recipes/',
@@ -154,7 +160,8 @@ export interface FileRoutesByFullPath {
   '/groceries': typeof AppGroceriesRoute
   '/home': typeof AppHomeRoute
   '/pantry': typeof AppPantryRoute
-  '/profile': typeof AppProfileRoute
+  '/profile': typeof AppProfileRouteWithChildren
+  '/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -163,7 +170,7 @@ export interface FileRoutesByFullPath {
   '/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
-  '/profile/sharing': typeof AppProfileSharingRoute
+  '/profile/$': typeof AppProfileSplatRoute
   '/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/recipes/new': typeof AppRecipesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -178,7 +185,8 @@ export interface FileRoutesByTo {
   '/groceries': typeof AppGroceriesRoute
   '/home': typeof AppHomeRoute
   '/pantry': typeof AppPantryRoute
-  '/profile': typeof AppProfileRoute
+  '/profile': typeof AppProfileRouteWithChildren
+  '/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -187,7 +195,7 @@ export interface FileRoutesByTo {
   '/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
-  '/profile/sharing': typeof AppProfileSharingRoute
+  '/profile/$': typeof AppProfileSplatRoute
   '/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/recipes/new': typeof AppRecipesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -204,7 +212,8 @@ export interface FileRoutesById {
   '/_app/groceries': typeof AppGroceriesRoute
   '/_app/home': typeof AppHomeRoute
   '/_app/pantry': typeof AppPantryRoute
-  '/_app/profile': typeof AppProfileRoute
+  '/_app/profile': typeof AppProfileRouteWithChildren
+  '/_app/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -213,7 +222,7 @@ export interface FileRoutesById {
   '/_app/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/_app/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/_app/ingredients/new': typeof AppIngredientsNewRoute
-  '/_app/profile_/sharing': typeof AppProfileSharingRoute
+  '/_app/profile/$': typeof AppProfileSplatRoute
   '/_app/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/_app/recipes/new': typeof AppRecipesNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/pantry'
     | '/profile'
+    | '/settings'
     | '/api/health'
     | '/auth/login'
     | '/auth/signup'
@@ -239,7 +249,7 @@ export interface FileRouteTypes {
     | '/coming-soon/$feature'
     | '/ingredients/bulk'
     | '/ingredients/new'
-    | '/profile/sharing'
+    | '/profile/$'
     | '/recipes/$recipeId'
     | '/recipes/new'
     | '/api/auth/$'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/pantry'
     | '/profile'
+    | '/settings'
     | '/api/health'
     | '/auth/login'
     | '/auth/signup'
@@ -263,7 +274,7 @@ export interface FileRouteTypes {
     | '/coming-soon/$feature'
     | '/ingredients/bulk'
     | '/ingredients/new'
-    | '/profile/sharing'
+    | '/profile/$'
     | '/recipes/$recipeId'
     | '/recipes/new'
     | '/api/auth/$'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/_app/home'
     | '/_app/pantry'
     | '/_app/profile'
+    | '/_app/settings'
     | '/api/health'
     | '/auth/login'
     | '/auth/signup'
@@ -288,7 +300,7 @@ export interface FileRouteTypes {
     | '/_app/coming-soon/$feature'
     | '/_app/ingredients/bulk'
     | '/_app/ingredients/new'
-    | '/_app/profile_/sharing'
+    | '/_app/profile/$'
     | '/_app/recipes/$recipeId'
     | '/_app/recipes/new'
     | '/api/auth/$'
@@ -370,6 +382,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/api/health': {
       id: '/api/health'
       path: '/api/health'
@@ -426,12 +445,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIngredientsNewRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/profile_/sharing': {
-      id: '/_app/profile_/sharing'
-      path: '/profile/sharing'
-      fullPath: '/profile/sharing'
-      preLoaderRoute: typeof AppProfileSharingRouteImport
-      parentRoute: typeof AppRoute
+    '/_app/profile/$': {
+      id: '/_app/profile/$'
+      path: '/$'
+      fullPath: '/profile/$'
+      preLoaderRoute: typeof AppProfileSplatRouteImport
+      parentRoute: typeof AppProfileRoute
     }
     '/_app/recipes/': {
       id: '/_app/recipes/'
@@ -478,15 +497,27 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppProfileRouteChildren {
+  AppProfileSplatRoute: typeof AppProfileSplatRoute
+}
+
+const AppProfileRouteChildren: AppProfileRouteChildren = {
+  AppProfileSplatRoute: AppProfileSplatRoute,
+}
+
+const AppProfileRouteWithChildren = AppProfileRoute._addFileChildren(
+  AppProfileRouteChildren,
+)
+
 interface AppRouteChildren {
   AppGroceriesRoute: typeof AppGroceriesRoute
   AppHomeRoute: typeof AppHomeRoute
   AppPantryRoute: typeof AppPantryRoute
-  AppProfileRoute: typeof AppProfileRoute
+  AppProfileRoute: typeof AppProfileRouteWithChildren
+  AppSettingsRoute: typeof AppSettingsRoute
   AppComingSoonFeatureRoute: typeof AppComingSoonFeatureRoute
   AppIngredientsBulkRoute: typeof AppIngredientsBulkRoute
   AppIngredientsNewRoute: typeof AppIngredientsNewRoute
-  AppProfileSharingRoute: typeof AppProfileSharingRoute
   AppRecipesRecipeIdRoute: typeof AppRecipesRecipeIdRoute
   AppRecipesNewRoute: typeof AppRecipesNewRoute
   AppIngredientsIndexRoute: typeof AppIngredientsIndexRoute
@@ -497,11 +528,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppGroceriesRoute: AppGroceriesRoute,
   AppHomeRoute: AppHomeRoute,
   AppPantryRoute: AppPantryRoute,
-  AppProfileRoute: AppProfileRoute,
+  AppProfileRoute: AppProfileRouteWithChildren,
+  AppSettingsRoute: AppSettingsRoute,
   AppComingSoonFeatureRoute: AppComingSoonFeatureRoute,
   AppIngredientsBulkRoute: AppIngredientsBulkRoute,
   AppIngredientsNewRoute: AppIngredientsNewRoute,
-  AppProfileSharingRoute: AppProfileSharingRoute,
   AppRecipesRecipeIdRoute: AppRecipesRecipeIdRoute,
   AppRecipesNewRoute: AppRecipesNewRoute,
   AppIngredientsIndexRoute: AppIngredientsIndexRoute,

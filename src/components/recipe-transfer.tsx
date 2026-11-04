@@ -133,7 +133,7 @@ export function RecipeTransfer() {
 			<h2 className="text-lg font-bold">move your recipes</h2>
 			<p className="text-muted-foreground text-sm">
 				move your recipes to another kitchen, like a new account or the live
-				site, as a file. notes, books and ingredient groups come along; uploaded
+				site, as a file. notes and ingredient groups come along; uploaded
 				photos, cooking history and sharing don&apos;t.
 			</p>
 			<div className="flex flex-wrap items-center gap-3">

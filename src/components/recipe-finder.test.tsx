@@ -26,15 +26,14 @@ vi.mock('@/lib/discover/server', () => ({
 vi.mock('@/lib/import/server', () => ({ importRecipe: server.import }))
 
 vi.mock('@/lib/recipes/server', () => ({
-	listShelf: () =>
-		Promise.resolve({ recipes: shelfState.recipes, collections: [] }),
+	removeSavedRecipe: () => Promise.resolve(null),
+	copyRecipe: () => Promise.resolve(null),
+	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: server.getRecipe,
 	saveRecipe: server.save,
-	listBooks: () => Promise.resolve([]),
 	createRecipe: () => Promise.resolve({ id: 'recipe-new' }),
 	updateRecipe: () => Promise.resolve({ id: 'recipe-new' }),
 	deleteRecipe: () => Promise.resolve(),
-	moveRecipe: () => Promise.resolve(),
 }))
 
 const testSession = {
@@ -50,7 +49,6 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 	return {
 		id,
 		userId: 'user-1',
-		collectionId: null,
 		title,
 		imageUrl: null,
 		sourceUrl: null,
@@ -64,6 +62,7 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 		lastCookedAt: null,
 		forkedFromId: null,
 		savedAt: new Date(),
+		visibility: null,
 		...extra,
 	} satisfies Recipe
 }
@@ -279,14 +278,14 @@ describe('the one box', () => {
 		if (!isPhone())
 			await expect.element(screen.getByText('6 chicken thighs')).toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: /save to shelf/ }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: 'open recipe' }))
 			.not.toBeInTheDocument()
 		await option.click()
 		await expect
-			.element(screen.getByRole('button', { name: /save to shelf/ }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: 'open recipe' }))
@@ -294,6 +293,22 @@ describe('the one box', () => {
 		await expect
 			.element(screen.getByRole('button', { name: 'start from this' }))
 			.not.toBeInTheDocument()
+	})
+
+	test('says so when a previewed recipe can no longer be read', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
+		})
+		// A recipe made private after the results loaded comes back empty.
+		server.getRecipe.mockResolvedValue(null)
+		const { screen, input } = await openBox()
+		await input.fill('lemon')
+		await screen.getByRole('option', { name: /lemon chicken/ }).click()
+
+		await expect
+			.element(screen.getByRole('alert'))
+			.toHaveTextContent("couldn't read this recipe — try opening it.")
 	})
 
 	test('selects a full-height preview and opens without saving', async () => {
@@ -327,19 +342,14 @@ describe('the one box', () => {
 				.getBoundingClientRect().top,
 		)
 
-		const ingredients = screen
-			.getByRole('list', { name: 'ingredients' })
-			.element()
-
-		expect(ingredients.querySelectorAll('img')).toHaveLength(0)
 		const dialog = document.querySelector('[role="dialog"]')
 
 		if (!dialog) throw new Error('missing finder dialog')
 		expect(dialog.getBoundingClientRect().height).toBe(
-			window.innerHeight - (isPhone() ? 0 : 64),
+			window.innerHeight - (isPhone() ? 48 : 64),
 		)
 		await expect
-			.element(screen.getByRole('button', { name: /save to shelf/ }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 
 		expect(router.state.location.pathname).toBe('/recipes')
@@ -376,7 +386,7 @@ describe('the one box', () => {
 		const { screen, queryClient } = await openBox()
 		await screen.getByRole('option', { name: /lemon chicken/ }).click()
 		await expect
-			.element(screen.getByRole('list', { name: 'ingredients' }))
+			.element(screen.getByRole('table', { name: 'ingredients' }))
 			.toHaveTextContent('1 lemon')
 		queryClient.setQueryData(['popular-recipes'], {
 			warming: false,
@@ -434,7 +444,7 @@ describe('the one box', () => {
 			.element(screen.getByRole('link', { name: /see the page/ }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: /save to shelf/ }))
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('button', { name: /start from this/ }))

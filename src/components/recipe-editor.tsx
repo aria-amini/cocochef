@@ -1,7 +1,7 @@
 import {
-	CheckIcon,
 	ClipboardTextIcon,
 	LinkSimpleIcon,
+	TrashIcon,
 } from '@phosphor-icons/react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import {
@@ -13,6 +13,7 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 
+import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
 import { IngredientListField } from '@/components/ingredient-list-field'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import {
@@ -29,9 +30,9 @@ import {
 	RecipePhotoField,
 } from '@/components/recipe-photo-field'
 import { StepsField, stepsFrom } from '@/components/steps-field'
+import { buttonVariants } from '@/components/ui/button'
 import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
-import { createAutosaver, type SaveState } from '@/lib/recipes/autosave'
 import {
 	recipeContentInput,
 	recipeNotesMax,
@@ -40,6 +41,7 @@ import {
 } from '@/lib/recipes/model'
 import { isPastedRecipe, parsePastedRecipe } from '@/lib/recipes/paste'
 import { createRecipe, deleteRecipe, updateRecipe } from '@/lib/recipes/server'
+import { isYouTube, parseSourceInput } from '@/lib/recipes/source'
 import { formField } from '@/lib/utils/form'
 import { cn } from '@/lib/utils/ui'
 
@@ -48,6 +50,8 @@ export type EditableRecipe = {
 	id: string
 	title: string
 	imageUrl: string | null
+	// The page or video it came from, if any.
+	sourceUrl: string | null
 	notes: string | null
 	ingredients: string[]
 	ingredientCategories?: IngredientCategories | undefined
@@ -56,13 +60,6 @@ export type EditableRecipe = {
 	// Shared recipes are never changed: the first edit makes the user a copy.
 	owned: boolean
 	saved: boolean
-}
-
-const saveLabels: Record<SaveState, string> = {
-	saved: 'saved',
-	saving: 'saving…',
-	unnamed: 'give it a name to save',
-	failed: "couldn't save — still trying",
 }
 
 // Each ingredient row submits its line and its picked category (empty when the
@@ -93,6 +90,8 @@ function contentFrom(form: HTMLFormElement) {
 			? formField(data, 'imageUrl') || null
 			: undefined,
 		notes: formField(data, 'notes'),
+		// Empty removes the link; text that is not an address yet leaves it alone.
+		sourceUrl: parseSourceInput(formField(data, 'sourceUrl')),
 		ingredients: data.getAll('ingredient').map(String),
 		ingredientCategories: categoriesFrom(data),
 		steps: stepsFrom(data),
@@ -101,96 +100,29 @@ function contentFrom(form: HTMLFormElement) {
 	return parsed.success ? parsed.data : undefined
 }
 
-// Nothing to lose and no save button to find. Changes reach the form as typing,
-// clicks (add, remove, pick a suggestion), drags and finished photo uploads.
-// While `held`, nothing saves: a photo is still uploading.
-function useAutosave(
-	form: React.RefObject<HTMLFormElement | null>,
-	recipeId: React.RefObject<string | undefined>,
-	onSaved: (recipeId: string) => void,
-	held: boolean,
-) {
-	const router = useRouter()
-	const [state, setState] = useState<SaveState>('saved')
-
-	const [saver] = useState(() =>
-		createAutosaver({
-			read: () => (form.current ? contentFrom(form.current) : undefined),
-			save: async (content) => {
-				if (recipeId.current) {
-					const saved = await updateRecipe({
-						data: { id: recipeId.current, ...content },
-					})
-
-					if (!saved) throw new Error('recipe not found')
-					recipeId.current = saved.id
-					onSaved(saved.id)
-
-					return
-				}
-
-				const created = await createRecipe({
-					data: {
-						...content,
-						imageUrl: content.imageUrl ?? undefined,
-						notes: content.notes ?? undefined,
-						finalized: false,
-					},
-				})
-
-				if (!created) throw new Error('not saved')
-				recipeId.current = created.id
-				onSaved(created.id)
-			},
-			report: setState,
-		}),
-	)
-
-	// Layout cleanup runs while the form is still attached; the passive cleanup
-	// below runs after React has cleared the ref.
-	useLayoutEffect(() => () => saver.remember(), [saver])
-
-	useEffect(() => {
-		saver.start(recipeId.current !== undefined)
-
-		const hide = () => {
-			if (document.visibilityState === 'hidden') void saver.flush()
-		}
-
-		document.addEventListener('visibilitychange', hide)
-
-		return () => {
-			document.removeEventListener('visibilitychange', hide)
-			// Leaving mid-pause still keeps the last few keystrokes.
-			const before = saver.savedSnapshot()
-
-			saver.detach()
-			void saver.flush().then(() => {
-				if (saver.savedSnapshot() !== before) void router.invalidate()
-			})
-		}
-	}, [saver, router, recipeId])
-
-	// Let go, it saves what changed while it was held.
-	const wasHeld = useRef(held)
-
-	useEffect(() => {
-		saver.pause(held)
-
-		if (wasHeld.current && !held) saver.schedule()
-		wasHeld.current = held
-	}, [saver, held])
+// Compare the fields as they are written, even while a required value is invalid.
+function changeSnapshot(form: HTMLFormElement, hadPhoto: boolean) {
+	const data = new FormData(form)
 
 	return {
-		state,
-		schedule: saver.schedule,
-		flush: saver.flush,
-		stop: saver.stop,
-		resume: saver.resume,
-		settle: saver.settle,
-		forget: saver.forget,
+		name: formField(data, 'title').trim(),
+		link: formField(data, 'sourceUrl').trim(),
+		photo: data.has('imageUrl')
+			? formField(data, 'imageUrl') || (hadPhoto ? '' : undefined)
+			: undefined,
+		ingredients: JSON.stringify([
+			data
+				.getAll('ingredient')
+				.map(String)
+				.filter((value) => value.trim()),
+			categoriesFrom(data),
+		]),
+		steps: JSON.stringify(stepsFrom(data)),
+		notes: formField(data, 'notes').trim(),
 	}
 }
+
+type ChangeSnapshot = ReturnType<typeof changeSnapshot>
 
 function sortedLabel(ingredients: number, steps: number) {
 	const count = (n: number, one: string, many: string) =>
@@ -223,12 +155,64 @@ export function RecipeEditor({
 	const navigate = useNavigate()
 	const form = useRef<HTMLFormElement>(null)
 	const recipeId = useRef(recipe?.id)
-	const [savedId, setSavedId] = useState(recipe?.id)
+	const savedId = recipe?.id
 	const [pending, setPending] = useState(false)
 	const [error, setError] = useState<string>()
 	const [unnamed, setUnnamed] = useState(false)
 	const [confirmingDelete, setConfirmingDelete] = useState(false)
 	const [photoBusy, setPhotoBusy] = useState(false)
+	const [changes, setChanges] = useState<string[]>([])
+	const baseline = useRef<ChangeSnapshot | undefined>(undefined)
+
+	const updateChanges = useCallback(() => {
+		if (!form.current || !baseline.current) return
+		const current = changeSnapshot(form.current, !!recipe?.imageUrl)
+		const initial = baseline.current
+
+		const keys: Array<keyof ChangeSnapshot> = [
+			'name',
+			'link',
+			'photo',
+			'ingredients',
+			'steps',
+			'notes',
+		]
+
+		const changed = keys.filter((key) => current[key] !== initial[key])
+		setChanges((previous) =>
+			previous.join('|') === changed.join('|') ? previous : changed,
+		)
+	}, [recipe?.imageUrl])
+
+	const scheduleChanges = useCallback(() => {
+		window.setTimeout(updateChanges, 0)
+	}, [updateChanges])
+
+	useLayoutEffect(() => {
+		if (!form.current) return
+		const initial = changeSnapshot(form.current, !!recipe?.imageUrl)
+		baseline.current = recipe
+			? initial
+			: {
+					name: '',
+					link: '',
+					photo: undefined,
+					ingredients: JSON.stringify([[], {}]),
+					steps: JSON.stringify([]),
+					notes: '',
+				}
+		updateChanges()
+		const observer = new MutationObserver(scheduleChanges)
+		observer.observe(form.current, {
+			subtree: true,
+			childList: true,
+			attributes: true,
+			attributeFilter: ['value'],
+		})
+
+		return () => observer.disconnect()
+	}, [recipe, scheduleChanges, updateChanges])
+
 	// Finishing keeps the draft, so a paste's undo toast must not take it back.
 	const sortedToast = useRef<string | number>(undefined)
 	const finishing = useRef(false)
@@ -249,9 +233,6 @@ export function RecipeEditor({
 	const isDraft = !recipe?.finalizedAt
 	const shared = recipe ? !recipe.owned : false
 
-	const autosave = useAutosave(form, recipeId, setSavedId, photoBusy)
-	const { schedule: scheduleAutosave, stop, settle, resume, forget } = autosave
-
 	// A pasted recipe replaces the empty fields, so they start over from it.
 	const [seed, setSeed] = useState<{
 		version: number
@@ -268,6 +249,8 @@ export function RecipeEditor({
 		steps: recipe?.steps ?? arrived?.steps ?? [],
 		notes: recipe?.notes ?? arrived?.notes ?? '',
 	})
+
+	const [source, setSource] = useState(recipe?.sourceUrl ?? '')
 
 	const [notesTooLong, setNotesTooLong] = useState(
 		() =>
@@ -300,25 +283,6 @@ export function RecipeEditor({
 		if (target) form.current?.querySelector<HTMLElement>(target)?.focus()
 	}, [recipe, isDraft])
 
-	// Takes the draft this editor saved back off the shelf, when what it held
-	// turned out not to be a recipe after all.
-	const discardDraft = useCallback(async () => {
-		stop()
-		await settle()
-		const draft = recipeId.current
-
-		try {
-			if (draft) await deleteRecipe({ data: { id: draft } })
-			recipeId.current = undefined
-			forget()
-			setSavedId(undefined)
-		} catch {
-			// Still a draft on the shelf, where it can be deleted by hand.
-		} finally {
-			resume()
-		}
-	}, [stop, settle, resume, forget])
-
 	const announceSorted = useCallback(
 		(
 			sorted: ReturnType<typeof parsePastedRecipe>,
@@ -343,24 +307,20 @@ export function RecipeEditor({
 								steps: [],
 								notes: before.notes,
 							}))
-
-							if (!before.draft) void discardDraft()
-							else scheduleAutosave()
 						},
 					},
 				},
 			)
 		},
-		[discardDraft, scheduleAutosave],
+		[],
 	)
 
 	const announcedArrival = useRef(false)
 	useEffect(() => {
 		if (!arrived || announcedArrival.current) return
 		announcedArrival.current = true
-		scheduleAutosave()
 		announceSorted(arrived, { name: defaultTitle, draft: undefined, notes: '' })
-	}, [arrived, defaultTitle, scheduleAutosave, announceSorted])
+	}, [arrived, defaultTitle, announceSorted])
 
 	// A pasted recipe is sorted at once, with a way back to the empty page.
 	const sortPasted = useCallback(
@@ -387,11 +347,10 @@ export function RecipeEditor({
 				...sorted,
 				notes: mergedNotes,
 			}))
-			scheduleAutosave()
 
 			announceSorted(sorted, before)
 		},
-		[name, scheduleAutosave, announceSorted],
+		[name, announceSorted],
 	)
 
 	// Router state can deliver a paste while this uncontrolled form stays mounted.
@@ -416,6 +375,12 @@ export function RecipeEditor({
 	const done = async () => {
 		if (photoBusy || pending) return
 
+		if (parseSourceInput(source) === undefined) {
+			form.current?.querySelector<HTMLElement>('#edit-source')?.focus()
+
+			return
+		}
+
 		if (notesTooLong) {
 			form.current?.querySelector<HTMLElement>('#edit-notes')?.focus()
 
@@ -438,17 +403,23 @@ export function RecipeEditor({
 		if (sortedToast.current !== undefined) toast.dismiss(sortedToast.current)
 
 		try {
-			if (!(await autosave.flush())) throw new Error('not saved')
+			const saved = recipeId.current
+				? await updateRecipe({
+						data: { id: recipeId.current, ...content, finalize: isDraft },
+					})
+				: await createRecipe({
+						data: {
+							...content,
+							imageUrl: content.imageUrl ?? undefined,
+							sourceUrl: content.sourceUrl ?? undefined,
+							notes: content.notes ?? undefined,
+							finalized: true,
+						},
+					})
 
-			const id = recipeId.current
-
-			if (!id) throw new Error('not saved')
-
-			// Whatever was typed while the last save ran is part of what finishes.
-			const latest = (form.current && contentFrom(form.current)) ?? content
-
-			if (isDraft)
-				await updateRecipe({ data: { id, ...latest, finalize: true } })
+			if (!saved) throw new Error('not saved')
+			const id = saved.id
+			const latest = content
 
 			await router.invalidate()
 
@@ -465,12 +436,8 @@ export function RecipeEditor({
 
 	const remove = async () => {
 		setPending(true)
-		autosave.stop()
 
 		try {
-			// A first save still running would create the draft after we leave.
-			await autosave.settle()
-
 			if (recipeId.current) {
 				await deleteRecipe({ data: { id: recipeId.current } })
 				toast.success(`${name || 'that recipe'} is off your shelf`)
@@ -479,26 +446,29 @@ export function RecipeEditor({
 			await navigate({ to: '/recipes' })
 		} catch {
 			// Still here, so edits still have to be saved.
-			autosave.resume()
 			setError("couldn't delete that — try again")
 			setPending(false)
 		}
 	}
 
+	const parsedSource = parseSourceInput(source)
+
+	const sourceInvalid = parsedSource === undefined
+
 	// Once an edit to a shared recipe saves, the user is editing their own copy.
 	const onShared = shared && savedId === recipe?.id
 
 	return (
-		// Listens for changes bubbling up from every field, not for interaction.
+		// Events from child controls and drag handles update the change summary.
 		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
 		<form
 			ref={form}
 			className="flex flex-col gap-10"
-			onInput={autosave.schedule}
-			onChange={autosave.schedule}
-			onClick={autosave.schedule}
-			onPointerUp={autosave.schedule}
-			onKeyUp={autosave.schedule}
+			onInput={scheduleChanges}
+			onChange={scheduleChanges}
+			onClick={scheduleChanges}
+			onPointerUp={scheduleChanges}
+			onKeyUp={scheduleChanges}
 			onSubmit={(event) => {
 				event.preventDefault()
 				void done()
@@ -579,6 +549,40 @@ export function RecipeEditor({
 							sortPasted(text)
 						}}
 					/>
+					<div className="mt-3 flex min-w-0 flex-col gap-2">
+						<label className={fieldLabelClassName} htmlFor="edit-source">
+							original link
+						</label>
+						<input
+							id="edit-source"
+							name="sourceUrl"
+							type="text"
+							inputMode="url"
+							autoCapitalize="none"
+							autoCorrect="off"
+							spellCheck={false}
+							value={source}
+							onChange={(event) => setSource(event.target.value)}
+							aria-invalid={sourceInvalid || undefined}
+							aria-describedby="edit-source-hint"
+							placeholder="a web page or a youtube video"
+							className={cn(fieldClassName, placeholderClassName)}
+						/>
+						{sourceInvalid ? (
+							<FieldError id="edit-source-hint">
+								that doesn&apos;t look like a web address yet
+							</FieldError>
+						) : (
+							<p
+								id="edit-source-hint"
+								className="text-muted-foreground text-sm"
+							>
+								{parsedSource && isYouTube(parsedSource)
+									? 'a video to cook along with.'
+									: 'where the recipe came from, if it came from somewhere.'}
+							</p>
+						)}
+					</div>
 				</RecipeIntro>
 				{!recipe && !name.trim() && !unnamed ? (
 					<div className="flex flex-wrap gap-2" aria-label="start a recipe">
@@ -660,65 +664,62 @@ export function RecipeEditor({
 					</FieldError>
 				) : null}
 			</div>
-			{error ? <FieldError>{error}</FieldError> : null}
 			<FormActions>
+				{error ? (
+					<div className="w-full">
+						<FieldError>{error}</FieldError>
+					</div>
+				) : null}
+				{changes.length ? (
+					<p
+						className="text-muted-foreground w-full text-sm"
+						aria-live="polite"
+					>
+						changed: {changes.join(', ')}
+					</p>
+				) : null}
 				<button
 					type="submit"
-					disabled={pending || photoBusy}
+					disabled={
+						pending || photoBusy || (!changes.length && !(recipe && isDraft))
+					}
 					className={primaryActionClassName}
 				>
-					{pending ? 'saving…' : 'done'}
+					{pending ? 'saving…' : 'save'}
 				</button>
-				<output
-					aria-live="polite"
-					className={cn(
-						'text-muted-foreground inline-flex items-center gap-1.5 px-2 text-sm font-semibold',
-						autosave.state === 'failed' && 'text-kitchen-tomato',
-					)}
+				<button
+					type="button"
+					className={quietActionClassName}
+					onClick={() =>
+						recipe ? onDone(recipe.id) : void navigate({ to: '/recipes' })
+					}
 				>
-					{autosave.state === 'saved' && (recipe || name) ? (
-						<CheckIcon size={14} weight="bold" aria-hidden />
-					) : null}
-					{autosave.state === 'saved' && !recipe && !name
-						? null
-						: isDraft && autosave.state === 'saved'
-							? 'draft · saved'
-							: saveLabels[autosave.state]}
-				</output>
+					cancel
+				</button>
 				<span className="ml-auto flex gap-2">
-					{confirmingDelete ? (
-						<>
-							<button
-								type="button"
-								disabled={pending}
-								onClick={() => void remove()}
-								className="bg-kitchen-tomato/40 hover:bg-kitchen-tomato/60 focus-visible:outline-kitchen-eggplant rounded-md px-4 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
-							>
-								{onShared ? 'really remove' : 'really delete'}
-							</button>
-							<button
-								type="button"
-								disabled={pending}
-								onClick={() => setConfirmingDelete(false)}
-								className={quietActionClassName}
-							>
-								keep it
-							</button>
-						</>
-					) : onShared && !recipe?.saved ? null : (
+					{onShared && !recipe?.saved ? null : (
 						<button
 							type="button"
 							disabled={pending}
 							onClick={() =>
 								savedId ? setConfirmingDelete(true) : void remove()
 							}
-							className={cn(quietActionClassName, 'hover:bg-kitchen-tomato/20')}
+							className={buttonVariants({ variant: 'destructive', size: 'lg' })}
 						>
-							{onShared ? 'remove from shelf' : savedId ? 'delete' : 'discard'}
+							<TrashIcon size={16} aria-hidden />
+							{onShared || savedId ? 'delete' : 'discard'}
 						</button>
 					)}
 				</span>
 			</FormActions>
+			<DeleteRecipeDialog
+				open={confirmingDelete}
+				onOpenChange={setConfirmingDelete}
+				title={name}
+				shared={onShared}
+				pending={pending}
+				onConfirm={() => void remove()}
+			/>
 		</form>
 	)
 }

@@ -1,10 +1,8 @@
 import { getDb, type Database } from '@/db/connection'
 
 import {
-	createCollectionForUser,
 	createRecipeForUser,
 	getRecipeForUser,
-	listCollectionsForUser,
 	listShelfForUser,
 } from './repository'
 import {
@@ -19,12 +17,7 @@ export async function exportRecipesForUser(
 	recipeId?: string,
 	database: Database = getDb(),
 ) {
-	const [shelf, books] = await Promise.all([
-		listShelfForUser(userId, database),
-		listCollectionsForUser(userId, database),
-	])
-
-	const bookName = new Map(books.map((book) => [book.id, book.name]))
+	const shelf = await listShelfForUser(userId, database)
 	const ids = recipeId ? [recipeId] : shelf.recipes.map((recipe) => recipe.id)
 	const exported: TransferRecipe[] = []
 
@@ -33,14 +26,7 @@ export async function exportRecipesForUser(
 
 		if (!recipe) continue
 
-		exported.push(
-			toTransferRecipe({
-				...recipe,
-				book: recipe.collectionId
-					? bookName.get(recipe.collectionId)
-					: undefined,
-			}),
-		)
+		exported.push(toTransferRecipe(recipe))
 	}
 
 	return toTransferDocument(exported)
@@ -54,23 +40,17 @@ function trimmed(lines: string[] | undefined) {
 	return (lines ?? []).map((line) => line.trim()).filter(Boolean)
 }
 
-// Recipes come in as the user's own, and private. One already on their shelf,
-// saved or their own, with the same name and the same ingredients and steps is
-// skipped, so a file can be brought
-// in twice, or after a partly failed try, without doubling anything.
+// Recipes come in as the user's own, finished, and private: a draft in the file
+// is a recipe on the shelf, not another draft to open and finish. One already
+// on their shelf, saved or their own, with the same name and the same
+// ingredients and steps is skipped, so a file can be brought in twice, or after
+// a partly failed try, without doubling anything.
 export async function importRecipesForUser(
 	userId: string,
 	recipes: TransferRecipe[],
 	database: Database = getDb(),
 ) {
 	const shelf = await listShelfForUser(userId, database)
-
-	const books = new Map(
-		(await listCollectionsForUser(userId, database)).map((book) => [
-			book.name,
-			book.id,
-		]),
-	)
 
 	const known: { title: string; ingredients: string[]; steps: string[] }[] = []
 
@@ -99,25 +79,14 @@ export async function importRecipesForUser(
 			continue
 		}
 
-		let collectionId = recipe.book ? books.get(recipe.book) : undefined
-
-		if (recipe.book && !collectionId) {
-			collectionId = (
-				await createCollectionForUser(userId, recipe.book, database)
-			)?.id
-
-			if (collectionId) books.set(recipe.book, collectionId)
-		}
-
 		const created = await createRecipeForUser(
 			userId,
 			{
 				title: recipe.title,
 				imageUrl: recipe.imageUrl,
 				sourceUrl: recipe.sourceUrl,
+				sourceNotes: recipe.sourceNotes,
 				notes: recipe.notes || undefined,
-				finalized: recipe.finalized,
-				collectionId,
 				ingredients,
 				ingredientCategories: recipe.ingredientCategories,
 				steps,

@@ -4,9 +4,11 @@ import { useNavigate } from '@tanstack/react-router'
 import { useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
+import { AuthDialog } from '@/components/auth-dialog'
 import { FieldError, primaryActionClassName } from '@/components/recipe-form'
 import { asRecipeUrl, useRecipeImport } from '@/components/recipe-online'
 import { fieldClassName, placeholderClassName } from '@/components/ui/input'
+import { authClient } from '@/lib/auth/client'
 import { importSiteLogo, importSites } from '@/lib/import/sites'
 import { cn } from '@/lib/utils/ui'
 
@@ -66,6 +68,8 @@ export function ImportLinkForm({
 	const navigate = useNavigate()
 	const [value, setValue] = useState(defaultValue)
 	const [invalid, setInvalid] = useState(false)
+	const [authOpen, setAuthOpen] = useState(false)
+	const session = authClient.useSession()
 
 	const imported = useRecipeImport(async (recipe) => {
 		toast.success(`${recipe.title} is on your shelf`)
@@ -83,65 +87,74 @@ export function ImportLinkForm({
 		: imported.error
 
 	return (
-		<form
-			className="flex flex-col gap-3"
-			onSubmit={(event) => {
-				event.preventDefault()
-				const url = linkFrom(value)
+		<>
+			<AuthDialog
+				open={authOpen}
+				onOpenChange={setAuthOpen}
+				redirect="/recipes"
+			/>
+			<form
+				className="flex flex-col gap-3"
+				onSubmit={(event) => {
+					event.preventDefault()
+					const url = linkFrom(value)
 
-				setInvalid(!url)
+					setInvalid(!url)
 
-				if (url) void imported.save(url, { keep: true })
-			}}
-		>
-			<label htmlFor={id} className="text-sm font-semibold">
-				recipe link
-			</label>
-			<div className="flex gap-2">
-				<input
-					id={id}
-					type="text"
-					inputMode="url"
-					autoComplete="off"
-					ref={inputRef}
-					value={value}
-					maxLength={2000}
-					disabled={busy}
-					placeholder="https://…"
-					aria-invalid={error ? true : undefined}
-					aria-describedby={error ? `${id}-error` : undefined}
-					onChange={(event) => {
-						setValue(event.target.value)
-						setInvalid(false)
-						imported.clearError()
-					}}
-					className={cn(
-						fieldClassName,
-						'min-w-0 flex-1 px-3 disabled:opacity-60',
-						placeholderClassName,
-					)}
-				/>
-				<button
-					type="submit"
-					disabled={busy || !value.trim()}
-					className={cn(primaryActionClassName, 'px-4')}
-				>
-					import
-				</button>
-			</div>
-			{busy ? (
-				<p
-					aria-live="polite"
-					className="text-muted-foreground text-xs font-semibold"
-				>
-					grabbing the page — some sites make us knock twice
-				</p>
-			) : error ? (
-				<FieldError id={`${id}-error`}>{error}</FieldError>
-			) : (
-				<ImportSites />
-			)}
-		</form>
+					if (url && (!session.data?.user || session.data.user.isAnonymous))
+						setAuthOpen(true)
+					else if (url) void imported.save(url, { keep: true })
+				}}
+			>
+				<label htmlFor={id} className="text-sm font-semibold">
+					recipe link
+				</label>
+				<div className="flex gap-2">
+					<input
+						id={id}
+						type="text"
+						inputMode="url"
+						autoComplete="off"
+						ref={inputRef}
+						value={value}
+						maxLength={2000}
+						disabled={busy}
+						placeholder="https://…"
+						aria-invalid={error ? true : undefined}
+						aria-describedby={error ? `${id}-error` : undefined}
+						onChange={(event) => {
+							setValue(event.target.value)
+							setInvalid(false)
+							imported.clearError()
+						}}
+						className={cn(
+							fieldClassName,
+							'min-w-0 flex-1 px-3 disabled:opacity-60',
+							placeholderClassName,
+						)}
+					/>
+					<button
+						type="submit"
+						disabled={busy || !value.trim()}
+						className={cn(primaryActionClassName, 'px-4')}
+					>
+						import
+					</button>
+				</div>
+				{busy ? (
+					<p
+						aria-live="polite"
+						className="text-muted-foreground text-xs font-semibold"
+					>
+						grabbing the page — some sites make us knock twice
+					</p>
+				) : error ? (
+					<FieldError id={`${id}-error`}>{error}</FieldError>
+				) : (
+					<ImportSites />
+				)}
+			</form>
+		</>
 	)
 }
 

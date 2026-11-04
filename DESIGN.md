@@ -263,16 +263,21 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
 ### Shared Recipes
 
 - A recipe from the web exists once for everyone. Its one solid basil action is
-  “save to shelf”, beside an outlined “edit”; once saved it becomes an outlined
-  “remove from shelf” and “edit” takes the solid fill. Saving does not copy the
-  recipe. Saved recipes can be organized into books. Cook logging is not part of
-  the current MVP.
+  “save”, beside an outlined “edit”; once saved it becomes an outlined “saved”
+  bookmark, pressing it opens a dialog that asks before taking the recipe off
+  the shelf, and “edit” takes the solid fill. Saving does not copy the recipe.
+  Cook logging is not part of the current MVP.
 - The read view keeps actions few: the solid action, “edit”, and a muted
   “share”. “Share” opens one dialog for the link settings and for exporting the
-  recipe as a file. “Make it mine” appears only while editing.
+  recipe as a file. There is no “make it mine” button.
 - Editing a shared recipe makes your own copy on its first real change; an
   eggplant-tinted note in the editor explains this. Notes remain personal.
   Removing a shared recipe only takes it off your shelf.
+- A recipe can say where it came from with its original link: a web page, or a
+  video such as a YouTube link. It is just a link; it can be added, changed or
+  cleared in the editor. A copy of someone's public recipe credits the original
+  author by their public profile name (never the account name) and otherwise
+  stands on its own; removing a link never changes that credit.
 
 ### Recipe Form
 

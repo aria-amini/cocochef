@@ -20,13 +20,18 @@ vi.mock('@/lib/s3', () => ({
 	getAvatarUploadUrl: vi.fn(),
 }))
 
+vi.mock('@/lib/sharing/server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/sharing/server')>()),
+	getMySharingProfile: async () => null,
+}))
+
 vi.mock('@/lib/shelf/server', () => ({
 	getShelfStats: async () => ({ recipes: 0, pantryItems: 0 }),
 }))
 
-describe('profile account states', () => {
+describe('settings account states', () => {
 	test('offers sign-in instead of upload controls without a session', async () => {
-		const { screen } = await renderRoute({ path: '/profile' })
+		const { screen } = await renderRoute({ path: '/settings' })
 		await expect
 			.element(
 				screen
@@ -40,7 +45,7 @@ describe('profile account states', () => {
 	})
 	test('offers a retry instead of sign-in when the session lookup fails', async () => {
 		const { screen } = await renderRoute({
-			path: '/profile',
+			path: '/settings',
 			setup: () => setMockSessionError(new Error('network down')),
 		})
 
@@ -62,7 +67,7 @@ describe('profile account states', () => {
 
 	test('offers account creation instead of upload controls for guests', async () => {
 		const { screen } = await renderRoute({
-			path: '/profile',
+			path: '/settings',
 			session: {
 				user: {
 					id: 'guest',
@@ -84,7 +89,7 @@ describe('profile account states', () => {
 
 	test('loads the existing avatar for a registered account', async () => {
 		const { screen } = await renderRoute({
-			path: '/profile',
+			path: '/settings',
 			session: {
 				user: {
 					id: 'cook',
@@ -102,6 +107,38 @@ describe('profile account states', () => {
 		await expect.element(screen.getByLabelText('Profile photo')).toBeVisible()
 	})
 
+	test('keeps public sharing settings on the same page as the photo', async () => {
+		const { screen } = await renderRoute({
+			path: '/settings',
+			session: {
+				user: { id: 'cook', name: 'Cook', email: 'cook@example.com' },
+				session: { id: 'cook-session', token: 'token' },
+			},
+		})
+
+		await expect
+			.element(screen.getByRole('heading', { name: 'settings' }))
+			.toBeVisible()
+		await expect.element(screen.getByLabelText('Profile photo')).toBeVisible()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'public handle' }))
+			.toBeVisible()
+	})
+
+	test('sends the old profile addresses to settings', async () => {
+		const { router } = await renderRoute({
+			path: '/profile/sharing',
+			session: {
+				user: { id: 'cook', name: 'Cook', email: 'cook@example.com' },
+				session: { id: 'cook-session', token: 'token' },
+			},
+		})
+
+		await expect.poll(() => router.state.location.pathname).toBe('/settings')
+		// The old sharing page lands on the public profile section.
+		expect(router.state.location.hash).toBe('public-profile')
+	})
+
 	describe('moving recipes between kitchens', () => {
 		const cook = {
 			user: { id: 'cook', name: 'Cook', email: 'cook@example.com' },
@@ -112,7 +149,7 @@ describe('profile account states', () => {
 
 		test('imports a recipe file and says what was new and what was already here', async () => {
 			transfer.imported.mockResolvedValue({ imported: 2, skipped: 1 })
-			const { screen } = await renderRoute({ path: '/profile', session: cook })
+			const { screen } = await renderRoute({ path: '/settings', session: cook })
 			const text = '{"format":"dutch-oven/recipes","version":1,"recipes":[]}'
 
 			await userEvent.upload(
@@ -130,7 +167,7 @@ describe('profile account states', () => {
 			transfer.imported.mockRejectedValue(
 				new Error("that isn't a dutch-oven recipe file"),
 			)
-			const { screen } = await renderRoute({ path: '/profile', session: cook })
+			const { screen } = await renderRoute({ path: '/settings', session: cook })
 
 			await userEvent.upload(
 				screen.getByLabelText('recipe file'),
@@ -155,7 +192,7 @@ describe('profile account states', () => {
 				.mockImplementation(() => undefined)
 
 			const { screen } = await renderRoute({
-				path: '/profile',
+				path: '/settings',
 				session: {
 					user: {
 						id: 'guest',

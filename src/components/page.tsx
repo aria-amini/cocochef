@@ -6,12 +6,13 @@ import { cn } from '@/lib/utils/ui'
 
 // The one page heading: plain, lowercase, large, and balanced when it wraps.
 export function PageTitle({
+	as: Heading = 'h1',
 	className,
 	children,
 	...props
-}: React.ComponentProps<'h1'>) {
+}: React.ComponentProps<'h1'> & { as?: 'h1' | 'h2' }) {
 	return (
-		<h1
+		<Heading
 			className={cn(
 				'text-4xl leading-tight font-bold tracking-tight text-balance break-words md:text-5xl',
 				className,
@@ -19,7 +20,7 @@ export function PageTitle({
 			{...props}
 		>
 			{children}
-		</h1>
+		</Heading>
 	)
 }
 

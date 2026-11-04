@@ -3,17 +3,14 @@ import { describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
 
 vi.mock('@/lib/recipes/server', () => ({
+	removeSavedRecipe: () => Promise.resolve(null),
+	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
+	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: vi.fn(),
 	createRecipe: vi.fn(),
 	updateRecipe: vi.fn(),
 	deleteRecipe: vi.fn(),
-	moveRecipe: vi.fn(),
-	listBooks: vi.fn(),
-	createBook: vi.fn(),
-	renameBook: vi.fn(),
-	deleteBook: vi.fn(),
 }))
 
 // A slow loader: long enough for the progress bar and placeholder to show.
