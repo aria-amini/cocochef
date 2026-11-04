@@ -69,6 +69,34 @@ export function useTabBar(): TabBarMode {
 	return mode === 'fab' ? 'bar-fab' : 'bar'
 }
 
+// The tab a page belongs to. Recipes is the app's home, so every shell page that
+// is not another tab's (or settings) counts as one: a recipe from a site, a
+// shared link or a published address lights it up like one on the shelf.
+function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
+	const matches = useMatches()
+
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	})
+
+	if (!matches.some((match) => match.routeId === '/_app')) return undefined
+
+	if (pathname === '/settings') return undefined
+
+	for (const { label } of navItems) {
+		if (label === 'recipes') continue
+
+		if (
+			pathname === `/${label}` ||
+			pathname.startsWith(`/${label}/`) ||
+			pathname === `/coming-soon/${label}`
+		)
+			return label
+	}
+
+	return 'recipes'
+}
+
 // The on-screen keyboard shoves fixed bars up over the field being typed in,
 // so the tab bar steps aside while a text field has focus.
 function useTyping() {
@@ -117,9 +145,7 @@ export function AppNav() {
 }
 
 function Sidebar() {
-	const pathname = useRouterState({
-		select: (state) => state.location.pathname,
-	})
+	const tab = useActiveTab()
 
 	return (
 		<nav
@@ -139,10 +165,7 @@ function Sidebar() {
 				dutch-oven
 			</Link>
 			{navItems.map(({ label, icon: Icon, to }) => {
-				const active =
-					pathname === to ||
-					pathname.startsWith(`${to}/`) ||
-					pathname === `/coming-soon/${label}`
+				const active = tab === label
 
 				return (
 					<Link
@@ -217,16 +240,13 @@ function TabBar() {
 	const visible = useTabBarVisible()
 	const { find } = useRecipeActions()
 	const lastRecipe = useLastOpenedRecipe()
-
-	const pathname = useRouterState({
-		select: (state) => state.location.pathname,
-	})
+	const tab = useActiveTab()
 
 	if (!visible) return null
 
 	// Coming back from another tab reopens the recipe you were reading; from the
 	// recipe itself, the tab goes up to the shelf.
-	const inRecipes = pathname === '/recipes' || pathname.startsWith('/recipes/')
+	const inRecipes = tab === 'recipes'
 
 	return (
 		<>
@@ -235,10 +255,7 @@ function TabBar() {
 				className="border-border bg-background pb-safe fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t md:hidden"
 			>
 				{navItems.map(({ label, icon: Icon, to }) => {
-					const active =
-						pathname === to ||
-						pathname.startsWith(`${to}/`) ||
-						pathname === `/coming-soon/${label}`
+					const active = tab === label
 
 					return (
 						<Link

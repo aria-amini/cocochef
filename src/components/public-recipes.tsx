@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { CopyRecipeButton } from '@/components/copy-recipe-button'
 import { BackBar, BackLink, PageTitle } from '@/components/page'
@@ -9,6 +9,7 @@ import { RecipeReader } from '@/components/recipe-reader'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
 import { buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
+import { rememberRecipe } from '@/lib/recipes/last-opened'
 import { getRecipe } from '@/lib/recipes/server'
 import type {
 	readPublicProfile,
@@ -85,6 +86,13 @@ export function PublicRecipePage({
 }) {
 	const [, refreshSession] = useState(0)
 	const account = authClient.useSession().data?.user
+
+	// The recipes tab on a phone reopens a public recipe like any other: its
+	// address by id redirects to this page. An unlisted recipe has no such
+	// address, so it is left out.
+	useEffect(() => {
+		if (!unlisted) rememberRecipe(recipe.id)
+	}, [recipe.id, unlisted])
 
 	const saved = useQuery({
 		queryKey: ['recipe', recipe.id, account?.id],
