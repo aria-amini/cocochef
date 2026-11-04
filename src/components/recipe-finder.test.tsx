@@ -175,6 +175,16 @@ describe('the one box', () => {
 			.toBeVisible()
 	})
 
+	test('keeps the search field focused when the import button is pressed', async () => {
+		const { screen, input } = await openBox()
+
+		await screen.getByRole('button', { name: 'import' }).click()
+		await expect
+			.element(screen.getByRole('option', { name: /paste text/ }))
+			.toBeVisible()
+		await expect.element(input).toHaveFocus()
+	})
+
 	test('opens a paste dialog and returns to the finder on cancel', async () => {
 		const { screen } = await openBox()
 		await screen.getByRole('button', { name: 'import' }).click()

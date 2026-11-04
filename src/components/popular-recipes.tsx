@@ -15,6 +15,9 @@ type Popular = Awaited<ReturnType<typeof popularRecipes>>['results'][number]
 
 const WARM_POLL_MS = 3000
 
+// The shelf shows four tiles at most; the finder holds the longer list.
+const shownCount = 4
+
 const placeholderCount = 8
 
 export const shelfGridClassName =
@@ -83,7 +86,7 @@ export function PopularRecipes() {
 							<Skeleton key={index} className="h-28" />
 						))
 					: null}
-				{data?.results.map((recipe) =>
+				{data?.results.slice(0, shownCount).map((recipe) =>
 					recipe.recipeId ? (
 						<Link
 							key={recipe.recipeId}

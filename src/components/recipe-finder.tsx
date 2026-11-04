@@ -806,6 +806,8 @@ function SectionRows({
 					<button
 						type="button"
 						aria-expanded={startsOpen}
+						// Keep the search field focused, so the arrow keys and Enter still work.
+						onMouseDown={(event) => event.preventDefault()}
 						onClick={onToggleStarts}
 						className="text-muted-foreground hover:text-foreground order-2 flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold whitespace-nowrap"
 					>
