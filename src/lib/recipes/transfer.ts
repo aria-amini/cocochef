@@ -12,8 +12,8 @@ import {
 } from './model'
 
 // A file that carries recipes from one kitchen to another, such as a preview
-// to production. It holds what a cook wrote or kept: the recipe, their notes
-// and their book. It leaves out what belongs to one deployment: photos in its
+// to production. It holds what a cook wrote or kept: the recipe and their
+// notes. It leaves out what belongs to one deployment: photos in its
 // storage, cooking history, and sharing.
 export const transferFormat = 'dutch-oven/recipes'
 
@@ -29,7 +29,6 @@ const transferRecipe = recipeInput
 		notes: z.string().trim().max(recipeNotesMax).optional(),
 		sourceNotes: recipeSourceNotes.optional(),
 		imageUrl: recipeImageUrl.optional(),
-		book: z.string().trim().min(1).max(80).optional(),
 		ingredients: lines.optional(),
 		ingredientCategories: z
 			.record(z.string(), z.enum(pantryCategories))
@@ -62,7 +61,6 @@ export function toTransferRecipe(recipe: {
 	ingredients: string[]
 	ingredientCategories: IngredientCategories
 	steps: string[]
-	book?: string | undefined
 }): TransferRecipe {
 	const image = webImage(recipe.imageUrl)
 
@@ -80,8 +78,6 @@ export function toTransferRecipe(recipe: {
 	if (recipe.notes) transfer.notes = recipe.notes
 
 	if (recipe.sourceNotes != null) transfer.sourceNotes = recipe.sourceNotes
-
-	if (recipe.book) transfer.book = recipe.book
 
 	const categories = Object.fromEntries(
 		Object.entries(recipe.ingredientCategories).flatMap(([line, category]) =>

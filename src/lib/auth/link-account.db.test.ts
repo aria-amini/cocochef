@@ -6,11 +6,7 @@ import {
 	createPantryItemForUser,
 	listPantryForUser,
 } from '@/lib/pantry/repository'
-import {
-	createCollectionForUser,
-	createRecipeForUser,
-	listShelfForUser,
-} from '@/lib/recipes/repository'
+import { createRecipeForUser, listShelfForUser } from '@/lib/recipes/repository'
 
 import { moveGuestDataToNewUser } from './link-account'
 
@@ -34,13 +30,7 @@ describe('guest account transfer', () => {
 				updatedAt: new Date(),
 			})),
 		)
-		const collection = await createCollectionForUser(fromId, 'weeknight', db)
-
-		const recipe = await createRecipeForUser(
-			fromId,
-			{ title: 'soup', collectionId: collection?.id },
-			db,
-		)
+		const recipe = await createRecipeForUser(fromId, { title: 'soup' }, db)
 
 		if (!recipe) throw new Error('Recipe missing')
 		await db.insert(mealLogs).values({
@@ -83,7 +73,6 @@ describe('guest account transfer', () => {
 		).toEqual(['rice'])
 		const shelf = await listShelfForUser(toId, db)
 		expect(shelf.recipes.map((item) => item.id)).toEqual([recipe.id])
-		expect(shelf.collections.map((item) => item.id)).toEqual([collection?.id])
 		expect(
 			await db.select().from(mealLogs).where(eq(mealLogs.userId, toId)),
 		).toHaveLength(1)

@@ -15,16 +15,11 @@ import {
 import { recipeUpdateInput } from './model'
 import {
 	addMissingSourceNotes,
-	createCollectionForUser,
 	createRecipeForUser,
-	deleteCollectionForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
-	listCollectionsForUser,
 	listShelfForUser,
 	popularSharedRecipes,
-	moveRecipeForUser,
-	renameCollectionForUser,
 	saveRecipeForUser,
 	createSharedRecipe,
 	findSharedRecipeByUrl,
@@ -47,48 +42,15 @@ async function seedUser(db: Database) {
 }
 
 describe('recipe shelf', () => {
-	test('creates collections in order and shelves recipes in them', async ({
-		db,
-	}) => {
-		const userId = await seedUser(db)
-
-		const weeknight = await createCollectionForUser(
-			userId,
-			'weeknight heroes',
-			db,
-		)
-
-		const sunday = await createCollectionForUser(userId, 'slow sunday', db)
-		expect(weeknight?.position).toBe(0)
-		expect(sunday?.position).toBe(1)
-
-		const recipe = await createRecipeForUser(
-			userId,
-			{ title: 'miso butter pasta', collectionId: weeknight?.id },
-			db,
-		)
-
-		if (!recipe) throw new Error('recipe was not created')
-		await expect(
-			getRecipeForUser(userId, recipe.id, db),
-		).resolves.toMatchObject({ collectionId: weeknight?.id, saved: true })
-
-		const shelf = await listShelfForUser(userId, db)
-		expect(shelf.collections.map((c) => c.name)).toEqual([
-			'weeknight heroes',
-			'slow sunday',
-		])
-		expect(shelf.recipes).toHaveLength(1)
-	})
-
-	test('shelves recipes without a group', async ({ db }) => {
+	test('shelves a new recipe', async ({ db }) => {
 		const userId = await seedUser(db)
 		const recipe = await createRecipeForUser(userId, { title: 'dal' }, db)
 
 		if (!recipe) throw new Error('recipe was not created')
 		await expect(
 			getRecipeForUser(userId, recipe.id, db),
-		).resolves.toMatchObject({ collectionId: null })
+		).resolves.toMatchObject({ saved: true })
+		expect((await listShelfForUser(userId, db)).recipes).toHaveLength(1)
 	})
 
 	test('scopes the shelf to the user', async ({ db }) => {
@@ -97,7 +59,6 @@ describe('recipe shelf', () => {
 
 		const other = await listShelfForUser('user-2', db)
 		expect(other.recipes).toHaveLength(0)
-		expect(other.collections).toHaveLength(0)
 		expect(await getRecipeForUser('user-2', 'missing', db)).toBeNull()
 	})
 
@@ -242,20 +203,6 @@ describe('recipe shelf', () => {
 		await expect(getRecipeForUser(userId, recipe.id, db)).resolves.toBeNull()
 	})
 
-	test('rejects collections owned by another user', async ({ db }) => {
-		const userId = await seedUser(db)
-		const otherId = await seedUser(db)
-		const foreign = await createCollectionForUser(otherId, 'not yours', db)
-
-		await expect(
-			createRecipeForUser(
-				userId,
-				{ title: 'dal', collectionId: foreign?.id },
-				db,
-			),
-		).rejects.toThrow('collection not found')
-	})
-
 	test('finalizes new recipes unless they are drafts, and finalizes on update', async ({
 		db,
 	}) => {
@@ -372,63 +319,6 @@ describe('recipe shelf', () => {
 		await expect(
 			getRecipeForUser(userId, recipe.id, db),
 		).resolves.toMatchObject({ imageUrl: null })
-	})
-})
-
-describe('books', () => {
-	test('renames, moves recipes, and deletes without losing recipes', async ({
-		db,
-	}) => {
-		const userId = await seedUser(db)
-		const book = await createCollectionForUser(userId, 'weeknight', db)
-		const recipe = await createRecipeForUser(userId, { title: 'dal' }, db)
-
-		if (!book || !recipe) throw new Error('seed failed')
-
-		await expect(
-			renameCollectionForUser(userId, book.id, 'school nights', db),
-		).resolves.toMatchObject({ name: 'school nights' })
-		await expect(
-			moveRecipeForUser(userId, recipe.id, book.id, db),
-		).resolves.toMatchObject({ collectionId: book.id })
-
-		await expect(deleteCollectionForUser(userId, book.id, db)).resolves.toEqual(
-			{ id: book.id },
-		)
-		await expect(
-			getRecipeForUser(userId, recipe.id, db),
-		).resolves.toMatchObject({ title: 'dal', collectionId: null })
-	})
-
-	test("ignores other users' books and recipes", async ({ db }) => {
-		const userId = await seedUser(db)
-		const otherId = await seedUser(db)
-		const foreignBook = await createCollectionForUser(otherId, 'theirs', db)
-		const recipe = await createRecipeForUser(userId, { title: 'dal' }, db)
-
-		const foreignRecipe = await createRecipeForUser(
-			otherId,
-			{ title: 'stew' },
-			db,
-		)
-
-		if (!foreignBook || !recipe || !foreignRecipe) {
-			throw new Error('seed failed')
-		}
-
-		await expect(
-			moveRecipeForUser(userId, recipe.id, foreignBook.id, db),
-		).rejects.toThrow('collection not found')
-		await expect(
-			moveRecipeForUser(userId, foreignRecipe.id, null, db),
-		).resolves.toBeNull()
-		await expect(
-			renameCollectionForUser(userId, foreignBook.id, 'mine', db),
-		).resolves.toBeNull()
-		await expect(
-			deleteCollectionForUser(userId, foreignBook.id, db),
-		).resolves.toBeNull()
-		await expect(listCollectionsForUser(otherId, db)).resolves.toHaveLength(1)
 	})
 })
 
@@ -664,11 +554,9 @@ describe('shared recipes', () => {
 	}) => {
 		const userId = await seedUser(db)
 		const otherId = await seedUser(db)
-		const book = await createCollectionForUser(userId, 'weeknight', db)
 		const recipe = await seedShared(db)
 		await saveRecipeForUser(userId, recipe.id, db)
 		await saveRecipeForUser(otherId, recipe.id, db)
-		await moveRecipeForUser(userId, recipe.id, book?.id ?? null, db)
 		await db.insert(mealLogs).values({
 			id: crypto.randomUUID(),
 			userId,
@@ -698,7 +586,6 @@ describe('shared recipes', () => {
 		await expect(getRecipeForUser(userId, copy.id, db)).resolves.toMatchObject({
 			title: 'my dal',
 			ingredients: ['lentils', 'salt', 'lime'],
-			collectionId: book?.id,
 			cookCount: 1,
 			owned: true,
 		})

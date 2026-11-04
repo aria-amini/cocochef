@@ -118,7 +118,6 @@ describe('recipe publication boundaries', () => {
 			'@example.com',
 			'cookCount',
 			'lastCookedAt',
-			'collectionId',
 			'userId',
 			'token',
 		])

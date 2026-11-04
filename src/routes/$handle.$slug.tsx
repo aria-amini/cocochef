@@ -4,7 +4,7 @@ import { AppChrome } from '@/components/app-chrome'
 import { PublicRecipePage } from '@/components/public-recipes'
 import { RecipeDetail } from '@/components/recipe-detail'
 import { getCurrentSession } from '@/lib/auth/session'
-import { getRecipe, listBooks } from '@/lib/recipes/server'
+import { getRecipe } from '@/lib/recipes/server'
 import { readPublicRecipe } from '@/lib/sharing/server'
 
 export const Route = createFileRoute('/$handle/$slug')({
@@ -21,12 +21,9 @@ export const Route = createFileRoute('/$handle/$slug')({
 		// with no session (readers, crawlers, link previews) get the plain page;
 		// no guest account is made for them.
 		if (session) {
-			const [full, books] = await Promise.all([
-				getRecipe({ data: { id: recipe.id } }),
-				listBooks(),
-			])
+			const full = await getRecipe({ data: { id: recipe.id } })
 
-			if (full) return { kind: 'app' as const, recipe: full, books }
+			if (full) return { kind: 'app' as const, recipe: full }
 		}
 
 		return { kind: 'public' as const, recipe }
@@ -57,7 +54,7 @@ function SharedRecipe() {
 
 	return data.kind === 'app' ? (
 		<AppChrome>
-			<RecipeDetail recipe={data.recipe} books={data.books} />
+			<RecipeDetail recipe={data.recipe} />
 		</AppChrome>
 	) : (
 		<PublicRecipePage recipe={data.recipe} />

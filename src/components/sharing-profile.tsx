@@ -159,8 +159,8 @@ function SharingProfileForm({
 				</span>
 			</label>
 			<p className="border-border border-t pt-4 text-sm">
-				drafts, personal notes, books, and cooking history stay private. each
-				finished recipe has its own sharing controls.
+				drafts, personal notes, and cooking history stay private. each finished
+				recipe has its own sharing controls.
 			</p>
 			{update.isError ? <FieldError>{update.error.message}</FieldError> : null}
 			<div className="flex flex-wrap items-center gap-4">

@@ -13,7 +13,7 @@ const recipeState: { recipe: Recipe | null } = vi.hoisted(() => ({
 
 type RecipeUpdate = Omit<
 	Recipe,
-	'userId' | 'collectionId' | 'imageUrl' | 'sourceUrl' | 'createdAt'
+	'userId' | 'imageUrl' | 'sourceUrl' | 'createdAt'
 > & {
 	imageUrl?: string | null | undefined
 	sourceUrl?: string | null | undefined
@@ -30,7 +30,7 @@ const updateCalls = vi.hoisted(() => {
 })
 
 vi.mock('@/lib/recipes/server', () => ({
-	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
+	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: () => Promise.resolve(recipeState.recipe),
 	updateRecipe: async ({ data }: { data: RecipeUpdate }) => {
 		updateCalls.calls.push(data)
@@ -65,22 +65,6 @@ vi.mock('@/lib/recipes/server', () => ({
 
 		return recipeState.recipe
 	},
-	createBook: vi.fn(),
-	renameBook: vi.fn(),
-	deleteBook: vi.fn(),
-	listBooks: () => Promise.resolve([{ id: 'col-1', name: 'weeknight' }]),
-	moveRecipe: async ({
-		data,
-	}: {
-		data: { id: string; collectionId: string | null }
-	}) => {
-		if (recipeState.recipe) {
-			recipeState.recipe = {
-				...recipeState.recipe,
-				collectionId: data.collectionId,
-			}
-		}
-	},
 	deleteRecipe: async ({ data }: { data: { id: string } }) => {
 		updateCalls.deleted.push(data.id)
 
@@ -88,7 +72,6 @@ vi.mock('@/lib/recipes/server', () => ({
 			recipeState.recipe = {
 				...recipeState.recipe,
 				saved: false,
-				collectionId: null,
 			}
 	},
 }))
@@ -117,7 +100,6 @@ describe('recipe detail', () => {
 		recipeState.recipe = {
 			id: 'recipe-1',
 			userId: 'user-1',
-			collectionId: null,
 			title: 'miso butter pasta',
 			imageUrl: null,
 			sourceUrl: null,
@@ -746,22 +728,6 @@ describe('recipe detail', () => {
 		expect(updateCalls.deleted).toEqual(['recipe-1'])
 	})
 
-	test('moves the recipe into a book', async () => {
-		const { screen } = await renderRoute({
-			path: '/recipes/recipe-1',
-			session,
-		})
-
-		await screen
-			.getByLabelText('book', { exact: true })
-			.selectOptions('weeknight')
-
-		await expect.poll(() => recipeState.recipe?.collectionId).toBe('col-1')
-		await expect
-			.element(screen.getByLabelText('book', { exact: true }))
-			.toHaveDisplayValue('weeknight')
-	})
-
 	test('adds a shared recipe to the shelf without offering cook logging', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		Object.assign(recipeState.recipe, {
@@ -778,9 +744,6 @@ describe('recipe detail', () => {
 
 		await expect
 			.element(screen.getByRole('button', { name: 'cooked it' }))
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByLabelText('book', { exact: true }))
 			.not.toBeInTheDocument()
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect.poll(() => recipeState.recipe?.saved).toBe(true)

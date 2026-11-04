@@ -18,7 +18,6 @@ import {
 
 import { type Database, getDb } from '@/db/connection'
 import {
-	collections,
 	mealLogs,
 	recipeIngredients,
 	recipeSteps,
@@ -74,15 +73,14 @@ function cookStatsForUser(database: Database, userId: string) {
 		.as('cook_stats')
 }
 
-// A recipe as one user sees it: the shared content, plus their shelf row (book
-// and notes, when saved) and how often they cooked it.
+// A recipe as one user sees it: the shared content, plus their shelf row (notes,
+// when saved) and how often they cooked it.
 function recipesForUser(database: Database, userId: string) {
 	const stats = cookStatsForUser(database, userId)
 
 	return database
 		.select({
 			...getColumns(recipes),
-			collectionId: shelfRecipes.collectionId,
 			notes: shelfRecipes.notes,
 			savedAt: shelfRecipes.addedAt,
 			cookCount: sql<number>`coalesce(${stats.cookCount}, 0)`.mapWith(Number),
@@ -104,14 +102,11 @@ export async function listShelfForUser(
 	userId: string,
 	database: Database = getDb(),
 ) {
-	const [userCollections, userRecipes] = await Promise.all([
-		listCollectionsForUser(userId, database),
-		recipesForUser(database, userId)
-			.where(and(eq(shelfRecipes.userId, userId), visibleTo(userId, database)))
-			.orderBy(desc(shelfRecipes.addedAt)),
-	])
+	const userRecipes = await recipesForUser(database, userId)
+		.where(and(eq(shelfRecipes.userId, userId), visibleTo(userId, database)))
+		.orderBy(desc(shelfRecipes.addedAt))
 
-	return { collections: userCollections, recipes: userRecipes }
+	return { recipes: userRecipes }
 }
 
 async function recipeContent(database: RecipeDatabase, recipeId: string) {
@@ -350,82 +345,6 @@ export async function popularSharedRecipes(
 		.limit(limit)
 }
 
-async function assertOwnedCollection(
-	database: RecipeDatabase,
-	userId: string,
-	id: string,
-) {
-	const [owned] = await database
-		.select({ id: collections.id })
-		.from(collections)
-		.where(and(eq(collections.id, id), eq(collections.userId, userId)))
-
-	if (!owned) throw new Error('collection not found')
-}
-
-export async function listCollectionsForUser(
-	userId: string,
-	database: Database = getDb(),
-) {
-	return database
-		.select()
-		.from(collections)
-		.where(eq(collections.userId, userId))
-		.orderBy(asc(collections.position), asc(collections.createdAt))
-}
-
-export async function renameCollectionForUser(
-	userId: string,
-	id: string,
-	name: string,
-	database: Database = getDb(),
-) {
-	const [collection] = await database
-		.update(collections)
-		.set({ name })
-		.where(and(eq(collections.id, id), eq(collections.userId, userId)))
-		.returning()
-
-	return collection ?? null
-}
-
-export async function deleteCollectionForUser(
-	userId: string,
-	id: string,
-	database: Database = getDb(),
-) {
-	const [collection] = await database
-		.delete(collections)
-		.where(and(eq(collections.id, id), eq(collections.userId, userId)))
-		.returning({ id: collections.id })
-
-	return collection ?? null
-}
-
-export async function createCollectionForUser(
-	userId: string,
-	name: string,
-	database: Database = getDb(),
-) {
-	const [row] = await database
-		.select({ value: max(collections.position) })
-		.from(collections)
-		.where(eq(collections.userId, userId))
-
-	const [collection] = await database
-		.insert(collections)
-		.values({
-			id: crypto.randomUUID(),
-			userId,
-			name,
-			position: (row?.value ?? -1) + 1,
-			createdAt: new Date(),
-		})
-		.returning()
-
-	return collection
-}
-
 async function assertVisibleRecipe(
 	database: RecipeDatabase,
 	userId: string,
@@ -464,27 +383,6 @@ export async function saveRecipeForUser(
 	return recipe
 }
 
-export async function moveRecipeForUser(
-	userId: string,
-	id: string,
-	collectionId: string | null,
-	database: Database = getDb(),
-) {
-	return database.transaction(async (tx) => {
-		if (collectionId) await assertOwnedCollection(tx, userId, collectionId)
-
-		const [shelved] = await tx
-			.update(shelfRecipes)
-			.set({ collectionId })
-			.where(
-				and(eq(shelfRecipes.recipeId, id), eq(shelfRecipes.userId, userId)),
-			)
-			.returning()
-
-		return shelved ?? null
-	})
-}
-
 // Imports keep a public URL; uploads must sit under the owner's prefix.
 function assertRecipePhoto(
 	userId: string,
@@ -508,7 +406,6 @@ export async function createRecipeForUser(
 		sourceNotes?:
 			| NonNullable<typeof recipes.$inferSelect.sourceNotes>
 			| undefined
-		collectionId?: string | undefined
 		notes?: string | undefined
 		ingredients?: string[] | undefined
 		ingredientCategories?: IngredientCategories | undefined
@@ -523,10 +420,6 @@ export async function createRecipeForUser(
 	assertRecipePhoto(userId, input.imageUrl)
 
 	return database.transaction(async (tx) => {
-		if (input.collectionId) {
-			await assertOwnedCollection(tx, userId, input.collectionId)
-		}
-
 		const [recipe] = await tx
 			.insert(recipes)
 			.values({
@@ -553,7 +446,6 @@ export async function createRecipeForUser(
 			id: crypto.randomUUID(),
 			userId,
 			recipeId: recipe.id,
-			collectionId: input.collectionId ?? null,
 			notes: input.notes ?? null,
 			addedAt: recipe.createdAt,
 		})

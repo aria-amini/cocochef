@@ -4,25 +4,12 @@ import { z } from 'zod'
 import { requireUserId } from '@/lib/auth/session'
 import { resolveStoredImage } from '@/lib/s3'
 
+import { recipeIdInput, recipeInput, recipeUpdateInput } from './model'
 import {
-	bookIdInput,
-	bookInput,
-	bookRenameInput,
-	recipeIdInput,
-	recipeInput,
-	recipeMoveInput,
-	recipeUpdateInput,
-} from './model'
-import {
-	createCollectionForUser,
 	createRecipeForUser,
-	deleteCollectionForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
-	listCollectionsForUser,
 	listShelfForUser,
-	moveRecipeForUser,
-	renameCollectionForUser,
 	saveRecipeForUser,
 	updateRecipeForUser,
 } from './repository'
@@ -96,32 +83,4 @@ export const deleteRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) =>
 		deleteRecipeForUser(await requireUserId(), data.id),
-	)
-
-export const moveRecipe = createServerFn({ method: 'POST' })
-	.validator(recipeMoveInput)
-	.handler(async ({ data }) =>
-		moveRecipeForUser(await requireUserId(), data.id, data.collectionId),
-	)
-
-export const listBooks = createServerFn({ method: 'GET' }).handler(async () =>
-	listCollectionsForUser(await requireUserId()),
-)
-
-export const createBook = createServerFn({ method: 'POST' })
-	.validator(bookInput)
-	.handler(async ({ data }) =>
-		createCollectionForUser(await requireUserId(), data.name),
-	)
-
-export const renameBook = createServerFn({ method: 'POST' })
-	.validator(bookRenameInput)
-	.handler(async ({ data }) =>
-		renameCollectionForUser(await requireUserId(), data.id, data.name),
-	)
-
-export const deleteBook = createServerFn({ method: 'POST' })
-	.validator(bookIdInput)
-	.handler(async ({ data }) =>
-		deleteCollectionForUser(await requireUserId(), data.id),
 	)

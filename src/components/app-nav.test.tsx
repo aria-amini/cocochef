@@ -6,16 +6,11 @@ import { page } from 'vitest/browser'
 
 vi.mock('@/lib/recipes/server', () => ({
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
+	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: vi.fn(),
 	createRecipe: vi.fn(),
 	updateRecipe: vi.fn(),
 	deleteRecipe: vi.fn(),
-	moveRecipe: vi.fn(),
-	listBooks: vi.fn(),
-	createBook: vi.fn(),
-	renameBook: vi.fn(),
-	deleteBook: vi.fn(),
 }))
 
 vi.mock('@/lib/pantry/server', () => ({

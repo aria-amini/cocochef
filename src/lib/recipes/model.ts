@@ -50,7 +50,6 @@ export const recipeInput = z.object({
 		z.union([recipeFields.imageUrl, recipePhotoPath]).optional(),
 	),
 	sourceUrl: recipeFields.sourceUrl.optional(),
-	collectionId: z.string().min(1).optional(),
 	finalized: z.boolean().optional(),
 	notes: recipeFields.notes.optional().transform((notes) => notes || undefined),
 	ingredients: contentLines.optional(),
@@ -92,24 +91,6 @@ export function formatMinutes(minutes: number) {
 
 	return rest ? `${hours} hr ${rest} min` : `${hours} hr`
 }
-
-export const bookNameMax = 40
-
-export const bookName = z.string().trim().min(1).max(bookNameMax)
-
-export const bookInput = z.object({ name: bookName })
-
-export const bookIdInput = z.object({ id: z.string().min(1) })
-
-export const bookRenameInput = z.object({
-	id: z.string().min(1),
-	name: bookName,
-})
-
-export const recipeMoveInput = z.object({
-	id: z.string().min(1),
-	collectionId: z.string().min(1).nullable(),
-})
 
 export function matchesRecipeQuery(title: string, query: string | undefined) {
 	return !query || title.toLocaleLowerCase().includes(query.toLocaleLowerCase())

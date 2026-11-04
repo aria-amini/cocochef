@@ -266,8 +266,7 @@ slot, empty states — are drawn dashed; once real, the border goes solid.
   “save”, beside an outlined “edit”; once saved it becomes an outlined “saved”
   bookmark, pressing it opens a dialog that asks before taking the recipe off
   the shelf, and “edit” takes the solid fill. Saving does not copy the recipe.
-  Saved recipes can be organized into books. Cook logging is not part of the
-  current MVP.
+  Cook logging is not part of the current MVP.
 - The read view keeps actions few: the solid action, “edit”, and a muted
   “share”. “Share” opens one dialog for the link settings and for exporting the
   recipe as a file. “Make it mine” appears only while editing.

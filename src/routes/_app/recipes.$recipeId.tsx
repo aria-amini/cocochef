@@ -1,14 +1,11 @@
 import { createFileRoute, notFound, redirect } from '@tanstack/react-router'
 
 import { RecipeDetail } from '@/components/recipe-detail'
-import { getRecipe, listBooks } from '@/lib/recipes/server'
+import { getRecipe } from '@/lib/recipes/server'
 
 export const Route = createFileRoute('/_app/recipes/$recipeId')({
 	loader: async ({ params }) => {
-		const [recipe, books] = await Promise.all([
-			getRecipe({ data: { id: params.recipeId } }),
-			listBooks(),
-		])
+		const recipe = await getRecipe({ data: { id: params.recipeId } })
 
 		if (!recipe) throw notFound()
 
@@ -17,13 +14,13 @@ export const Route = createFileRoute('/_app/recipes/$recipeId')({
 		if (recipe.publicPath)
 			throw redirect({ href: recipe.publicPath, replace: true })
 
-		return { recipe, books }
+		return { recipe }
 	},
 	component: RecipePage,
 })
 
 function RecipePage() {
-	const { recipe, books } = Route.useLoaderData()
+	const { recipe } = Route.useLoaderData()
 
-	return <RecipeDetail recipe={recipe} books={books} />
+	return <RecipeDetail recipe={recipe} />
 }

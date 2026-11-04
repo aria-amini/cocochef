@@ -1,10 +1,8 @@
 import { getDb, type Database } from '@/db/connection'
 
 import {
-	createCollectionForUser,
 	createRecipeForUser,
 	getRecipeForUser,
-	listCollectionsForUser,
 	listShelfForUser,
 } from './repository'
 import {
@@ -19,12 +17,7 @@ export async function exportRecipesForUser(
 	recipeId?: string,
 	database: Database = getDb(),
 ) {
-	const [shelf, books] = await Promise.all([
-		listShelfForUser(userId, database),
-		listCollectionsForUser(userId, database),
-	])
-
-	const bookName = new Map(books.map((book) => [book.id, book.name]))
+	const shelf = await listShelfForUser(userId, database)
 	const ids = recipeId ? [recipeId] : shelf.recipes.map((recipe) => recipe.id)
 	const exported: TransferRecipe[] = []
 
@@ -33,14 +26,7 @@ export async function exportRecipesForUser(
 
 		if (!recipe) continue
 
-		exported.push(
-			toTransferRecipe({
-				...recipe,
-				book: recipe.collectionId
-					? bookName.get(recipe.collectionId)
-					: undefined,
-			}),
-		)
+		exported.push(toTransferRecipe(recipe))
 	}
 
 	return toTransferDocument(exported)
@@ -65,13 +51,6 @@ export async function importRecipesForUser(
 	database: Database = getDb(),
 ) {
 	const shelf = await listShelfForUser(userId, database)
-
-	const books = new Map(
-		(await listCollectionsForUser(userId, database)).map((book) => [
-			book.name,
-			book.id,
-		]),
-	)
 
 	const known: { title: string; ingredients: string[]; steps: string[] }[] = []
 
@@ -100,16 +79,6 @@ export async function importRecipesForUser(
 			continue
 		}
 
-		let collectionId = recipe.book ? books.get(recipe.book) : undefined
-
-		if (recipe.book && !collectionId) {
-			collectionId = (
-				await createCollectionForUser(userId, recipe.book, database)
-			)?.id
-
-			if (collectionId) books.set(recipe.book, collectionId)
-		}
-
 		const created = await createRecipeForUser(
 			userId,
 			{
@@ -118,7 +87,6 @@ export async function importRecipesForUser(
 				sourceUrl: recipe.sourceUrl,
 				sourceNotes: recipe.sourceNotes,
 				notes: recipe.notes || undefined,
-				collectionId,
 				ingredients,
 				ingredientCategories: recipe.ingredientCategories,
 				steps,

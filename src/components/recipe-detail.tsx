@@ -10,27 +10,13 @@ import { RecipeEditor } from '@/components/recipe-editor'
 import { RecipeReader } from '@/components/recipe-reader'
 import { RecipeSharing } from '@/components/recipe-sharing'
 import { buttonVariants } from '@/components/ui/button'
-import type { collections } from '@/db/schema'
-import {
-	deleteRecipe,
-	getRecipe,
-	moveRecipe,
-	saveRecipe,
-} from '@/lib/recipes/server'
+import { deleteRecipe, getRecipe, saveRecipe } from '@/lib/recipes/server'
 import { cn } from '@/lib/utils/ui'
 
 export type Recipe = NonNullable<Awaited<ReturnType<typeof getRecipe>>>
 
-type Book = typeof collections.$inferSelect
-
 // A recipe on its own page: read, cooked from, edited in place.
-export function RecipeDetail({
-	recipe,
-	books,
-}: {
-	recipe: Recipe
-	books: Book[]
-}) {
+export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 	const navigate = useNavigate()
 	// A recipe you are writing stays in the editor until it is finished.
 	const [editing, setEditing] = useState(recipe.owned && !recipe.finalizedAt)
@@ -68,7 +54,6 @@ export function RecipeDetail({
 						<RecipeView
 							key={recipe.id}
 							recipe={recipe}
-							books={books}
 							onEdit={() => {
 								setEditing(true)
 							}}
@@ -82,11 +67,9 @@ export function RecipeDetail({
 
 function RecipeView({
 	recipe,
-	books,
 	onEdit,
 }: {
 	recipe: Recipe
-	books: Book[]
 	onEdit: () => void
 }) {
 	return (
@@ -112,9 +95,6 @@ function RecipeView({
 								imported={!recipe.owned && !!recipe.sourceUrl}
 							/>
 						) : null}
-						{recipe.saved && books.length ? (
-							<BookPicker recipe={recipe} books={books} />
-						) : null}
 					</div>
 				</>
 			}
@@ -123,7 +103,7 @@ function RecipeView({
 }
 
 // A shared recipe someone opened from a search or a link. Saving it puts it on
-// the shelf as is; books come after. Solid until it is saved. Once saved it
+// the shelf as is. Solid until it is saved. Once saved it
 // says so, and pressing it asks before taking the recipe off the shelf.
 function SaveButton({ recipe }: { recipe: Recipe }) {
 	const router = useRouter()
@@ -191,48 +171,6 @@ function SaveButton({ recipe }: { recipe: Recipe }) {
 				pending={pending}
 				onConfirm={() => void save()}
 			/>
-		</div>
-	)
-}
-
-function BookPicker({ recipe, books }: { recipe: Recipe; books: Book[] }) {
-	const router = useRouter()
-	const [pending, setPending] = useState(false)
-
-	const move = async (collectionId: string) => {
-		setPending(true)
-
-		try {
-			await moveRecipe({
-				data: { id: recipe.id, collectionId: collectionId || null },
-			})
-			await router.invalidate()
-		} catch {
-			toast.error("couldn't move that — try again")
-		} finally {
-			setPending(false)
-		}
-	}
-
-	return (
-		<div className="flex items-center gap-2">
-			<label htmlFor="recipe-book" className="text-xs font-semibold">
-				book
-			</label>
-			<select
-				id="recipe-book"
-				value={recipe.collectionId ?? ''}
-				disabled={pending}
-				onChange={(event) => void move(event.target.value)}
-				className="border-input bg-card focus-visible:outline-kitchen-eggplant rounded-md border px-2 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
-			>
-				<option value="">no book</option>
-				{books.map((book) => (
-					<option key={book.id} value={book.id}>
-						{book.name}
-					</option>
-				))}
-			</select>
 		</div>
 	)
 }

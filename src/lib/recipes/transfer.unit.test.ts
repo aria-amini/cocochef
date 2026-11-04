@@ -20,6 +20,21 @@ const saved = {
 }
 
 describe('recipe transfer files', () => {
+	test('ignores the book an older file put a recipe in', () => {
+		const parsed = parseTransferDocument(
+			JSON.stringify({
+				format: 'dutch-oven/recipes',
+				version: 1,
+				recipes: [{ title: 'dal', book: 'soups', ingredients: ['lentils'] }],
+			}),
+		)
+
+		expect(parsed).toEqual({
+			ok: true,
+			recipes: [{ title: 'dal', ingredients: ['lentils'] }],
+		})
+	})
+
 	test('round-trips a recipe through the file format', () => {
 		const document = toTransferDocument([
 			toTransferRecipe({
@@ -27,7 +42,6 @@ describe('recipe transfer files', () => {
 				sourceUrl: 'https://example.com/resteh',
 				notes: 'less salt',
 				ingredientCategories: { '1 onion': 'other' },
-				book: 'soups',
 			}),
 		])
 
@@ -41,7 +55,6 @@ describe('recipe transfer files', () => {
 					sourceUrl: 'https://example.com/resteh',
 					notes: 'less salt',
 					finalized: true,
-					book: 'soups',
 					ingredients: ['## sauce', '1 onion'],
 					ingredientCategories: { '1 onion': 'other' },
 					steps: ['simmer'],

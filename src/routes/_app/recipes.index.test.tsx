@@ -2,21 +2,16 @@ import { renderRoute } from '@tests/support/render/route'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
-import type { collections } from '@/db/schema'
 import type { listShelf } from '@/lib/recipes/server'
 
 type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 
-type Collection = typeof collections.$inferSelect
-
 type ShelfState = {
 	recipes: Recipe[]
-	collections: Collection[]
 }
 
 const shelfState = vi.hoisted<ShelfState>(() => ({
 	recipes: [],
-	collections: [],
 }))
 
 const discovery = vi.hoisted(() => ({
@@ -34,11 +29,7 @@ vi.mock('@/lib/import/server', () => ({ importRecipe: discovery.import }))
 
 vi.mock('@/lib/recipes/server', () => ({
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () =>
-		Promise.resolve({
-			recipes: shelfState.recipes,
-			collections: shelfState.collections,
-		}),
+	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: ({ data }: { data: { id: string } }) => {
 		const recipe = shelfState.recipes.find((recipe) => recipe.id === data.id)
 
@@ -46,10 +37,8 @@ vi.mock('@/lib/recipes/server', () => ({
 			recipe ? { ...recipe, ingredients: [], steps: [] } : null,
 		)
 	},
-	listBooks: () => Promise.resolve(shelfState.collections),
 	createRecipe: () => Promise.resolve(),
 	deleteRecipe: () => Promise.resolve(),
-	moveRecipe: () => Promise.resolve(),
 	updateRecipe: () => Promise.resolve(),
 }))
 
@@ -63,7 +52,6 @@ const testSession = {
 const misoButterPasta: Recipe = {
 	id: 'recipe-1',
 	userId: 'user-1',
-	collectionId: 'col-1',
 	title: 'miso butter pasta',
 	imageUrl: null,
 	sourceUrl: null,
@@ -82,7 +70,6 @@ const misoButterPasta: Recipe = {
 const dal: Recipe = {
 	id: 'recipe-2',
 	userId: 'user-1',
-	collectionId: null,
 	title: 'dal',
 	imageUrl: null,
 	sourceUrl: null,
@@ -101,7 +88,6 @@ const dal: Recipe = {
 describe('recipes shelf', () => {
 	beforeEach(() => {
 		shelfState.recipes = []
-		shelfState.collections = []
 		discovery.search.mockReset().mockResolvedValue({
 			results: [
 				{

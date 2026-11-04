@@ -26,15 +26,12 @@ vi.mock('@/lib/discover/server', () => ({
 vi.mock('@/lib/import/server', () => ({ importRecipe: server.import }))
 
 vi.mock('@/lib/recipes/server', () => ({
-	listShelf: () =>
-		Promise.resolve({ recipes: shelfState.recipes, collections: [] }),
+	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: server.getRecipe,
 	saveRecipe: server.save,
-	listBooks: () => Promise.resolve([]),
 	createRecipe: () => Promise.resolve({ id: 'recipe-new' }),
 	updateRecipe: () => Promise.resolve({ id: 'recipe-new' }),
 	deleteRecipe: () => Promise.resolve(),
-	moveRecipe: () => Promise.resolve(),
 }))
 
 const testSession = {
@@ -50,7 +47,6 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 	return {
 		id,
 		userId: 'user-1',
-		collectionId: null,
 		title,
 		imageUrl: null,
 		sourceUrl: null,

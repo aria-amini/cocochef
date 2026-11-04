@@ -29,10 +29,9 @@ vi.mock('@/lib/sharing/server', () => ({
 
 vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/recipes/server')>()),
-	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
+	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: api.getRecipe,
 	deleteRecipe: api.deleteRecipe,
-	listBooks: () => Promise.resolve([]),
 }))
 
 vi.mock('@/lib/s3', async (importOriginal) => ({

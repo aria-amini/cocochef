@@ -39,9 +39,8 @@ const latest = () => state.updated.at(-1) ?? state.created.at(-1)
 
 vi.mock('@/lib/recipes/server', () => ({
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () => Promise.resolve({ recipes: [], collections: [] }),
+	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: () => Promise.resolve(null),
-	listBooks: () => Promise.resolve([]),
 	createRecipe: async ({ data }: { data: Saved }) => {
 		state.created.push(data)
 		await state.createDelay
