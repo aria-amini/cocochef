@@ -3,6 +3,12 @@ import { z } from 'zod'
 import { ingredientSubject } from '../recipes/ingredient-line'
 import { foodFamily } from './food-family'
 import type { PantryCategory } from './model'
+import {
+	tintedFamilySprites,
+	tintedLook,
+	type Rule,
+	type SpriteLook,
+} from './tinted-sprites'
 
 const spriteCategory = z.enum([
 	'vegetable',
@@ -31,18 +37,40 @@ const sprite = <const Key extends string>(
 export const pantrySprites = [
 	sprite('apple', 'fruit', ['apple', 'apples', 'applesauce']),
 	sprite('avocado', 'fruit', ['avocado', 'avocados']),
-	sprite('bacon', 'protein', ['bacon', 'turkey bacon', 'pancetta']),
+	sprite('bacon', 'protein', [
+		'bacon',
+		'turkey bacon',
+		'pancetta',
+		'guanciale',
+	]),
 	sprite('banana', 'fruit', ['banana', 'bananas']),
-	sprite('bell-pepper', 'vegetable', ['bell pepper', 'bell peppers']),
+	sprite('bell-pepper', 'vegetable', [
+		'bell pepper',
+		'bell peppers',
+		'capsicum',
+		'red capsicum',
+		'red pepper',
+		'red peppers',
+		'green pepper',
+		'yellow pepper',
+		'orange pepper',
+	]),
 	sprite('black-pepper', 'spice', [
 		'black pepper',
 		'peppercorns',
 		'peppercorn',
 	]),
 	sprite('blueberries', 'fruit', ['blueberry', 'blueberries']),
-	sprite('bread', 'grain', ['bread', 'loaf', 'rolls', 'buns']),
+	sprite('bread', 'grain', [
+		'bread',
+		'loaf',
+		'rolls',
+		'buns',
+		'sourdough',
+		'challah',
+	]),
 	sprite('broccoli', 'vegetable', ['broccoli']),
-	sprite('butter', 'dairy', ['butter']),
+	sprite('butter', 'dairy', ['butter', 'lard']),
 	sprite('carrot', 'vegetable', ['carrot', 'carrots']),
 	sprite('cheese', 'dairy', [
 		'cheese',
@@ -53,6 +81,10 @@ export const pantrySprites = [
 		'gouda',
 		'brie',
 		'gruyere',
+		'provolone',
+		'camembert',
+		'havarti',
+		'parmigiano reggiano',
 	]),
 	sprite('cherry', 'fruit', ['cherry', 'cherries']),
 	sprite('chicken', 'protein', [
@@ -89,6 +121,8 @@ export const pantrySprites = [
 		'trout',
 		'halibut',
 		'sea bass',
+		'mackerel',
+		'basa',
 	]),
 	sprite('flour', 'grain', ['flour', 'all purpose flour', 'bread flour']),
 	sprite('garlic', 'vegetable', ['garlic', 'garlic cloves']),
@@ -112,6 +146,12 @@ export const pantrySprites = [
 		'mixed greens',
 		'baby greens',
 		'iceberg',
+		'endive',
+		'frisee',
+		'watercress',
+		'pak choi',
+		'bok choy',
+		'chicory',
 	]),
 	sprite('mango', 'fruit', ['mango', 'mangoes']),
 	sprite('meat', 'protein', [
@@ -123,6 +163,8 @@ export const pantrySprites = [
 		'mince',
 		'ground pork',
 		'ground turkey',
+		'oxtail',
+		'oxtails',
 	]),
 	sprite('milk', 'dairy', [
 		'milk',
@@ -219,6 +261,7 @@ export const pantrySprites = [
 		'turnips',
 		'beet',
 		'beets',
+		'beetroot',
 	]),
 	sprite('rice', 'grain', [
 		'rice',
@@ -279,9 +322,7 @@ export const pantrySprites = [
 		'barley',
 		'quinoa',
 		'couscous',
-		'pasta',
 		'noodles',
-		'spaghetti',
 	]),
 	sprite('zucchini', 'vegetable', [
 		'zucchini',
@@ -290,6 +331,7 @@ export const pantrySprites = [
 		'summer squash',
 		'pumpkin',
 		'butternut squash',
+		'acorn squash',
 	]),
 	// Pantry staples the recipe corpus showed with only a generic jar.
 	sprite('beans', 'other', [
@@ -318,7 +360,6 @@ export const pantrySprites = [
 	]),
 	sprite('extract', 'other', [
 		'vanilla extract',
-		'vanilla bean',
 		'vanilla paste',
 		'almond extract',
 		'peppermint extract',
@@ -381,6 +422,117 @@ export const pantrySprites = [
 		'vermouth',
 		'sake',
 	]),
+	// Foods that had no picture, or only a generic one.
+	sprite('celery', 'vegetable', [
+		'celery',
+		'celery stalks',
+		'celery ribs',
+		'celery sticks',
+	]),
+	sprite('cauliflower', 'vegetable', ['cauliflower', 'cauliflower florets']),
+	sprite('asparagus', 'vegetable', ['asparagus']),
+	sprite('brussels-sprouts', 'vegetable', [
+		'brussels sprouts',
+		'brussels sprout',
+	]),
+	sprite('green-beans', 'vegetable', [
+		'green beans',
+		'string beans',
+		'runner beans',
+		'haricots verts',
+		'snap beans',
+	]),
+	// Bare "fennel" is also the seed, so the family rule picks the bulb up.
+	sprite('fennel', 'vegetable', ['fennel bulb', 'fennel bulbs']),
+	sprite('artichoke', 'vegetable', [
+		'artichoke',
+		'artichokes',
+		'artichoke hearts',
+	]),
+	sprite('parsnip', 'vegetable', ['parsnip', 'parsnips']),
+	sprite('bay-leaves', 'vegetable', ['bay leaf', 'bay leaves']),
+	sprite('lemongrass', 'vegetable', ['lemongrass', 'lemon grass']),
+	sprite('plantain', 'fruit', ['plantain', 'plantains']),
+	sprite('coconut-half', 'fruit', ['coconut']),
+	sprite('cranberries', 'fruit', ['cranberry', 'cranberries']),
+	sprite('pomegranate', 'fruit', [
+		'pomegranate',
+		'pomegranate arils',
+		'pomegranate seeds',
+	]),
+	sprite('kiwi', 'fruit', ['kiwi', 'kiwifruit', 'kiwi fruit']),
+	sprite('papaya', 'fruit', ['papaya']),
+	sprite('fig', 'fruit', ['fig', 'figs']),
+	sprite('dates', 'fruit', ['dates', 'medjool dates']),
+	sprite('tofu', 'protein', ['tofu']),
+	sprite('shrimp', 'protein', ['shrimp', 'prawns', 'prawn']),
+	sprite('pasta', 'grain', [
+		'pasta',
+		'spaghetti',
+		'penne',
+		'macaroni',
+		'linguine',
+		'fettuccine',
+		'lasagna',
+		'lasagne',
+		'orzo',
+		'rigatoni',
+		'fusilli',
+		'tagliatelle',
+		'rotini',
+		'cavatappi',
+		'gnocchi',
+	]),
+	sprite('dough', 'grain', [
+		'dough',
+		'pizza dough',
+		'bread dough',
+		'cookie dough',
+	]),
+	sprite('crackers', 'grain', [
+		'crackers',
+		'cracker',
+		'graham crackers',
+		'graham cracker',
+		'saltines',
+		'oyster crackers',
+		'animal crackers',
+		'crostini',
+	]),
+	sprite('marshmallows', 'other', [
+		'marshmallow',
+		'marshmallows',
+		'mini marshmallows',
+	]),
+	sprite('sprinkles', 'other', ['sprinkles', 'rainbow sprinkles']),
+	sprite('caramel-candy', 'other', [
+		'caramels',
+		'caramel candies',
+		'candy',
+		'candies',
+		'toffee',
+		'candy canes',
+	]),
+	// Whole spices. The ground ones are tinted jars (tinted-sprites.ts).
+	sprite('cinnamon-sticks', 'spice', ['cinnamon stick', 'cinnamon sticks']),
+	sprite('star-anise', 'spice', ['star anise']),
+	sprite('cloves', 'spice', ['cloves', 'whole cloves']),
+	sprite('cardamom-pods', 'spice', ['cardamom pods', 'cardamom pod']),
+	sprite('saffron', 'spice', ['saffron', 'saffron threads']),
+	sprite('dried-chilies', 'spice', [
+		'dried chilies',
+		'dried chiles',
+		'dried chili',
+		'dried chile',
+		'dried red chilies',
+	]),
+	sprite('vanilla-pods', 'spice', [
+		'vanilla bean',
+		'vanilla beans',
+		'vanilla pod',
+		'vanilla pods',
+	]),
+	sprite('nutmeg', 'spice', ['nutmeg', 'whole nutmeg']),
 ] as const
 
 const spriteKeys = new Set<string>(pantrySprites.map((entry) => entry.key))
@@ -542,12 +694,39 @@ export function resolveSpriteSrc(
 	spriteKey?: string | null,
 	category?: PantryCategory,
 ): string {
+	return `/sprites/pantry/${resolveSpriteKey(name, spriteKey, category)}.png`
+}
+
+// A pantry item's picture, painted when its food has a recolourable sprite.
+// An explicit sprite key is a choice, so it is left as it is.
+export function resolveSpriteLook(
+	name: string,
+	spriteKey?: string | null,
+	category?: PantryCategory,
+): SpriteLook {
+	const chosen =
+		spriteKey &&
+		(spriteKeys.has(spriteKey) ||
+			Object.values(fallbackKeys).includes(spriteKey))
+
+	return (
+		(!chosen && tintedLook(normalizeName(name))) || {
+			key: resolveSpriteKey(name, spriteKey, category),
+		}
+	)
+}
+
+function resolveSpriteKey(
+	name: string,
+	spriteKey?: string | null,
+	category?: PantryCategory,
+): string {
 	if (
 		spriteKey &&
 		(spriteKeys.has(spriteKey) ||
 			Object.values(fallbackKeys).includes(spriteKey))
 	) {
-		return `/sprites/pantry/${spriteKey}.png`
+		return spriteKey
 	}
 
 	const normalized = ` ${normalizeName(name)} `
@@ -559,14 +738,11 @@ export function resolveSpriteSrc(
 	// A known category beats a keyword guess, but not a specific sprite.
 	const fallback = category && categoryFallbacks[category]
 
-	const key =
-		match && !match.guess
-			? match.key
-			: fallback
-				? fallbackKeys[fallback]
-				: (match?.key ?? fallbackKeys.other)
-
-	return `/sprites/pantry/${key}.png`
+	return match && !match.guess
+		? match.key
+		: fallback
+			? fallbackKeys[fallback]
+			: (match?.key ?? fallbackKeys.other)
 }
 
 // The sprite an ingredient has of its own, when it has one; a guess from a
@@ -583,7 +759,7 @@ export function specificSpriteKey(name: string) {
 
 // Compound foods take priority over the shorter food names inside them.
 // These are deliberately shared family pictures rather than exact depictions.
-const ingredientFamilySprites = [
+const plainFamilySprites = [
 	// Plain "pepper" in a recipe is the grinder, not a vegetable.
 	[
 		'black-pepper',
@@ -628,17 +804,22 @@ const ingredientFamilySprites = [
 	// Whatever else has no picture of its own.
 	[
 		'fallback-other',
-		/\b(?:(?:stock|bouillon) cubes?|gelatin|molasses|tamarind|horseradish|capers|cornichons|kimchi|bitters|seltzer|shredded coconut|desiccated coconut|coconut flakes)\b/,
+		/\b(?:(?:stock|bouillon) cubes?|gelatin|molasses|tamarind|horseradish|capers|cornichons|kimchi|bitters|seltzer)\b/,
 	],
-	['olive-oil', /\b(?:oil|oils|(?:cooking|baking|nonstick) spray)\b/],
+	[
+		'olive-oil',
+		/^(?!.*\boil packed\b).*\b(?:oils?|(?:cooking|baking|nonstick) spray)\b/,
+	],
 	[
 		'fallback-spice',
 		/\b(?:garlic powder|onion powder|mustard seeds?|ground ginger|ginger powder|powdered ginger|chili powder|chilli powder|cayenne|garam masala|za atar|sumac|seasoning|five spice|msg|star anise|fenugreek|herbes de provence)\b/,
 	],
+	['fennel', /\bfennel\b(?! seeds?)/],
 	[
-		'wheat',
-		/\b(?:pasta|spaghetti|noodles|linguine|fettuccine|penne|macaroni|orzo|lasagne|lasagna)\b/,
+		'pasta',
+		/\b(?:pasta|spaghetti|linguine|fettuccine|penne|macaroni|orzo|lasagne|lasagna|rigatoni|fusilli|tagliatelle|rotini|cavatappi|gnocchi)\b/,
 	],
+	['wheat', /\b(?:noodles|ramen|udon|soba|semolina|bulgur|farro)\b/],
 	[
 		'bread',
 		/\b(?:breadcrumbs|panko|tortillas?|pita|bagels?|baguettes?|ciabatta|focaccia|english muffins?|naan|brioche|croissants?|pretzels?)\b/,
@@ -663,23 +844,23 @@ const ingredientFamilySprites = [
 		/^(?!.*\b(?:sausages?|bacon|steaks?|brisket|ham)\b).*\b(?:beef(?! tomato)|pork|lamb|mutton|mince|turkey|duck|goose|venison|rabbit|veal)\b/,
 	],
 	['sausage', /\b(?:hot dogs?|frankfurters?)\b/],
-	['fallback-vegetable', /\b(?:green beans|runner beans|string beans)\b/],
+	[
+		'green-beans',
+		/\b(?:green beans|runner beans|string beans|haricots verts)\b/,
+	],
 	[
 		'beans',
 		/\b(?<!coffee |vanilla |cocoa |cacao |jelly )beans?\b|\b(?:chickpeas?|garbanzo|lentils?|edamame)\b/,
 	],
-	['fallback-protein', /\b(?:tofu|tempeh)\b/],
+	['tofu', /\btofu\b/],
+	['fallback-protein', /\btempeh\b/],
 	[
 		'kale',
 		/\b(?:coriander (?:leaves|leaf)|(?:fresh|chopped) coriander|coriander to serve|celery leaves)\b/,
 	],
 	[
-		'fallback-vegetable',
-		/\b(?:celery|cauliflower|cabbage|brussels sprouts|green beans|asparagus|fennel bulb)\b/,
-	],
-	[
 		'grapes',
-		/\b(?:sultanas?|currants?|raisins?|dates|prunes?|dried (?:cranberries|figs?|apricots?|cherries|mango))\b/,
+		/\b(?:sultanas?|currants?|raisins?|prunes?|dried (?:cranberries|figs?|apricots?|cherries|mango))\b/,
 	],
 	// Plain water and ice. Not "coconut water" or "rose water", and not
 	// "milk or water", which is milk.
@@ -689,9 +870,22 @@ const ingredientFamilySprites = [
 	],
 ] as const
 
+// Foods with a recolourable sprite come first, so a specific food is not taken
+// by the general family it belongs to.
+const ingredientFamilySprites: readonly Rule[] = [
+	...tintedFamilySprites,
+	...plainFamilySprites,
+]
+
 // Recipe rows accept familiar family stand-ins: leafy greens for herbs, meat
 // for pork/lamb, and fish for seafood. Unknown foods still leave the slot empty.
 export function ingredientItemSprite(name: string) {
+	return ingredientItemLook(name)?.key
+}
+
+// The picture for a recipe's ingredient line: a sprite and, for a recolourable
+// one, the colour to paint it.
+export function ingredientItemLook(name: string): SpriteLook | undefined {
 	// The food itself: the measuring is taken off, then everything from a
 	// comma, a bracket, "with ..." or "in oil/brine" on.
 	const main = normalizeName(
@@ -709,7 +903,11 @@ export function ingredientItemSprite(name: string) {
 		pattern.test(main),
 	)
 
-	if (familySprite) return familySprite[0]
+	if (familySprite) {
+		const [key, , tint] = familySprite
+
+		return tint ? { key, tint } : { key }
+	}
 
 	const family = foodFamily(main)
 	const normalized = ` ${singularIngredientWords(main)} `
@@ -721,23 +919,23 @@ export function ingredientItemSprite(name: string) {
 		({ alias, guess }) => !guess && normalized.includes(` ${alias} `),
 	)
 
-	if (named) return named.key
+	if (named) return { key: named.key }
 
 	const match = ingredientMatches.find(({ alias }) =>
 		normalized.includes(` ${alias} `),
 	)
 
-	if (family?.id === 'herb') return 'kale'
+	if (family?.id === 'herb') return { key: 'kale' }
 
-	if (family?.id === 'fish') return 'fish'
+	if (family?.id === 'fish') return { key: 'fish' }
 
-	if (family?.id === 'meat') return 'meat'
+	if (family?.id === 'meat') return { key: 'meat' }
 
-	if (family?.id === 'grain') return 'wheat'
+	if (family?.id === 'grain') return { key: 'wheat' }
 
-	if (family?.id === 'seed') return 'fallback-grain'
+	if (family?.id === 'seed') return { key: 'fallback-grain' }
 
-	return match?.key
+	return match ? { key: match.key } : undefined
 }
 
 function singularIngredientWords(name: string) {

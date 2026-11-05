@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { BackLink, PageTitle } from '@/components/page'
+import { PantrySprite } from '@/components/pantry-sprite'
 import {
 	catalogSectionId,
 	catalogSections,
@@ -20,7 +21,7 @@ import {
 } from '@/lib/pantry/catalog'
 import { pantryBulkMax, pantryCategoryLabels } from '@/lib/pantry/model'
 import { createPantryItems, listPantry } from '@/lib/pantry/server'
-import { resolveSpriteSrc } from '@/lib/pantry/sprites'
+import { resolveSpriteLook } from '@/lib/pantry/sprites'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/ingredients/bulk')({
@@ -240,10 +241,9 @@ function SectionPicker({
 									have && 'opacity-45',
 								)}
 							>
-								<img
-									src={resolveSpriteSrc(name, null, section.id)}
-									alt=""
-									className="size-9 shrink-0 object-contain [image-rendering:pixelated]"
+								<PantrySprite
+									look={resolveSpriteLook(name, null, section.id)}
+									className="size-9 shrink-0"
 								/>
 								<span className="min-w-0 flex-1 leading-tight">{name}</span>
 								{on || have ? (
