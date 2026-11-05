@@ -72,6 +72,12 @@ function createAuth() {
 			fallback: appOrigin,
 		},
 		secret: env.BETTER_AUTH_SECRET,
+		// Railway's edge overwrites X-Real-IP with the client address. Its
+		// X-Forwarded-For can hold several hops, which Better Auth refuses to
+		// guess at, so every request shared one rate-limit bucket. Only X-Real-IP
+		// is trusted: a request that skips the edge has no trusted address and
+		// falls back to the shared bucket instead of picking its own key.
+		advanced: { ipAddress: { ipAddressHeaders: ['x-real-ip'] } },
 		database: drizzleAdapter(getDb(), {
 			provider: 'pg',
 			schema: { account, session, user, verification },
