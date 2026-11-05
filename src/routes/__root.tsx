@@ -44,6 +44,22 @@ export const Route = createRootRoute({
 				content: 'width=device-width, initial-scale=1, viewport-fit=cover',
 			},
 			{ title: 'cocochef' },
+			{
+				name: 'description',
+				content:
+					"every recipe you love, on one shelf. see what's in your kitchen and pick what to cook tonight.",
+			},
+			{ property: 'og:title', content: 'cocochef' },
+			{
+				property: 'og:description',
+				content: 'every recipe you love, on one shelf.',
+			},
+			// Crawlers need an absolute URL, and they only read production.
+			{
+				property: 'og:image',
+				content: 'https://cocochef.ariaamini.com/og-image.png',
+			},
+			{ name: 'twitter:card', content: 'summary_large_image' },
 		],
 		links: [
 			{ rel: 'stylesheet', href: appCss },
@@ -55,6 +71,7 @@ export const Route = createRootRoute({
 				sizes: '192x192',
 			},
 			{ rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+			{ rel: 'manifest', href: '/site.webmanifest' },
 		],
 	}),
 	component: RootComponent,
