@@ -90,7 +90,7 @@ export function SaveRecipeButton({
 					size={14}
 					weight={saved ? 'fill' : 'bold'}
 					aria-hidden
-					className="text-saved-blue"
+					className="text-kitchen-eggplant"
 				/>
 				{saved ? 'saved' : 'save'}
 			</Button>

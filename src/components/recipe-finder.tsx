@@ -586,7 +586,7 @@ function FinderPanel({
 					autoComplete="off"
 					value={value}
 					maxLength={2000}
-					placeholder="Search any Recipe"
+					placeholder="search any recipe"
 					onChange={(event) => change(event.target.value)}
 					onKeyDown={handleKey}
 					onPaste={(event) => {

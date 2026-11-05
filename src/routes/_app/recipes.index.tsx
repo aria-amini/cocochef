@@ -6,6 +6,7 @@ import {
 } from '@phosphor-icons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'framer-motion'
+import { useSyncExternalStore } from 'react'
 
 import { useHideAddButton } from '@/components/app-nav'
 import { ImportLinkButton } from '@/components/import-link'
@@ -133,7 +134,7 @@ function Shelf() {
 									'flex items-center gap-1.5',
 									id === 'your-recipes'
 										? 'border-kitchen-yolk'
-										: 'border-saved-blue/60',
+										: 'border-kitchen-eggplant/60',
 								)}
 							>
 								{id === 'your-recipes' ? (
@@ -143,7 +144,7 @@ function Shelf() {
 										size={15}
 										weight="fill"
 										aria-hidden
-										className="text-saved-blue"
+										className="text-kitchen-eggplant"
 									/>
 								)}
 								{title}
@@ -168,6 +169,12 @@ function Shelf() {
 
 // The one box's front door: it looks like the search it opens.
 function FinderBox({ onOpen }: { onOpen: () => void }) {
+	const isMac = useSyncExternalStore(
+		() => () => undefined,
+		() => /Mac|iPhone|iPad/.test(navigator.platform),
+		() => true,
+	)
+
 	return (
 		<button
 			type="button"
@@ -180,12 +187,12 @@ function FinderBox({ onOpen }: { onOpen: () => void }) {
 				aria-hidden
 				className="text-foreground shrink-0"
 			/>
-			<span className="min-w-0 flex-1 truncate">Search any Recipe</span>
+			<span className="min-w-0 flex-1 truncate">search any recipe</span>
 			<kbd
 				aria-hidden
 				className="border-border hidden shrink-0 rounded border px-1.5 text-xs font-semibold md:inline"
 			>
-				⌘K
+				{isMac ? '⌘K' : 'ctrl K'}
 			</kbd>
 		</button>
 	)

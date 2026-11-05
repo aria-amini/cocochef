@@ -873,7 +873,7 @@ describe('recipe detail', () => {
 		Object.assign(recipeState.recipe, { userId: null, owned: false })
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 		await expect
-			.element(screen.getByRole('button', { name: 'make copy' }))
+			.element(screen.getByRole('button', { name: 'copy to my shelf' }))
 			.toBeVisible()
 		await expect
 			.element(screen.getByRole('button', { name: 'edit' }))

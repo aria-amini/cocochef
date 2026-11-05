@@ -174,7 +174,7 @@ describe('recipes shelf', () => {
 		}
 
 		await expect
-			.element(screen.getByRole('button', { name: /Search any Recipe/ }))
+			.element(screen.getByRole('button', { name: /search any recipe/ }))
 			.toBeVisible()
 
 		for (const name of ['start a meal', 'newest', 'most cooked']) {

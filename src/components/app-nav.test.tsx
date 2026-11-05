@@ -110,7 +110,7 @@ describe('app nav', () => {
 			await expect.element(screen.getByText('work in progress')).toBeVisible()
 			await screen.getByRole('link', { name: 'back to recipes' }).click()
 			await expect
-				.element(screen.getByRole('button', { name: /Search any Recipe/ }))
+				.element(screen.getByRole('button', { name: /search any recipe/ }))
 				.toBeVisible()
 		},
 	)
