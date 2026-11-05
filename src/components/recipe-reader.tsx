@@ -9,9 +9,10 @@ import { Fragment, useState } from 'react'
 import { IngredientText } from '@/components/ingredient-text'
 import { Marked } from '@/components/marked'
 import { PageTitle } from '@/components/page'
+import { PantrySprite } from '@/components/pantry-sprite'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
-import { ingredientItemSprite } from '@/lib/pantry/sprites'
+import { ingredientItemLook } from '@/lib/pantry/sprites'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import type { IngredientCategories } from '@/lib/recipes/model'
 import { formatMinutes } from '@/lib/recipes/model'
@@ -222,7 +223,7 @@ export function RecipeReader({
 										const item = `i${row.index}`
 										const id = `ingredient-${row.index}`
 										const done = checked.has(item)
-										const sprite = ingredientItemSprite(row.text)
+										const look = ingredientItemLook(row.text)
 
 										return (
 											<tr
@@ -243,12 +244,8 @@ export function RecipeReader({
 															className="mt-1 flex size-6 shrink-0 items-center justify-center"
 															aria-hidden
 														>
-															{sprite ? (
-																<img
-																	src={`/sprites/pantry/${sprite}.png`}
-																	alt=""
-																	className="size-6 object-contain [image-rendering:pixelated]"
-																/>
+															{look ? (
+																<PantrySprite look={look} className="size-6" />
 															) : null}
 														</span>
 														<IngredientText
