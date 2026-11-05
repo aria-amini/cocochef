@@ -1,14 +1,20 @@
 import { setMockSessionPending } from '@tests/support/mocks/browser'
 import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
-import { describe, expect, test, vi } from 'vite-plus/test'
+import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
+
+import type { listShelf } from '@/lib/recipes/server'
+
+type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
+
+const shelf = vi.hoisted<{ recipes: Recipe[] }>(() => ({ recipes: [] }))
 
 vi.mock('@/lib/recipes/server', () => ({
 	removeSavedRecipe: () => Promise.resolve(null),
 	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () => Promise.resolve({ recipes: [] }),
+	listShelf: () => Promise.resolve({ recipes: shelf.recipes }),
 	getRecipe: vi.fn(),
 	createRecipe: vi.fn(),
 	updateRecipe: vi.fn(),
@@ -36,10 +42,33 @@ const guest = {
 	session: member.session,
 }
 
+const misoButterPasta: Recipe = {
+	id: 'recipe-1',
+	userId: 'user-1',
+	visibility: null,
+	title: 'miso butter pasta',
+	imageUrl: null,
+	sourceUrl: null,
+	sourceNotes: null,
+	servings: null,
+	totalMinutes: null,
+	notes: null,
+	createdAt: new Date(),
+	finalizedAt: new Date(),
+	cookCount: 0,
+	lastCookedAt: null,
+	forkedFromId: null,
+	savedAt: new Date(),
+}
+
 // The tab bar below the md breakpoint, the sidebar above it.
 const isPhone = () => window.innerWidth < 768
 
 describe('app nav', () => {
+	beforeEach(() => {
+		shelf.recipes = []
+	})
+
 	test('opens WIP pages for unfinished destinations and opens the shelf from the root', async () => {
 		const { screen, router } = await renderRoute({ path: '/', session: member })
 
@@ -167,7 +196,20 @@ describe('app nav', () => {
 		}
 	})
 
+	test('leaves adding to the empty shelf tile, on phones', async () => {
+		const { screen } = await renderRoute({ path: '/recipes', session: member })
+
+		await expect
+			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'add recipe' }))
+			.not.toBeInTheDocument()
+	})
+
 	test('adds a recipe from a round button on the shelf, on phones', async () => {
+		shelf.recipes = [misoButterPasta]
+
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
 
 		if (!isPhone()) return
