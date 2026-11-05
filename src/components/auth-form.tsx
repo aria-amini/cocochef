@@ -26,7 +26,7 @@ export function AuthShell({
 					to="/"
 					className="self-start rounded-md text-sm font-bold tracking-tight"
 				>
-					dutch-oven
+					cocochef
 				</Link>
 				<div className="flex flex-col gap-2">
 					<PageTitle>{title}</PageTitle>

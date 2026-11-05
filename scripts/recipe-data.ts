@@ -179,7 +179,7 @@ if (command === 'index') {
 					await pause(300)
 
 					const response = await fetch(link.url, {
-						headers: { 'user-agent': 'DutchOvenBot/0.1 (recipe discovery)' },
+						headers: { 'user-agent': 'CocochefBot/0.1 (recipe discovery)' },
 						signal: AbortSignal.timeout(20000),
 						redirect: 'manual',
 					})

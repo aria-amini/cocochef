@@ -54,7 +54,7 @@ function canonical(url: string) {
 
 type SharedRecipe = Awaited<ReturnType<typeof popularSharedRecipes>>[number]
 
-// A recipe to show: in dutch-oven (`recipeId`) or a page on a site (`url`).
+// A recipe to show: in cocochef (`recipeId`) or a page on a site (`url`).
 export type FoundRecipe = {
 	recipeId?: string | undefined
 	url?: string | undefined
@@ -72,7 +72,7 @@ const fromShared = (recipe: SharedRecipe): FoundRecipe => ({
 	url: recipe.sourceUrl ?? undefined,
 	title: recipe.title,
 	imageUrl: recipe.imageUrl ?? undefined,
-	siteName: siteNameFor(recipe.sourceUrl) ?? 'dutch-oven',
+	siteName: siteNameFor(recipe.sourceUrl) ?? 'cocochef',
 	saved: false,
 	draft: false,
 	ingredientMatches: [],
@@ -98,7 +98,7 @@ async function notYetShared(links: RecipeLink[]) {
 	return links.filter((link) => !known.has(canonical(link.url)))
 }
 
-// Every recipe this user could cook or start from. Recipes in dutch-oven come
+// Every recipe this user could cook or start from. Recipes in cocochef come
 // first, matched by name or ingredient: the user's own shelf (`saved`), then
 // shared ones. Pages on the recipe sites that nobody has brought in yet follow,
 // matched by name only, since the index knows nothing else about them.
@@ -130,7 +130,7 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 					// still set; a recipe made your own names no site.
 					siteName:
 						siteNameFor(recipe.sourceUrl) ??
-						(recipe.owned || recipe.saved ? '' : 'dutch-oven'),
+						(recipe.owned || recipe.saved ? '' : 'cocochef'),
 					saved: recipe.saved,
 					draft: recipe.owned && !recipe.finalizedAt,
 					ingredientMatches: recipe.ingredientMatches,
@@ -147,7 +147,7 @@ const popularLimit = 120
 const dayMs = 24 * 60 * 60 * 1000
 
 // What others keep and cook, topped up with recipes from the sites so the
-// shelf never ends in an empty row while few people use dutch-oven.
+// shelf never ends in an empty row while few people use cocochef.
 export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 	async () => {
 		const shared = await popularSharedRecipes(await getViewerId(), popularLimit)

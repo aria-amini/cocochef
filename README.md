@@ -1,4 +1,4 @@
-# dutch-oven
+# cocochef
 
 ## Tech
 
@@ -34,7 +34,7 @@ echo 'eval "$(~/.local/bin/mise activate zsh)"' >> ~/.zshrc
 source ~/.zshrc
 
 git clone <repo-url>
-cd dutch-oven
+cd cocochef
 mise run bootstrap
 
 # dev server

@@ -15,7 +15,11 @@ import {
 // to production. It holds what a cook wrote or kept: the recipe and their
 // notes. It leaves out what belongs to one deployment: photos in its
 // storage, cooking history, and sharing.
-export const transferFormat = 'dutch-oven/recipes'
+export const transferFormat = 'cocochef/recipes'
+
+// Files exported while the app was called dutch-oven carry this format. They
+// still import; nothing writes it any more.
+const legacyTransferFormat = 'dutch-oven/recipes'
 
 export const transferVersion = 1
 
@@ -103,7 +107,7 @@ export function toTransferDocument(
 }
 
 const envelope = z.object({
-	format: z.literal(transferFormat),
+	format: z.union([z.literal(transferFormat), z.literal(legacyTransferFormat)]),
 	version: z.number().int().min(1),
 	recipes: z.array(z.unknown()),
 })
@@ -126,12 +130,12 @@ export function parseTransferDocument(text: string): ParsedTransfer {
 	const head = envelope.safeParse(input)
 
 	if (!head.success)
-		return { ok: false, error: "that isn't a dutch-oven recipe file" }
+		return { ok: false, error: "that isn't a cocochef recipe file" }
 
 	if (head.data.version > transferVersion)
 		return {
 			ok: false,
-			error: 'that file is from a newer dutch-oven — update this one first',
+			error: 'that file is from a newer cocochef — update this one first',
 		}
 
 	if (head.data.recipes.length > transferRecipeMax)
@@ -186,5 +190,5 @@ export function transferFilename(title?: string) {
 		.replace(/^-|-$/g, '')
 		.slice(0, 60)
 
-	return `${slug || 'dutch-oven-recipes'}.json`
+	return `${slug || 'cocochef-recipes'}.json`
 }

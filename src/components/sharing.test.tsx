@@ -250,7 +250,7 @@ describe('sharing', () => {
 	})
 
 	test('remembers a site recipe for the recipes tab, but not an unlisted one', async () => {
-		const remembered = () => sessionStorage.getItem('dutch-oven:last-recipe')
+		const remembered = () => sessionStorage.getItem('cocochef:last-recipe')
 
 		sessionStorage.clear()
 		api.web.mockResolvedValue(recipe)
@@ -292,7 +292,7 @@ describe('sharing', () => {
 		await expect
 			.element(screen.getByRole('heading', { name: 'Weeknight pasta' }))
 			.toBeVisible()
-		expect(sessionStorage.getItem('dutch-oven:last-recipe')).toBe('pasta')
+		expect(sessionStorage.getItem('cocochef:last-recipe')).toBe('pasta')
 
 		await router.navigate({
 			to: '/$handle/$slug',
@@ -304,7 +304,7 @@ describe('sharing', () => {
 			)
 			.toBeVisible()
 		// A link with no recipe behind it is no reason to forget this one.
-		expect(sessionStorage.getItem('dutch-oven:last-recipe')).toBe('pasta')
+		expect(sessionStorage.getItem('cocochef:last-recipe')).toBe('pasta')
 	})
 
 	test('lets an anonymous visitor open signup from save', async () => {

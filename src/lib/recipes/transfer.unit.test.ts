@@ -23,9 +23,24 @@ describe('recipe transfer files', () => {
 	test('ignores the book an older file put a recipe in', () => {
 		const parsed = parseTransferDocument(
 			JSON.stringify({
-				format: 'dutch-oven/recipes',
+				format: 'cocochef/recipes',
 				version: 1,
 				recipes: [{ title: 'dal', book: 'soups', ingredients: ['lentils'] }],
+			}),
+		)
+
+		expect(parsed).toEqual({
+			ok: true,
+			recipes: [{ title: 'dal', ingredients: ['lentils'] }],
+		})
+	})
+
+	test('still imports a file exported while the app was called dutch-oven', () => {
+		const parsed = parseTransferDocument(
+			JSON.stringify({
+				format: 'dutch-oven/recipes',
+				version: 1,
+				recipes: [{ title: 'dal', ingredients: ['lentils'] }],
 			}),
 		)
 
@@ -104,7 +119,7 @@ describe('recipe transfer files', () => {
 	test('refuses files that are not recipe files or are from a newer version', () => {
 		expect(parseTransferDocument('{ "recipes": [] }')).toMatchObject({
 			ok: false,
-			error: "that isn't a dutch-oven recipe file",
+			error: "that isn't a cocochef recipe file",
 		})
 		expect(parseTransferDocument('nope')).toEqual({
 			ok: false,
@@ -170,6 +185,6 @@ describe('recipe transfer files', () => {
 		expect(transferFilename('Crème fraîche & pasta!')).toBe(
 			'creme-fraiche-pasta.json',
 		)
-		expect(transferFilename()).toBe('dutch-oven-recipes.json')
+		expect(transferFilename()).toBe('cocochef-recipes.json')
 	})
 })

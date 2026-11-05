@@ -59,7 +59,7 @@ describe('app nav', () => {
 				.getByRole('link')
 				.elements()
 				.map((link) => link.textContent)
-				.filter((label) => label !== 'dutch-oven' && label !== 'add'),
+				.filter((label) => label !== 'cocochef' && label !== 'add'),
 		).toEqual(['recipes', 'ingredients', 'groceries'])
 	})
 

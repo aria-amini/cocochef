@@ -21,7 +21,7 @@ export const Route = createFileRoute('/_app/s/$token')({
 	}),
 	head: () => ({
 		meta: [
-			{ title: 'shared recipe · dutch-oven' },
+			{ title: 'shared recipe · cocochef' },
 			{ name: 'robots', content: 'noindex, nofollow' },
 			{ name: 'referrer', content: 'no-referrer' },
 		],

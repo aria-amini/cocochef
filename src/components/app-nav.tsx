@@ -164,7 +164,7 @@ function Sidebar() {
 		>
 			<Link
 				to="/recipes"
-				aria-label="dutch-oven"
+				aria-label="cocochef"
 				className="border-foreground/20 bg-card mb-6 flex w-full shrink-0 items-center justify-center gap-2 self-center rounded-md border px-3 py-2 text-sm font-bold whitespace-nowrap"
 			>
 				<img
@@ -172,7 +172,7 @@ function Sidebar() {
 					alt=""
 					className="size-7 shrink-0 [image-rendering:pixelated]"
 				/>
-				dutch-oven
+				cocochef
 			</Link>
 			{navItems.map(({ label, icon: Icon, to }) => {
 				const active = tab === label
@@ -225,7 +225,7 @@ function MobileHeader() {
 		<header className="flex items-center justify-between px-6 pt-3 md:hidden">
 			<Link
 				to="/recipes"
-				aria-label="dutch-oven"
+				aria-label="cocochef"
 				className="flex items-center gap-2 rounded-md text-sm font-bold"
 			>
 				<img
@@ -233,7 +233,7 @@ function MobileHeader() {
 					alt=""
 					className="size-7 shrink-0 [image-rendering:pixelated]"
 				/>
-				dutch-oven
+				cocochef
 			</Link>
 			<AccountMenu variant="avatar" />
 		</header>

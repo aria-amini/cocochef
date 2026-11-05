@@ -289,7 +289,7 @@ let importScriptPath: Promise<string> | undefined
 
 function resolveImportScript() {
 	importScriptPath ??= (async () => {
-		const dir = await mkdtemp(join(tmpdir(), 'dutch-oven-import-'))
+		const dir = await mkdtemp(join(tmpdir(), 'cocochef-import-'))
 		const path = join(dir, 'import-fetch.py')
 		await writeFile(path, importFetchScript)
 		await writeFile(`${path}.lock`, importFetchLock)

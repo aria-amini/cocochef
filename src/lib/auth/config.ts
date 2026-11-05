@@ -64,7 +64,7 @@ function createAuth() {
 	}
 
 	return betterAuth({
-		appName: 'dutch-oven',
+		appName: 'cocochef',
 		disabledPaths: ['/sign-in/anonymous'],
 		baseURL: {
 			allowedHosts,
