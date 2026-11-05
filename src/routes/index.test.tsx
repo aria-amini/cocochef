@@ -64,7 +64,7 @@ describe('landing page', () => {
 			.element(
 				screen.getByRole('heading', {
 					level: 1,
-					name: /never made up by AI/,
+					name: /on one shelf/,
 				}),
 			)
 			.toBeVisible()
@@ -76,6 +76,9 @@ describe('landing page', () => {
 			.toBeVisible()
 		await expect
 			.element(screen.getByRole('img', { name: 'BBC Good Food' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('img', { name: /coco, a black cat/ }))
 			.toBeVisible()
 	})
 

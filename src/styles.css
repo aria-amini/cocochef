@@ -48,6 +48,7 @@
 
 @theme inline {
 	--animate-progress: progress-slide 1.2s ease-in-out infinite;
+	--animate-coco-wave: coco-wave 5.1s step-end infinite;
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -127,6 +128,49 @@
    on the cream ground. Add the background at the call site. */
 @utility floating {
 	@apply border-foreground/30 rounded-xl border shadow-md;
+}
+
+/* Six frames of wave.webp at 170ms each, twice in a row, then a rest. */
+@keyframes coco-wave {
+	0% {
+		object-position: 0% 50%;
+	}
+	3.33% {
+		object-position: 20% 50%;
+	}
+	6.67% {
+		object-position: 40% 50%;
+	}
+	10% {
+		object-position: 60% 50%;
+	}
+	13.33% {
+		object-position: 80% 50%;
+	}
+	16.67% {
+		object-position: 100% 50%;
+	}
+	20% {
+		object-position: 0% 50%;
+	}
+	23.33% {
+		object-position: 20% 50%;
+	}
+	26.67% {
+		object-position: 40% 50%;
+	}
+	30% {
+		object-position: 60% 50%;
+	}
+	33.33% {
+		object-position: 80% 50%;
+	}
+	36.67% {
+		object-position: 100% 50%;
+	}
+	40% {
+		object-position: 0% 50%;
+	}
 }
 
 @keyframes progress-slide {
