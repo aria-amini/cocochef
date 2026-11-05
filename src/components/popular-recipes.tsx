@@ -1,4 +1,4 @@
-import { ArrowRightIcon } from '@phosphor-icons/react'
+import { ArrowRightIcon, CookingPotIcon } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -44,6 +44,11 @@ export function PopularRecipes() {
 			query.state.data?.warming ? WARM_POLL_MS : false,
 	})
 
+	// Sort is stable, so pictured recipes lead and each group keeps its order.
+	const tiles = [...(data?.results ?? [])]
+		.sort((a, b) => Number(!a.imageUrl) - Number(!b.imageUrl))
+		.slice(0, shownCount)
+
 	const imported = useRecipeImport((recipe) =>
 		navigate({ to: '/recipes/$recipeId', params: { recipeId: recipe.id } }),
 	)
@@ -60,7 +65,7 @@ export function PopularRecipes() {
 			aria-busy={loading || undefined}
 			className="border-border mt-4 flex w-full max-w-3xl min-w-0 flex-col gap-3 border-t pt-8"
 		>
-			<div className="flex flex-wrap items-start justify-between gap-3">
+			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div className="flex flex-col gap-2">
 					<h2
 						id="popular-recipes"
@@ -72,7 +77,7 @@ export function PopularRecipes() {
 				<button
 					type="button"
 					onClick={() => find()}
-					className="text-muted-foreground hover:text-foreground inline-flex min-h-10 items-center gap-2 rounded-md text-xs font-semibold underline underline-offset-4"
+					className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center gap-2 rounded-md text-xs font-semibold underline underline-offset-4"
 				>
 					browse more recipes
 					<ArrowRightIcon size={16} weight="bold" aria-hidden />
@@ -86,7 +91,7 @@ export function PopularRecipes() {
 							<Skeleton key={index} className="h-28" />
 						))
 					: null}
-				{data?.results.slice(0, shownCount).map((recipe) =>
+				{tiles.map((recipe) =>
 					recipe.recipeId ? (
 						<Link
 							key={recipe.recipeId}
@@ -140,14 +145,17 @@ function PopularTileBody({
 					/>
 				</span>
 			) : (
-				<span className="flex-1" />
+				// Stands in for a site that gave no photo, so a tile never opens on a
+				// blank. A plain pot, since a picked ingredient could be one the
+				// recipe doesn't use.
+				<span
+					data-placeholder
+					className="bg-card text-foreground/35 grid min-h-0 flex-1 place-items-center"
+				>
+					<CookingPotIcon size={32} aria-hidden />
+				</span>
 			)}
-			<span
-				className={cn(
-					'flex shrink-0 flex-col px-2.5 py-1.5',
-					pictured && 'border-border bg-card border-t',
-				)}
-			>
+			<span className="border-border bg-card flex shrink-0 flex-col border-t px-2.5 py-1.5">
 				<span className="line-clamp-2 text-xs leading-tight font-semibold wrap-anywhere">
 					{recipe.title}
 				</span>

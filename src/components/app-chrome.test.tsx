@@ -7,7 +7,30 @@ vi.mock('@/lib/recipes/server', () => ({
 	removeSavedRecipe: () => Promise.resolve(null),
 	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () => Promise.resolve({ recipes: [] }),
+	// One recipe, since an empty shelf hides the phone's round add button.
+	listShelf: () =>
+		Promise.resolve({
+			recipes: [
+				{
+					id: 'recipe-1',
+					userId: 'user-1',
+					visibility: null,
+					title: 'dal',
+					imageUrl: null,
+					sourceUrl: null,
+					sourceNotes: null,
+					servings: null,
+					totalMinutes: null,
+					notes: null,
+					createdAt: new Date(),
+					finalizedAt: new Date(),
+					cookCount: 0,
+					lastCookedAt: null,
+					forkedFromId: null,
+					savedAt: new Date(),
+				},
+			],
+		}),
 	getRecipe: () => Promise.resolve(null),
 	createRecipe: vi.fn(),
 	updateRecipe: vi.fn(),
@@ -38,6 +61,9 @@ describe('app shell, captured', () => {
 	test('on the recipes shelf', async () => {
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
 
+		await expect
+			.element(screen.getByRole('link', { name: 'dal' }))
+			.toBeInTheDocument()
 		await emptyPage(screen)
 		await expectScreenshot(screen.container, 'shell')
 	})
