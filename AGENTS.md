@@ -5,15 +5,15 @@ Tailwind v4, shadcn, Varlock. Docker Compose runs Postgres and MinIO.
 
 Secrets come from OpenBao, set up by
 [aria-amini/infra](https://github.com/aria-amini/infra). Deployed builds read
-`secret/dutch-oven/<env>` and `secret/shared/<env>` with an AppRole that
-`mise run onboard dutch-oven` in infra sets in Railway, then freeze the resolved
+`secret/cocochef/<env>` and `secret/shared/<env>` with an AppRole that
+`mise run onboard cocochef` in infra sets in Railway, then freeze the resolved
 env (`varlock freeze`), so running apps, restarts, and rollbacks never contact
 OpenBao. The frozen env is encrypted with `_VARLOCK_ENV_KEY`, which must be set
 on each Railway environment with a different value, and must not change between
 a build and its deploy. Keep Railway's Skipped Builds off for this service: a
 reused image holds another tier's frozen env, and the key mismatch makes it fail
 to start. `OAUTH_PROXY_SECRET` must hold the same value at
-`secret/dutch-oven/preview` and `secret/dutch-oven/production`, or Google
+`secret/cocochef/preview` and `secret/cocochef/production`, or Google
 sign-in from a preview fails when production handles the callback;
 `createAuth()` can only check that it is set. Local dev reads
 `secret/shared/development` with the per-machine token in
