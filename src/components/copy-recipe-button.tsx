@@ -59,7 +59,7 @@ export function CopyRecipeButton({ recipeId }: { recipeId: string }) {
 				onClick={() => void copy()}
 			>
 				<PencilSimpleIcon size={14} weight="bold" aria-hidden />
-				{pending ? 'copying…' : 'make copy'}
+				{pending ? 'copying…' : 'copy to my shelf'}
 			</Button>
 			<AuthDialog
 				open={authOpen}

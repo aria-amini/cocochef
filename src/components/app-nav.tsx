@@ -245,7 +245,7 @@ function MobileHeader() {
 			<Link
 				to="/recipes"
 				aria-label="cocochef"
-				className="flex items-center gap-2 rounded-md text-sm font-bold"
+				className="flex min-h-11 items-center gap-2 rounded-md text-sm font-bold"
 			>
 				<img
 					src="/icon-192.png"
@@ -307,7 +307,7 @@ function TabBar() {
 							<span
 								aria-hidden
 								className={cn(
-									'grid size-8 place-items-center',
+									'grid h-6 w-8 place-items-center',
 									navIconFeedbackClassName,
 								)}
 							>

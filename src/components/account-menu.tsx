@@ -28,9 +28,9 @@ export const tabClassName =
 // The sidebar row on wide screens; a small avatar button in the header on
 // phones, where the account is a rare visit and not worth a tab.
 const triggerClassNames: Record<Variant, string> = {
-	rail: 'mt-auto flex w-full items-center gap-2.5 border px-2.5 py-2 text-xs font-semibold whitespace-nowrap rounded-md',
+	rail: 'mt-auto flex w-full items-center gap-2 border px-2.5 py-2 text-xs font-semibold whitespace-nowrap rounded-md',
 	avatar:
-		'relative flex h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-sm font-semibold',
+		'relative -mr-1 flex h-11 min-w-11 shrink-0 items-center justify-center rounded-md px-1 text-sm font-semibold',
 }
 
 const interactiveClassName =
