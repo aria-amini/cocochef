@@ -44,6 +44,16 @@ export const Route = createRootRoute({
 				content: 'width=device-width, initial-scale=1, viewport-fit=cover',
 			},
 			{ title: 'cocochef' },
+			{
+				name: 'description',
+				content:
+					'every recipe you love, on one shelf. find a recipe, save it, and cook from one clean page.',
+			},
+			{ property: 'og:title', content: 'cocochef' },
+			{
+				property: 'og:description',
+				content: 'every recipe you love, on one shelf.',
+			},
 		],
 		links: [
 			{ rel: 'stylesheet', href: appCss },
