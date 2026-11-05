@@ -89,14 +89,6 @@ const dal: Recipe = {
 	savedAt: new Date(),
 }
 
-// The command glyph comes from whichever system font has it, so a baseline
-// would only match the machine that made it.
-const hideShortcutHints = () => {
-	for (const hint of document.querySelectorAll('kbd')) {
-		hint.style.visibility = 'hidden'
-	}
-}
-
 describe('recipes shelf', () => {
 	beforeEach(() => {
 		shelfState.recipes = []
@@ -287,6 +279,66 @@ describe('recipes shelf', () => {
 		await expect.poll(() => spriteOf('abcd')?.naturalWidth).toBeGreaterThan(0)
 	})
 
+	test.each([
+		['MacIntel', '⌘K'],
+		['iPhone', '⌘K'],
+		['iPad', '⌘K'],
+		['Linux x86_64', 'ctrl K'],
+		['Win32', 'ctrl K'],
+	])('hints %s users at %s to search', async (platform, hint) => {
+		vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform)
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const search = screen.getByRole('button', { name: /search any recipe/ })
+
+		await expect.element(search).toBeVisible()
+		const key = search.element().querySelector('kbd')
+
+		if (!key) throw new Error('search is missing its shortcut hint')
+		expect(key.textContent).toBe(hint)
+		// Phones have no keyboard to press it on.
+		expect(getComputedStyle(key).display === 'none').toBe(isPhone())
+	})
+
+	test('colours the saved section with the eggplant accent, apart from your own', async () => {
+		shelfState.recipes = [
+			misoButterPasta,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const heading = (name: string) =>
+			screen.getByRole('heading', { name, level: 2 }).element()
+
+		const eggplant = 'rgb(91, 61, 245)'
+
+		await expect.element(screen.getByText('shared soup')).toBeVisible()
+		const bookmark = heading('saved recipes').querySelector('svg')
+
+		if (!bookmark) throw new Error('saved heading is missing its bookmark')
+		expect(getComputedStyle(bookmark).color).toBe(eggplant)
+		// A tint of the accent, not the yolk of the owned section.
+		const tint = document.createElement('div')
+
+		tint.style.color = 'color-mix(in oklab, rgb(91 61 245) 60%, transparent)'
+		document.body.append(tint)
+		expect(getComputedStyle(heading('saved recipes')).borderBottomColor).toBe(
+			getComputedStyle(tint).color,
+		)
+		tint.remove()
+		expect(
+			getComputedStyle(heading('saved recipes')).borderBottomColor,
+		).not.toBe(getComputedStyle(heading('your recipes')).borderBottomColor)
+	})
+
 	test('shows search and the ways to add a recipe', async () => {
 		shelfState.recipes = [misoButterPasta, dal]
 
@@ -313,7 +365,7 @@ describe('recipes shelf', () => {
 		}
 
 		await expect
-			.element(screen.getByRole('button', { name: /Search any Recipe/ }))
+			.element(screen.getByRole('button', { name: /search any recipe/ }))
 			.toBeVisible()
 	})
 
@@ -526,6 +578,11 @@ describe('recipes shelf', () => {
 	// Full-page captures of the shelf. The sidebar on desktop, the tab bar and
 	// round add button on a phone come along with the content.
 	test('captures the empty shelf', async () => {
+		// The command glyph comes from whichever system font has it, so only the
+		// ctrl hint can be compared across machines. The hint test asserts the Mac
+		// text instead.
+		vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64')
+
 		const { screen } = await renderRoute({
 			path: '/recipes',
 			session: testSession,
@@ -534,13 +591,16 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.toBeVisible()
-		hideShortcutHints()
 		await expectScreenshot(screen.container, 'shelf-empty', {
 			fullHeight: true,
 		})
 	})
 
 	test('captures the shelf with a draft, a saved recipe and discovery', async () => {
+		// The command glyph comes from whichever system font has it, so only the
+		// ctrl hint can be compared across machines. The hint test asserts the Mac
+		// text instead.
+		vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64')
 		shelfState.recipes = [
 			{ ...dal, finalizedAt: null },
 			misoButterPasta,
@@ -571,13 +631,15 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('link', { name: /dal/ }))
 			.toBeVisible()
-		hideShortcutHints()
 		await expectScreenshot(screen.container, 'shelf', { fullHeight: true })
 	})
 
 	// The finder opens over the shelf, so its place, the dimmed page behind it and
 	// what stacks above it are compared as one screen.
 	test('captures the finder over the shelf', async () => {
+		// The command glyph comes from whichever system font has it, so only the
+		// ctrl hint can be compared across machines.
+		vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64')
 		shelfState.recipes = [
 			{ ...dal, id: 'draft-1', title: 'shakshuka', finalizedAt: null },
 			misoButterPasta,
@@ -605,7 +667,6 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('option', { name: /marry me chicken/ }))
 			.toBeVisible()
-		hideShortcutHints()
 		await expectScreenshot(screen.container, 'finder')
 	})
 })

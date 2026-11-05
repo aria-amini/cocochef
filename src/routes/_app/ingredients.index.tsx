@@ -147,7 +147,7 @@ function Pantry() {
 						<p className="text-lg font-bold">nothing here yet</p>
 						<Link
 							to="/ingredients/bulk"
-							className="bg-kitchen-yolk flex items-center gap-1.5 rounded-md px-4 py-2 text-xs font-semibold"
+							className="bg-kitchen-yolk flex min-h-11 items-center gap-1.5 rounded-md px-4 py-2 text-xs font-semibold"
 						>
 							<Plus size={14} weight="bold" aria-hidden />
 							stock up

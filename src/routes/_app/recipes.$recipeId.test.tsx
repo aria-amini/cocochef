@@ -833,6 +833,18 @@ describe('recipe detail', () => {
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect.poll(() => recipeState.recipe?.saved).toBe(true)
 		expect(updateCalls.saved).toEqual(['recipe-1'])
+		// The saved state wears the eggplant accent.
+		await expect
+			.element(screen.getByRole('button', { name: 'saved', exact: true }))
+			.toBeVisible()
+
+		const bookmark = screen
+			.getByRole('button', { name: 'saved', exact: true })
+			.element()
+			.querySelector('svg')
+
+		if (!bookmark) throw new Error('saved button is missing its bookmark')
+		expect(getComputedStyle(bookmark).color).toBe('rgb(91, 61, 245)')
 		// A saved recipe's bookmark asks before taking it back off the shelf.
 		await screen.getByRole('button', { name: 'saved', exact: true }).click()
 		await page.getByRole('button', { name: 'keep it' }).click()
@@ -858,7 +870,7 @@ describe('recipe detail', () => {
 		Object.assign(recipeState.recipe, { userId: null, owned: false })
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 		await expect
-			.element(screen.getByRole('button', { name: 'make copy' }))
+			.element(screen.getByRole('button', { name: 'copy to my shelf' }))
 			.toBeVisible()
 		await expect
 			.element(screen.getByRole('button', { name: 'edit' }))

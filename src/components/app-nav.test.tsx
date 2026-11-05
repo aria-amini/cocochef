@@ -109,7 +109,7 @@ describe('app nav', () => {
 			await expect.element(screen.getByText('work in progress')).toBeVisible()
 			await screen.getByRole('link', { name: 'back to recipes' }).click()
 			await expect
-				.element(screen.getByRole('button', { name: /Search any Recipe/ }))
+				.element(screen.getByRole('button', { name: /search any recipe/ }))
 				.toBeVisible()
 		},
 	)
@@ -245,6 +245,39 @@ describe('app nav', () => {
 				.toBeVisible()
 		},
 	)
+
+	test('keeps thumb targets at least 44px tall', async () => {
+		const { screen } = await renderRoute({
+			path: '/coming-soon/groceries',
+			session: member,
+		})
+
+		const nav = screen.getByRole('navigation', { name: 'Primary' })
+
+		const heightOf = (target: { element: () => Element }) =>
+			target.element().getBoundingClientRect().height
+
+		await expect.element(nav).toBeVisible()
+
+		// The sidebar is for a pointer; the tab bar is for thumbs.
+		const targets = isPhone()
+			? nav.getByRole('link').elements()
+			: [nav.getByRole('link', { name: 'cocochef' }).element()]
+
+		for (const link of targets)
+			expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+
+		expect(
+			heightOf(screen.getByRole('link', { name: 'back to recipes' })),
+		).toBeGreaterThanOrEqual(44)
+
+		if (isPhone())
+			expect(
+				heightOf(
+					screen.getByRole('banner').getByRole('button', { name: 'Account' }),
+				),
+			).toBeGreaterThanOrEqual(44)
+	})
 
 	phoneOnly(
 		'leaves the tab bar off screens that pin their own actions',

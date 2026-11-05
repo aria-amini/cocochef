@@ -156,7 +156,7 @@ export function RecipeReader({
 										size={14}
 										weight="fill"
 										aria-hidden
-										className="text-saved-blue"
+										className="text-kitchen-eggplant"
 									/>
 								</span>
 							) : null}
