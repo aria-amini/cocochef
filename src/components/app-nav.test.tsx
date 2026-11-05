@@ -1,7 +1,7 @@
 import { setMockSessionPending } from '@tests/support/mocks/browser'
 import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
-import { isPhone, phoneOnly } from '@tests/support/viewport'
+import { desktopOnly, isPhone, phoneOnly } from '@tests/support/viewport'
 import { describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
 
@@ -235,6 +235,39 @@ describe('app nav', () => {
 			.not.toBeInTheDocument()
 		field.remove()
 	})
+
+	desktopOnly(
+		'lines the sidebar logo up with the nav rows, unboxed',
+		async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes',
+				session: member,
+			})
+
+			const nav = screen.getByRole('navigation', { name: 'Primary' })
+			const logo = nav.getByRole('link', { name: 'cocochef' })
+
+			await expect.element(logo).toBeVisible()
+			const logoBox = logo.element().getBoundingClientRect()
+
+			const rowBox = nav
+				.getByRole('link', { name: 'recipes' })
+				.element()
+				.getBoundingClientRect()
+
+			// One column: the logo starts and ends where the rows do.
+			expect(logoBox.left).toBe(rowBox.left)
+			expect(logoBox.right).toBe(rowBox.right)
+			// A mark on the sidebar, not a card of its own.
+			const style = getComputedStyle(logo.element())
+
+			expect(style.borderTopColor).toBe('rgba(0, 0, 0, 0)')
+			expect(style.backgroundColor).toBe('rgba(0, 0, 0, 0)')
+			expect(
+				logo.element().querySelector('img')?.getBoundingClientRect().left,
+			).toBeCloseTo(logoBox.left + 1, 0)
+		},
+	)
 
 	test('shows the account photo', async () => {
 		const withPhoto = {
