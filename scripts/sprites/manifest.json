@@ -1,0 +1,486 @@
+{
+	"rules": "rules.md",
+	"refs": [
+		{
+			"id": "ref-style",
+			"file": "refs/ref-style.png",
+			"sprites": [
+				"apple",
+				"tomato",
+				"carrot",
+				"cheese",
+				"egg",
+				"bread",
+				"salmon",
+				"onion",
+				"garlic",
+				"mushroom",
+				"butter",
+				"lemon"
+			]
+		},
+		{
+			"id": "ref-containers",
+			"file": "refs/ref-containers.png",
+			"sprites": [
+				"vinegar",
+				"sauce",
+				"wine",
+				"spirits",
+				"extract",
+				"honey",
+				"spread",
+				"can",
+				"milk",
+				"broth",
+				"flour",
+				"olive-oil"
+			]
+		},
+		{
+			"id": "ref-veg",
+			"file": "refs/ref-veg.png",
+			"sprites": [
+				"broccoli",
+				"kale",
+				"lettuce",
+				"cucumber",
+				"zucchini",
+				"bell-pepper",
+				"jalapeno",
+				"potato",
+				"radish",
+				"corn",
+				"peas",
+				"eggplant"
+			]
+		},
+		{
+			"id": "ref-fruit",
+			"file": "refs/ref-fruit.png",
+			"sprites": [
+				"banana",
+				"lime",
+				"orange",
+				"peach",
+				"pear",
+				"pineapple",
+				"strawberry",
+				"watermelon",
+				"mango",
+				"grapes",
+				"cherry",
+				"blueberries"
+			]
+		},
+		{
+			"id": "ref-protein-misc",
+			"file": "refs/ref-protein-misc.png",
+			"sprites": [
+				"chicken",
+				"fish",
+				"steak",
+				"sausage",
+				"bacon",
+				"wheat",
+				"rice",
+				"pie",
+				"nuts",
+				"seeds",
+				"beans",
+				"chocolate"
+			]
+		}
+	],
+	"sheets": [
+		{
+			"id": "01-spice-vessels",
+			"title": "Spice vessels",
+			"prompt": "sheets/01-spice-vessels.md",
+			"output": "01-spice-vessels.png",
+			"grid": {
+				"columns": 4,
+				"rows": 2
+			},
+			"refs": ["refs/ref-style.png", "refs/ref-containers.png"],
+			"cells": [
+				{
+					"name": "shaker-jar",
+					"recolourable": true
+				},
+				{
+					"name": "shaker-jar-squat",
+					"recolourable": true
+				},
+				{
+					"name": "cork-jar",
+					"recolourable": true
+				},
+				{
+					"name": "spice-tin",
+					"recolourable": true
+				},
+				{
+					"name": "spice-pouch",
+					"recolourable": true
+				},
+				{
+					"name": "salt-shaker",
+					"recolourable": true
+				},
+				{
+					"name": "pepper-mill",
+					"recolourable": false
+				},
+				{
+					"name": "spoon-heap",
+					"recolourable": true
+				}
+			]
+		},
+		{
+			"id": "02-bottles",
+			"title": "Bottles",
+			"prompt": "sheets/02-bottles.md",
+			"output": "02-bottles.png",
+			"grid": {
+				"columns": 3,
+				"rows": 2
+			},
+			"refs": ["refs/ref-containers.png", "refs/ref-style.png"],
+			"cells": [
+				{
+					"name": "oil-bottle",
+					"recolourable": true
+				},
+				{
+					"name": "soy-dasher",
+					"recolourable": true
+				},
+				{
+					"name": "wine-bottle",
+					"recolourable": true
+				},
+				{
+					"name": "spirit-flask",
+					"recolourable": true
+				},
+				{
+					"name": "squeeze-bottle",
+					"recolourable": true
+				},
+				{
+					"name": "dropper-bottle",
+					"recolourable": true
+				}
+			]
+		},
+		{
+			"id": "03-sacks-tins-cans-cartons",
+			"title": "Sacks, tins, cans and cartons",
+			"prompt": "sheets/03-sacks-tins-cans-cartons.md",
+			"output": "03-sacks-tins-cans-cartons.png",
+			"grid": {
+				"columns": 3,
+				"rows": 2
+			},
+			"refs": ["refs/ref-containers.png", "refs/ref-protein-misc.png"],
+			"cells": [
+				{
+					"name": "sack",
+					"recolourable": true
+				},
+				{
+					"name": "canister-tin",
+					"recolourable": true
+				},
+				{
+					"name": "box",
+					"recolourable": true
+				},
+				{
+					"name": "tin-can",
+					"recolourable": true
+				},
+				{
+					"name": "carton",
+					"recolourable": true
+				},
+				{
+					"name": "window-pouch",
+					"recolourable": true
+				}
+			]
+		},
+		{
+			"id": "04-jars-tubs-glasses-tubes",
+			"title": "Jars, tubs, glasses, tubes and packets",
+			"prompt": "sheets/04-jars-tubs-glasses-tubes.md",
+			"output": "04-jars-tubs-glasses-tubes.png",
+			"grid": {
+				"columns": 3,
+				"rows": 2
+			},
+			"refs": ["refs/ref-containers.png"],
+			"cells": [
+				{
+					"name": "mason-jar",
+					"recolourable": true
+				},
+				{
+					"name": "honey-jar",
+					"recolourable": true
+				},
+				{
+					"name": "tub",
+					"recolourable": true
+				},
+				{
+					"name": "tumbler",
+					"recolourable": true
+				},
+				{
+					"name": "paste-tube",
+					"recolourable": true
+				},
+				{
+					"name": "packet",
+					"recolourable": true
+				}
+			]
+		},
+		{
+			"id": "05-herbs",
+			"title": "Herbs",
+			"prompt": "sheets/05-herbs.md",
+			"output": "05-herbs.png",
+			"grid": {
+				"columns": 4,
+				"rows": 2
+			},
+			"refs": ["refs/ref-veg.png", "refs/ref-style.png"],
+			"cells": [
+				{
+					"name": "herb-bunch",
+					"recolourable": true
+				},
+				{
+					"name": "round-leaf-sprig",
+					"recolourable": true
+				},
+				{
+					"name": "basil",
+					"recolourable": true
+				},
+				{
+					"name": "rosemary",
+					"recolourable": true
+				},
+				{
+					"name": "dill",
+					"recolourable": true
+				},
+				{
+					"name": "chives",
+					"recolourable": true
+				},
+				{
+					"name": "bay-leaves",
+					"recolourable": false
+				},
+				{
+					"name": "lemongrass",
+					"recolourable": false
+				}
+			]
+		},
+		{
+			"id": "06-whole-spices",
+			"title": "Whole spices",
+			"prompt": "sheets/06-whole-spices.md",
+			"output": "06-whole-spices.png",
+			"grid": {
+				"columns": 4,
+				"rows": 2
+			},
+			"refs": ["refs/ref-style.png", "refs/ref-protein-misc.png"],
+			"cells": [
+				{
+					"name": "cinnamon-sticks",
+					"recolourable": false
+				},
+				{
+					"name": "star-anise",
+					"recolourable": false
+				},
+				{
+					"name": "cloves",
+					"recolourable": false
+				},
+				{
+					"name": "cardamom-pods",
+					"recolourable": false
+				},
+				{
+					"name": "saffron",
+					"recolourable": false
+				},
+				{
+					"name": "dried-chilies",
+					"recolourable": false
+				},
+				{
+					"name": "vanilla-pods",
+					"recolourable": false
+				},
+				{
+					"name": "nutmeg",
+					"recolourable": false
+				}
+			]
+		},
+		{
+			"id": "07-vegetables",
+			"title": "Vegetables",
+			"prompt": "sheets/07-vegetables.md",
+			"output": "07-vegetables.png",
+			"grid": {
+				"columns": 3,
+				"rows": 3
+			},
+			"refs": ["refs/ref-veg.png"],
+			"cells": [
+				{
+					"name": "celery",
+					"recolourable": false
+				},
+				{
+					"name": "cauliflower",
+					"recolourable": false
+				},
+				{
+					"name": "cabbage",
+					"recolourable": true
+				},
+				{
+					"name": "asparagus",
+					"recolourable": false
+				},
+				{
+					"name": "brussels-sprouts",
+					"recolourable": false
+				},
+				{
+					"name": "green-beans",
+					"recolourable": false
+				},
+				{
+					"name": "fennel",
+					"recolourable": false
+				},
+				{
+					"name": "artichoke",
+					"recolourable": false
+				},
+				{
+					"name": "parsnip",
+					"recolourable": false
+				}
+			]
+		},
+		{
+			"id": "08-fruit-chiles-plantains",
+			"title": "Fruit, chiles and plantains",
+			"prompt": "sheets/08-fruit-chiles-plantains.md",
+			"output": "08-fruit-chiles-plantains.png",
+			"grid": {
+				"columns": 3,
+				"rows": 3
+			},
+			"refs": ["refs/ref-fruit.png", "refs/ref-veg.png"],
+			"cells": [
+				{
+					"name": "chile",
+					"recolourable": true
+				},
+				{
+					"name": "plantain",
+					"recolourable": false
+				},
+				{
+					"name": "coconut-half",
+					"recolourable": false
+				},
+				{
+					"name": "cranberries",
+					"recolourable": false
+				},
+				{
+					"name": "pomegranate",
+					"recolourable": false
+				},
+				{
+					"name": "kiwi",
+					"recolourable": false
+				},
+				{
+					"name": "papaya",
+					"recolourable": false
+				},
+				{
+					"name": "fig",
+					"recolourable": false
+				},
+				{
+					"name": "dates",
+					"recolourable": false
+				}
+			]
+		},
+		{
+			"id": "09-pasta-dough-tofu-extras",
+			"title": "Pasta, dough, tofu and baking extras",
+			"prompt": "sheets/09-pasta-dough-tofu-extras.md",
+			"output": "09-pasta-dough-tofu-extras.png",
+			"grid": {
+				"columns": 4,
+				"rows": 2
+			},
+			"refs": ["refs/ref-protein-misc.png", "refs/ref-style.png"],
+			"cells": [
+				{
+					"name": "tofu",
+					"recolourable": false
+				},
+				{
+					"name": "shrimp",
+					"recolourable": false
+				},
+				{
+					"name": "pasta",
+					"recolourable": false
+				},
+				{
+					"name": "dough",
+					"recolourable": false
+				},
+				{
+					"name": "crackers",
+					"recolourable": false
+				},
+				{
+					"name": "marshmallows",
+					"recolourable": false
+				},
+				{
+					"name": "sprinkles",
+					"recolourable": false
+				},
+				{
+					"name": "caramel-candy",
+					"recolourable": false
+				}
+			]
+		}
+	]
+}
