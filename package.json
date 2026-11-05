@@ -34,6 +34,7 @@
 		"import:fetch": "uv run --locked scripts/import-fetch.py",
 		"recipes:index": "vpx scripts/recipe-data.ts index",
 		"recipes:corpus": "vpx scripts/recipe-corpus.ts",
+		"sprites:split": "vpx scripts/sprites/split.ts",
 		"recipes:seed": "varlock run -- vpx scripts/recipe-data.ts seed"
 	},
 	"dependencies": {
@@ -69,6 +70,7 @@
 		"@testcontainers/postgresql": "^12.0.3",
 		"@types/node": "^26.1.1",
 		"@types/pg": "^8.20.0",
+		"@types/pngjs": "^6.0.5",
 		"@types/react": "^19.2.17",
 		"@types/react-dom": "^19.2.3",
 		"@varlock/vite-integration": "^1.4.0",
@@ -86,6 +88,7 @@
 		"msw": "^2.14.6",
 		"nitro": "3.0.260610-beta",
 		"oxlint-plugin-eslint": "^1.73.0",
+		"pngjs": "^7.0.0",
 		"posthog-js": "^1.391.2",
 		"posthog-node": "^5.49.0",
 		"react": "^19.2.7",
