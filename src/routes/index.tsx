@@ -4,7 +4,6 @@ import {
 	redirect,
 	useNavigate,
 } from '@tanstack/react-router'
-import { MotionConfig, motion } from 'framer-motion'
 import { useState } from 'react'
 import { z } from 'zod'
 
@@ -26,28 +25,21 @@ export const Route = createFileRoute('/')({
 	component: Landing,
 })
 
-const ease = [0.16, 1, 0.3, 1] as const
-
-const heroSprites = ['apple', 'carrot', 'tomato', 'flour', 'milk', 'cinnamon']
-
 const features = [
 	{
 		sprite: 'tomato',
-		color: 'bg-kitchen-tomato/25',
 		title: 'save from sites you trust',
 		body: 'search or paste a link, then save it to your shelf. it always links back to the original.',
 	},
 	{
 		sprite: 'carrot',
-		color: 'bg-kitchen-basil/25',
-		title: 'know your kitchen',
-		body: 'stock what you have by category in a few taps.',
+		title: 'write down your own',
+		body: 'add family recipes by hand, or paste the text and tidy it up.',
 	},
 	{
 		sprite: 'flour',
-		color: 'bg-kitchen-yolk/35',
-		title: 'cook what you actually cook',
-		body: 'start a meal from your regulars, what you have not made in a while, or something new.',
+		title: 'keep your place while you cook',
+		body: 'ingredients and steps stay on one page, with a checklist for what is done.',
 	},
 ]
 
@@ -56,57 +48,50 @@ function Landing() {
 	const navigate = useNavigate()
 
 	return (
-		<MotionConfig reducedMotion="user">
+		<>
 			<div className="bg-background text-foreground min-h-dvh">
 				<div className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-6 md:gap-24 md:px-10 md:py-8">
 					<header className="flex items-center justify-between">
-						<span className="text-sm font-bold">cocochef</span>
+						<span className="flex items-center gap-2 text-sm font-bold">
+							<img
+								src="/icon-192.png"
+								alt=""
+								className="size-7 shrink-0 rounded-md"
+							/>
+							cocochef
+						</span>
 						<button
 							type="button"
 							onClick={() => setAuthOpen(true)}
-							className="text-xs font-semibold underline"
+							className="-mr-2 inline-flex min-h-11 items-center rounded-md px-2 text-xs font-semibold underline"
 						>
 							sign in
 						</button>
 					</header>
 
-					<motion.main
-						initial={{ opacity: 0, y: 24 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.6, ease }}
-						className="flex flex-col gap-16 md:gap-24"
-					>
+					<main className="flex flex-col gap-16 md:gap-24">
 						<section className="flex flex-col gap-6">
-							<div aria-hidden className="flex gap-3">
-								{heroSprites.map((sprite) => (
-									<img
-										key={sprite}
-										src={`/sprites/pantry/${sprite}.png`}
-										alt=""
-										className="size-10 [image-rendering:pixelated] md:size-12"
-									/>
-								))}
-							</div>
-							<h1 className="max-w-3xl text-5xl leading-none font-bold tracking-tight text-balance md:text-7xl">
-								recipes from real cooks, never made up by AI
+							<h1 className="leading-display max-w-3xl text-5xl font-bold tracking-tight text-balance md:text-7xl">
+								every recipe you love, on one shelf
 							</h1>
 							<p className="text-muted-foreground max-w-xl text-lg font-semibold text-balance">
-								keep what you cook and what is in your kitchen.
+								find a recipe, save it, and cook from one clean page.
 							</p>
-							<div className="flex flex-wrap items-center gap-4">
-								<Link to="/recipes" className={buttonVariants({ size: 'lg' })}>
-									start your shelf
-								</Link>
-								<span className="text-muted-foreground text-xs font-semibold">
-									no account needed
-								</span>
-							</div>
+							<Link
+								to="/recipes"
+								className={cn(buttonVariants({ size: 'lg' }), 'self-start')}
+							>
+								start your shelf
+							</Link>
 						</section>
 
 						<section
 							aria-label="Supported recipe sites"
-							className="border-border bg-card flex flex-col gap-3 rounded-xl border p-5"
+							className="flex flex-col gap-4"
 						>
+							<p className="text-sm font-semibold">
+								works with the sites you already cook from.
+							</p>
 							<ul className="flex flex-wrap items-center gap-4">
 								{importSites.map((site) => (
 									<li key={site.id}>
@@ -122,41 +107,29 @@ function Landing() {
 									&amp; most recipe sites
 								</li>
 							</ul>
-							<p className="text-sm font-semibold">
-								recipes come from real sites and real cooks. nothing here is
-								generated.
-							</p>
 						</section>
 
-						<section
-							aria-label="What you can do"
-							className="grid gap-4 md:grid-cols-3"
-						>
-							{features.map((feature) => (
-								<article
-									key={feature.title}
-									className="border-border bg-card flex flex-col gap-3 rounded-xl border p-5"
-								>
-									<span
-										className={cn(
-											'border-border grid size-12 place-items-center border rounded-md',
-											feature.color,
-										)}
+						<section aria-label="What you can do">
+							<ul className="divide-border border-border max-w-3xl divide-y border-y">
+								{features.map((feature) => (
+									<li
+										key={feature.title}
+										className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-4 gap-y-1 py-5 md:gap-x-6"
 									>
 										<img
 											src={`/sprites/pantry/${feature.sprite}.png`}
 											alt=""
-											className="size-8 [image-rendering:pixelated]"
+											className="row-span-2 size-10 [image-rendering:pixelated]"
 										/>
-									</span>
-									<h2 className="text-lg leading-tight font-bold">
-										{feature.title}
-									</h2>
-									<p className="text-muted-foreground text-sm font-semibold">
-										{feature.body}
-									</p>
-								</article>
-							))}
+										<h2 className="text-lg leading-tight font-bold">
+											{feature.title}
+										</h2>
+										<p className="text-muted-foreground text-sm font-semibold text-pretty">
+											{feature.body}
+										</p>
+									</li>
+								))}
+							</ul>
 						</section>
 
 						<section className="flex flex-col items-start gap-4 pb-8">
@@ -170,7 +143,7 @@ function Landing() {
 								start your shelf
 							</Link>
 						</section>
-					</motion.main>
+					</main>
 				</div>
 			</div>
 			<AuthDialog
@@ -180,6 +153,6 @@ function Landing() {
 				initialMode="signin"
 				onSuccess={() => void navigate({ to: '/recipes' })}
 			/>
-		</MotionConfig>
+		</>
 	)
 }

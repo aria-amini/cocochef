@@ -90,7 +90,9 @@ Font:** JetBrains Mono Variable — code and data only, never decoration
 
 ### Hierarchy
 
-- **Display** (700, clamp(4rem,9vw,7rem), 0.95): brand moments only (landing).
+- **Display** (700, 3rem on phones to 4.5rem, 1.05): brand moments only
+  (landing). Tighter leading makes descenders hit the next line, and a larger
+  phone size pushes the primary action below the fold.
 - **Page Title** (700, 1.75–2.5rem, tight): app page headers, plain lowercase.
 - **Tile Title** (700, 1.25rem, tight): recipe names on tiles.
 - **Label** (600, 13px, lowercase): section labels, buttons, nav items, chips.
