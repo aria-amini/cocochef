@@ -70,7 +70,9 @@ export async function crawlRecipeSite(site: RecipeSite) {
 			pages.push(...((await fetchSitemap(child, site))?.pages ?? []))
 		} catch (error) {
 			complete = false
-			console.warn(`[discover] skipped ${child}`, error)
+			// A site that blocks datacenter crawlers (402, 403, 429) is expected;
+			// the message is enough without a stack trace.
+			console.warn(`[discover] skipped ${child}: ${String(error)}`)
 		}
 	}
 
