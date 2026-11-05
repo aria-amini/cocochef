@@ -156,6 +156,137 @@ describe('recipes shelf', () => {
 			.toHaveFocus()
 	})
 
+	test('offers only the tile on an empty shelf, and the buttons return with a recipe', async () => {
+		const { screen, router, queryClient } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await expect
+			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.toBeVisible()
+		// The tile already offers every way to add, so nothing repeats it.
+		await expect
+			.element(screen.getByRole('button', { name: 'add recipe' }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('button', { name: 'import link' }))
+			.not.toBeInTheDocument()
+
+		shelfState.recipes = [dal]
+		await queryClient.invalidateQueries()
+		await router.invalidate()
+
+		await expect
+			.element(screen.getByRole('link', { name: 'dal' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'add recipe' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.not.toBeInTheDocument()
+
+		if (!isPhone())
+			await expect
+				.element(screen.getByRole('button', { name: 'import link' }))
+				.toBeVisible()
+	})
+
+	test('puts pictured discovery recipes first, keeping each group in order', async () => {
+		shelfState.recipes = [dal]
+
+		const popular = (title: string, imageUrl?: string) => ({
+			recipeId: 'id-' + title,
+			title,
+			imageUrl,
+			siteName: 'Example',
+			saved: false,
+			draft: false,
+			ingredientMatches: [],
+		})
+
+		discovery.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				popular('plain a'),
+				popular('pictured b', '/sprites/pantry/apple.png'),
+				popular('plain c'),
+				popular('pictured d', '/sprites/pantry/carrot.png'),
+				popular('pictured e', '/sprites/pantry/flour.png'),
+			],
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const discover = screen.getByRole('region', { name: 'discover recipes' })
+
+		await expect.element(discover).toBeVisible()
+		// Four tiles at most, so the last plain recipe is left to the finder. Phones
+		// hide all but the first two, so this reads the tiles, not the role tree.
+		await expect
+			.poll(() =>
+				[...discover.element().querySelectorAll('a')].map(
+					(tile) => tile.querySelector('span.line-clamp-2')?.textContent,
+				),
+			)
+			.toEqual(['pictured b', 'pictured d', 'pictured e', 'plain a'])
+	})
+
+	test('stands a pantry sprite in for a discovery recipe with no usable photo', async () => {
+		shelfState.recipes = [dal]
+
+		const popular = (title: string, imageUrl?: string) => ({
+			recipeId: 'id-' + title,
+			title,
+			imageUrl,
+			siteName: 'Example',
+			saved: false,
+			draft: false,
+			ingredientMatches: [],
+		})
+
+		// The sprite follows the title's length, so a tile keeps its sprite.
+		discovery.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				popular('abcd'),
+				popular('abcde'),
+				popular('abcdef'),
+				popular('abcdefg', '/missing-photo.png'),
+			],
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const discover = screen.getByRole('region', { name: 'discover recipes' })
+
+		const spriteOf = (title: string) =>
+			[...discover.element().querySelectorAll('a')]
+				.find((tile) => tile.textContent?.startsWith(title + 'Example'))
+				?.querySelector('img')
+
+		await expect
+			.poll(() => spriteOf('abcdefg')?.getAttribute('src'))
+			.toBe('/sprites/pantry/flour.png')
+		expect(spriteOf('abcd')?.getAttribute('src')).toBe(
+			'/sprites/pantry/tomato.png',
+		)
+		expect(spriteOf('abcde')?.getAttribute('src')).toBe(
+			'/sprites/pantry/carrot.png',
+		)
+		expect(spriteOf('abcdef')?.getAttribute('src')).toBe(
+			'/sprites/pantry/apple.png',
+		)
+		await expect.poll(() => spriteOf('abcd')?.naturalWidth).toBeGreaterThan(0)
+	})
+
 	test('shows search and the ways to add a recipe', async () => {
 		shelfState.recipes = [misoButterPasta, dal]
 
