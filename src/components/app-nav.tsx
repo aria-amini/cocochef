@@ -165,12 +165,12 @@ function Sidebar() {
 			<Link
 				to="/recipes"
 				aria-label="cocochef"
-				className="border-foreground/20 bg-card mb-6 flex w-full shrink-0 items-center justify-center gap-2 self-center rounded-md border px-3 py-2 text-sm font-bold whitespace-nowrap"
+				className="mb-6 flex w-full shrink-0 items-center gap-2 rounded-md border border-transparent py-2 text-sm font-bold whitespace-nowrap"
 			>
 				<img
 					src="/icon-192.png"
 					alt=""
-					className="size-7 shrink-0 [image-rendering:pixelated]"
+					className="size-7 shrink-0 rounded-md"
 				/>
 				cocochef
 			</Link>
@@ -231,7 +231,7 @@ function MobileHeader() {
 				<img
 					src="/icon-192.png"
 					alt=""
-					className="size-7 shrink-0 [image-rendering:pixelated]"
+					className="size-7 shrink-0 rounded-md"
 				/>
 				cocochef
 			</Link>
