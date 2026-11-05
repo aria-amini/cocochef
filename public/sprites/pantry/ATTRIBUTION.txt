@@ -20,3 +20,11 @@ ginger, lime, sauce, seeds, spirits, spread, vinegar, wine) were made with
 ChatGPT image generation, prompted with this set as the style reference, then
 cut out, downscaled to 32x32 with a nearest-neighbour fit, and reduced to a
 20-colour palette. They are not from the CC0 collection above.
+
+The next 68 sprites (spice jars, bottles, sacks, tins, cans, cartons, herbs,
+whole spices, vegetables, fruit and baking extras) were made the same way, from
+the prompts in scripts/sprites. `vp run sprites:split` cuts the generated
+sheets into 32x32 sprites. Sprites in tint/ are recolourable: <name>.png holds
+the outline and shading, <name>.fill.png is the area to paint any colour. The
+flat spice mounds (fallback-spice, salt, cinnamon, mustard, black-pepper) were
+replaced with baked jars under the same names.
