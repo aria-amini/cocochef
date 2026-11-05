@@ -78,7 +78,7 @@ describe('landing page', () => {
 			.element(screen.getByRole('img', { name: 'BBC Good Food' }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('img', { name: /coco, a black cat/ }))
+			.element(screen.getByRole('button', { name: /wave at coco/ }))
 			.toBeVisible()
 	})
 

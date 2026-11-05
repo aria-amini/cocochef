@@ -150,8 +150,9 @@ Component styles live in the components themselves (`src/components/ui` and the
   use `FieldError` (ink text, tomato mark), never tomato text.
 - **Wordmark** is plain Open Sans bold, never mono, never on white.
 - **Coco** is the mascot: a pixel-art black cat in a chef's hat. Coco greets
-  visitors on the landing page and waves from `CocoWave`; reduced motion holds
-  the first frame. Coco is art, not decoration: one per screen.
+  visitors on the landing page and waves from `CocoWave`: once on arrival and
+  again when greeted, never on a loop. Reduced motion holds the first frame.
+  Coco is art, not decoration: one per screen.
 - **Loading** never leaves the old page frozen, and never flashes: quick loads
   show nothing. Reduced motion gets a still bar.
 - **Avatar** is one component everywhere; a guest whose shelf isn't saved yet
