@@ -12,6 +12,7 @@ import { CocoWave } from '@/components/coco-wave'
 import { buttonVariants } from '@/components/ui/button'
 import { getCurrentSession } from '@/lib/auth/session'
 import { importSiteLogo, importSites } from '@/lib/import/sites'
+import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/')({
 	// `/?preview` keeps the pitch visible to a signed-in dev; it is dev-only.
@@ -33,13 +34,13 @@ const features = [
 	},
 	{
 		sprite: 'carrot',
-		title: 'know your kitchen',
-		body: 'stock what you have by category in a few taps.',
+		title: 'write down your own',
+		body: 'add family recipes by hand, or paste the text and tidy it up.',
 	},
 	{
 		sprite: 'flour',
-		title: 'cook what you actually cook',
-		body: 'start a meal from your regulars, what you have not made in a while, or something new.',
+		title: 'keep your place while you cook',
+		body: 'ingredients and steps stay on one page, with a checklist for what is done.',
 	},
 ]
 
@@ -75,19 +76,14 @@ function Landing() {
 									every recipe you love, on one shelf
 								</h1>
 								<p className="text-muted-foreground max-w-xl text-lg font-semibold text-balance">
-									see what&apos;s in your kitchen and pick what to cook tonight.
+									find a recipe, save it, and cook from one clean page.
 								</p>
-								<div className="flex flex-wrap items-center gap-4">
-									<Link
-										to="/recipes"
-										className={buttonVariants({ size: 'lg' })}
-									>
-										start your shelf
-									</Link>
-									<span className="text-muted-foreground text-xs font-semibold">
-										no account needed
-									</span>
-								</div>
+								<Link
+									to="/recipes"
+									className={cn(buttonVariants({ size: 'lg' }), 'self-start')}
+								>
+									start your shelf
+								</Link>
 							</div>
 						</section>
 

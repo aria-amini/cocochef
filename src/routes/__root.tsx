@@ -47,7 +47,7 @@ export const Route = createRootRoute({
 			{
 				name: 'description',
 				content:
-					"every recipe you love, on one shelf. see what's in your kitchen and pick what to cook tonight.",
+					'every recipe you love, on one shelf. find a recipe, save it, and cook from one clean page.',
 			},
 			{ property: 'og:title', content: 'cocochef' },
 			{
