@@ -53,11 +53,18 @@ function Landing() {
 			<div className="bg-background text-foreground min-h-dvh">
 				<div className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-6 md:gap-24 md:px-10 md:py-8">
 					<header className="flex items-center justify-between">
-						<span className="text-sm font-bold">cocochef</span>
+						<span className="flex items-center gap-2 text-sm font-bold">
+							<img
+								src="/icon-192.png"
+								alt=""
+								className="size-7 shrink-0 rounded-md"
+							/>
+							cocochef
+						</span>
 						<button
 							type="button"
 							onClick={() => setAuthOpen(true)}
-							className="text-xs font-semibold underline"
+							className="-mr-2 inline-flex min-h-11 items-center rounded-md px-2 text-xs font-semibold underline"
 						>
 							sign in
 						</button>
@@ -72,7 +79,7 @@ function Landing() {
 								<CocoWave className="w-full" />
 							</figure>
 							<div className="flex flex-col gap-6">
-								<h1 className="max-w-3xl text-5xl leading-none font-bold tracking-tight text-balance md:text-7xl">
+								<h1 className="leading-display max-w-3xl text-5xl font-bold tracking-tight text-balance md:text-7xl">
 									every recipe you love, on one shelf
 								</h1>
 								<p className="text-muted-foreground max-w-xl text-lg font-semibold text-balance">
@@ -126,7 +133,7 @@ function Landing() {
 										<h2 className="text-lg leading-tight font-bold">
 											{feature.title}
 										</h2>
-										<p className="text-muted-foreground text-sm font-semibold">
+										<p className="text-muted-foreground text-sm font-semibold text-pretty">
 											{feature.body}
 										</p>
 									</li>
