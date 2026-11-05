@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as HandleIndexRouteImport } from './routes/$handle.index'
-import { Route as HandleSlugRouteImport } from './routes/$handle.$slug'
 import { Route as AppGroceriesRouteImport } from './routes/_app/groceries'
 import { Route as AppHomeRouteImport } from './routes/_app/home'
 import { Route as AppPantryRouteImport } from './routes/_app/pantry'
@@ -21,7 +20,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
-import { Route as STokenRouteImport } from './routes/s.$token'
+import { Route as AppHandleSlugRouteImport } from './routes/_app/$handle.$slug'
 import { Route as AppComingSoonFeatureRouteImport } from './routes/_app/coming-soon.$feature'
 import { Route as AppIngredientsIndexRouteImport } from './routes/_app/ingredients.index'
 import { Route as AppIngredientsBulkRouteImport } from './routes/_app/ingredients.bulk'
@@ -30,9 +29,10 @@ import { Route as AppProfileSplatRouteImport } from './routes/_app/profile.$'
 import { Route as AppRecipesIndexRouteImport } from './routes/_app/recipes.index'
 import { Route as AppRecipesRecipeIdRouteImport } from './routes/_app/recipes.$recipeId'
 import { Route as AppRecipesNewRouteImport } from './routes/_app/recipes.new'
+import { Route as AppSTokenRouteImport } from './routes/_app/s.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiIngestSplatRouteImport } from './routes/api/ingest.$'
-import { Route as SitesSiteSlugRouteImport } from './routes/sites.$site.$slug'
+import { Route as AppSitesSiteSlugRouteImport } from './routes/_app/sites.$site.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,11 +46,6 @@ const AppRoute = AppRouteImport.update({
 const HandleIndexRoute = HandleIndexRouteImport.update({
   id: '/$handle/',
   path: '/$handle/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HandleSlugRoute = HandleSlugRouteImport.update({
-  id: '/$handle/$slug',
-  path: '/$handle/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppGroceriesRoute = AppGroceriesRouteImport.update({
@@ -93,10 +88,10 @@ const AuthSignupRoute = AuthSignupRouteImport.update({
   path: '/auth/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const STokenRoute = STokenRouteImport.update({
-  id: '/s/$token',
-  path: '/s/$token',
-  getParentRoute: () => rootRouteImport,
+const AppHandleSlugRoute = AppHandleSlugRouteImport.update({
+  id: '/$handle/$slug',
+  path: '/$handle/$slug',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppComingSoonFeatureRoute = AppComingSoonFeatureRouteImport.update({
   id: '/coming-soon/$feature',
@@ -138,6 +133,11 @@ const AppRecipesNewRoute = AppRecipesNewRouteImport.update({
   path: '/recipes/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSTokenRoute = AppSTokenRouteImport.update({
+  id: '/s/$token',
+  path: '/s/$token',
+  getParentRoute: () => AppRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -148,15 +148,14 @@ const ApiIngestSplatRoute = ApiIngestSplatRouteImport.update({
   path: '/api/ingest/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SitesSiteSlugRoute = SitesSiteSlugRouteImport.update({
+const AppSitesSiteSlugRoute = AppSitesSiteSlugRouteImport.update({
   id: '/sites/$site/$slug',
   path: '/sites/$site/$slug',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/$handle/$slug': typeof HandleSlugRoute
   '/groceries': typeof AppGroceriesRoute
   '/home': typeof AppHomeRoute
   '/pantry': typeof AppPantryRoute
@@ -165,23 +164,23 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/s/$token': typeof STokenRoute
   '/$handle/': typeof HandleIndexRoute
+  '/$handle/$slug': typeof AppHandleSlugRoute
   '/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
   '/profile/$': typeof AppProfileSplatRoute
   '/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/recipes/new': typeof AppRecipesNewRoute
+  '/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/ingest/$': typeof ApiIngestSplatRoute
-  '/sites/$site/$slug': typeof SitesSiteSlugRoute
   '/ingredients/': typeof AppIngredientsIndexRoute
   '/recipes/': typeof AppRecipesIndexRoute
+  '/sites/$site/$slug': typeof AppSitesSiteSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/$handle/$slug': typeof HandleSlugRoute
   '/groceries': typeof AppGroceriesRoute
   '/home': typeof AppHomeRoute
   '/pantry': typeof AppPantryRoute
@@ -190,25 +189,25 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/s/$token': typeof STokenRoute
   '/$handle': typeof HandleIndexRoute
+  '/$handle/$slug': typeof AppHandleSlugRoute
   '/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
   '/profile/$': typeof AppProfileSplatRoute
   '/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/recipes/new': typeof AppRecipesNewRoute
+  '/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/ingest/$': typeof ApiIngestSplatRoute
-  '/sites/$site/$slug': typeof SitesSiteSlugRoute
   '/ingredients': typeof AppIngredientsIndexRoute
   '/recipes': typeof AppRecipesIndexRoute
+  '/sites/$site/$slug': typeof AppSitesSiteSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
-  '/$handle/$slug': typeof HandleSlugRoute
   '/_app/groceries': typeof AppGroceriesRoute
   '/_app/home': typeof AppHomeRoute
   '/_app/pantry': typeof AppPantryRoute
@@ -217,25 +216,25 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/s/$token': typeof STokenRoute
   '/$handle/': typeof HandleIndexRoute
+  '/_app/$handle/$slug': typeof AppHandleSlugRoute
   '/_app/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/_app/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/_app/ingredients/new': typeof AppIngredientsNewRoute
   '/_app/profile/$': typeof AppProfileSplatRoute
   '/_app/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/_app/recipes/new': typeof AppRecipesNewRoute
+  '/_app/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/ingest/$': typeof ApiIngestSplatRoute
-  '/sites/$site/$slug': typeof SitesSiteSlugRoute
   '/_app/ingredients/': typeof AppIngredientsIndexRoute
   '/_app/recipes/': typeof AppRecipesIndexRoute
+  '/_app/sites/$site/$slug': typeof AppSitesSiteSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/$handle/$slug'
     | '/groceries'
     | '/home'
     | '/pantry'
@@ -244,23 +243,23 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/auth/login'
     | '/auth/signup'
-    | '/s/$token'
     | '/$handle/'
+    | '/$handle/$slug'
     | '/coming-soon/$feature'
     | '/ingredients/bulk'
     | '/ingredients/new'
     | '/profile/$'
     | '/recipes/$recipeId'
     | '/recipes/new'
+    | '/s/$token'
     | '/api/auth/$'
     | '/api/ingest/$'
-    | '/sites/$site/$slug'
     | '/ingredients/'
     | '/recipes/'
+    | '/sites/$site/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/$handle/$slug'
     | '/groceries'
     | '/home'
     | '/pantry'
@@ -269,24 +268,24 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/auth/login'
     | '/auth/signup'
-    | '/s/$token'
     | '/$handle'
+    | '/$handle/$slug'
     | '/coming-soon/$feature'
     | '/ingredients/bulk'
     | '/ingredients/new'
     | '/profile/$'
     | '/recipes/$recipeId'
     | '/recipes/new'
+    | '/s/$token'
     | '/api/auth/$'
     | '/api/ingest/$'
-    | '/sites/$site/$slug'
     | '/ingredients'
     | '/recipes'
+    | '/sites/$site/$slug'
   id:
     | '__root__'
     | '/'
     | '/_app'
-    | '/$handle/$slug'
     | '/_app/groceries'
     | '/_app/home'
     | '/_app/pantry'
@@ -295,33 +294,31 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/auth/login'
     | '/auth/signup'
-    | '/s/$token'
     | '/$handle/'
+    | '/_app/$handle/$slug'
     | '/_app/coming-soon/$feature'
     | '/_app/ingredients/bulk'
     | '/_app/ingredients/new'
     | '/_app/profile/$'
     | '/_app/recipes/$recipeId'
     | '/_app/recipes/new'
+    | '/_app/s/$token'
     | '/api/auth/$'
     | '/api/ingest/$'
-    | '/sites/$site/$slug'
     | '/_app/ingredients/'
     | '/_app/recipes/'
+    | '/_app/sites/$site/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
-  HandleSlugRoute: typeof HandleSlugRoute
   ApiHealthRoute: typeof ApiHealthRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthSignupRoute: typeof AuthSignupRoute
-  STokenRoute: typeof STokenRoute
   HandleIndexRoute: typeof HandleIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiIngestSplatRoute: typeof ApiIngestSplatRoute
-  SitesSiteSlugRoute: typeof SitesSiteSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -345,13 +342,6 @@ declare module '@tanstack/react-router' {
       path: '/$handle'
       fullPath: '/$handle/'
       preLoaderRoute: typeof HandleIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/$handle/$slug': {
-      id: '/$handle/$slug'
-      path: '/$handle/$slug'
-      fullPath: '/$handle/$slug'
-      preLoaderRoute: typeof HandleSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/groceries': {
@@ -410,12 +400,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/s/$token': {
-      id: '/s/$token'
-      path: '/s/$token'
-      fullPath: '/s/$token'
-      preLoaderRoute: typeof STokenRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_app/$handle/$slug': {
+      id: '/_app/$handle/$slug'
+      path: '/$handle/$slug'
+      fullPath: '/$handle/$slug'
+      preLoaderRoute: typeof AppHandleSlugRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/coming-soon/$feature': {
       id: '/_app/coming-soon/$feature'
@@ -473,6 +463,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRecipesNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/s/$token': {
+      id: '/_app/s/$token'
+      path: '/s/$token'
+      fullPath: '/s/$token'
+      preLoaderRoute: typeof AppSTokenRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -487,12 +484,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIngestSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sites/$site/$slug': {
-      id: '/sites/$site/$slug'
+    '/_app/sites/$site/$slug': {
+      id: '/_app/sites/$site/$slug'
       path: '/sites/$site/$slug'
       fullPath: '/sites/$site/$slug'
-      preLoaderRoute: typeof SitesSiteSlugRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppSitesSiteSlugRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
@@ -515,13 +512,16 @@ interface AppRouteChildren {
   AppPantryRoute: typeof AppPantryRoute
   AppProfileRoute: typeof AppProfileRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
+  AppHandleSlugRoute: typeof AppHandleSlugRoute
   AppComingSoonFeatureRoute: typeof AppComingSoonFeatureRoute
   AppIngredientsBulkRoute: typeof AppIngredientsBulkRoute
   AppIngredientsNewRoute: typeof AppIngredientsNewRoute
   AppRecipesRecipeIdRoute: typeof AppRecipesRecipeIdRoute
   AppRecipesNewRoute: typeof AppRecipesNewRoute
+  AppSTokenRoute: typeof AppSTokenRoute
   AppIngredientsIndexRoute: typeof AppIngredientsIndexRoute
   AppRecipesIndexRoute: typeof AppRecipesIndexRoute
+  AppSitesSiteSlugRoute: typeof AppSitesSiteSlugRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -530,13 +530,16 @@ const AppRouteChildren: AppRouteChildren = {
   AppPantryRoute: AppPantryRoute,
   AppProfileRoute: AppProfileRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
+  AppHandleSlugRoute: AppHandleSlugRoute,
   AppComingSoonFeatureRoute: AppComingSoonFeatureRoute,
   AppIngredientsBulkRoute: AppIngredientsBulkRoute,
   AppIngredientsNewRoute: AppIngredientsNewRoute,
   AppRecipesRecipeIdRoute: AppRecipesRecipeIdRoute,
   AppRecipesNewRoute: AppRecipesNewRoute,
+  AppSTokenRoute: AppSTokenRoute,
   AppIngredientsIndexRoute: AppIngredientsIndexRoute,
   AppRecipesIndexRoute: AppRecipesIndexRoute,
+  AppSitesSiteSlugRoute: AppSitesSiteSlugRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -544,15 +547,12 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
-  HandleSlugRoute: HandleSlugRoute,
   ApiHealthRoute: ApiHealthRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthSignupRoute: AuthSignupRoute,
-  STokenRoute: STokenRoute,
   HandleIndexRoute: HandleIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiIngestSplatRoute: ApiIngestSplatRoute,
-  SitesSiteSlugRoute: SitesSiteSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

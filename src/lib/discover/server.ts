@@ -107,7 +107,7 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 	.handler(async ({ data }) => {
 		const userId = await getViewerId()
 
-		const found = data.q ? await findRecipesForUser(userId, data.q, 16) : []
+		const found = data.q ? await findRecipesForUser(userId, data.q, 80) : []
 
 		// Uploaded photos are stored as bucket keys; clients need a fetchable URL.
 		const images = await Promise.all(
@@ -126,19 +126,23 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 				...found.map((recipe, index): FoundRecipe => ({
 					...fromShared(recipe),
 					imageUrl: images[index] ?? undefined,
-					siteName: recipe.owned
-						? 'your recipe'
-						: (siteNameFor(recipe.sourceUrl) ?? 'dutch-oven'),
+					// On your shelf, the site shows only while the source link is
+					// still set; a recipe made your own names no site.
+					siteName:
+						siteNameFor(recipe.sourceUrl) ??
+						(recipe.owned || recipe.saved ? '' : 'dutch-oven'),
 					saved: recipe.saved,
 					draft: recipe.owned && !recipe.finalizedAt,
 					ingredientMatches: recipe.ingredientMatches,
 				})),
-				...(await notYetShared(searchRecipeLinks(links, data.q))).map(fromLink),
+				...(await notYetShared(searchRecipeLinks(links, data.q, 120))).map(
+					fromLink,
+				),
 			],
 		}
 	})
 
-const popularLimit = 12
+const popularLimit = 120
 
 const dayMs = 24 * 60 * 60 * 1000
 

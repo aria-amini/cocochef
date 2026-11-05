@@ -174,7 +174,7 @@ describe('recipes shelf', () => {
 		}
 
 		await expect
-			.element(screen.getByRole('button', { name: /find a recipe/ }))
+			.element(screen.getByRole('button', { name: /Search any Recipe/ }))
 			.toBeVisible()
 
 		for (const name of ['start a meal', 'newest', 'most cooked']) {
@@ -242,7 +242,7 @@ describe('recipes shelf', () => {
 		shelfState.recipes = [dal]
 		discovery.popular.mockResolvedValue({
 			warming: false,
-			results: Array.from({ length: 12 }, (_, index) => ({
+			results: Array.from({ length: 40 }, (_, index) => ({
 				recipeId: 'popular-' + index,
 				title: 'popular recipe ' + index,
 				siteName: 'Example',
@@ -261,6 +261,8 @@ describe('recipes shelf', () => {
 		const discover = screen.getByRole('region', { name: 'discover recipes' })
 		const first = discover.getByRole('link', { name: /popular recipe 0/ })
 		await expect.element(first).toBeVisible()
+		// Only what the row can show is rendered, however many were found.
+		expect(discover.getByRole('link').elements().length).toBeLessThanOrEqual(4)
 		const ownBounds = yours.getByRole('link').element().getBoundingClientRect()
 		const foundBounds = first.element().getBoundingClientRect()
 		expect(foundBounds.left).toBe(ownBounds.left)

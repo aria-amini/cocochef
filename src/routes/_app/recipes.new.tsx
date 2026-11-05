@@ -18,6 +18,8 @@ const newRecipeSearch = z.object({
 })
 
 export const Route = createFileRoute('/_app/recipes/new')({
+	// The form pins its own save bar to the bottom edge.
+	staticData: { tabBar: 'none' },
 	validateSearch: newRecipeSearch,
 	component: NewRecipe,
 })

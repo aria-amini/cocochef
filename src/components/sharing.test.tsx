@@ -150,9 +150,11 @@ describe('sharing', () => {
 		await expect
 			.poll(() => router.state.location.pathname)
 			.toBe('/aria-amini/weeknight-pasta')
+		// The recipe page loads on first visit here, which can be slow when cold.
 		await expect
 			.element(
 				screen.getByRole('heading', { name: 'ingredients', exact: true }),
+				{ timeout: 10_000 },
 			)
 			.toBeVisible()
 		await expect
@@ -221,6 +223,88 @@ describe('sharing', () => {
 			.element(screen.getByRole('button', { name: 'saved', exact: true }))
 			.not.toBeInTheDocument()
 		expect(api.deleteRecipe).not.toHaveBeenCalled()
+	})
+
+	test('lights up the recipes tab and leads with a way back on a site recipe', async () => {
+		api.web.mockResolvedValue(recipe)
+
+		const { screen } = await renderRoute({
+			path: '/sites/example.com/pasta',
+			session,
+		})
+
+		await expect
+			.element(
+				screen
+					.getByRole('navigation', { name: 'Primary' })
+					.getByRole('link', { name: 'recipes' }),
+			)
+			.toHaveAttribute('aria-current', 'page')
+		await expect
+			.element(
+				screen
+					.getByRole('main')
+					.getByRole('link', { name: /Aria’s kitchen's recipes/ }),
+			)
+			.toBeVisible()
+	})
+
+	test('remembers a site recipe for the recipes tab, but not an unlisted one', async () => {
+		const remembered = () => sessionStorage.getItem('dutch-oven:last-recipe')
+
+		sessionStorage.clear()
+		api.web.mockResolvedValue(recipe)
+
+		const site = await renderRoute({
+			path: '/sites/example.com/pasta',
+			session,
+		})
+
+		await expect
+			.element(site.screen.getByRole('heading', { name: 'Weeknight pasta' }))
+			.toBeVisible()
+		expect(remembered()).toBe('pasta')
+		await site.screen.unmount()
+
+		sessionStorage.clear()
+
+		const unlisted = await renderRoute({
+			path: '/s/00000000-0000-4000-8000-000000000001',
+		})
+
+		await expect
+			.element(
+				unlisted.screen.getByRole('heading', { name: 'Weeknight pasta' }),
+			)
+			.toBeVisible()
+		expect(remembered()).toBeNull()
+	})
+
+	test('keeps the remembered recipe when a published address is unavailable', async () => {
+		api.web.mockResolvedValue(recipe)
+		api.publicRecipe.mockResolvedValue(null)
+
+		const { screen, router } = await renderRoute({
+			path: '/sites/example.com/pasta',
+			session,
+		})
+
+		await expect
+			.element(screen.getByRole('heading', { name: 'Weeknight pasta' }))
+			.toBeVisible()
+		expect(sessionStorage.getItem('dutch-oven:last-recipe')).toBe('pasta')
+
+		await router.navigate({
+			to: '/$handle/$slug',
+			params: { handle: 'aria-amini', slug: 'gone' },
+		})
+		await expect
+			.element(
+				screen.getByRole('heading', { name: 'you can’t open this recipe' }),
+			)
+			.toBeVisible()
+		// A link with no recipe behind it is no reason to forget this one.
+		expect(sessionStorage.getItem('dutch-oven:last-recipe')).toBe('pasta')
 	})
 
 	test('lets an anonymous visitor open signup from save', async () => {

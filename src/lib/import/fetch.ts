@@ -13,6 +13,7 @@ import { z } from 'zod'
 import importFetchScript from '../../../scripts/import-fetch.py?raw'
 import importFetchLock from '../../../scripts/import-fetch.py.lock?raw'
 import { parseRecipe, type ImportedRecipe } from './parse'
+import { isWalled } from './wall'
 
 const execFileAsync = promisify(execFile)
 
@@ -31,24 +32,6 @@ const BROWSER_HEADERS = {
 	'sec-fetch-mode': 'navigate',
 	'sec-fetch-site': 'none',
 	'sec-fetch-user': '?1',
-}
-
-const DECOY_MARKERS = [
-	'just a moment',
-	'cf-chl',
-	'challenge-platform',
-	'px-captcha',
-	'datadome',
-	'are you a robot',
-	'verify you are human',
-	'enable javascript and cookies',
-]
-
-export function isWalled(status: number, html: string) {
-	if (status === 401 || status === 403) return true
-	const sample = html.slice(0, 50_000).toLowerCase()
-
-	return DECOY_MARKERS.some((marker) => sample.includes(marker))
 }
 
 function isPrivateIpv4(ip: string) {

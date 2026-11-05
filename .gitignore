@@ -25,3 +25,6 @@ src/components/__screenshots__/
 
 # Local design-tool working files
 .impeccable/
+
+# Downloaded full recipe corpus for local development and offline reseeding
+.recipe-data/

@@ -8,9 +8,10 @@ import {
 	ArrowRightIcon,
 	ClipboardTextIcon,
 	LinkSimpleIcon,
-	MagnifyingGlassIcon,
+	GlobeHemisphereWestIcon,
 	PencilSimpleIcon,
 	XIcon,
+	CaretDownIcon,
 } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -25,6 +26,7 @@ import {
 	useOnlineRecipes,
 } from '@/components/recipe-online'
 import { RecipeReader } from '@/components/recipe-reader'
+import { SiteIcon } from '@/components/site-icon'
 import { Skeleton } from '@/components/ui/skeleton'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
@@ -33,6 +35,7 @@ import { isPastedRecipe } from '@/lib/recipes/paste'
 import { getRecipe, listShelf } from '@/lib/recipes/server'
 import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
 import { cn } from '@/lib/utils/ui'
+import { useVisualViewportVars } from '@/lib/utils/viewport'
 
 type ShelfRecipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 
@@ -71,11 +74,9 @@ const starts: {
 const shelfLimit = 5
 
 // Enough to choose from, and few enough that writing your own stays in view.
-const foundLimit = 6
+const foundLimit = 12
 
 const glanceLimit = 3
-
-const popularGlance = 4
 
 // Long enough to pass over a row without fetching its page.
 const lookDelayMs = 350
@@ -123,8 +124,8 @@ function fromShelf(recipe: ShelfRecipe): FoundRecipe {
 		url: recipe.sourceUrl ?? undefined,
 		title: recipe.title,
 		imageUrl: recipe.imageUrl ?? undefined,
-		siteName:
-			owned || !recipe.sourceUrl ? 'your recipe' : hostOf(recipe.sourceUrl),
+		// Named only while the source link is still set.
+		siteName: recipe.sourceUrl ? hostOf(recipe.sourceUrl) : '',
 		saved: true,
 		draft: owned && !recipe.finalizedAt,
 		ingredientMatches: [],
@@ -134,22 +135,22 @@ function fromShelf(recipe: ShelfRecipe): FoundRecipe {
 // Marks every search word in `text`.
 // Why a recipe is in the list, in a few words.
 function recipeNote(recipe: FoundRecipe) {
-	const base = recipe.saved
-		? recipe.draft
-			? 'draft'
-			: 'on your shelf'
-		: recipe.siteName
+	const parts = [
+		recipe.saved && recipe.draft ? 'draft' : '',
+		recipe.siteName,
+		recipe.ingredientMatches.length
+			? `has ${recipe.ingredientMatches.join(', ')}`
+			: '',
+	]
 
-	return recipe.ingredientMatches.length
-		? `${base} · has ${recipe.ingredientMatches.join(', ')}`
-		: base
+	return parts.filter(Boolean).join(' · ')
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
 	return (
 		<li
 			role="presentation"
-			className="text-muted-foreground px-3 pt-3 pb-1 text-xs font-semibold"
+			className="text-foreground px-5 pt-4 pb-1.5 text-sm font-bold"
 		>
 			{children}
 		</li>
@@ -185,13 +186,15 @@ export function RecipeFinder({
 }) {
 	const input = useRef<HTMLInputElement>(null)
 
+	useVisualViewportVars(open)
+
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={input}
-					className="bg-background border-foreground/30 fixed inset-x-2 top-10 z-50 flex h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded-2xl border shadow-md outline-none md:inset-auto md:top-8 md:left-1/2 md:h-[calc(100dvh-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl"
+					className="bg-background border-foreground/30 fixed inset-x-2 top-[calc(var(--vv-top)+var(--vv-gap))] z-50 flex h-[min(28rem,calc(var(--vv-height)-var(--vv-gap)-0.5rem))] flex-col overflow-hidden rounded-2xl border shadow-md outline-none has-[[data-previewing]]:h-[calc(var(--vv-height)-var(--vv-gap)-0.5rem)] md:inset-auto md:top-[calc(var(--vv-top)+2rem)] md:left-1/2 md:h-[calc(var(--vv-height)-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl md:has-[[data-previewing]]:h-[calc(var(--vv-height)-4rem)]"
 				>
 					<Dialog.Title className="sr-only">find a recipe</Dialog.Title>
 					<FinderPanel
@@ -221,6 +224,8 @@ function FinderPanel({
 	const navigate = useNavigate()
 	const listboxId = useId()
 	const [pasteOpen, setPasteOpen] = useState(false)
+	// The ways to start stay tucked behind one button until asked for.
+	const [startsOpen, setStartsOpen] = useState(false)
 	const [value, setValue] = useState(defaultQuery)
 	const [picked, setPicked] = useState<string>()
 	// Picking a recipe fills the box; results stay mounted for the way back.
@@ -249,6 +254,8 @@ function FinderPanel({
 		queryKey: ['shelf'],
 		queryFn: () => listShelf(),
 	})
+
+	const [visibleRecipes, setVisibleRecipes] = useState(foundLimit)
 
 	const popular = useQuery({
 		queryKey: ['popular-recipes'],
@@ -280,7 +287,9 @@ function FinderPanel({
 	} else if (!trimmed) {
 		section(
 			'',
-			starts.map(({ start }): Option => ({ kind: 'start', start })),
+			starts.flatMap(({ start }): Option[] =>
+				start === 'write' || startsOpen ? [{ kind: 'start', start }] : [],
+			),
 		)
 
 		const drafts = shelfRecipes.filter(
@@ -303,7 +312,7 @@ function FinderPanel({
 		)
 		section(
 			'popular',
-			asOptions((popular.data?.results ?? []).slice(0, popularGlance)),
+			asOptions((popular.data?.results ?? []).slice(0, visibleRecipes)),
 		)
 	} else {
 		// Names on the shelf match at once; the server adds ingredients.
@@ -317,7 +326,9 @@ function FinderPanel({
 		section(
 			'more recipes',
 			asOptions(
-				online.results.filter((recipe) => !recipe.saved).slice(0, foundLimit),
+				online.results
+					.filter((recipe) => !recipe.saved)
+					.slice(0, visibleRecipes),
 			),
 		)
 		section('', [{ kind: 'write', title: trimmed }])
@@ -474,6 +485,7 @@ function FinderPanel({
 	}
 
 	function change(next: string) {
+		setVisibleRecipes(foundLimit)
 		setValue(next)
 		setPicked(undefined)
 		setPreviewing(false)
@@ -525,8 +537,17 @@ function FinderPanel({
 	const rowClassName = (index: number) =>
 		cn(
 			'flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors',
-			index === active && 'bg-kitchen-yolk/30',
+			index === active && 'bg-kitchen-yolk/40',
 			busy !== undefined && 'cursor-default opacity-60',
+		)
+
+	// A recipe row is outlined when selected, in a darker line than the faint
+	// hairline so it stands out from its neighbours.
+	const recipeRowClassName = (index: number) =>
+		cn(
+			rowClassName(index),
+			'mx-2 rounded-lg border',
+			index === active ? 'border-foreground/45' : 'border-transparent',
 		)
 
 	const searching = trimmed !== '' && !url
@@ -543,16 +564,12 @@ function FinderPanel({
 					else writePasted(text)
 				}}
 			/>
-			<div
-				className={cn(
-					'border-border flex items-center gap-2.5 border-b px-4 py-3',
-					previewing && 'hidden',
-				)}
-			>
+			{/* Always on screen, so a recipe can be left for another search. */}
+			<div className="border-border flex shrink-0 items-center gap-2.5 border-b px-4 py-3">
 				{url ? (
 					<LinkSimpleIcon size={20} weight="bold" aria-hidden />
 				) : (
-					<MagnifyingGlassIcon size={20} weight="bold" aria-hidden />
+					<GlobeHemisphereWestIcon size={20} weight="bold" aria-hidden />
 				)}
 				<input
 					ref={inputRef}
@@ -569,7 +586,7 @@ function FinderPanel({
 					autoComplete="off"
 					value={value}
 					maxLength={2000}
-					placeholder="find a recipe to cook or start from"
+					placeholder="Search any Recipe"
 					onChange={(event) => change(event.target.value)}
 					onKeyDown={handleKey}
 					onPaste={(event) => {
@@ -581,8 +598,11 @@ function FinderPanel({
 					}}
 					className="placeholder:text-muted-foreground w-full min-w-0 bg-transparent text-lg font-semibold outline-none placeholder:font-normal"
 				/>
-				<Dialog.Close className="text-muted-foreground hover:text-foreground shrink-0 rounded-md px-2 py-1 text-sm font-semibold">
-					<span className="md:hidden">cancel</span>
+				<Dialog.Close
+					aria-label="cancel"
+					className="text-muted-foreground hover:text-foreground shrink-0 rounded-md px-2 py-1 text-sm font-semibold"
+				>
+					<XIcon size={20} weight="bold" aria-hidden className="md:hidden" />
 					<kbd className="border-border hidden rounded border px-1.5 text-xs md:inline">
 						esc
 					</kbd>
@@ -611,6 +631,9 @@ function FinderPanel({
 								busy={busy}
 								optionProps={optionProps}
 								rowClassName={rowClassName}
+								recipeRowClassName={recipeRowClassName}
+								startsOpen={startsOpen}
+								onToggleStarts={() => setStartsOpen((open) => !open)}
 							/>
 						))}
 						{searching && online.results.length === 0 ? (
@@ -625,6 +648,17 @@ function FinderPanel({
 							</Status>
 						) : null}
 					</ul>
+					{(trimmed
+						? online.results.filter((recipe) => !recipe.saved).length
+						: (popular.data?.results.length ?? 0)) > visibleRecipes ? (
+						<button
+							type="button"
+							onClick={() => setVisibleRecipes((count) => count + foundLimit)}
+							className="text-muted-foreground mx-2 mb-3 min-h-11 rounded-md px-3 text-sm font-semibold underline underline-offset-4"
+						>
+							show more recipes
+						</button>
+					) : null}
 					{error ? (
 						<p
 							role="alert"
@@ -654,12 +688,6 @@ function FinderPanel({
 								<ArrowLeftIcon size={14} weight="bold" aria-hidden />
 								back to results
 							</button>
-							<Dialog.Close
-								aria-label="close"
-								className="text-muted-foreground hover:text-foreground grid size-11 place-items-center rounded-md md:hidden"
-							>
-								<XIcon size={18} weight="bold" aria-hidden />
-							</Dialog.Close>
 						</div>
 					) : null}
 					{previewing && error ? (
@@ -670,7 +698,11 @@ function FinderPanel({
 							{error}
 						</p>
 					) : null}
-					<div ref={previewRef} className="min-h-0 flex-1 overflow-y-auto">
+					<div
+						ref={previewRef}
+						data-previewing={previewing || undefined}
+						className="min-h-0 flex-1 overflow-y-auto"
+					>
 						<Preview
 							option={current}
 							terms={terms}
@@ -718,6 +750,9 @@ function SectionRows({
 	busy,
 	optionProps,
 	rowClassName,
+	recipeRowClassName,
+	startsOpen,
+	onToggleStarts,
 }: {
 	label: string
 	options: Option[]
@@ -726,6 +761,9 @@ function SectionRows({
 	busy: string | undefined
 	optionProps: (index: number, option: Option) => object
 	rowClassName: (index: number) => string
+	recipeRowClassName: (index: number) => string
+	startsOpen: boolean
+	onToggleStarts: () => void
 }) {
 	const startRow = options.every((option) => option.kind === 'start')
 
@@ -733,10 +771,7 @@ function SectionRows({
 		<>
 			{label ? <SectionLabel>{label}</SectionLabel> : null}
 			{startRow ? (
-				<li
-					role="presentation"
-					className="grid grid-cols-3 gap-2 px-3 pt-3 pb-1"
-				>
+				<li role="presentation" className="flex flex-wrap gap-2 px-4 pt-1 pb-2">
 					<ul role="group" aria-label="start" className="contents">
 						{options.map((option, offset) => {
 							if (option.kind !== 'start') return null
@@ -755,17 +790,35 @@ function SectionRows({
 									{...optionProps(index, option)}
 									className={cn(
 										rowClassName(index),
-										'border-foreground/40 rounded-lg border px-3 py-2',
+										'border-border w-auto rounded-md border px-2.5 py-1.5',
+										option.start === 'write' ? 'order-1' : 'order-3',
 									)}
 								>
-									<span className="flex items-center gap-1.5 text-sm font-semibold">
-										<Icon size={16} weight="bold" aria-hidden />
+									<span className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap">
+										<Icon size={14} weight="bold" aria-hidden />
 										{name}
 									</span>
 								</li>
 							)
 						})}
 					</ul>
+					{/* Not an option: it only reveals the import ways below. */}
+					<button
+						type="button"
+						aria-expanded={startsOpen}
+						// Keep the search field focused, so the arrow keys and Enter still work.
+						onMouseDown={(event) => event.preventDefault()}
+						onClick={onToggleStarts}
+						className="text-muted-foreground hover:text-foreground order-2 flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold whitespace-nowrap"
+					>
+						import
+						<CaretDownIcon
+							size={12}
+							weight="bold"
+							aria-hidden
+							className={cn(startsOpen && 'rotate-180')}
+						/>
+					</button>
 				</li>
 			) : (
 				options.map((option, offset) => {
@@ -779,7 +832,7 @@ function SectionRows({
 							<li
 								key={key}
 								{...optionProps(index, option)}
-								className={rowClassName(index)}
+								className={recipeRowClassName(index)}
 							>
 								<RecipeThumb
 									imageUrl={recipe.imageUrl}
@@ -794,9 +847,14 @@ function SectionRows({
 									<span className="block truncate text-sm font-medium">
 										<Marked text={recipe.title} terms={terms} />
 									</span>
-									<span className="text-muted-foreground block truncate text-xs font-semibold">
-										{busy === key ? 'one moment…' : recipeNote(recipe)}
-									</span>
+									{busy === key || recipeNote(recipe) ? (
+										<span className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold">
+											{recipe.siteName ? <SiteIcon url={recipe.url} /> : null}
+											<span className="truncate">
+												{busy === key ? 'one moment…' : recipeNote(recipe)}
+											</span>
+										</span>
+									) : null}
 								</span>
 							</li>
 						)
@@ -974,9 +1032,12 @@ function RecipePreview({
 					<h2 className="text-xl leading-tight font-bold">
 						<Marked text={recipe.title} terms={terms} />
 					</h2>
-					<p className="text-muted-foreground text-sm font-semibold">
-						{recipe.siteName}
-					</p>
+					{recipe.siteName ? (
+						<p className="text-muted-foreground flex items-center gap-1.5 text-sm font-semibold">
+							<SiteIcon url={recipe.url} />
+							{recipe.siteName}
+						</p>
+					) : null}
 				</div>
 			</div>
 			{recipeId === undefined && lookError ? (

@@ -14,6 +14,20 @@ export type RecipeSite = {
 // an opt-out.
 export const recipeSites: RecipeSite[] = [
 	{
+		id: 'seriouseats',
+		name: 'Serious Eats',
+		sitemap: 'https://www.seriouseats.com/sitemap.xml',
+		recipe: /^https:\/\/www\.seriouseats\.com\/[a-z0-9-]*recipe[a-z0-9-]*$/,
+	},
+	{
+		id: 'americastestkitchen',
+		name: 'America’s Test Kitchen',
+		sitemap: 'https://www.americastestkitchen.com/sitemap.xml',
+		children: /\/sitemap\/recipes\.xml$/,
+		recipe:
+			/^https:\/\/www\.americastestkitchen\.com\/recipes\/\d+-[a-z0-9-]+$/,
+	},
+	{
 		id: 'bbcgoodfood',
 		name: 'BBC Good Food',
 		sitemap: 'https://www.bbcgoodfood.com/sitemap.xml',

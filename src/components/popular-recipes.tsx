@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { FieldError } from '@/components/recipe-form'
 import { useRecipeImport } from '@/components/recipe-online'
+import { SiteIcon } from '@/components/site-icon'
 import { Skeleton } from '@/components/ui/skeleton'
 import { popularRecipes } from '@/lib/discover/server'
 import { cn } from '@/lib/utils/ui'
@@ -13,6 +14,9 @@ import { cn } from '@/lib/utils/ui'
 type Popular = Awaited<ReturnType<typeof popularRecipes>>['results'][number]
 
 const WARM_POLL_MS = 3000
+
+// The shelf shows four tiles at most; the finder holds the longer list.
+const shownCount = 4
 
 const placeholderCount = 8
 
@@ -82,7 +86,7 @@ export function PopularRecipes() {
 							<Skeleton key={index} className="h-28" />
 						))
 					: null}
-				{data?.results.map((recipe) =>
+				{data?.results.slice(0, shownCount).map((recipe) =>
 					recipe.recipeId ? (
 						<Link
 							key={recipe.recipeId}
@@ -147,8 +151,11 @@ function PopularTileBody({
 				<span className="line-clamp-2 text-xs leading-tight font-semibold wrap-anywhere">
 					{recipe.title}
 				</span>
-				<span className="text-muted-foreground truncate text-xs font-semibold">
-					{busy ? 'grabbing the page…' : recipe.siteName}
+				<span className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold">
+					<SiteIcon url={recipe.url} />
+					<span className="truncate">
+						{busy ? 'grabbing the page…' : recipe.siteName}
+					</span>
 				</span>
 			</span>
 		</>

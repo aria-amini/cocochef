@@ -15,6 +15,7 @@ import { AuthDialog } from '@/components/auth-dialog'
 import { Avatar } from '@/components/avatar'
 import { Badge } from '@/components/ui/badge'
 import { authClient } from '@/lib/auth/client'
+import { forgetRecipe } from '@/lib/recipes/last-opened'
 import { useAvatarUrl } from '@/lib/use-avatar-url'
 import { useShelfStats } from '@/lib/use-shelf-stats'
 import { cn } from '@/lib/utils/ui'
@@ -256,6 +257,8 @@ function SignOutItem() {
 			const { error } = await authClient.signOut()
 
 			if (error) throw new Error(error.message)
+			// The next account must not be sent to this one's last recipe.
+			forgetRecipe()
 			await navigate({ to: '/' })
 		} catch {
 			toast.error("couldn't sign you out — try again")

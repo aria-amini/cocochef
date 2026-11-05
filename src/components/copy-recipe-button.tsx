@@ -1,4 +1,4 @@
-import { GitForkIcon } from '@phosphor-icons/react'
+import { PencilSimpleIcon } from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -53,11 +53,12 @@ export function CopyRecipeButton({ recipeId }: { recipeId: string }) {
 	return (
 		<>
 			<Button
-				variant="outline"
+				variant="ghost"
+				title="a copy is yours to edit; save keeps the original as it is"
 				disabled={pending || session.isPending}
 				onClick={() => void copy()}
 			>
-				<GitForkIcon size={14} weight="bold" aria-hidden />
+				<PencilSimpleIcon size={14} weight="bold" aria-hidden />
 				{pending ? 'copying…' : 'make copy'}
 			</Button>
 			<AuthDialog

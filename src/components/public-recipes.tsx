@@ -1,15 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { AppChrome } from '@/components/app-chrome'
 import { CopyRecipeButton } from '@/components/copy-recipe-button'
-import { BackLink, PageTitle } from '@/components/page'
+import { BackBar, BackLink, PageTitle } from '@/components/page'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeReader } from '@/components/recipe-reader'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
 import { buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
+import { rememberRecipe } from '@/lib/recipes/last-opened'
 import { getRecipe } from '@/lib/recipes/server'
 import type {
 	readPublicProfile,
@@ -87,6 +87,13 @@ export function PublicRecipePage({
 	const [, refreshSession] = useState(0)
 	const account = authClient.useSession().data?.user
 
+	// The recipes tab on a phone reopens a public recipe like any other: its
+	// address by id redirects to this page. An unlisted recipe has no such
+	// address, so it is left out.
+	useEffect(() => {
+		if (!unlisted) rememberRecipe(recipe.id)
+	}, [recipe.id, unlisted])
+
 	const saved = useQuery({
 		queryKey: ['recipe', recipe.id, account?.id],
 		queryFn: () => getRecipe({ data: { id: recipe.id } }),
@@ -94,71 +101,68 @@ export function PublicRecipePage({
 	})
 
 	return (
-		<AppChrome>
-			<main className="bg-background text-foreground min-h-dvh min-w-0 flex-1 p-6 md:p-10">
-				<div className="max-w-5xl">
+		<main className="bg-background text-foreground min-h-dvh min-w-0 flex-1 p-6 md:p-10">
+			<div className="max-w-5xl">
+				<BackBar>
 					{'publisher' in recipe ? (
 						<BackLink
 							to="/$handle"
 							params={{ handle: recipe.publisher.handle }}
-							className="mb-2"
 						>
 							{recipe.publisher.displayName}&apos;s recipes
 						</BackLink>
-					) : null}
-					<RecipeReader
-						recipe={recipe}
-						status={{
-							saved: !!saved.data?.saved && !saved.data?.owned,
-							visibility: saved.data?.owned
-								? saved.data.visibility === 'public'
-									? 'public'
-									: 'private'
-								: undefined,
-						}}
-						authorship={
-							'publisher' in recipe
-								? recipe.originalAuthorName
-									? `copied from ${recipe.originalAuthorName}`
-									: `created by ${recipe.publisher.displayName}`
-								: undefined
-						}
-						actions={
-							!unlisted ? (
-								<div className="mt-6 flex flex-wrap gap-2">
-									{saved.data?.owned ? (
-										<Link
-											to="/recipes/$recipeId"
-											params={{ recipeId: recipe.id }}
-											className={buttonVariants({ variant: 'outline' })}
-										>
-											open your recipe
-										</Link>
-									) : (
-										<>
-											<SaveRecipeButton
-												recipe={recipe}
-												onAuthenticated={() =>
-													refreshSession((value) => value + 1)
-												}
-											/>
-											<CopyRecipeButton recipeId={recipe.id} />
-											<p className="text-muted-foreground w-full text-sm">
-												save keeps this recipe; make a copy to edit your own
-												version.
-											</p>
-										</>
-									)}
-								</div>
-							) : (
-								<p className="text-muted-foreground border-border mt-6 border-t pt-5 text-sm">
-									shared by link. anyone with this address can read this recipe.
-								</p>
-							)
-						}
-					/>
-				</div>
-			</main>
-		</AppChrome>
+					) : (
+						<BackLink to="/recipes">back to recipes</BackLink>
+					)}
+				</BackBar>
+				<RecipeReader
+					recipe={recipe}
+					status={{
+						saved: !!saved.data?.saved && !saved.data?.owned,
+						visibility: saved.data?.owned
+							? saved.data.visibility === 'public'
+								? 'public'
+								: 'private'
+							: undefined,
+					}}
+					authorship={
+						'publisher' in recipe
+							? recipe.originalAuthorName
+								? `copied from ${recipe.originalAuthorName}`
+								: `created by ${recipe.publisher.displayName}`
+							: undefined
+					}
+					actions={
+						!unlisted ? (
+							<div className="mt-6 flex flex-wrap gap-2">
+								{saved.data?.owned ? (
+									<Link
+										to="/recipes/$recipeId"
+										params={{ recipeId: recipe.id }}
+										className={buttonVariants({ variant: 'outline' })}
+									>
+										open your recipe
+									</Link>
+								) : (
+									<>
+										<SaveRecipeButton
+											recipe={recipe}
+											onAuthenticated={() =>
+												refreshSession((value) => value + 1)
+											}
+										/>
+										<CopyRecipeButton recipeId={recipe.id} />
+									</>
+								)}
+							</div>
+						) : (
+							<p className="text-muted-foreground border-border mt-6 border-t pt-5 text-sm">
+								shared by link. anyone with this address can read this recipe.
+							</p>
+						)
+					}
+				/>
+			</div>
+		</main>
 	)
 }

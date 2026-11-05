@@ -81,7 +81,7 @@ describe('app nav', () => {
 			await expect.element(screen.getByText('work in progress')).toBeVisible()
 			await screen.getByRole('link', { name: 'back to recipes' }).click()
 			await expect
-				.element(screen.getByRole('button', { name: /find a recipe/ }))
+				.element(screen.getByRole('button', { name: /Search any Recipe/ }))
 				.toBeVisible()
 		},
 	)
@@ -192,6 +192,7 @@ describe('app nav', () => {
 		await expect
 			.element(sheet.getByRole('combobox', { name: 'find a recipe' }))
 			.toHaveFocus()
+		await sheet.getByRole('button', { name: 'import' }).click()
 		await expect
 			.element(sheet.getByRole('option', { name: /blank recipe/ }))
 			.toBeVisible()

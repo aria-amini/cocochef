@@ -24,6 +24,7 @@ import { resolveSpriteSrc } from '@/lib/pantry/sprites'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/ingredients/bulk')({
+	staticData: { tabBar: 'none' },
 	validateSearch: z.object({
 		cat: catalogSectionId.optional().catch(undefined),
 	}),

@@ -3,7 +3,8 @@ import { createFileRoute, notFound } from '@tanstack/react-router'
 import { PublicRecipePage } from '@/components/public-recipes'
 import { readUnlistedRecipe } from '@/lib/sharing/server'
 
-export const Route = createFileRoute('/s/$token')({
+export const Route = createFileRoute('/_app/s/$token')({
+	staticData: { header: 'none' },
 	loader: async ({ params }) => {
 		const recipe = await readUnlistedRecipe({ data: params })
 

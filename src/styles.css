@@ -4,6 +4,15 @@
 @import '@fontsource-variable/open-sans';
 @import '@fontsource-variable/jetbrains-mono';
 
+/* The visible area for fixed full-height panels (see useVisualViewportVars):
+   the whole screen until a keyboard shrinks it, with the gap above kept clear
+   of a notch or status bar. */
+:root {
+	--vv-top: 0px;
+	--vv-height: 100dvh;
+	--vv-gap: calc(1rem + env(safe-area-inset-top, 0px));
+}
+
 :root {
 	--radius: 0.5rem;
 

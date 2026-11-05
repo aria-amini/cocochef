@@ -144,6 +144,42 @@ describe('recipe detail', () => {
 			.toBeInTheDocument()
 	})
 
+	test('keeps the tab bar on a phone and returns to the recipe from another tab', async () => {
+		if (window.innerWidth >= 768) return
+
+		const { screen, router } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		const nav = screen.getByRole('navigation', { name: 'Primary' })
+
+		await expect
+			.element(nav.getByRole('link', { name: 'recipes' }))
+			.toHaveAttribute('aria-current', 'page')
+		await expect
+			.element(
+				screen.getByRole('main').getByRole('link', { name: 'back to recipes' }),
+			)
+			.toBeVisible()
+
+		await nav.getByRole('link', { name: 'groceries' }).click()
+		await expect
+			.element(screen.getByRole('heading', { name: 'groceries', exact: true }))
+			.toBeVisible()
+
+		await nav.getByRole('link', { name: 'recipes' }).click()
+		await vi.waitFor(() =>
+			expect(router.state.location.pathname).toBe('/recipes/recipe-1'),
+		)
+
+		// From the recipe itself, the tab goes up to the shelf.
+		await nav.getByRole('link', { name: 'recipes' }).click()
+		await vi.waitFor(() =>
+			expect(router.state.location.pathname).toBe('/recipes'),
+		)
+	})
+
 	test('renders content and separate empty states', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200g pasta', '1 tbsp miso']
@@ -235,9 +271,17 @@ describe('recipe detail', () => {
 		}
 	})
 
-	test('shows matching icons on items without inventing one for lime', async () => {
+	test('shows specific and family icons while leaving unknown ingredients empty', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = ['2 apples', '1 lime', '1 egg']
+		recipeState.recipe.ingredients = [
+			'2 apples',
+			'1 lime',
+			'1 egg',
+			'chopped parsley',
+			'200g pork',
+			'1 cup chicken broth',
+			'mystery ingredient',
+		]
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		const rowFor = (name: string) =>
@@ -249,12 +293,24 @@ describe('recipe detail', () => {
 		expect(rowFor('1 egg')?.querySelector('img')?.getAttribute('src')).toBe(
 			'/sprites/pantry/egg.png',
 		)
-		expect(rowFor('1 lime')?.querySelector('img')).toBeNull()
+
+		for (const [name, key] of [
+			['1 lime', 'lemon'],
+			['chopped parsley', 'kale'],
+			['200g pork', 'meat'],
+			['1 cup chicken broth', 'fallback-other'],
+		] as const) {
+			expect(rowFor(name)?.querySelector('img')?.getAttribute('src')).toBe(
+				`/sprites/pantry/${key}.png`,
+			)
+		}
+
+		expect(rowFor('mystery ingredient')?.querySelector('img')).toBeNull()
 		expect(
 			Array.from(
 				document.querySelectorAll('table[aria-label="ingredients"] input'),
 			).map((item) => item.getAttribute('aria-label')),
-		).toEqual(['2 apples', '1 lime', '1 egg'])
+		).toEqual(recipeState.recipe.ingredients)
 	})
 
 	test('keeps existing ingredient categories without showing grouping controls', async () => {
@@ -764,6 +820,8 @@ describe('recipe detail', () => {
 
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
 		expect(updateCalls.deleted).toEqual(['recipe-1'])
+		// The recipes tab must not lead back to a deleted recipe.
+		expect(sessionStorage.getItem('dutch-oven:last-recipe')).toBeNull()
 	})
 
 	test('adds a shared recipe to the shelf without offering cook logging', async () => {

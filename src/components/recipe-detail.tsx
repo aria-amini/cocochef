@@ -1,16 +1,18 @@
 import { PencilSimple } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
+import { useHideTabBar } from '@/components/app-nav'
 import { CopyRecipeButton } from '@/components/copy-recipe-button'
-import { BackLink } from '@/components/page'
+import { BackBar, BackLink } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
 import { RecipeReader } from '@/components/recipe-reader'
 import { RecipeSharing } from '@/components/recipe-sharing'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
 import { buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
+import { rememberRecipe } from '@/lib/recipes/last-opened'
 import { getRecipe } from '@/lib/recipes/server'
 import { getMyRecipeShare } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
@@ -23,17 +25,20 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 	// A recipe you are writing stays in the editor until it is finished.
 	const [editing, setEditing] = useState(recipe.owned && !recipe.finalizedAt)
 
+	useHideTabBar(editing)
+
+	useEffect(() => rememberRecipe(recipe.id), [recipe.id])
+
 	return (
 		<main
 			className={cn(
 				'bg-background text-foreground min-h-dvh min-w-0 flex-1 p-6 md:p-10',
-				!editing && 'pb-tabbar md:pb-10',
 			)}
 		>
 			<div className={cn(editing ? 'max-w-2xl' : 'max-w-5xl')}>
-				<BackLink to="/recipes" className="mb-2">
-					recipes
-				</BackLink>
+				<BackBar>
+					<BackLink to="/recipes">back to recipes</BackLink>
+				</BackBar>
 				{editing ? (
 					<>
 						<RecipeEditor
@@ -123,11 +128,6 @@ function RecipeView({
 							/>
 						) : null}
 					</div>
-					{!recipe.owned ? (
-						<p className="text-muted-foreground mt-2 text-sm">
-							save keeps this recipe; make a copy to edit your own version.
-						</p>
-					) : null}
 				</>
 			}
 		/>
