@@ -60,7 +60,7 @@ function Landing() {
 			<div className="bg-background text-foreground min-h-dvh">
 				<div className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-6 md:gap-24 md:px-10 md:py-8">
 					<header className="flex items-center justify-between">
-						<span className="text-sm font-bold">dutch-oven</span>
+						<span className="text-sm font-bold">cocochef</span>
 						<button
 							type="button"
 							onClick={() => setAuthOpen(true)}

@@ -13,7 +13,7 @@ pleasure, not data entry.
 
 ## Product Purpose
 
-dutch-oven is a recipe and food-tracking app. The primary job is finding and
+cocochef is a recipe and food-tracking app. The primary job is finding and
 cooking recipes; meal logging and planning support that loop. Success means
 cooking from the app feels effortless and the act of logging a cooked meal is a
 satisfying byproduct, not a chore.
@@ -63,7 +63,7 @@ are planned; the data model has none yet.
 
 ## Brand Commitments
 
-Name: dutch-oven. User-pinned visual direction (2026-10-27, third revision): the
+Name: cocochef. User-pinned visual direction (2026-10-27, third revision): the
 soft kitchen — see DESIGN.md for the system. The left sidebar is the reference
 for the whole system. Earlier directions the user moved past: neobrutalist
 kitchen (rejected as too harsh), metro tiles, and homey pantry-shelf with

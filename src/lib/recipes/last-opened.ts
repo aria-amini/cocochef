@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react'
 // The recipe you were last reading, so the recipes tab on a phone returns to it
 // after a visit to another tab. It lasts for the browser tab's session, kept in
 // session storage; where that is blocked the id lives for the page's lifetime.
-const storageKey = 'dutch-oven:last-recipe'
+const storageKey = 'cocochef:last-recipe'
 
 const listeners = new Set<() => void>()
 

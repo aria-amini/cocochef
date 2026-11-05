@@ -36,7 +36,7 @@ async function downloadRecipes(recipe?: { id: string; title: string }) {
 	return file.recipes.length
 }
 
-// Saves one recipe as a file that another dutch-oven can import.
+// Saves one recipe as a file that another cocochef can import.
 export function ExportRecipeButton({
 	recipe,
 }: {

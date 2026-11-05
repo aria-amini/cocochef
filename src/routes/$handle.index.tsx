@@ -18,8 +18,8 @@ export const Route = createFileRoute('/$handle/')({
 		meta: [
 			{
 				title: loaderData
-					? `${loaderData.displayName}’s recipes · dutch-oven`
-					: 'recipes · dutch-oven',
+					? `${loaderData.displayName}’s recipes · cocochef`
+					: 'recipes · cocochef',
 			},
 		],
 	}),

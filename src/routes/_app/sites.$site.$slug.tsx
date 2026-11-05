@@ -19,8 +19,8 @@ export const Route = createFileRoute('/_app/sites/$site/$slug')({
 		meta: [
 			{
 				title: loaderData
-					? `${loaderData.title} · dutch-oven`
-					: 'recipe · dutch-oven',
+					? `${loaderData.title} · cocochef`
+					: 'recipe · cocochef',
 			},
 		],
 	}),

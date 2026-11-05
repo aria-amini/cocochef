@@ -1,4 +1,4 @@
-# dutch-oven
+# cocochef
 
 ## Tech
 
@@ -34,7 +34,7 @@ echo 'eval "$(~/.local/bin/mise activate zsh)"' >> ~/.zshrc
 source ~/.zshrc
 
 git clone <repo-url>
-cd dutch-oven
+cd cocochef
 mise run bootstrap
 
 # dev server
@@ -47,7 +47,7 @@ Managed by [varlock](https://varlock.dev); `.env.schema` defines what is
 required per environment. Deployed environments (`.env.preview`,
 `.env.production`) read secrets from OpenBao at build time (`vaultSecret()`) and
 freeze them with `varlock freeze`. Railway needs `OPENBAO_ADDR`, `VAULT_ROLE_ID`
-and `VAULT_SECRET_ID` (from `mise run onboard dutch-oven` in
+and `VAULT_SECRET_ID` (from `mise run onboard cocochef` in
 [aria-amini/infra](https://github.com/aria-amini/infra)) plus
 `_VARLOCK_ENV_KEY`. Local development reads the shared development Google client
 from OpenBao: run `mise run dev-token` in infra to write

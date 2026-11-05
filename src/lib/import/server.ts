@@ -85,7 +85,7 @@ export const importRecipe = createServerFn({ method: 'POST' })
 
 		const sourceUrl = canonicalRecipeUrl(data.url)
 
-		// A page already in dutch-oven costs nothing to open, so looking through
+		// A page already in cocochef costs nothing to open, so looking through
 		// search previews only counts against the limits when a site is fetched.
 		const known = await findSharedRecipeByUrl(sourceUrl)
 

@@ -23,6 +23,10 @@ export const allowedHosts = [
 	'*.localhost:*',
 	'*.lvh.ariaamini.com',
 	'*.dev.ariaamini.com',
+	'cocochef.ariaamini.com',
+	'cocochef-*.up.railway.app',
+	// The domains the service generated while it was called dutch-oven. They
+	// stay in service for production, staging and existing previews.
 	'dutch-oven-*.up.railway.app',
 	'app-dutch-oven-*.up.railway.app',
 ]
@@ -60,7 +64,7 @@ function createAuth() {
 	}
 
 	return betterAuth({
-		appName: 'dutch-oven',
+		appName: 'cocochef',
 		disabledPaths: ['/sign-in/anonymous'],
 		baseURL: {
 			allowedHosts,

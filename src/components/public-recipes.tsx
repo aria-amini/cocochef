@@ -21,7 +21,7 @@ export function PublicHeader() {
 	return (
 		<header className="border-border border-b px-6 py-5 md:px-10">
 			<Link to="/" className="text-lg font-bold tracking-tight">
-				dutch-oven
+				cocochef
 			</Link>
 		</header>
 	)

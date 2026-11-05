@@ -150,7 +150,7 @@ describe('settings account states', () => {
 		test('imports a recipe file and says what was new and what was already here', async () => {
 			transfer.imported.mockResolvedValue({ imported: 2, skipped: 1 })
 			const { screen } = await renderRoute({ path: '/settings', session: cook })
-			const text = '{"format":"dutch-oven/recipes","version":1,"recipes":[]}'
+			const text = '{"format":"cocochef/recipes","version":1,"recipes":[]}'
 
 			await userEvent.upload(
 				screen.getByLabelText('recipe file'),
@@ -165,7 +165,7 @@ describe('settings account states', () => {
 
 		test('shows why a file was refused', async () => {
 			transfer.imported.mockRejectedValue(
-				new Error("that isn't a dutch-oven recipe file"),
+				new Error("that isn't a cocochef recipe file"),
 			)
 			const { screen } = await renderRoute({ path: '/settings', session: cook })
 
@@ -176,12 +176,12 @@ describe('settings account states', () => {
 
 			await expect
 				.element(screen.getByRole('alert'))
-				.toHaveTextContent("that isn't a dutch-oven recipe file")
+				.toHaveTextContent("that isn't a cocochef recipe file")
 		})
 
 		test('exports the whole shelf as a file, for guests too', async () => {
 			transfer.exported.mockResolvedValue({
-				format: 'dutch-oven/recipes',
+				format: 'cocochef/recipes',
 				version: 1,
 				exportedAt: new Date().toISOString(),
 				recipes: [{ title: 'dal' }],

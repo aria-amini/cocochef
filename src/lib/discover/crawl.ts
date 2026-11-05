@@ -16,7 +16,7 @@ const MAX_SITEMAPS_PER_SITE = 100
 
 const CRAWLER_HEADERS = {
 	'user-agent':
-		'DutchOvenBot/0.1 (recipe search; +https://dutch-oven-production.up.railway.app)',
+		'CocochefBot/0.1 (recipe search; +https://cocochef.ariaamini.com)',
 	accept: 'application/xml,text/xml;q=0.9,*/*;q=0.5',
 }
 

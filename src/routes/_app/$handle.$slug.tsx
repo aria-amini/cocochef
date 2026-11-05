@@ -49,8 +49,8 @@ export const Route = createFileRoute('/_app/$handle/$slug')({
 		meta: [
 			{
 				title: loaderData
-					? `${loaderData.recipe.title} · dutch-oven`
-					: 'recipe · dutch-oven',
+					? `${loaderData.recipe.title} · cocochef`
+					: 'recipe · cocochef',
 			},
 			{
 				property: 'og:title',

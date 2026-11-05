@@ -1,22 +1,22 @@
 ---
-name: dutch-oven
+name: cocochef
 description:
   A recipe shelf that feels like a warm kitchen wall — soft hairlines and
   ingredient tints on butcher paper.
 ---
 
-# Design System: dutch-oven
+# Design System: cocochef
 
 ## Overview
 
 **Creative North Star: "The Soft Kitchen"**
 
-dutch-oven looks like a well-used kitchen wall, not a dashboard and not a
-poster: butcher-paper ground, ink drawn as hairlines, and the colors of
-ingredients — tomato, yolk, basil, eggplant — used as gentle tints. Everything
-is flat and softly rounded, but quiet. The left sidebar is the reference for the
-whole system: a hairline border, a yolk-tinted active row, semibold lowercase
-type, no shadow.
+cocochef looks like a well-used kitchen wall, not a dashboard and not a poster:
+butcher-paper ground, ink drawn as hairlines, and the colors of ingredients —
+tomato, yolk, basil, eggplant — used as gentle tints. Everything is flat and
+softly rounded, but quiet. The left sidebar is the reference for the whole
+system: a hairline border, a yolk-tinted active row, semibold lowercase type, no
+shadow.
 
 The world was re-pinned by the user (2026-10-27). The earlier neobrutalist
 kitchen (2px ink borders, hard offset shadows, uppercase stickers) was rejected

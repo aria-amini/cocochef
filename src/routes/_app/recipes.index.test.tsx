@@ -192,7 +192,7 @@ describe('recipes shelf', () => {
 				{
 					recipeId: misoButterPasta.id,
 					title: 'shared miso pasta',
-					siteName: 'dutch-oven',
+					siteName: 'cocochef',
 					saved: false,
 					draft: false,
 					ingredientMatches: [],

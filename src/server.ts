@@ -10,10 +10,12 @@ if (import.meta.env.DEV) {
 import { wrapFetchWithSentry } from '@sentry/tanstackstart-react'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
+import { legacyHostRedirect } from '@/lib/utils/legacy-host'
+
 export default createServerEntry(
 	wrapFetchWithSentry({
 		fetch(request: Request) {
-			return handler.fetch(request)
+			return legacyHostRedirect(request) ?? handler.fetch(request)
 		},
 	}),
 )
