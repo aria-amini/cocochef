@@ -7,6 +7,10 @@ import '@varlock/vite-integration'
 export default defineToolkit({
 	root: import.meta.dirname,
 	tests: {
+		browser: {
+			// Spies on globals like fetch would otherwise leak into later tests.
+			restoreMocks: true,
+		},
 		server: {
 			include: ['src/**/*.{server,db}.test.ts', 'src/**/db.test.ts'],
 			testTimeout: 10_000,

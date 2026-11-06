@@ -432,7 +432,6 @@ describe('recipe detail', () => {
 		await screen.getByRole('button', { name: 'export as file' }).click()
 		await expect.poll(() => click.mock.calls.length).toBe(1)
 		expect(updateCalls.exported).toEqual(['recipe-1'])
-		click.mockRestore()
 	})
 
 	test('shows placeholders when content is empty', async () => {
