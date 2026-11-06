@@ -1,5 +1,5 @@
-Ingredient sprites in this directory are CC0 (public domain), sourced from the
-"CC0 Food Icons" collection curated by AntumDeluge on OpenGameArt:
+Most ingredient sprites in this directory are CC0 (public domain), sourced from
+the "CC0 Food Icons" collection curated by AntumDeluge on OpenGameArt:
 https://opengameart.org/content/cc0-food-icons
 
 Contributing sets used here:
@@ -12,5 +12,25 @@ Contributing sets used here:
 - Dungeon Crawl Stone Soup food tiles
 - Wikimedia-derived pepper sprites
 
-All licensed Creative Commons Zero (CC0). No attribution required; this file
-exists so future maintainers know where replacements can be sourced.
+The sets above are all licensed Creative Commons Zero (CC0). No attribution
+required; this file exists so future maintainers know where replacements can be
+sourced.
+
+The twelve sprites for staples the set lacked (beans, broth, can, extract,
+ginger, lime, sauce, seeds, spirits, spread, vinegar, wine) were made with
+ChatGPT image generation, prompted with this set as the style reference, then
+cut out, downscaled to 32x32 with a nearest-neighbour fit, and reduced to a
+20-colour palette. They are not from the CC0 collection above.
+
+The next 68 sprites (spice jars, bottles, sacks, tins, cans, cartons, herbs,
+whole spices, vegetables, fruit and baking extras) were made the same way.
+Sprites in tint/ are recolourable: <name>.png holds the outline and shading,
+<name>.fill.png is the area to paint any colour. The
+flat spice mounds (fallback-spice, salt, cinnamon, mustard, black-pepper) were
+replaced with baked jars under the same names.
+
+None of the generated sprites above (the twelve, the 68, and the five replaced
+spice jars) come from the CC0 collection, so the CC0 statement does not cover
+them. They were generated for this project, have no third-party source, and are
+used as project assets. They are placeholders to be swapped for a licensed pack,
+so treat their terms as those of this project, not as public domain.

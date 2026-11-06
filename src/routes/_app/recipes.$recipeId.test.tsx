@@ -295,14 +295,30 @@ describe('recipe detail', () => {
 		)
 
 		for (const [name, key] of [
-			['1 lime', 'lemon'],
-			['chopped parsley', 'kale'],
+			['1 lime', 'lime'],
 			['200g pork', 'meat'],
-			['1 cup chicken broth', 'fallback-other'],
 		] as const) {
 			expect(rowFor(name)?.querySelector('img')?.getAttribute('src')).toBe(
 				`/sprites/pantry/${key}.png`,
 			)
+		}
+
+		// A recolourable sprite is its shading over a fill painted in the food's colour.
+		for (const [name, key, tint] of [
+			['chopped parsley', 'herb-bunch', '#3E8A3F'],
+			['1 cup chicken broth', 'carton', '#E8C86A'],
+		] as const) {
+			const row = rowFor(name)
+
+			expect(row?.querySelector('img')?.getAttribute('src')).toBe(
+				`/sprites/pantry/tint/${key}.png`,
+			)
+			expect(
+				row
+					?.querySelector<HTMLElement>('span[style*="--tint"]')
+					?.style.getPropertyValue('--tint')
+					.trim(),
+			).toBe(tint)
 		}
 
 		expect(rowFor('mystery ingredient')?.querySelector('img')).toBeNull()
