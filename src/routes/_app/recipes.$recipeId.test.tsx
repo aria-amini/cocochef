@@ -627,24 +627,15 @@ describe('recipe detail', () => {
 		expect(updateCalls.calls.at(-1)?.imageUrl).toBe('recipes/user-1-photo')
 	})
 
-	test('keeps the source field beside the name and the actions sticky', async () => {
+	test('captures the recipe editor with its actions pinned', async () => {
+		fillRecipe()
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
 		await screen.getByRole('button', { name: 'edit' }).click()
-		const name = screen.getByRole('textbox', { name: 'name' }).element()
-
-		const source = screen
-			.getByRole('textbox', { name: 'original link' })
-			.element()
-
-		expect(name.parentElement).toBe(source.parentElement?.parentElement)
-
-		const save = screen
-			.getByRole('button', { name: 'save', exact: true })
-			.element()
-
-		expect(
-			save.parentElement && getComputedStyle(save.parentElement).position,
-		).toBe('sticky')
+		await expect
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
+			.toBeVisible()
+		await expectScreenshot(screen.container, 'recipe-editor')
 	})
 
 	test('keeps an invalid source link in the editor until corrected', async () => {
