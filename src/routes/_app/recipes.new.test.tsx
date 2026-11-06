@@ -1,6 +1,5 @@
 import { getAuthMocks, setMockSession } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
-import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -80,8 +79,6 @@ describe('write a recipe', () => {
 		state.updated = []
 		state.deleted = []
 		sentry.captureException.mockClear()
-		// Toasts outlive the page that raised them.
-		toast.dismiss()
 	})
 
 	test('keeps a pasted recipe through account creation', async () => {

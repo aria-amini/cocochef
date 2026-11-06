@@ -1,6 +1,5 @@
 import { renderRoute } from '@tests/support/render/route'
 import { phoneOnly } from '@tests/support/viewport'
-import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
 
@@ -100,8 +99,6 @@ const session = {
 
 describe('recipe detail', () => {
 	beforeEach(() => {
-		// A toast left over from the last test would cover the pinned actions.
-		toast.dismiss()
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0

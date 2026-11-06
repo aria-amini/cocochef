@@ -1,6 +1,5 @@
 import { renderRoute } from '@tests/support/render/route'
 import { desktopOnly, isPhone, phoneOnly } from '@tests/support/viewport'
-import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -99,7 +98,6 @@ async function openBox() {
 
 describe('the one box', () => {
 	beforeEach(() => {
-		toast.dismiss()
 		shelfState.recipes = []
 		server.search.mockReset().mockResolvedValue({ warming: false, results: [] })
 		server.popular
