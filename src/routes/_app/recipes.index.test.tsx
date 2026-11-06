@@ -1,4 +1,5 @@
 import { renderRoute } from '@tests/support/render/route'
+import { desktopOnly, isPhone } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -43,8 +44,6 @@ vi.mock('@/lib/recipes/server', () => ({
 	deleteRecipe: () => Promise.resolve(),
 	updateRecipe: () => Promise.resolve(),
 }))
-
-const isPhone = () => window.innerWidth < 768
 
 const testSession = {
 	user: { id: 'user-1', name: 'Test User', email: 'test@example.com' },
@@ -323,8 +322,7 @@ describe('recipes shelf', () => {
 			.not.toBeInTheDocument()
 	})
 
-	test('imports a link from the button beside the search', async () => {
-		if (isPhone()) return
+	desktopOnly('imports a link from the button beside the search', async () => {
 		discovery.import.mockResolvedValue({ id: dal.id, title: 'dal' })
 		shelfState.recipes = [dal]
 

@@ -1,4 +1,5 @@
 import { renderRoute } from '@tests/support/render/route'
+import { phoneOnly } from '@tests/support/viewport'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
@@ -144,41 +145,46 @@ describe('recipe detail', () => {
 			.toBeInTheDocument()
 	})
 
-	test('keeps the tab bar on a phone and returns to the recipe from another tab', async () => {
-		if (window.innerWidth >= 768) return
+	phoneOnly(
+		'keeps the tab bar on a phone and returns to the recipe from another tab',
+		async () => {
+			const { screen, router } = await renderRoute({
+				path: '/recipes/recipe-1',
+				session,
+			})
 
-		const { screen, router } = await renderRoute({
-			path: '/recipes/recipe-1',
-			session,
-		})
+			const nav = screen.getByRole('navigation', { name: 'Primary' })
 
-		const nav = screen.getByRole('navigation', { name: 'Primary' })
+			await expect
+				.element(nav.getByRole('link', { name: 'recipes' }))
+				.toHaveAttribute('aria-current', 'page')
+			await expect
+				.element(
+					screen
+						.getByRole('main')
+						.getByRole('link', { name: 'back to recipes' }),
+				)
+				.toBeVisible()
 
-		await expect
-			.element(nav.getByRole('link', { name: 'recipes' }))
-			.toHaveAttribute('aria-current', 'page')
-		await expect
-			.element(
-				screen.getByRole('main').getByRole('link', { name: 'back to recipes' }),
+			await nav.getByRole('link', { name: 'groceries' }).click()
+			await expect
+				.element(
+					screen.getByRole('heading', { name: 'groceries', exact: true }),
+				)
+				.toBeVisible()
+
+			await nav.getByRole('link', { name: 'recipes' }).click()
+			await vi.waitFor(() =>
+				expect(router.state.location.pathname).toBe('/recipes/recipe-1'),
 			)
-			.toBeVisible()
 
-		await nav.getByRole('link', { name: 'groceries' }).click()
-		await expect
-			.element(screen.getByRole('heading', { name: 'groceries', exact: true }))
-			.toBeVisible()
-
-		await nav.getByRole('link', { name: 'recipes' }).click()
-		await vi.waitFor(() =>
-			expect(router.state.location.pathname).toBe('/recipes/recipe-1'),
-		)
-
-		// From the recipe itself, the tab goes up to the shelf.
-		await nav.getByRole('link', { name: 'recipes' }).click()
-		await vi.waitFor(() =>
-			expect(router.state.location.pathname).toBe('/recipes'),
-		)
-	})
+			// From the recipe itself, the tab goes up to the shelf.
+			await nav.getByRole('link', { name: 'recipes' }).click()
+			await vi.waitFor(() =>
+				expect(router.state.location.pathname).toBe('/recipes'),
+			)
+		},
+	)
 
 	test('renders content and separate empty states', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')

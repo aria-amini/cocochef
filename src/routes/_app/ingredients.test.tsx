@@ -1,4 +1,5 @@
 import { renderRoute } from '@tests/support/render/route'
+import { isPhone } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
 
@@ -94,7 +95,7 @@ describe('ingredients', () => {
 		const { screen } = await renderRoute({ path: '/ingredients', session })
 		const link = screen.getByRole('main').getByRole('link', { name: 'recipes' })
 
-		if (window.innerWidth < 768) {
+		if (isPhone()) {
 			await expect.element(link).not.toBeInTheDocument()
 			await expect
 				.element(
