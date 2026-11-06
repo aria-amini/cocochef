@@ -316,7 +316,7 @@ describe('write a recipe', () => {
 		expect(state.created).toEqual([])
 	})
 
-	test('finishes the draft with done and opens it', async () => {
+	test('finishes the draft with save and opens it', async () => {
 		const { router, screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
@@ -336,7 +336,7 @@ describe('write a recipe', () => {
 			.toBeVisible()
 	})
 
-	test('saves a name carried over from the search when done is pressed untouched', async () => {
+	test('saves a name carried over from the search when save is pressed untouched', async () => {
 		const { router, screen } = await renderRoute({
 			path: '/recipes/new?title=Pancakes',
 			session: testSession,
@@ -365,7 +365,7 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByRole('alert'))
 			.toHaveTextContent('give the recipe a name to finish it')
-		// Said at the name, not down by done.
+		// Said at the name, not down by save.
 		await expect.element(name).toHaveFocus()
 		await expect.element(name).toHaveAttribute('aria-invalid', 'true')
 		await expect

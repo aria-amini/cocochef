@@ -236,7 +236,7 @@ describe('app nav', () => {
 		field.remove()
 	})
 
-	test('shows the account photo, or the same initial fallback without one', async () => {
+	test('shows the account photo', async () => {
 		const withPhoto = {
 			...member,
 			user: { ...member.user, image: '/sprites/pantry/apple.png' },
