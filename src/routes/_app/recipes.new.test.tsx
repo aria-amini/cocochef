@@ -19,7 +19,6 @@ type State = {
 	created: Saved[]
 	updated: Saved[]
 	deleted: string[]
-	createDelay?: Promise<void> | undefined
 }
 
 const sentry = vi.hoisted(() => ({ captureException: vi.fn() }))
@@ -46,7 +45,6 @@ vi.mock('@/lib/recipes/server', () => ({
 	getRecipe: () => Promise.resolve(null),
 	createRecipe: async ({ data }: { data: Saved }) => {
 		state.created.push(data)
-		await state.createDelay
 
 		return { id: 'recipe-new' }
 	},
@@ -79,7 +77,6 @@ describe('write a recipe', () => {
 	beforeEach(() => {
 		sessionStorage.removeItem('recipe-paste')
 		state.created = []
-		state.createDelay = undefined
 		state.updated = []
 		state.deleted = []
 		sentry.captureException.mockClear()

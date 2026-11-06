@@ -57,8 +57,7 @@ vi.mock('@/lib/recipes/server', () => ({
 			if (finalize) recipeState.recipe.finalizedAt = new Date()
 		}
 
-		// A shared recipe's first edit comes back as the user's own copy.
-		return { id: recipeState.recipe?.owned === false ? 'recipe-copy' : data.id }
+		return { id: data.id }
 	},
 	importRecipes: vi.fn(),
 	exportRecipes: async ({ data }: { data: { id?: string } }) => {
