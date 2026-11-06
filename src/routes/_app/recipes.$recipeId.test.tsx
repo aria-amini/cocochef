@@ -1,3 +1,4 @@
+import { expectScreenshot } from '@aamini/config/vitest/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
@@ -95,6 +96,23 @@ vi.mock('@/lib/s3', () => ({
 const session = {
 	user: { id: 'user-1', name: 'Test User', email: 'test@example.com' },
 	session: { id: 'session-1', token: 'token' },
+}
+
+function fillRecipe() {
+	if (!recipeState.recipe) throw new Error('recipe was not seeded')
+	Object.assign(recipeState.recipe, {
+		sourceUrl: 'https://example.com/pasta',
+		servings: 4,
+		totalMinutes: 25,
+		ingredients: ['200g pasta', '2 tbsp miso', '3 tbsp butter', '1 lemon'],
+		steps: [
+			'Prep',
+			'- Zest the lemon',
+			'- Soften the butter',
+			'Simmer the pasta until just done',
+			'Stir in the miso and butter',
+		],
+	})
 }
 
 describe('recipe detail', () => {
@@ -245,32 +263,17 @@ describe('recipe detail', () => {
 			.toBeVisible()
 	})
 
-	test('puts ingredients beside the steps on a wide page and stacks them on a narrow one', async () => {
-		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
-		recipeState.recipe.steps = ['whisk the eggs', 'fold in the carrot']
+	// Ingredients sit beside the steps on a wide page and above them on a phone.
+	test('captures the recipe reader', async () => {
+		fillRecipe()
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
 		await expect
-			.element(screen.getByRole('checkbox', { name: 'step 1: whisk the eggs' }))
+			.element(screen.getByRole('checkbox', { name: /Simmer/ }))
 			.toBeVisible()
-
-		const ingredients = document.querySelector(
-			'table[aria-label="ingredients"]',
-		)
-
-		const steps = document.querySelector('ol')
-
-		if (!ingredients || !steps) throw new Error('lists missing')
-		const left = ingredients.getBoundingClientRect()
-		const right = steps.getBoundingClientRect()
-
-		// The sidebar takes room from the page, so "wide" is what the page gets.
-		if (window.innerWidth >= 1024) {
-			expect(right.left).toBeGreaterThanOrEqual(left.right)
-			expect(Math.abs(right.top - left.top)).toBeLessThan(80)
-		} else {
-			expect(right.top).toBeGreaterThanOrEqual(left.bottom)
-		}
+		await expectScreenshot(screen.container, 'recipe-reader', {
+			fullHeight: true,
+		})
 	})
 
 	test('shows specific and family icons while leaving unknown ingredients empty', async () => {
