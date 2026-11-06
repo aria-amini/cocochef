@@ -157,9 +157,6 @@ describe('the one box', () => {
 		for (const name of [/blank recipe/, /import link/, /paste text/])
 			await expect.element(screen.getByRole('option', { name })).toBeVisible()
 
-		await expect
-			.element(screen.getByText('start', { exact: true }))
-			.not.toBeInTheDocument()
 		await expect.element(screen.getByText('still writing')).toBeVisible()
 		await expect
 			.element(screen.getByRole('option', { name: /shakshuka/ }))

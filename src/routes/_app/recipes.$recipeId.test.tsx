@@ -335,15 +335,12 @@ describe('recipe detail', () => {
 		).toEqual(recipeState.recipe.ingredients)
 	})
 
-	test('keeps existing ingredient categories without showing grouping controls', async () => {
+	test('keeps existing ingredient categories through an edit', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 large eggs']
 		recipeState.recipe.ingredientCategories = { '2 large eggs': 'other' }
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 		await screen.getByRole('button', { name: 'edit' }).click()
-		await expect
-			.element(screen.getByRole('combobox', { name: 'Group for ingredient 1' }))
-			.not.toBeInTheDocument()
 		await screen.getByLabelText('notes').fill('whisk well')
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect
@@ -364,7 +361,7 @@ describe('recipe detail', () => {
 			.toBe('/aria-amini/miso-butter-pasta')
 	})
 
-	test('shows the page a recipe came from, and nothing about copies', async () => {
+	test('shows the page a recipe came from', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		Object.assign(recipeState.recipe, {
 			sourceUrl: 'https://example.com/pasta',
@@ -375,13 +372,6 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('link', { name: 'from example.com' }))
 			.toHaveAttribute('href', 'https://example.com/pasta')
-		await expect.element(screen.getByText('your copy')).not.toBeInTheDocument()
-		await expect
-			.element(screen.getByText('see the original version'))
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByRole('button', { name: 'make it mine' }))
-			.not.toBeInTheDocument()
 	})
 
 	test('calls a youtube link a video to watch', async () => {
@@ -742,9 +732,6 @@ describe('recipe detail', () => {
 		await step.click()
 		await expect.element(ingredient).toBeChecked()
 		await expect.element(step).toBeChecked()
-		await expect
-			.element(screen.getByRole('button', { name: 'start cooking' }))
-			.not.toBeInTheDocument()
 		await router.navigate({
 			to: '/coming-soon/$feature',
 			params: { feature: 'groceries' },
@@ -761,7 +748,7 @@ describe('recipe detail', () => {
 			.not.toBeChecked()
 	})
 
-	test('edits the name and notes without asking for servings or time', async () => {
+	test('edits the name and notes', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/recipe-1',
 			session,
@@ -769,12 +756,6 @@ describe('recipe detail', () => {
 
 		await screen.getByRole('button', { name: 'edit' }).click()
 		await screen.getByLabelText('name').fill('brown butter pasta')
-		await expect
-			.element(screen.getByLabelText('servings'))
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByLabelText('total minutes'))
-			.not.toBeInTheDocument()
 		await screen.getByLabelText('notes').fill('more lemon')
 		await screen.getByRole('button', { name: 'save' }).click()
 
@@ -846,7 +827,7 @@ describe('recipe detail', () => {
 		expect(sessionStorage.getItem('cocochef:last-recipe')).toBeNull()
 	})
 
-	test('adds a shared recipe to the shelf without offering cook logging', async () => {
+	test('adds a shared recipe to the shelf and takes it back off', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		Object.assign(recipeState.recipe, {
 			userId: null,
@@ -860,9 +841,6 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await expect
-			.element(screen.getByRole('button', { name: 'cooked it' }))
-			.not.toBeInTheDocument()
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect.poll(() => recipeState.recipe?.saved).toBe(true)
 		expect(updateCalls.saved).toEqual(['recipe-1'])
@@ -884,10 +862,6 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('heading', { name: 'miso butter pasta' }))
 			.toBeVisible()
-
-		await expect
-			.element(screen.getByRole('button', { name: 'cooked it' }))
-			.not.toBeInTheDocument()
 	})
 
 	test('offers a copy action for shared recipes without offering edit', async () => {

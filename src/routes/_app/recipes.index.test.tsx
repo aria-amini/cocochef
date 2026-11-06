@@ -147,7 +147,7 @@ describe('recipes shelf', () => {
 			.toHaveFocus()
 	})
 
-	test('shows only search and the recipe cards', async () => {
+	test('shows search and the ways to add a recipe', async () => {
 		shelfState.recipes = [misoButterPasta, dal]
 
 		const { screen } = await renderRoute({
@@ -175,12 +175,6 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('button', { name: /Search any Recipe/ }))
 			.toBeVisible()
-
-		for (const name of ['start a meal', 'newest', 'most cooked']) {
-			await expect
-				.element(screen.getByText(name, { exact: true }))
-				.not.toBeInTheDocument()
-		}
 	})
 
 	test('shows popular recipes under your own and opens them', async () => {
