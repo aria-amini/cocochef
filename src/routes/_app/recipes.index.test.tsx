@@ -1,3 +1,4 @@
+import { expectScreenshot } from '@aamini/config/vitest/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { desktopOnly, isPhone } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
@@ -86,6 +87,14 @@ const dal: Recipe = {
 	lastCookedAt: null,
 	forkedFromId: null,
 	savedAt: new Date(),
+}
+
+// The command glyph comes from whichever system font has it, so a baseline
+// would only match the machine that made it.
+const hideShortcutHints = () => {
+	for (const hint of document.querySelectorAll('kbd')) {
+		hint.style.visibility = 'hidden'
+	}
 }
 
 describe('recipes shelf', () => {
@@ -369,7 +378,7 @@ describe('recipes shelf', () => {
 		)
 	})
 
-	test('draws a draft dashed, with a label', async () => {
+	test('labels a draft', async () => {
 		shelfState.recipes = [{ ...dal, finalizedAt: null }, misoButterPasta]
 
 		const { screen } = await renderRoute({
@@ -381,10 +390,57 @@ describe('recipes shelf', () => {
 
 		await expect.element(draft).toBeVisible()
 		expect(draft.element().textContent).toBe('draftdal')
-		expect(draft.element().className).toContain('border-dashed')
-		expect(
-			screen.getByRole('link', { name: 'miso butter pasta' }).element()
-				.className,
-		).not.toContain('border-dashed')
+	})
+
+	// Full-page captures of the shelf. The sidebar on desktop, the tab bar and
+	// round add button on a phone come along with the content.
+	test('captures the empty shelf', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await expect
+			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.toBeVisible()
+		hideShortcutHints()
+		await expectScreenshot(screen.container, 'shelf-empty', {
+			fullHeight: true,
+		})
+	})
+
+	test('captures the shelf with a draft, a saved recipe and discovery', async () => {
+		shelfState.recipes = [
+			{ ...dal, finalizedAt: null },
+			misoButterPasta,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+		discovery.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				{ title: 'abcd', imageUrl: '/sprites/pantry/apple.png' },
+				{ title: 'abcde' },
+				{ title: 'abcdef' },
+				{ title: 'abcdefg' },
+			].map((recipe) => ({
+				...recipe,
+				recipeId: 'id-' + recipe.title,
+				siteName: 'Example',
+				saved: false,
+				draft: false,
+				ingredientMatches: [],
+			})),
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await expect
+			.element(screen.getByRole('link', { name: /dal/ }))
+			.toBeVisible()
+		hideShortcutHints()
+		await expectScreenshot(screen.container, 'shelf', { fullHeight: true })
 	})
 })
