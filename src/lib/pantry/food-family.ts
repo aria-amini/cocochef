@@ -66,7 +66,16 @@ const families = [
 	{
 		id: 'seed',
 		category: 'grains',
-		names: ['seed', 'seeds', 'chia', 'flax', 'linseed', 'hemp', 'sesame'],
+		names: [
+			'seed',
+			'seeds',
+			'chia',
+			'flax',
+			'flaxseed',
+			'linseed',
+			'hemp',
+			'sesame',
+		],
 	},
 	{
 		id: 'grain',
