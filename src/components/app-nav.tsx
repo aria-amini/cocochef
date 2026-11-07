@@ -30,30 +30,53 @@ const navFeedbackClassName =
 const navIconFeedbackClassName =
 	'group-data-[transitioning=transitioning]:animate-pulse motion-reduce:animate-none'
 
-let hiders = 0
+// A count of the screens asking to hide something, readable during render.
+function createHiders() {
+	let hiders = 0
 
-const hiderListeners = new Set<() => void>()
+	const listeners = new Set<() => void>()
 
-function subscribeToHiders(listener: () => void) {
-	hiderListeners.add(listener)
+	const notify = () => listeners.forEach((listener) => listener())
 
-	return () => hiderListeners.delete(listener)
+	function useHide(hide: boolean) {
+		useEffect(() => {
+			if (!hide) return
+
+			hiders++
+			notify()
+
+			return () => {
+				hiders--
+				notify()
+			}
+		}, [hide])
+	}
+
+	function useHidden() {
+		return useSyncExternalStore(
+			(listener) => {
+				listeners.add(listener)
+
+				return () => listeners.delete(listener)
+			},
+			() => hiders > 0,
+			() => false,
+		)
+	}
+
+	return { useHide, useHidden }
 }
+
+const tabBarHiders = createHiders()
+
+const addButtonHiders = createHiders()
 
 // A screen that pins its own bottom actions calls this while they are showing.
-export function useHideTabBar(hide: boolean) {
-	useEffect(() => {
-		if (!hide) return
+export const useHideTabBar = tabBarHiders.useHide
 
-		hiders++
-		hiderListeners.forEach((listener) => listener())
-
-		return () => {
-			hiders--
-			hiderListeners.forEach((listener) => listener())
-		}
-	}, [hide])
-}
+// A screen whose own content is the way to add a recipe calls this, so the round
+// button doesn't repeat it or cover that content.
+export const useHideAddButton = addButtonHiders.useHide
 
 // Every page inside the app shell gets the tab bar. A route opts out, or adds
 // the shelf's round button, with its `tabBar` static data; the deepest match
@@ -62,11 +85,7 @@ export function useHideTabBar(hide: boolean) {
 export function useTabBar(): TabBarMode {
 	const matches = useMatches()
 
-	const hidden = useSyncExternalStore(
-		subscribeToHiders,
-		() => hiders > 0,
-		() => false,
-	)
+	const hidden = tabBarHiders.useHidden()
 
 	if (!matches.some((match) => match.routeId === '/_app')) return 'none'
 
@@ -165,12 +184,12 @@ function Sidebar() {
 			<Link
 				to="/recipes"
 				aria-label="cocochef"
-				className="border-foreground/20 bg-card mb-6 flex w-full shrink-0 items-center justify-center gap-2 self-center rounded-md border px-3 py-2 text-sm font-bold whitespace-nowrap"
+				className="mb-6 flex w-full shrink-0 items-center gap-2 rounded-md border border-transparent py-2 text-sm font-bold whitespace-nowrap"
 			>
 				<img
 					src="/icon-192.png"
 					alt=""
-					className="size-7 shrink-0 [image-rendering:pixelated]"
+					className="size-7 shrink-0 rounded-md"
 				/>
 				cocochef
 			</Link>
@@ -226,12 +245,12 @@ function MobileHeader() {
 			<Link
 				to="/recipes"
 				aria-label="cocochef"
-				className="flex items-center gap-2 rounded-md text-sm font-bold"
+				className="flex min-h-11 items-center gap-2 rounded-md text-sm font-bold"
 			>
 				<img
 					src="/icon-192.png"
 					alt=""
-					className="size-7 shrink-0 [image-rendering:pixelated]"
+					className="size-7 shrink-0 rounded-md"
 				/>
 				cocochef
 			</Link>
@@ -257,6 +276,7 @@ function TabBar() {
 	const { find } = useRecipeActions()
 	const lastRecipe = useLastOpenedRecipe()
 	const tab = useActiveTab()
+	const addHidden = addButtonHiders.useHidden()
 
 	if (!visible) return null
 
@@ -287,7 +307,7 @@ function TabBar() {
 							<span
 								aria-hidden
 								className={cn(
-									'grid size-8 place-items-center',
+									'grid h-6 w-8 place-items-center',
 									navIconFeedbackClassName,
 								)}
 							>
@@ -298,7 +318,7 @@ function TabBar() {
 					)
 				})}
 			</nav>
-			{mode === 'bar-fab' ? (
+			{mode === 'bar-fab' && !addHidden ? (
 				<button
 					type="button"
 					aria-label="add recipe"

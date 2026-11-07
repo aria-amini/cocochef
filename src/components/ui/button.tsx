@@ -14,7 +14,7 @@ const buttonStyles = cva(
 				default: 'bg-kitchen-basil text-foreground hover:brightness-95',
 				outline: 'border-input bg-background hover:bg-muted/60',
 				saved:
-					'border-saved-blue/35 bg-saved-blue/10 text-saved-blue hover:bg-saved-blue/20',
+					'border-kitchen-eggplant/35 bg-kitchen-eggplant/10 text-kitchen-eggplant hover:bg-kitchen-eggplant/20',
 				ghost: 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
 				destructive: 'bg-kitchen-tomato/20 hover:bg-kitchen-tomato/30',
 			},

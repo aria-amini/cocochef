@@ -2,6 +2,8 @@ import { CarrotIcon, ShoppingCartIcon } from '@phosphor-icons/react'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 
 import { PageTitle } from '@/components/page'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/coming-soon/$feature')({
 	loader: ({ params }) => {
@@ -34,7 +36,7 @@ function ComingSoon() {
 				</p>
 				<Link
 					to="/recipes"
-					className="bg-kitchen-yolk mt-6 inline-flex rounded-xl px-4 py-3 text-sm font-semibold"
+					className={cn(buttonVariants({ size: 'lg' }), 'mt-6')}
 				>
 					back to recipes
 				</Link>
