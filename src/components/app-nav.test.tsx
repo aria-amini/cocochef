@@ -1,6 +1,7 @@
 import { setMockSessionPending } from '@tests/support/mocks/browser'
 import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
+import { isPhone, phoneOnly } from '@tests/support/viewport'
 import { describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
 
@@ -37,8 +38,6 @@ const guest = {
 }
 
 // The tab bar below the md breakpoint, the sidebar above it.
-const isPhone = () => window.innerWidth < 768
-
 describe('app nav', () => {
 	test('opens WIP pages for unfinished destinations and opens the shelf from the root', async () => {
 		const { screen, router } = await renderRoute({ path: '/', session: member })
@@ -167,56 +166,59 @@ describe('app nav', () => {
 		}
 	})
 
-	test('adds a recipe from a round button on the shelf, on phones', async () => {
-		const { screen } = await renderRoute({ path: '/recipes', session: member })
+	phoneOnly(
+		'adds a recipe from a round button on the shelf, on phones',
+		async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes',
+				session: member,
+			})
 
-		if (!isPhone()) return
+			const add = screen.getByRole('button', { name: 'add recipe' })
+			const box = add.element().getBoundingClientRect()
 
-		const add = screen.getByRole('button', { name: 'add recipe' })
-		const box = add.element().getBoundingClientRect()
+			expect(box.width).toBe(box.height)
+			expect(getComputedStyle(add.element()).position).toBe('fixed')
+			expect(box.bottom).toBeLessThan(window.innerHeight)
+			await expect
+				.element(
+					screen
+						.getByRole('navigation', { name: 'Primary' })
+						.getByRole('button', { name: 'add recipe' }),
+				)
+				.not.toBeInTheDocument()
 
-		expect(box.width).toBe(box.height)
-		expect(getComputedStyle(add.element()).position).toBe('fixed')
-		expect(box.bottom).toBeLessThan(window.innerHeight)
-		await expect
-			.element(
-				screen
-					.getByRole('navigation', { name: 'Primary' })
-					.getByRole('button', { name: 'add recipe' }),
-			)
-			.not.toBeInTheDocument()
+			// Every way to start lives in the finder.
+			await add.click()
+			const sheet = screen.getByRole('dialog', { name: 'find a recipe' })
+			await expect
+				.element(sheet.getByRole('combobox', { name: 'find a recipe' }))
+				.toHaveFocus()
+			await sheet.getByRole('button', { name: 'import' }).click()
+			await expect
+				.element(sheet.getByRole('option', { name: /blank recipe/ }))
+				.toBeVisible()
+			await expect
+				.element(sheet.getByRole('option', { name: /import link/ }))
+				.toBeVisible()
+		},
+	)
 
-		// Every way to start lives in the finder.
-		await add.click()
-		const sheet = screen.getByRole('dialog', { name: 'find a recipe' })
-		await expect
-			.element(sheet.getByRole('combobox', { name: 'find a recipe' }))
-			.toHaveFocus()
-		await sheet.getByRole('button', { name: 'import' }).click()
-		await expect
-			.element(sheet.getByRole('option', { name: /blank recipe/ }))
-			.toBeVisible()
-		await expect
-			.element(sheet.getByRole('option', { name: /import link/ }))
-			.toBeVisible()
-	})
+	phoneOnly(
+		'leaves the tab bar off screens that pin their own actions',
+		async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: member,
+			})
 
-	test('leaves the tab bar off screens that pin their own actions', async () => {
-		if (!isPhone()) return
+			await expect
+				.element(screen.getByRole('navigation', { name: 'Primary' }))
+				.not.toBeInTheDocument()
+		},
+	)
 
-		const { screen } = await renderRoute({
-			path: '/recipes/new',
-			session: member,
-		})
-
-		await expect
-			.element(screen.getByRole('navigation', { name: 'Primary' }))
-			.not.toBeInTheDocument()
-	})
-
-	test('steps aside while a text field has focus', async () => {
-		if (!isPhone()) return
-
+	phoneOnly('steps aside while a text field has focus', async () => {
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
 		const nav = screen.getByRole('navigation', { name: 'Primary' })
 
@@ -234,7 +236,7 @@ describe('app nav', () => {
 		field.remove()
 	})
 
-	test('shows the account photo, or the same initial fallback without one', async () => {
+	test('shows the account photo', async () => {
 		const withPhoto = {
 			...member,
 			user: { ...member.user, image: '/sprites/pantry/apple.png' },

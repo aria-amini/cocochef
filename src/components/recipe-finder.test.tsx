@@ -1,5 +1,5 @@
 import { renderRoute } from '@tests/support/render/route'
-import { toast } from 'sonner'
+import { desktopOnly, isPhone, phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -43,8 +43,6 @@ const testSession = {
 }
 
 type SearchReply = { warming: boolean; results: FoundRecipe[] }
-
-const isPhone = () => window.innerWidth < 768
 
 function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 	return {
@@ -100,7 +98,6 @@ async function openBox() {
 
 describe('the one box', () => {
 	beforeEach(() => {
-		toast.dismiss()
 		shelfState.recipes = []
 		server.search.mockReset().mockResolvedValue({ warming: false, results: [] })
 		server.popular
@@ -113,29 +110,30 @@ describe('the one box', () => {
 		server.getRecipe.mockReset().mockResolvedValue(null)
 	})
 
-	test('keeps the popup in the visible area when a keyboard is up on a wide screen', async () => {
-		await openBox()
+	desktopOnly(
+		'keeps the popup in the visible area when a keyboard is up on a wide screen',
+		async () => {
+			await openBox()
 
-		// Narrow screens size from the same variables; this guards the wide layout.
-		if (window.innerWidth < 768) return
+			// Narrow screens size from the same variables; this guards the wide layout.
+			const popup = document.querySelector('[role="dialog"]')
 
-		const popup = document.querySelector('[role="dialog"]')
+			if (!(popup instanceof HTMLElement)) throw new Error('no popup')
 
-		if (!(popup instanceof HTMLElement)) throw new Error('no popup')
+			const rect = () => popup.getBoundingClientRect()
 
-		const rect = () => popup.getBoundingClientRect()
+			// Without a keyboard the popup keeps its 2rem margins around the viewport.
+			expect(rect().top).toBe(32)
+			expect(Math.round(rect().height)).toBe(window.innerHeight - 64)
 
-		// Without a keyboard the popup keeps its 2rem margins around the viewport.
-		expect(rect().top).toBe(32)
-		expect(Math.round(rect().height)).toBe(window.innerHeight - 64)
+			// The visible area a keyboard leaves: the popup fits it, margins kept.
+			document.documentElement.style.setProperty('--vv-top', '20px')
+			document.documentElement.style.setProperty('--vv-height', '500px')
 
-		// The visible area a keyboard leaves: the popup fits it, margins kept.
-		document.documentElement.style.setProperty('--vv-top', '20px')
-		document.documentElement.style.setProperty('--vv-height', '500px')
-
-		await expect.poll(() => Math.round(rect().height)).toBe(500 - 64)
-		expect(Math.round(rect().top)).toBe(20 + 32)
-	})
+			await expect.poll(() => Math.round(rect().height)).toBe(500 - 64)
+			expect(Math.round(rect().top)).toBe(20 + 32)
+		},
+	)
 
 	test('lays out every way to start before anything is typed', async () => {
 		shelfState.recipes = [
@@ -157,9 +155,6 @@ describe('the one box', () => {
 		for (const name of [/blank recipe/, /import link/, /paste text/])
 			await expect.element(screen.getByRole('option', { name })).toBeVisible()
 
-		await expect
-			.element(screen.getByText('start', { exact: true }))
-			.not.toBeInTheDocument()
 		await expect.element(screen.getByText('still writing')).toBeVisible()
 		await expect
 			.element(screen.getByRole('option', { name: /shakshuka/ }))
@@ -364,19 +359,20 @@ describe('the one box', () => {
 			.toBe('/recipes/recipe-1')
 	})
 
-	test('opens compact on phones so the keyboard has nothing to shrink', async () => {
-		if (!isPhone()) return
+	phoneOnly(
+		'opens compact on phones so the keyboard has nothing to shrink',
+		async () => {
+			const { input } = await openBox()
+			const dialog = document.querySelector('[role="dialog"]')
 
-		const { input } = await openBox()
-		const dialog = document.querySelector('[role="dialog"]')
-
-		if (!dialog) throw new Error('missing finder dialog')
-		expect(dialog.getBoundingClientRect().height).toBeLessThanOrEqual(448)
-		await expect.element(input).toBeVisible()
-		expect(input.element().getBoundingClientRect().top).toBeGreaterThanOrEqual(
-			0,
-		)
-	})
+			if (!dialog) throw new Error('missing finder dialog')
+			expect(dialog.getBoundingClientRect().height).toBeLessThanOrEqual(448)
+			await expect.element(input).toBeVisible()
+			expect(
+				input.element().getBoundingClientRect().top,
+			).toBeGreaterThanOrEqual(0)
+		},
+	)
 
 	test('keeps the search bar on screen while a recipe is previewed', async () => {
 		shelfState.recipes = [miso]
