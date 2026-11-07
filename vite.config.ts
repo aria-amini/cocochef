@@ -3,10 +3,28 @@ import { sentryTanstackStart } from '@sentry/tanstackstart-react/vite'
 // Loading the Varlock plugin resolves the env into process.env, so the
 // SENTRY_AUTH_TOKEN read below sees deployed secrets.
 import '@varlock/vite-integration'
+import { playwright } from 'vite-plus/test/browser-playwright'
 
 export default defineToolkit({
 	root: import.meta.dirname,
 	tests: {
+		browser: {
+			// Spies on globals like fetch would otherwise leak into later tests.
+			restoreMocks: true,
+			browser: {
+				// The app skips its entrance animations under reduced motion, so
+				// captures never catch a page mid-fade. This repeats the toolkit's
+				// launch options because the provider is replaced whole.
+				provider: playwright({
+					contextOptions: { reducedMotion: 'reduce' },
+					launchOptions: {
+						channel: 'chromium',
+						args: ['--disable-lcd-text', '--headless=new'],
+					},
+					actionTimeout: 3_000,
+				}),
+			},
+		},
 		server: {
 			include: ['src/**/*.{server,db}.test.ts', 'src/**/db.test.ts'],
 			testTimeout: 10_000,

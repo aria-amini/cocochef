@@ -1,6 +1,5 @@
 import { getAuthMocks, setMockSession } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
-import { toast } from 'sonner'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -19,7 +18,6 @@ type State = {
 	created: Saved[]
 	updated: Saved[]
 	deleted: string[]
-	createDelay?: Promise<void> | undefined
 }
 
 const sentry = vi.hoisted(() => ({ captureException: vi.fn() }))
@@ -46,7 +44,6 @@ vi.mock('@/lib/recipes/server', () => ({
 	getRecipe: () => Promise.resolve(null),
 	createRecipe: async ({ data }: { data: Saved }) => {
 		state.created.push(data)
-		await state.createDelay
 
 		return { id: 'recipe-new' }
 	},
@@ -79,12 +76,9 @@ describe('write a recipe', () => {
 	beforeEach(() => {
 		sessionStorage.removeItem('recipe-paste')
 		state.created = []
-		state.createDelay = undefined
 		state.updated = []
 		state.deleted = []
 		sentry.captureException.mockClear()
-		// Toasts outlive the page that raised them.
-		toast.dismiss()
 	})
 
 	test('keeps a pasted recipe through account creation', async () => {
@@ -319,7 +313,7 @@ describe('write a recipe', () => {
 		expect(state.created).toEqual([])
 	})
 
-	test('finishes the draft with done and opens it', async () => {
+	test('finishes the draft with save and opens it', async () => {
 		const { router, screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
@@ -339,7 +333,7 @@ describe('write a recipe', () => {
 			.toBeVisible()
 	})
 
-	test('saves a name carried over from the search when done is pressed untouched', async () => {
+	test('saves a name carried over from the search when save is pressed untouched', async () => {
 		const { router, screen } = await renderRoute({
 			path: '/recipes/new?title=Pancakes',
 			session: testSession,
@@ -368,7 +362,7 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByRole('alert'))
 			.toHaveTextContent('give the recipe a name to finish it')
-		// Said at the name, not down by done.
+		// Said at the name, not down by save.
 		await expect.element(name).toHaveFocus()
 		await expect.element(name).toHaveAttribute('aria-invalid', 'true')
 		await expect

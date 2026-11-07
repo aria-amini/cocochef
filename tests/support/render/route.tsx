@@ -7,7 +7,7 @@ import {
 	type AnyRouter,
 } from '@tanstack/react-router'
 import { setMockSession, type MockSession } from '@tests/support/mocks/browser'
-import { Toaster } from 'sonner'
+import { toast, Toaster } from 'sonner'
 import { render, type RenderResult } from 'vitest-browser-react'
 
 import { pendingOptions } from '@/components/page-pending'
@@ -65,6 +65,8 @@ export async function renderRoute(
 	localStorage.clear()
 	// The recipe last opened is remembered for the browser tab's session.
 	forgetRecipe()
+	// Toasts live in a module-level store, so one test's would show in the next.
+	toast.dismiss()
 	document.body.replaceChildren()
 
 	const container = document.body.appendChild(document.createElement('div'))

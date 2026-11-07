@@ -20,23 +20,13 @@ const ROOT_MARKERS = [
 	'vitest.config.mjs',
 ]
 
-export interface DbConfig {
-	root?: string
-	schemaPath?: string
-}
-
 export type Database = NodePgDatabase & {
 	$client: Pool
 }
 
 export interface DbFixture {
 	db: Database
-	seedFunction: (db: Database) => Promise<void> | void
 }
-
-let dbConfig: DbConfig = {}
-
-let seedFunction: (db: Database) => Promise<void> | void = async () => {}
 
 function findProjectRoot(start = process.cwd()) {
 	let directory = start
@@ -54,22 +44,11 @@ function findProjectRoot(start = process.cwd()) {
 }
 
 export const test = baseTest.extend<DbFixture>({
-	seedFunction: [
-		async ({}, use) => {
-			await use(seedFunction)
-		},
-		{ scope: 'file' },
-	],
 	db: [
-		async ({ seedFunction }, use) => {
+		async ({}, use) => {
 			const { drizzle } = await import('drizzle-orm/node-postgres')
 			const { Pool } = await import('pg')
-			const root = dbConfig.root ?? findProjectRoot()
-
-			const schemaPath = resolve(
-				root,
-				dbConfig.schemaPath ?? DEFAULT_SCHEMA_PATH,
-			)
+			const schemaPath = resolve(findProjectRoot(), DEFAULT_SCHEMA_PATH)
 
 			const client = new Pool({ connectionString: inject('dbUri') })
 
@@ -78,7 +57,7 @@ export const test = baseTest.extend<DbFixture>({
 			})
 
 			try {
-				await resetDatabase(db, { schemaPath, seedFunction })
+				await resetDatabase(db, schemaPath)
 				await use(db)
 			} finally {
 				await db.$client.end()
@@ -90,27 +69,9 @@ export const test = baseTest.extend<DbFixture>({
 
 export { afterEach, beforeEach, describe, expect, vi } from 'vite-plus/test'
 
-export function initDb(
-	seed: (db: Database) => Promise<void> | void,
-	config: DbConfig = {},
-) {
-	dbConfig = config
-	seedFunction = seed
-}
-
-export interface ResetDatabaseOptions {
-	schemaPath: string
-	seedFunction?: (db: Database) => Promise<void> | void
-}
-
-export async function resetDatabase(
-	db: Database,
-	{ schemaPath, seedFunction }: ResetDatabaseOptions,
-) {
+export async function resetDatabase(db: Database, schemaPath: string) {
 	const { reset } = await import('drizzle-seed')
 	const schema = await import(/* @vite-ignore */ schemaPath)
 
 	await reset(db, schema)
-
-	if (seedFunction) await seedFunction(db)
 }

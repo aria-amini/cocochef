@@ -1,6 +1,6 @@
 import { getAuthMocks, setMockSessionError } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
-import { afterEach, describe, expect, test, vi } from 'vite-plus/test'
+import { describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vite-plus/test/browser'
 
 const transfer = vi.hoisted(() => ({
@@ -144,8 +144,6 @@ describe('settings account states', () => {
 			user: { id: 'cook', name: 'Cook', email: 'cook@example.com' },
 			session: { id: 'cook-session', token: 'token' },
 		}
-
-		afterEach(() => vi.restoreAllMocks())
 
 		test('imports a recipe file and says what was new and what was already here', async () => {
 			transfer.imported.mockResolvedValue({ imported: 2, skipped: 1 })

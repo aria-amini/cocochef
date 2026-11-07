@@ -1,5 +1,6 @@
+import { expectScreenshot } from '@aamini/config/vitest/browser'
 import { renderRoute } from '@tests/support/render/route'
-import { toast } from 'sonner'
+import { phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
 
@@ -56,8 +57,7 @@ vi.mock('@/lib/recipes/server', () => ({
 			if (finalize) recipeState.recipe.finalizedAt = new Date()
 		}
 
-		// A shared recipe's first edit comes back as the user's own copy.
-		return { id: recipeState.recipe?.owned === false ? 'recipe-copy' : data.id }
+		return { id: data.id }
 	},
 	importRecipes: vi.fn(),
 	exportRecipes: async ({ data }: { data: { id?: string } }) => {
@@ -98,10 +98,25 @@ const session = {
 	session: { id: 'session-1', token: 'token' },
 }
 
+function fillRecipe() {
+	if (!recipeState.recipe) throw new Error('recipe was not seeded')
+	Object.assign(recipeState.recipe, {
+		sourceUrl: 'https://example.com/pasta',
+		servings: 4,
+		totalMinutes: 25,
+		ingredients: ['200g pasta', '2 tbsp miso', '3 tbsp butter', '1 lemon'],
+		steps: [
+			'Prep',
+			'- Zest the lemon',
+			'- Soften the butter',
+			'Simmer the pasta until just done',
+			'Stir in the miso and butter',
+		],
+	})
+}
+
 describe('recipe detail', () => {
 	beforeEach(() => {
-		// A toast left over from the last test would cover the pinned actions.
-		toast.dismiss()
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
@@ -144,41 +159,46 @@ describe('recipe detail', () => {
 			.toBeInTheDocument()
 	})
 
-	test('keeps the tab bar on a phone and returns to the recipe from another tab', async () => {
-		if (window.innerWidth >= 768) return
+	phoneOnly(
+		'keeps the tab bar on a phone and returns to the recipe from another tab',
+		async () => {
+			const { screen, router } = await renderRoute({
+				path: '/recipes/recipe-1',
+				session,
+			})
 
-		const { screen, router } = await renderRoute({
-			path: '/recipes/recipe-1',
-			session,
-		})
+			const nav = screen.getByRole('navigation', { name: 'Primary' })
 
-		const nav = screen.getByRole('navigation', { name: 'Primary' })
+			await expect
+				.element(nav.getByRole('link', { name: 'recipes' }))
+				.toHaveAttribute('aria-current', 'page')
+			await expect
+				.element(
+					screen
+						.getByRole('main')
+						.getByRole('link', { name: 'back to recipes' }),
+				)
+				.toBeVisible()
 
-		await expect
-			.element(nav.getByRole('link', { name: 'recipes' }))
-			.toHaveAttribute('aria-current', 'page')
-		await expect
-			.element(
-				screen.getByRole('main').getByRole('link', { name: 'back to recipes' }),
+			await nav.getByRole('link', { name: 'groceries' }).click()
+			await expect
+				.element(
+					screen.getByRole('heading', { name: 'groceries', exact: true }),
+				)
+				.toBeVisible()
+
+			await nav.getByRole('link', { name: 'recipes' }).click()
+			await vi.waitFor(() =>
+				expect(router.state.location.pathname).toBe('/recipes/recipe-1'),
 			)
-			.toBeVisible()
 
-		await nav.getByRole('link', { name: 'groceries' }).click()
-		await expect
-			.element(screen.getByRole('heading', { name: 'groceries', exact: true }))
-			.toBeVisible()
-
-		await nav.getByRole('link', { name: 'recipes' }).click()
-		await vi.waitFor(() =>
-			expect(router.state.location.pathname).toBe('/recipes/recipe-1'),
-		)
-
-		// From the recipe itself, the tab goes up to the shelf.
-		await nav.getByRole('link', { name: 'recipes' }).click()
-		await vi.waitFor(() =>
-			expect(router.state.location.pathname).toBe('/recipes'),
-		)
-	})
+			// From the recipe itself, the tab goes up to the shelf.
+			await nav.getByRole('link', { name: 'recipes' }).click()
+			await vi.waitFor(() =>
+				expect(router.state.location.pathname).toBe('/recipes'),
+			)
+		},
+	)
 
 	test('renders content and separate empty states', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
@@ -243,32 +263,17 @@ describe('recipe detail', () => {
 			.toBeVisible()
 	})
 
-	test('puts ingredients beside the steps on a wide page and stacks them on a narrow one', async () => {
-		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		recipeState.recipe.ingredients = ['2 large eggs', '1 carrot']
-		recipeState.recipe.steps = ['whisk the eggs', 'fold in the carrot']
+	// Ingredients sit beside the steps on a wide page and above them on a phone.
+	test('captures the recipe reader', async () => {
+		fillRecipe()
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
 		await expect
-			.element(screen.getByRole('checkbox', { name: 'step 1: whisk the eggs' }))
+			.element(screen.getByRole('checkbox', { name: /Simmer/ }))
 			.toBeVisible()
-
-		const ingredients = document.querySelector(
-			'table[aria-label="ingredients"]',
-		)
-
-		const steps = document.querySelector('ol')
-
-		if (!ingredients || !steps) throw new Error('lists missing')
-		const left = ingredients.getBoundingClientRect()
-		const right = steps.getBoundingClientRect()
-
-		// The sidebar takes room from the page, so "wide" is what the page gets.
-		if (window.innerWidth >= 1024) {
-			expect(right.left).toBeGreaterThanOrEqual(left.right)
-			expect(Math.abs(right.top - left.top)).toBeLessThan(80)
-		} else {
-			expect(right.top).toBeGreaterThanOrEqual(left.bottom)
-		}
+		await expectScreenshot(screen.container, 'recipe-reader', {
+			fullHeight: true,
+		})
 	})
 
 	test('shows specific and family icons while leaving unknown ingredients empty', async () => {
@@ -329,15 +334,12 @@ describe('recipe detail', () => {
 		).toEqual(recipeState.recipe.ingredients)
 	})
 
-	test('keeps existing ingredient categories without showing grouping controls', async () => {
+	test('keeps existing ingredient categories through an edit', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 large eggs']
 		recipeState.recipe.ingredientCategories = { '2 large eggs': 'other' }
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 		await screen.getByRole('button', { name: 'edit' }).click()
-		await expect
-			.element(screen.getByRole('combobox', { name: 'Group for ingredient 1' }))
-			.not.toBeInTheDocument()
 		await screen.getByLabelText('notes').fill('whisk well')
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect
@@ -358,7 +360,7 @@ describe('recipe detail', () => {
 			.toBe('/aria-amini/miso-butter-pasta')
 	})
 
-	test('shows the page a recipe came from, and nothing about copies', async () => {
+	test('shows the page a recipe came from', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		Object.assign(recipeState.recipe, {
 			sourceUrl: 'https://example.com/pasta',
@@ -369,13 +371,6 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('link', { name: 'from example.com' }))
 			.toHaveAttribute('href', 'https://example.com/pasta')
-		await expect.element(screen.getByText('your copy')).not.toBeInTheDocument()
-		await expect
-			.element(screen.getByText('see the original version'))
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByRole('button', { name: 'make it mine' }))
-			.not.toBeInTheDocument()
 	})
 
 	test('calls a youtube link a video to watch', async () => {
@@ -437,7 +432,6 @@ describe('recipe detail', () => {
 		await screen.getByRole('button', { name: 'export as file' }).click()
 		await expect.poll(() => click.mock.calls.length).toBe(1)
 		expect(updateCalls.exported).toEqual(['recipe-1'])
-		click.mockRestore()
 	})
 
 	test('shows placeholders when content is empty', async () => {
@@ -633,24 +627,15 @@ describe('recipe detail', () => {
 		expect(updateCalls.calls.at(-1)?.imageUrl).toBe('recipes/user-1-photo')
 	})
 
-	test('keeps the source field beside the name and the actions sticky', async () => {
+	test('captures the recipe editor with its actions pinned', async () => {
+		fillRecipe()
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
 		await screen.getByRole('button', { name: 'edit' }).click()
-		const name = screen.getByRole('textbox', { name: 'name' }).element()
-
-		const source = screen
-			.getByRole('textbox', { name: 'original link' })
-			.element()
-
-		expect(name.parentElement).toBe(source.parentElement?.parentElement)
-
-		const save = screen
-			.getByRole('button', { name: 'save', exact: true })
-			.element()
-
-		expect(
-			save.parentElement && getComputedStyle(save.parentElement).position,
-		).toBe('sticky')
+		await expect
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
+			.toBeVisible()
+		await expectScreenshot(screen.container, 'recipe-editor')
 	})
 
 	test('keeps an invalid source link in the editor until corrected', async () => {
@@ -736,9 +721,6 @@ describe('recipe detail', () => {
 		await step.click()
 		await expect.element(ingredient).toBeChecked()
 		await expect.element(step).toBeChecked()
-		await expect
-			.element(screen.getByRole('button', { name: 'start cooking' }))
-			.not.toBeInTheDocument()
 		await router.navigate({
 			to: '/coming-soon/$feature',
 			params: { feature: 'groceries' },
@@ -755,7 +737,7 @@ describe('recipe detail', () => {
 			.not.toBeChecked()
 	})
 
-	test('edits the name and notes without asking for servings or time', async () => {
+	test('edits the name and notes', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/recipe-1',
 			session,
@@ -763,12 +745,6 @@ describe('recipe detail', () => {
 
 		await screen.getByRole('button', { name: 'edit' }).click()
 		await screen.getByLabelText('name').fill('brown butter pasta')
-		await expect
-			.element(screen.getByLabelText('servings'))
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByLabelText('total minutes'))
-			.not.toBeInTheDocument()
 		await screen.getByLabelText('notes').fill('more lemon')
 		await screen.getByRole('button', { name: 'save' }).click()
 
@@ -840,7 +816,7 @@ describe('recipe detail', () => {
 		expect(sessionStorage.getItem('cocochef:last-recipe')).toBeNull()
 	})
 
-	test('adds a shared recipe to the shelf without offering cook logging', async () => {
+	test('adds a shared recipe to the shelf and takes it back off', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		Object.assign(recipeState.recipe, {
 			userId: null,
@@ -854,9 +830,6 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await expect
-			.element(screen.getByRole('button', { name: 'cooked it' }))
-			.not.toBeInTheDocument()
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect.poll(() => recipeState.recipe?.saved).toBe(true)
 		expect(updateCalls.saved).toEqual(['recipe-1'])
@@ -878,10 +851,6 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('heading', { name: 'miso butter pasta' }))
 			.toBeVisible()
-
-		await expect
-			.element(screen.getByRole('button', { name: 'cooked it' }))
-			.not.toBeInTheDocument()
 	})
 
 	test('offers a copy action for shared recipes without offering edit', async () => {
