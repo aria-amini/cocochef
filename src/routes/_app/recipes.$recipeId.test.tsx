@@ -1,5 +1,5 @@
-import { expectScreenshot } from '@aamini/config/vitest/browser'
 import { renderRoute } from '@tests/support/render/route'
+import { expectPageScreenshot } from '@tests/support/screenshot'
 import { phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
@@ -271,7 +271,7 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('checkbox', { name: /Simmer/ }))
 			.toBeVisible()
-		await expectScreenshot(screen.container, 'recipe-reader', {
+		await expectPageScreenshot(screen.container, 'recipe-reader', {
 			fullHeight: true,
 		})
 	})
@@ -635,7 +635,7 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.toBeVisible()
-		await expectScreenshot(screen.container, 'recipe-editor')
+		await expectPageScreenshot(screen.container, 'recipe-editor')
 	})
 
 	test('keeps an invalid source link in the editor until corrected', async () => {

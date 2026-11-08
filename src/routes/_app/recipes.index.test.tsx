@@ -1,5 +1,6 @@
 import { expectScreenshot } from '@aamini/config/vitest/browser'
 import { renderRoute } from '@tests/support/render/route'
+import { expectPageScreenshot } from '@tests/support/screenshot'
 import { desktopOnly, isPhone } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
@@ -392,8 +393,8 @@ describe('recipes shelf', () => {
 		expect(draft.element().textContent).toBe('draftdal')
 	})
 
-	// Full-page captures of the shelf. The sidebar on desktop, the tab bar and
-	// round add button on a phone come along with the content.
+	// Full-height captures of the shelf page alone. The app shell around it has
+	// its own baselines.
 	test('captures the empty shelf', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes',
@@ -404,7 +405,7 @@ describe('recipes shelf', () => {
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.toBeVisible()
 		hideShortcutHints()
-		await expectScreenshot(screen.container, 'shelf-empty', {
+		await expectPageScreenshot(screen.container, 'shelf-empty', {
 			fullHeight: true,
 		})
 	})
@@ -441,7 +442,7 @@ describe('recipes shelf', () => {
 			.element(screen.getByRole('link', { name: /dal/ }))
 			.toBeVisible()
 		hideShortcutHints()
-		await expectScreenshot(screen.container, 'shelf', { fullHeight: true })
+		await expectPageScreenshot(screen.container, 'shelf', { fullHeight: true })
 	})
 
 	// The finder opens over the shelf, so its place, the dimmed page behind it and
