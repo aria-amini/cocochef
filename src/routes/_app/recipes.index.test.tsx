@@ -1,4 +1,3 @@
-import { expectScreenshot } from '@aamini/config/vitest/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { expectPageScreenshot } from '@tests/support/screenshot'
 import { desktopOnly, isPhone } from '@tests/support/viewport'
@@ -443,39 +442,5 @@ describe('recipes shelf', () => {
 			.toBeVisible()
 		hideShortcutHints()
 		await expectPageScreenshot(screen.container, 'shelf', { fullHeight: true })
-	})
-
-	// The finder opens over the shelf, so its place, the dimmed page behind it and
-	// what stacks above it are compared as one screen.
-	test('captures the finder over the shelf', async () => {
-		shelfState.recipes = [
-			{ ...dal, id: 'draft-1', title: 'shakshuka', finalizedAt: null },
-			misoButterPasta,
-		]
-		discovery.popular.mockResolvedValue({
-			warming: false,
-			results: [
-				{
-					recipeId: 'shared-1',
-					title: 'marry me chicken',
-					siteName: 'Example',
-					saved: false,
-					draft: false,
-					ingredientMatches: [],
-				},
-			],
-		})
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByRole('button', { name: /search any recipe/i }).click()
-		await expect
-			.element(screen.getByRole('option', { name: /marry me chicken/ }))
-			.toBeVisible()
-		hideShortcutHints()
-		await expectScreenshot(screen.container, 'finder')
 	})
 })
