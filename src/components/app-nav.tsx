@@ -165,12 +165,12 @@ function Sidebar() {
 			<Link
 				to="/recipes"
 				aria-label="cocochef"
-				className="border-foreground/20 bg-card mb-6 flex w-full shrink-0 items-center justify-center gap-2 self-center rounded-md border px-3 py-2 text-sm font-bold whitespace-nowrap"
+				className="mb-6 flex w-full shrink-0 items-center gap-2 rounded-md border border-transparent py-2 text-sm font-bold whitespace-nowrap"
 			>
 				<img
 					src="/icon-192.png"
 					alt=""
-					className="size-7 shrink-0 [image-rendering:pixelated]"
+					className="size-7 shrink-0 rounded-md"
 				/>
 				cocochef
 			</Link>
@@ -226,12 +226,12 @@ function MobileHeader() {
 			<Link
 				to="/recipes"
 				aria-label="cocochef"
-				className="flex items-center gap-2 rounded-md text-sm font-bold"
+				className="flex min-h-11 items-center gap-2 rounded-md text-sm font-bold"
 			>
 				<img
 					src="/icon-192.png"
 					alt=""
-					className="size-7 shrink-0 [image-rendering:pixelated]"
+					className="size-7 shrink-0 rounded-md"
 				/>
 				cocochef
 			</Link>
@@ -287,7 +287,7 @@ function TabBar() {
 							<span
 								aria-hidden
 								className={cn(
-									'grid size-8 place-items-center',
+									'grid h-6 w-8 place-items-center',
 									navIconFeedbackClassName,
 								)}
 							>

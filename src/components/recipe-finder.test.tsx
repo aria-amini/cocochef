@@ -88,7 +88,7 @@ async function openBox() {
 	const rendered = await renderRoute({ path: '/recipes', session: testSession })
 
 	await rendered.screen
-		.getByRole('button', { name: /Search any Recipe/ })
+		.getByRole('button', { name: /search any recipe/ })
 		.click()
 	const input = rendered.screen.getByRole('combobox', { name: 'find a recipe' })
 

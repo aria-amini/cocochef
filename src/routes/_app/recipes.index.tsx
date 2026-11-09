@@ -1,5 +1,5 @@
 import {
-	ArrowRight,
+	ArrowRightIcon,
 	BookmarkSimpleIcon,
 	UserIcon,
 	GlobeHemisphereWestIcon,
@@ -7,6 +7,7 @@ import {
 } from '@phosphor-icons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'framer-motion'
+import { useSyncExternalStore } from 'react'
 
 import { ImportLinkButton } from '@/components/import-link'
 import {
@@ -75,13 +76,14 @@ function Shelf() {
 						<RecipeSources />
 					</div>
 					<div className="hidden items-center gap-3 md:flex">
-						<ImportLinkButton onClick={() => importLink()} />
+						{/* The empty shelf's tile already says it can import a link. */}
+						{isEmpty ? null : <ImportLinkButton onClick={() => importLink()} />}
 						{/* The page's one solid action: every way to add a recipe. */}
 						<button
 							type="button"
 							aria-label="add recipe"
 							onClick={() => find()}
-							className="bg-kitchen-basil grid size-12 shrink-0 place-items-center rounded-full transition-colors hover:brightness-95"
+							className="bg-kitchen-yolk grid size-12 shrink-0 place-items-center rounded-full transition-colors hover:brightness-95"
 						>
 							<PlusIcon size={22} weight="bold" aria-hidden />
 						</button>
@@ -90,11 +92,13 @@ function Shelf() {
 				{isEmpty ? (
 					<button
 						type="button"
+						aria-label="save your first recipe: find one, import a link, or write your own"
 						onClick={() => find()}
-						className="border-foreground/50 bg-kitchen-yolk/25 text-foreground hover:bg-kitchen-yolk/40 relative block aspect-square w-full max-w-md cursor-pointer rounded-xl border border-dashed text-left transition-colors md:aspect-auto md:h-[calc(var(--spacing-tile)*2+16px)] md:w-[calc(var(--spacing-tile)*2+16px)]"
+						className="border-foreground/50 bg-kitchen-yolk/25 text-foreground hover:bg-kitchen-yolk/40 relative block h-44 w-full max-w-md cursor-pointer rounded-xl border border-dashed text-left transition-colors md:h-[calc(var(--spacing-tile)*2+16px)] md:w-[calc(var(--spacing-tile)*2+16px)]"
 					>
-						<span className="bg-kitchen-yolk absolute top-4 right-4 grid size-12 place-items-center rounded-full">
-							<ArrowRight weight="bold" className="size-6" aria-hidden />
+						{/* Outlined, so it reads as clickable without a second solid. */}
+						<span className="border-foreground/50 absolute top-4 right-4 grid size-10 place-items-center rounded-full border">
+							<ArrowRightIcon size={20} weight="bold" aria-hidden />
 						</span>
 						<span className="absolute right-4 bottom-4 left-4 flex flex-col gap-2">
 							<span className="text-3xl leading-none font-bold md:text-4xl">
@@ -127,7 +131,7 @@ function Shelf() {
 									'flex items-center gap-1.5',
 									id === 'your-recipes'
 										? 'border-kitchen-yolk'
-										: 'border-saved-blue/60',
+										: 'border-kitchen-eggplant/60',
 								)}
 							>
 								{id === 'your-recipes' ? (
@@ -137,7 +141,7 @@ function Shelf() {
 										size={15}
 										weight="fill"
 										aria-hidden
-										className="text-saved-blue"
+										className="text-kitchen-eggplant"
 									/>
 								)}
 								{title}
@@ -162,6 +166,12 @@ function Shelf() {
 
 // The one box's front door: it looks like the search it opens.
 function FinderBox({ onOpen }: { onOpen: () => void }) {
+	const isMac = useSyncExternalStore(
+		() => () => undefined,
+		() => /Mac|iPhone|iPad/.test(navigator.platform),
+		() => true,
+	)
+
 	return (
 		<button
 			type="button"
@@ -174,12 +184,12 @@ function FinderBox({ onOpen }: { onOpen: () => void }) {
 				aria-hidden
 				className="text-foreground shrink-0"
 			/>
-			<span className="min-w-0 flex-1 truncate">Search any Recipe</span>
+			<span className="min-w-0 flex-1 truncate">search any recipe</span>
 			<kbd
 				aria-hidden
 				className="border-border hidden shrink-0 rounded border px-1.5 text-xs font-semibold md:inline"
 			>
-				⌘K
+				{isMac ? '⌘K' : 'ctrl K'}
 			</kbd>
 		</button>
 	)

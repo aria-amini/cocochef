@@ -89,14 +89,6 @@ const dal: Recipe = {
 	savedAt: new Date(),
 }
 
-// The command glyph comes from whichever system font has it, so a baseline
-// would only match the machine that made it.
-const hideShortcutHints = () => {
-	for (const hint of document.querySelectorAll('kbd')) {
-		hint.style.visibility = 'hidden'
-	}
-}
-
 describe('recipes shelf', () => {
 	beforeEach(() => {
 		shelfState.recipes = []
@@ -156,6 +148,186 @@ describe('recipes shelf', () => {
 			.toHaveFocus()
 	})
 
+	test('holds back the import link on an empty shelf, but not the add button', async () => {
+		const { screen, router, queryClient } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await expect
+			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.toBeVisible()
+		// The tile already says it imports links; adding stays where it always is.
+		await expect
+			.element(screen.getByRole('button', { name: 'add recipe' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'import link' }))
+			.not.toBeInTheDocument()
+
+		shelfState.recipes = [dal]
+		await queryClient.invalidateQueries()
+		await router.invalidate()
+
+		await expect
+			.element(screen.getByRole('link', { name: 'dal' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'add recipe' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.not.toBeInTheDocument()
+
+		if (!isPhone())
+			await expect
+				.element(screen.getByRole('button', { name: 'import link' }))
+				.toBeVisible()
+	})
+
+	test('puts pictured discovery recipes first, keeping each group in order', async () => {
+		shelfState.recipes = [dal]
+
+		const popular = (title: string, imageUrl?: string) => ({
+			recipeId: 'id-' + title,
+			title,
+			imageUrl,
+			siteName: 'Example',
+			saved: false,
+			draft: false,
+			ingredientMatches: [],
+		})
+
+		discovery.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				popular('plain a'),
+				popular('pictured b', '/sprites/pantry/apple.png'),
+				popular('plain c'),
+				popular('pictured d', '/sprites/pantry/carrot.png'),
+				popular('pictured e', '/sprites/pantry/flour.png'),
+			],
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const discover = screen.getByRole('region', { name: 'discover recipes' })
+
+		await expect.element(discover).toBeVisible()
+		// Four tiles at most, so the last plain recipe is left to the finder. Phones
+		// hide all but the first two, so this reads the tiles, not the role tree.
+		await expect
+			.poll(() =>
+				[...discover.element().querySelectorAll('a')].map(
+					(tile) => tile.querySelector('span.line-clamp-2')?.textContent,
+				),
+			)
+			.toEqual(['pictured b', 'pictured d', 'pictured e', 'plain a'])
+	})
+
+	test('stands a plain pot in for a discovery recipe with no usable photo', async () => {
+		shelfState.recipes = [dal]
+
+		const popular = (title: string, imageUrl?: string) => ({
+			recipeId: 'id-' + title,
+			title,
+			imageUrl,
+			siteName: 'Example',
+			saved: false,
+			draft: false,
+			ingredientMatches: [],
+		})
+
+		discovery.popular.mockResolvedValue({
+			warming: false,
+			results: [popular('no photo'), popular('broken photo', '/missing.png')],
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const discover = screen.getByRole('region', { name: 'discover recipes' })
+
+		const tileOf = (title: string) =>
+			[...discover.element().querySelectorAll('a')].find((tile) =>
+				tile.textContent?.startsWith(title + 'Example'),
+			)
+
+		// A broken photo falls back too, and no tile shows an ingredient.
+		await expect
+			.poll(() => tileOf('broken photo')?.querySelector('[data-placeholder]'))
+			.toBeTruthy()
+		expect(
+			tileOf('no photo')?.querySelector('[data-placeholder] svg'),
+		).toBeTruthy()
+		expect(discover.element().querySelector('img[src^="/sprites"]')).toBeNull()
+	})
+
+	test.each([
+		['MacIntel', '⌘K'],
+		['iPhone', '⌘K'],
+		['iPad', '⌘K'],
+		['Linux x86_64', 'ctrl K'],
+		['Win32', 'ctrl K'],
+	])('hints %s users at %s to search', async (platform, hint) => {
+		vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform)
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const search = screen.getByRole('button', { name: /search any recipe/ })
+
+		await expect.element(search).toBeVisible()
+		const key = search.element().querySelector('kbd')
+
+		if (!key) throw new Error('search is missing its shortcut hint')
+		expect(key.textContent).toBe(hint)
+		// Phones have no keyboard to press it on.
+		expect(getComputedStyle(key).display === 'none').toBe(isPhone())
+	})
+
+	test('colours the saved section with the eggplant accent, apart from your own', async () => {
+		shelfState.recipes = [
+			misoButterPasta,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const heading = (name: string) =>
+			screen.getByRole('heading', { name, level: 2 }).element()
+
+		const eggplant = 'rgb(91, 61, 245)'
+
+		await expect.element(screen.getByText('shared soup')).toBeVisible()
+		const bookmark = heading('saved recipes').querySelector('svg')
+
+		if (!bookmark) throw new Error('saved heading is missing its bookmark')
+		expect(getComputedStyle(bookmark).color).toBe(eggplant)
+		// A tint of the accent, not the yolk of the owned section.
+		const tint = document.createElement('div')
+
+		tint.style.color = 'color-mix(in oklab, rgb(91 61 245) 60%, transparent)'
+		document.body.append(tint)
+		expect(getComputedStyle(heading('saved recipes')).borderBottomColor).toBe(
+			getComputedStyle(tint).color,
+		)
+		tint.remove()
+		expect(
+			getComputedStyle(heading('saved recipes')).borderBottomColor,
+		).not.toBe(getComputedStyle(heading('your recipes')).borderBottomColor)
+	})
+
 	test('shows search and the ways to add a recipe', async () => {
 		shelfState.recipes = [misoButterPasta, dal]
 
@@ -182,7 +354,7 @@ describe('recipes shelf', () => {
 		}
 
 		await expect
-			.element(screen.getByRole('button', { name: /Search any Recipe/ }))
+			.element(screen.getByRole('button', { name: /search any recipe/ }))
 			.toBeVisible()
 	})
 
@@ -395,6 +567,11 @@ describe('recipes shelf', () => {
 	// Full-height captures of the shelf page alone. The app shell around it has
 	// its own baselines.
 	test('captures the empty shelf', async () => {
+		// The command glyph comes from whichever system font has it, so only the
+		// ctrl hint can be compared across machines. The hint test asserts the Mac
+		// text instead.
+		vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64')
+
 		const { screen } = await renderRoute({
 			path: '/recipes',
 			session: testSession,
@@ -403,13 +580,16 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.toBeVisible()
-		hideShortcutHints()
 		await expectPageScreenshot(screen.container, 'shelf-empty', {
 			fullHeight: true,
 		})
 	})
 
 	test('captures the shelf with a draft, a saved recipe and discovery', async () => {
+		// The command glyph comes from whichever system font has it, so only the
+		// ctrl hint can be compared across machines. The hint test asserts the Mac
+		// text instead.
+		vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64')
 		shelfState.recipes = [
 			{ ...dal, finalizedAt: null },
 			misoButterPasta,
@@ -440,7 +620,6 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('link', { name: /dal/ }))
 			.toBeVisible()
-		hideShortcutHints()
 		await expectPageScreenshot(screen.container, 'shelf', { fullHeight: true })
 	})
 })
