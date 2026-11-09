@@ -1,0 +1,279 @@
+import { z } from 'zod'
+
+import { normalizeIngredientName } from '@/lib/pantry/catalog'
+import {
+	ingredientHeading,
+	ingredientSubject,
+} from '@/lib/recipes/ingredient-line'
+import { recipeTitleMax } from '@/lib/recipes/model'
+
+// ===== Contract =====
+
+// What the editor asks about: the recipe's name and the lines written so far,
+// headings included, so suggestions can skip what the cook already has.
+export const suggestionRequest = z.object({
+	title: z.string().trim().max(recipeTitleMax),
+	ingredients: z.array(z.string().max(500)).max(200),
+})
+
+export type SuggestionRequest = z.infer<typeof suggestionRequest>
+
+const suggestedIngredient = z.object({
+	line: z.string().trim().min(1).max(500),
+	// The cook's pantry already holds this food.
+	inPantry: z.boolean(),
+})
+
+// A whole section the cook can take at once ("spice blend"), or line by line.
+const suggestedSection = z.object({
+	heading: z.string().trim().min(1).max(80),
+	ingredients: z.array(suggestedIngredient).min(1).max(20),
+})
+
+export const suggestionResponse = z.object({
+	sections: z.array(suggestedSection).max(3),
+})
+
+export type SuggestedSection = z.infer<typeof suggestedSection>
+
+export type SuggestionResponse = z.infer<typeof suggestionResponse>
+
+// A name this short says nothing about the dish yet.
+export const suggestionTitleMin = 3
+
+// ===== Matching foods =====
+
+// The food a line names, as words: "2 tsp ground cumin, toasted" is
+// ["ground", "cumin"]. Plurals fold so "onions" meets "onion".
+function foodWords(line: string) {
+	const subject = ingredientSubject(line).split(',')[0] ?? ''
+
+	return normalizeIngredientName(subject)
+		.normalize('NFD')
+		.replace(/\p{M}/gu, '')
+		.replace(/[^\p{L}\p{N}]+/gu, ' ')
+		.trim()
+		.split(' ')
+		.filter(Boolean)
+		.map((word) =>
+			word.endsWith('oes')
+				? word.slice(0, -2)
+				: word.endsWith('s') && !word.endsWith('ss')
+					? word.slice(0, -1)
+					: word,
+		)
+}
+
+// Words that make a different thing of the food before them: garlic powder is
+// not garlic, and chili flakes are not a chili.
+const formWords = new Set([
+	'powder',
+	'flake',
+	'paste',
+	'sauce',
+	'oil',
+	'juice',
+	'extract',
+	'seed',
+	'stock',
+	'broth',
+	'vinegar',
+])
+
+// Every word of `general` appears in `specific`, and `specific` names no other
+// form of it: "cumin" covers "ground cumin", but "garlic" does not cover
+// "garlic powder".
+function covers(general: string[], specific: string[]) {
+	return (
+		general.length > 0 &&
+		general.every((word) => specific.includes(word)) &&
+		specific.every((word) => !formWords.has(word) || general.includes(word))
+	)
+}
+
+// A suggestion the cook already wrote, in either spelling's direction.
+function alreadyWritten(line: string, written: string[][]) {
+	const words = foodWords(line)
+
+	return written.some(
+		(existing) => covers(existing, words) || covers(words, existing),
+	)
+}
+
+// Marks each suggested food the pantry holds. A pantry item is the general
+// food, so "cumin" in the pantry covers a suggested "ground cumin".
+export function markPantry(
+	sections: SuggestedSection[],
+	pantryNames: string[],
+): SuggestedSection[] {
+	const pantry = pantryNames.map(foodWords)
+
+	return sections.map((section) => ({
+		...section,
+		ingredients: section.ingredients.map((ingredient) => {
+			const words = foodWords(ingredient.line)
+
+			return {
+				...ingredient,
+				inPantry: pantry.some((item) => covers(item, words)),
+			}
+		}),
+	}))
+}
+
+// ===== Mock source =====
+
+// Stands in for the model while the editor's suggestions take shape: a few
+// dishes with the boilerplate cooks reach for. Matched on whole words of the
+// recipe's name.
+const mockDishes: { words: string[]; sections: [string, string[]][] }[] = [
+	{
+		words: ['chili', 'chilli'],
+		sections: [
+			[
+				'spice blend',
+				[
+					'3 tbsp chili powder',
+					'2 tsp ground cumin',
+					'1 tsp smoked paprika',
+					'1 tsp dried oregano',
+					'1/2 tsp cayenne pepper',
+					'1 tsp kosher salt',
+				],
+			],
+			[
+				'toppings',
+				[
+					'1 cup shredded cheddar',
+					'1/2 cup sour cream',
+					'2 green onions, sliced',
+				],
+			],
+		],
+	},
+	{
+		words: ['curry'],
+		sections: [
+			[
+				'spice blend',
+				[
+					'2 tsp garam masala',
+					'1 tsp ground turmeric',
+					'1 tsp ground cumin',
+					'1 tsp ground coriander',
+					'1/2 tsp chili flakes',
+				],
+			],
+			[
+				'aromatics',
+				['1 onion, diced', '4 cloves garlic, minced', '1 tbsp grated ginger'],
+			],
+		],
+	},
+	{
+		words: ['taco', 'tacos'],
+		sections: [
+			[
+				'taco seasoning',
+				[
+					'1 tbsp chili powder',
+					'1 tsp ground cumin',
+					'1/2 tsp garlic powder',
+					'1/2 tsp onion powder',
+					'1/2 tsp smoked paprika',
+				],
+			],
+			[
+				'toppings',
+				[
+					'1/2 cup salsa',
+					'1/4 cup chopped cilantro',
+					'1 lime, cut into wedges',
+				],
+			],
+		],
+	},
+	{
+		words: ['pancake', 'pancakes'],
+		sections: [
+			[
+				'dry',
+				[
+					'1 1/2 cups flour',
+					'1 tbsp sugar',
+					'2 tsp baking powder',
+					'1/2 tsp salt',
+				],
+			],
+			['wet', ['1 1/4 cups milk', '1 egg', '3 tbsp melted butter']],
+		],
+	},
+	{
+		words: ['stir', 'stirfry', 'stir-fry'],
+		sections: [
+			[
+				'sauce',
+				[
+					'3 tbsp soy sauce',
+					'1 tbsp oyster sauce',
+					'1 tsp sesame oil',
+					'1 tsp cornstarch',
+					'1 tsp sugar',
+				],
+			],
+		],
+	},
+	{
+		words: ['bolognese', 'ragu'],
+		sections: [
+			[
+				'soffritto',
+				['1 onion, diced', '1 carrot, diced', '1 celery stalk, diced'],
+			],
+			[
+				'seasoning',
+				['2 bay leaves', '1 tsp dried oregano', '1/2 cup red wine'],
+			],
+		],
+	},
+]
+
+// Canned sections for the dish the name mentions, less what is already written.
+export function mockSuggestions(
+	request: SuggestionRequest,
+): SuggestedSection[] {
+	if (request.title.length < suggestionTitleMin) return []
+
+	const titleWords = normalizeIngredientName(request.title)
+		.split(/[^\p{L}\p{N}-]+/u)
+		.filter(Boolean)
+
+	const dish = mockDishes.find((entry) =>
+		entry.words.some((word) => titleWords.includes(word)),
+	)
+
+	if (!dish) return []
+
+	const headings = new Set(
+		request.ingredients.flatMap((line) => {
+			const heading = ingredientHeading(line)
+
+			return heading ? [normalizeIngredientName(heading)] : []
+		}),
+	)
+
+	const written = request.ingredients
+		.filter((line) => line.trim() && ingredientHeading(line) === undefined)
+		.map(foodWords)
+		.filter((words) => words.length > 0)
+
+	return dish.sections.flatMap(([heading, lines]) => {
+		if (headings.has(heading)) return []
+
+		const ingredients = lines
+			.filter((line) => !alreadyWritten(line, written))
+			.map((line) => ({ line, inPantry: false }))
+
+		return ingredients.length ? [{ heading, ingredients }] : []
+	})
+}
