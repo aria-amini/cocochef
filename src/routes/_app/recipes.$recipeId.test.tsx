@@ -1,3 +1,4 @@
+import { getAuthMocks, setMockSession } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import {
 	expectIsolatedScreenshot,
@@ -122,6 +123,7 @@ describe('recipe detail', () => {
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
+		sessionStorage.removeItem('after-sign-in')
 		updateCalls.exported.length = 0
 		recipeState.recipe = {
 			id: 'recipe-1',
@@ -1321,5 +1323,102 @@ describe('recipe detail', () => {
 			.fill('300 g pasta')
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect.poll(() => updateCalls.calls.at(-1)?.id).toBe('recipe-1')
+	})
+
+	describe('asked for before signing in', () => {
+		beforeEach(() => {
+			if (!recipeState.recipe) throw new Error('recipe was not seeded')
+			Object.assign(recipeState.recipe, {
+				userId: null,
+				saved: false,
+				owned: false,
+				savedAt: null,
+			})
+		})
+
+		async function signUpInDialog() {
+			getAuthMocks().signUpEmail.mockImplementationOnce(async () => {
+				setMockSession(session)
+
+				return { error: null }
+			})
+			const dialog = page.getByRole('dialog', { name: 'create an account' })
+			await dialog.getByLabelText('name').fill('Test User')
+			await dialog.getByLabelText('email').fill('test@example.com')
+			await dialog.getByLabelText('password').fill('password123')
+			await dialog
+				.getByRole('button', { name: 'create account', exact: true })
+				.click()
+		}
+
+		test('saves once the dialog signs the visitor in', async () => {
+			const { screen } = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await screen.getByRole('button', { name: 'save', exact: true }).click()
+			expect(updateCalls.saved).toEqual([])
+			await signUpInDialog()
+
+			await expect.poll(() => updateCalls.saved).toEqual(['recipe-1'])
+			await expect
+				.element(screen.getByRole('button', { name: 'saved', exact: true }))
+				.toBeVisible()
+		})
+
+		test('saves when the page loads again after google sign-in', async () => {
+			const first = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await first.screen
+				.getByRole('button', { name: 'save', exact: true })
+				.click()
+			await expect
+				.element(page.getByRole('dialog', { name: 'create an account' }))
+				.toBeVisible()
+			// Google sign-in leaves the page and loads it again signed in.
+			await first.screen.unmount()
+
+			const next = await renderRoute({ path: '/recipes/recipe-1', session })
+
+			await expect.poll(() => updateCalls.saved).toEqual(['recipe-1'])
+			await expect
+				.element(
+					next.screen.getByRole('button', { name: 'saved', exact: true }),
+				)
+				.toBeVisible()
+			expect(sessionStorage.getItem('after-sign-in')).toBeNull()
+		})
+
+		test('leaves a recipe alone when the account already has it', async () => {
+			const first = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await first.screen
+				.getByRole('button', { name: 'save', exact: true })
+				.click()
+			await first.screen.unmount()
+			Object.assign(recipeState.recipe ?? {}, { saved: true })
+
+			const next = await renderRoute({ path: '/recipes/recipe-1', session })
+
+			await expect
+				.element(
+					next.screen.getByRole('button', { name: 'saved', exact: true }),
+				)
+				.toBeVisible()
+			expect(updateCalls.saved).toEqual([])
+			expect(sessionStorage.getItem('after-sign-in')).toBeNull()
+		})
+
+		test('opens the editor once the dialog signs the visitor in', async () => {
+			const { screen } = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await screen.getByRole('button', { name: 'edit' }).click()
+			await signUpInDialog()
+
+			await expect
+				.element(screen.getByRole('button', { name: 'cancel' }))
+				.toBeVisible()
+			// Only editing was asked for: nothing is saved or copied yet.
+			expect(updateCalls.saved).toEqual([])
+			expect(updateCalls.calls).toEqual([])
+		})
 	})
 })

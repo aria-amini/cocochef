@@ -1,9 +1,10 @@
 import { PencilSimpleIcon } from '@phosphor-icons/react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 
 import { AuthDialog } from '@/components/auth-dialog'
 import { Button } from '@/components/ui/button'
+import { rememberAfterSignIn, takeAfterSignIn } from '@/lib/auth/after-sign-in'
 import { authClient } from '@/lib/auth/client'
 
 // Editing a recipe someone else wrote. Nothing is copied yet: the editor
@@ -26,13 +27,9 @@ export function EditSharedButton({
 
 	const [authOpen, setAuthOpen] = useState(false)
 
-	function edit() {
-		if (!session.data?.user || session.data.user.isAnonymous) {
-			setAuthOpen(true)
+	const signedIn = !!session.data?.user && !session.data.user.isAnonymous
 
-			return
-		}
-
+	function open() {
 		if (onEdit) onEdit()
 		else
 			void navigate({
@@ -41,6 +38,22 @@ export function EditSharedButton({
 				state: { editing: true },
 			})
 	}
+
+	function edit() {
+		if (signedIn) open()
+		else {
+			rememberAfterSignIn({ action: 'edit', recipeId })
+			setAuthOpen(true)
+		}
+	}
+
+	// Opens the editor asked for before signing in: on the email path once the
+	// dialog's sign-in lands, on the Google path when the page loads again.
+	const finishEdit = useEffectEvent(open)
+
+	useEffect(() => {
+		if (signedIn && takeAfterSignIn({ action: 'edit', recipeId })) finishEdit()
+	}, [signedIn, recipeId])
 
 	return (
 		<>
