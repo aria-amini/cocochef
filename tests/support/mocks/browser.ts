@@ -100,3 +100,17 @@ vi.mock('@/routes/__root', async () => {
 		}),
 	}
 })
+
+// Suggestions come from the mock source with nothing in the pantry: no server
+// round trip, and the same sections every run.
+vi.mock('@/lib/assistant/server', async () => {
+	const { mockSuggestions } = await import('@/lib/assistant/suggestions')
+
+	return {
+		suggestIngredientSections: ({
+			data,
+		}: {
+			data: Parameters<typeof mockSuggestions>[0]
+		}) => Promise.resolve({ sections: mockSuggestions(data) }),
+	}
+})

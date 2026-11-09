@@ -638,6 +638,7 @@ export function RecipeEditor({
 					key={seed.version}
 					defaultValue={seed.ingredients}
 					defaultCategories={seed.ingredientCategories}
+					title={name}
 				/>
 			</div>
 			<StepsField key={seed.version} defaultValue={seed.steps} />

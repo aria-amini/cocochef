@@ -1,5 +1,6 @@
 import { getAuthMocks, setMockSession } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
+import { expectIsolatedScreenshot } from '@tests/support/screenshot'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -913,5 +914,115 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByRole('textbox', { name: 'original link' }))
 			.not.toBeInTheDocument()
+	})
+
+	describe('suggested sections', () => {
+		test('offers a spice blend for chili and adds it whole', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen
+				.getByRole('textbox', { name: 'name' })
+				.fill('Weeknight chili')
+
+			const blend = screen.getByRole('region', {
+				name: 'suggested spice blend',
+			})
+
+			await expect.element(blend).toBeVisible()
+			await expect
+				.element(screen.getByRole('region', { name: 'suggested toppings' }))
+				.toBeVisible()
+			blend.element().scrollIntoView({ block: 'center', behavior: 'instant' })
+			await expectIsolatedScreenshot(blend, 'ingredient-suggestions')
+
+			await blend.getByRole('button', { name: 'add all' }).click()
+
+			await expect
+				.element(screen.getByRole('textbox', { name: 'Section heading 1' }))
+				.toHaveValue('spice blend')
+			await expect
+				.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+				.toHaveValue('3 tbsp chili powder')
+			await expect.element(blend).not.toBeInTheDocument()
+			await screen.getByRole('button', { name: 'save', exact: true }).click()
+			await expect
+				.poll(() => latest()?.ingredients?.slice(0, 2))
+				.toEqual(['## spice blend', '3 tbsp chili powder'])
+		})
+
+		test('adds one suggested line after what is written', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('textbox', { name: 'name' }).fill('chili')
+			await screen
+				.getByRole('combobox', { name: 'Ingredient 1' })
+				.fill('1 lb ground beef')
+			await screen
+				.getByRole('button', { name: 'Add 1 tsp smoked paprika' })
+				.click()
+
+			await expect
+				.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+				.toHaveValue('1 tsp smoked paprika')
+			await expect
+				.element(
+					screen.getByRole('button', { name: 'Add 1 tsp smoked paprika' }),
+				)
+				.not.toBeInTheDocument()
+			await expect
+				.element(screen.getByRole('button', { name: 'Add 2 tsp ground cumin' }))
+				.toBeVisible()
+		})
+
+		test('skips foods already written and keeps a dismissed section away', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('combobox', { name: 'Ingredient 1' }).fill('cumin')
+			await screen.getByRole('textbox', { name: 'name' }).fill('chili')
+			await expect
+				.element(
+					screen.getByRole('button', { name: 'Add 1 tsp dried oregano' }),
+				)
+				.toBeVisible()
+			await expect
+				.element(screen.getByRole('button', { name: 'Add 2 tsp ground cumin' }))
+				.not.toBeInTheDocument()
+
+			await screen
+				.getByRole('button', { name: 'Dismiss suggested toppings' })
+				.click()
+			await screen.getByRole('textbox', { name: 'name' }).fill('beef chili')
+
+			await expect
+				.element(screen.getByRole('region', { name: 'suggested spice blend' }))
+				.toBeVisible()
+			await expect
+				.element(screen.getByRole('region', { name: 'suggested toppings' }))
+				.not.toBeInTheDocument()
+		})
+
+		test('suggests nothing for a dish it does not know', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('textbox', { name: 'name' }).fill('toast')
+			await expect
+				.element(screen.getByRole('textbox', { name: 'name' }))
+				.toHaveValue('toast')
+			await expect
+				.element(screen.getByLabelText('suggestions'))
+				.not.toBeInTheDocument()
+		})
 	})
 })

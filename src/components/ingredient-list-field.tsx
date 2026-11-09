@@ -13,6 +13,7 @@ import {
 	IngredientCombobox,
 	type LineCompletion,
 } from '@/components/ingredient-combobox'
+import { IngredientSuggestions } from '@/components/ingredient-suggestions'
 import { SortableList, SortableRow } from '@/components/sortable-list'
 import { placeholderClassName } from '@/components/ui/input'
 import type { PantryCategory } from '@/lib/pantry/model'
@@ -85,10 +86,13 @@ const headingIcon = (
 export function IngredientListField({
 	defaultValue = [],
 	defaultCategories,
+	title,
 	onCountChange,
 }: {
 	defaultValue?: string[] | undefined
 	defaultCategories?: IngredientCategories | undefined
+	// The recipe's name, which suggests sections to fill in; none without it.
+	title?: string | undefined
 	onCountChange?: (count: number) => void
 }) {
 	const [rows, setRows] = useState(() =>
@@ -144,6 +148,21 @@ export function IngredientListField({
 			return current.length === 1 && only && !lineOf(only)
 				? [added, only]
 				: [...current, added]
+		})
+	}
+
+	// Suggested lines go after the last written row, past any blank ones, and
+	// fill a list that is still one blank row.
+	function addSuggested(lines: string[], heading?: string) {
+		const added = toRows(
+			heading ? [formatIngredientHeading(heading), ...lines] : lines,
+		)
+
+		setRows((current) => {
+			const filled = current.map((row) => Boolean(lineOf(row)))
+			const end = filled.lastIndexOf(true) + 1
+
+			return [...current.slice(0, end), ...added]
 		})
 	}
 
@@ -319,6 +338,13 @@ export function IngredientListField({
 							</li>
 						))}
 					</ul>
+					{title === undefined ? null : (
+						<IngredientSuggestions
+							title={title}
+							lines={rows.map(lineOf).filter(Boolean)}
+							onAdd={addSuggested}
+						/>
+					)}
 					<div className="flex gap-2">
 						<button
 							type="button"
