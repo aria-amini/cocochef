@@ -51,12 +51,15 @@ export function ListHeader({
 	arranging,
 	canArrange,
 	onArrange,
+	children,
 }: {
 	title: string
 	icon?: React.ReactNode
 	arranging: boolean
 	canArrange: boolean
 	onArrange: () => void
+	// More of the list's own actions, shown while not arranging.
+	children?: React.ReactNode
 }) {
 	return (
 		<div className="flex min-h-11 items-center gap-2">
@@ -71,6 +74,7 @@ export function ListHeader({
 				{icon}
 				{title}
 			</span>
+			{arranging ? null : children}
 			{canArrange || arranging ? (
 				<button
 					type="button"

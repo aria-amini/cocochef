@@ -31,15 +31,19 @@ const ghostButtonClassName =
 
 // Sections the recipe's name suggests, drawn faintly under the ingredients
 // until the cook takes or dismisses them: a whole section at once, or a line at
-// a time. What the cook already wrote is never suggested again.
+// a time. What the cook already wrote is never suggested again. Asking again
+// brings back what was dismissed, or says there is nothing to suggest.
 export function IngredientSuggestions({
 	title,
 	lines,
+	asked,
 	onAdd,
 }: {
 	title: string
 	// The rows as written, headings included.
 	lines: string[]
+	// Counts the cook's requests; a new count is a new request.
+	asked: number
 	onAdd: (lines: string[], heading?: string) => void
 }) {
 	const request: SuggestionRequest = {
@@ -51,6 +55,14 @@ export function IngredientSuggestions({
 	// Hidden at once, before the next answer arrives without them.
 	const [dismissed, setDismissed] = useState<Set<string>>(() => new Set())
 	const [taken, setTaken] = useState<Set<string>>(() => new Set())
+	// The name the cook last asked about, while the answer is theirs to read.
+	const [answered, setAnswered] = useState({ asked, title: '' })
+
+	if (asked !== answered.asked) {
+		setAnswered({ asked, title: title.trim() })
+		setDismissed(new Set())
+		setTaken(new Set())
+	}
 
 	const suggestions = useQuery({
 		queryKey: ['ingredient-suggestions', settled],
@@ -74,7 +86,14 @@ export function IngredientSuggestions({
 		}))
 		.filter((section) => section.ingredients.length)
 
-	if (!sections.length) return null
+	if (!sections.length)
+		return answered.title === request.title &&
+			!suggestions.isFetching &&
+			!suggestions.isPlaceholderData ? (
+			<output className="text-muted-foreground block px-3 text-sm">
+				nothing to suggest for {request.title} yet.
+			</output>
+		) : null
 
 	const dismiss = (heading: string) =>
 		setDismissed((current) =>

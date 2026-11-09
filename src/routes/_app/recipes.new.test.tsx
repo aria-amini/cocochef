@@ -1010,6 +1010,45 @@ describe('write a recipe', () => {
 				.not.toBeInTheDocument()
 		})
 
+		test('brings a dismissed section back when asked', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('textbox', { name: 'name' }).fill('chili')
+			await screen
+				.getByRole('button', { name: 'Dismiss suggested toppings' })
+				.click()
+			await expect
+				.element(screen.getByRole('region', { name: 'suggested toppings' }))
+				.not.toBeInTheDocument()
+
+			await screen.getByRole('button', { name: 'suggest' }).click()
+
+			await expect
+				.element(screen.getByRole('region', { name: 'suggested toppings' }))
+				.toBeVisible()
+		})
+
+		test('says so when asked about a dish it does not know', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('textbox', { name: 'name' }).fill('toast')
+			await screen.getByRole('button', { name: 'suggest' }).click()
+
+			await expect
+				.element(screen.getByText('nothing to suggest for toast yet.'))
+				.toBeVisible()
+			await screen.getByRole('textbox', { name: 'name' }).fill('toast soup')
+			await expect
+				.element(screen.getByText('nothing to suggest for toast yet.'))
+				.not.toBeInTheDocument()
+		})
+
 		test('suggests nothing for a dish it does not know', async () => {
 			const { screen } = await renderRoute({
 				path: '/recipes/new',

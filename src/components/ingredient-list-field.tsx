@@ -1,5 +1,11 @@
 import { arrayMove } from '@dnd-kit/sortable'
-import { CarrotIcon, DotsSixVertical, Plus, X } from '@phosphor-icons/react'
+import {
+	CarrotIcon,
+	DotsSixVertical,
+	Plus,
+	SparkleIcon,
+	X,
+} from '@phosphor-icons/react'
 import { Fragment, useEffect, useRef, useState } from 'react'
 
 import {
@@ -16,6 +22,7 @@ import {
 import { IngredientSuggestions } from '@/components/ingredient-suggestions'
 import { SortableList, SortableRow } from '@/components/sortable-list'
 import { placeholderClassName } from '@/components/ui/input'
+import { suggestionTitleMin } from '@/lib/assistant/suggestions'
 import type { PantryCategory } from '@/lib/pantry/model'
 import { blocksOf, moveBlock } from '@/lib/recipes/blocks'
 import {
@@ -100,6 +107,8 @@ export function IngredientListField({
 	)
 
 	const [arranging, setArranging] = useState(false)
+	// How many times the cook asked for suggestions.
+	const [asked, setAsked] = useState(0)
 	// The section heading in hand: while it is carried, sections fold to their
 	// headings so one moves as a whole.
 	const [carrying, setCarrying] = useState<string>()
@@ -248,7 +257,23 @@ export function IngredientListField({
 				arranging={arranging}
 				canArrange={written.length >= 2}
 				onArrange={toggleArranging}
-			/>
+			>
+				{title !== undefined && title.trim().length >= suggestionTitleMin ? (
+					<button
+						type="button"
+						onClick={() => setAsked((count) => count + 1)}
+						className="text-muted-foreground hover:text-foreground hover:bg-card inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors"
+					>
+						<SparkleIcon
+							size={14}
+							weight="duotone"
+							aria-hidden
+							className="text-kitchen-eggplant"
+						/>
+						suggest
+					</button>
+				) : null}
+			</ListHeader>
 			{rows.map((row) => (
 				<Fragment key={row.id}>
 					<input type="hidden" name="ingredient" value={lineOf(row)} />
@@ -342,6 +367,7 @@ export function IngredientListField({
 						<IngredientSuggestions
 							title={title}
 							lines={rows.map(lineOf).filter(Boolean)}
+							asked={asked}
 							onAdd={addSuggested}
 						/>
 					)}
