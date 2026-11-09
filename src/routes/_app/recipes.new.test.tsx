@@ -682,6 +682,7 @@ describe('write a recipe', () => {
 			.element(screen.getByRole('textbox', { name: 'Step 1' }))
 			.toHaveValue('butter it')
 
+		await screen.getByRole('button', { name: 'arrange steps' }).click()
 		screen.getByRole('button', { name: 'Reorder step 2' }).element().focus()
 		await userEvent.keyboard('[Space]')
 		await userEvent.keyboard('[ArrowUp]')
@@ -689,6 +690,51 @@ describe('write a recipe', () => {
 
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect.poll(() => latest()?.steps).toEqual(['toast it', 'butter it'])
+	})
+
+	test('moves a step with its sub-steps while arranging', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await screen.getByRole('textbox', { name: 'Step 1' }).fill('toast it')
+		await userEvent.keyboard('[Enter]')
+		await userEvent.keyboard('make the butter')
+		await userEvent.keyboard('[Enter]')
+		await userEvent.keyboard('soften it')
+		await screen.getByRole('button', { name: 'Make step 3 a sub-step' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 2.1' }))
+			.toHaveValue('soften it')
+
+		await screen.getByRole('button', { name: 'arrange steps' }).click()
+		screen.getByRole('button', { name: 'Reorder step 2' }).element().focus()
+		await userEvent.keyboard('[Space]')
+		// Steps fold to themselves while one is carried.
+		await expect
+			.element(
+				screen
+					.getByRole('list', { name: 'arranging steps' })
+					.getByText('soften it'),
+			)
+			.not.toBeInTheDocument()
+		await userEvent.keyboard('[ArrowUp]')
+		// A move toward the top of the page may scroll first; drop once it lands.
+		await expect
+			.element(screen.getByText('step 2 moved to position 1 of 2'))
+			.toBeInTheDocument()
+		await userEvent.keyboard('[Space]')
+		await screen.getByRole('button', { name: 'done arranging steps' }).click()
+
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 1.1' }))
+			.toHaveValue('soften it')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => latest()?.steps)
+			.toEqual(['make the butter', '- soften it', 'toast it'])
 	})
 
 	test('starts the next step on enter and skips empty ones', async () => {

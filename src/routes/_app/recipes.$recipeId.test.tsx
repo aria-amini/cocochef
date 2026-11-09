@@ -1,5 +1,8 @@
 import { renderRoute } from '@tests/support/render/route'
-import { expectPageScreenshot } from '@tests/support/screenshot'
+import {
+	expectIsolatedScreenshot,
+	expectPageScreenshot,
+} from '@tests/support/screenshot'
 import { phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
@@ -549,7 +552,7 @@ describe('recipe detail', () => {
 		expect(updateCalls.calls.at(-1)?.finalize).toBe(false)
 	})
 
-	test('reorders ingredients from the drag handle and removes rows', async () => {
+	test('reorders ingredients while arranging and removes rows', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso', '1 onion']
 
@@ -559,6 +562,10 @@ describe('recipe detail', () => {
 		})
 
 		await screen.getByRole('button', { name: 'edit' }).click()
+		await expect
+			.element(screen.getByRole('button', { name: 'Reorder ingredient 2' }))
+			.not.toBeInTheDocument()
+		await screen.getByRole('button', { name: 'arrange ingredients' }).click()
 		screen
 			.getByRole('button', { name: 'Reorder ingredient 2' })
 			.element()
@@ -567,11 +574,72 @@ describe('recipe detail', () => {
 		await userEvent.keyboard('[ArrowUp]')
 		await userEvent.keyboard('[Space]')
 		await screen.getByRole('button', { name: 'Remove ingredient 3' }).click()
+		await screen
+			.getByRole('button', { name: 'done arranging ingredients' })
+			.click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+			.toHaveValue('200 g pasta')
 		await screen.getByRole('button', { name: 'save' }).click()
 
 		await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
 		expect(updateCalls.calls.at(-1)).toMatchObject({
 			ingredients: ['1 tbsp miso', '200 g pasta'],
+		})
+	})
+
+	test('moves a section with its lines while arranging', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'salt',
+			'## sauce',
+			'1 tbsp miso',
+			'2 tbsp butter',
+			'## pasta',
+			'200 g pasta',
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('button', { name: 'arrange ingredients' }).click()
+		await expectIsolatedScreenshot(
+			screen.getByRole('group', { name: 'ingredients' }),
+			'ingredients-arranging',
+		)
+		screen.getByRole('button', { name: 'Reorder section 5' }).element().focus()
+		await userEvent.keyboard('[Space]')
+		// Sections fold to their headings while one is carried.
+		await expect
+			.element(
+				screen
+					.getByRole('list', { name: 'arranging ingredients' })
+					.getByText('2 tbsp butter'),
+			)
+			.not.toBeInTheDocument()
+		await userEvent.keyboard('[ArrowUp]')
+		await userEvent.keyboard('[Space]')
+		await expect
+			.element(screen.getByRole('button', { name: 'Reorder section 2' }))
+			.toBeVisible()
+		await screen
+			.getByRole('button', { name: 'done arranging ingredients' })
+			.click()
+		await screen.getByRole('button', { name: 'save' }).click()
+
+		await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
+		expect(updateCalls.calls.at(-1)).toMatchObject({
+			ingredients: [
+				'salt',
+				'## pasta',
+				'200 g pasta',
+				'## sauce',
+				'1 tbsp miso',
+				'2 tbsp butter',
+			],
 		})
 	})
 
