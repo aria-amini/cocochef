@@ -1,4 +1,5 @@
 import { renderRoute } from '@tests/support/render/route'
+import { expectIsolatedScreenshot } from '@tests/support/screenshot'
 import { desktopOnly, isPhone, phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
@@ -93,7 +94,9 @@ async function openBox() {
 
 	await expect.element(input).toHaveFocus()
 
-	return { ...rendered, input }
+	const popup = rendered.screen.getByRole('dialog', { name: 'find a recipe' })
+
+	return { ...rendered, input, popup }
 }
 
 describe('the one box', () => {
@@ -778,5 +781,168 @@ describe('the one box', () => {
 		await expect
 			.element(screen.getByRole('dialog', { name: 'find a recipe' }))
 			.not.toBeInTheDocument()
+	})
+})
+
+// The finder popup alone, in each state it can show.
+describe('the one box, captured', () => {
+	beforeEach(() => {
+		shelfState.recipes = []
+		server.search.mockReset().mockResolvedValue({ warming: false, results: [] })
+		server.popular
+			.mockReset()
+			.mockResolvedValue({ warming: false, results: [] })
+		server.import
+			.mockReset()
+			.mockRejectedValue(new Error('Import failed. Please retry.'))
+		server.save.mockReset().mockResolvedValue({})
+		server.getRecipe.mockReset().mockResolvedValue(null)
+	})
+
+	test('before anything is typed', async () => {
+		shelfState.recipes = [
+			shelfRecipe('draft-1', 'shakshuka', { finalizedAt: null }),
+			miso,
+		]
+		server.popular.mockResolvedValue({
+			warming: false,
+			results: [found({ recipeId: 'shared-1', title: 'marry me chicken' })],
+		})
+
+		const { screen, popup } = await openBox()
+
+		await expect
+			.element(screen.getByRole('option', { name: /marry me chicken/ }))
+			.toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder')
+	})
+
+	test('with every way to import open', async () => {
+		const { screen, popup } = await openBox()
+
+		await screen.getByRole('button', { name: 'import' }).click()
+		await expect
+			.element(screen.getByRole('option', { name: /paste text/ }))
+			.toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder-import')
+	})
+
+	test('with shelf and online results', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({ recipeId: miso.id, title: miso.title, saved: true }),
+				found({
+					recipeId: 'shared-1',
+					title: 'lemon pasta',
+					ingredientMatches: ['pasta'],
+				}),
+				found({
+					title: 'pasta e fagioli',
+					url: 'https://www.bbcgoodfood.com/recipes/pasta-e-fagioli',
+					siteName: 'BBC Good Food',
+				}),
+			],
+		})
+
+		server.getRecipe.mockResolvedValue({
+			...miso,
+			ingredients: ['200g spaghetti', '2 tbsp white miso', '3 tbsp butter'],
+			steps: ['boil', 'toss'],
+			saved: true,
+			owned: true,
+		})
+
+		const { screen, input, popup } = await openBox()
+
+		await input.fill('pasta')
+		await expect
+			.element(screen.getByRole('option', { name: /pasta e fagioli/ }))
+			.toBeVisible()
+
+		if (!isPhone())
+			await expect.element(screen.getByText('2 tbsp white miso')).toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder-results')
+	})
+
+	test('while it looks online', async () => {
+		server.search.mockReturnValue(new Promise(() => {}))
+
+		const { screen, input, popup } = await openBox()
+
+		await input.fill('ramen')
+		await expect.element(screen.getByText('looking for recipes…')).toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder-searching')
+	})
+
+	test('when nothing is found', async () => {
+		const { screen, input, popup } = await openBox()
+
+		await input.fill('ramen')
+		await expect
+			.element(screen.getByText('no other recipes called that yet'))
+			.toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder-nothing-found')
+	})
+
+	test('when the search fails', async () => {
+		server.search.mockRejectedValue(new Error('down'))
+
+		const { screen, input, popup } = await openBox()
+
+		await input.fill('ramen')
+		await expect
+			.element(screen.getByText("couldn't search recipes — try again"))
+			.toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder-search-failed')
+	})
+
+	test('with a pasted link', async () => {
+		const { screen, input, popup } = await openBox()
+
+		await input.fill('https://example.com/dal')
+		await expect
+			.element(screen.getByRole('option', { name: /import this recipe/ }))
+			.toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder-link')
+	})
+
+	test('previewing a recipe', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
+		})
+		server.getRecipe.mockResolvedValue({
+			...shelfRecipe('shared-1', 'lemon chicken', { userId: null }),
+			ingredients: ['6 chicken thighs', '1 lemon'],
+			steps: ['roast'],
+			saved: false,
+			owned: false,
+		})
+
+		const { screen, input, popup } = await openBox()
+
+		await input.fill('lemon')
+		await screen.getByRole('option', { name: /lemon chicken/ }).click()
+		await expect.element(screen.getByText('6 chicken thighs')).toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder-preview')
+	})
+
+	test('previewing a page it could not read', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({ url: 'https://example.com/roundup', title: 'lemon ideas' }),
+			],
+		})
+
+		const { screen, input, popup } = await openBox()
+
+		await input.fill('lemon')
+		await screen.getByRole('option', { name: /lemon ideas/ }).click()
+		await expect
+			.element(screen.getByRole('link', { name: /see the page/ }))
+			.toBeVisible()
+		await expectIsolatedScreenshot(popup, 'finder-preview-failed')
 	})
 })

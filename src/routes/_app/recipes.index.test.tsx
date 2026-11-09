@@ -1,5 +1,5 @@
-import { expectScreenshot } from '@aamini/config/vitest/browser'
 import { renderRoute } from '@tests/support/render/route'
+import { expectPageScreenshot } from '@tests/support/screenshot'
 import { desktopOnly, isPhone } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
@@ -392,8 +392,8 @@ describe('recipes shelf', () => {
 		expect(draft.element().textContent).toBe('draftdal')
 	})
 
-	// Full-page captures of the shelf. The sidebar on desktop, the tab bar and
-	// round add button on a phone come along with the content.
+	// Full-height captures of the shelf page alone. The app shell around it has
+	// its own baselines.
 	test('captures the empty shelf', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes',
@@ -404,7 +404,7 @@ describe('recipes shelf', () => {
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.toBeVisible()
 		hideShortcutHints()
-		await expectScreenshot(screen.container, 'shelf-empty', {
+		await expectPageScreenshot(screen.container, 'shelf-empty', {
 			fullHeight: true,
 		})
 	})
@@ -441,40 +441,6 @@ describe('recipes shelf', () => {
 			.element(screen.getByRole('link', { name: /dal/ }))
 			.toBeVisible()
 		hideShortcutHints()
-		await expectScreenshot(screen.container, 'shelf', { fullHeight: true })
-	})
-
-	// The finder opens over the shelf, so its place, the dimmed page behind it and
-	// what stacks above it are compared as one screen.
-	test('captures the finder over the shelf', async () => {
-		shelfState.recipes = [
-			{ ...dal, id: 'draft-1', title: 'shakshuka', finalizedAt: null },
-			misoButterPasta,
-		]
-		discovery.popular.mockResolvedValue({
-			warming: false,
-			results: [
-				{
-					recipeId: 'shared-1',
-					title: 'marry me chicken',
-					siteName: 'Example',
-					saved: false,
-					draft: false,
-					ingredientMatches: [],
-				},
-			],
-		})
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByRole('button', { name: /search any recipe/i }).click()
-		await expect
-			.element(screen.getByRole('option', { name: /marry me chicken/ }))
-			.toBeVisible()
-		hideShortcutHints()
-		await expectScreenshot(screen.container, 'finder')
+		await expectPageScreenshot(screen.container, 'shelf', { fullHeight: true })
 	})
 })
