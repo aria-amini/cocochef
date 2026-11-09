@@ -148,7 +148,7 @@ describe('recipes shelf', () => {
 			.toHaveFocus()
 	})
 
-	test('offers only the tile on an empty shelf, and the buttons return with a recipe', async () => {
+	test('holds back the import link on an empty shelf, but not the add button', async () => {
 		const { screen, router, queryClient } = await renderRoute({
 			path: '/recipes',
 			session: testSession,
@@ -157,10 +157,10 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.toBeVisible()
-		// The tile already offers every way to add, so nothing repeats it.
+		// The tile already says it imports links; adding stays where it always is.
 		await expect
 			.element(screen.getByRole('button', { name: 'add recipe' }))
-			.not.toBeInTheDocument()
+			.toBeVisible()
 		await expect
 			.element(screen.getByRole('button', { name: 'import link' }))
 			.not.toBeInTheDocument()

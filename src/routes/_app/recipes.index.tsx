@@ -9,7 +9,6 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useSyncExternalStore } from 'react'
 
-import { useHideAddButton } from '@/components/app-nav'
 import { ImportLinkButton } from '@/components/import-link'
 import {
 	PopularRecipes,
@@ -64,8 +63,6 @@ function Shelf() {
 
 	const isEmpty = shelfRecipes.length === 0
 
-	useHideAddButton(isEmpty)
-
 	return (
 		<main className="min-w-0 flex-1">
 			<motion.div
@@ -78,14 +75,9 @@ function Shelf() {
 						<FinderBox onOpen={() => find()} />
 						<RecipeSources />
 					</div>
-					<div
-						className={cn(
-							'hidden items-center gap-3',
-							// The empty shelf's tile already offers every way to add.
-							!isEmpty && 'md:flex',
-						)}
-					>
-						<ImportLinkButton onClick={() => importLink()} />
+					<div className="hidden items-center gap-3 md:flex">
+						{/* The empty shelf's tile already says it can import a link. */}
+						{isEmpty ? null : <ImportLinkButton onClick={() => importLink()} />}
 						{/* The page's one solid action: every way to add a recipe. */}
 						<button
 							type="button"

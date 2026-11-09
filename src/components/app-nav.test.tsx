@@ -195,15 +195,16 @@ describe('app nav', () => {
 		}
 	})
 
-	test('leaves adding to the empty shelf tile, on phones', async () => {
+	test('keeps the add button beside the empty shelf tile', async () => {
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
 
 		await expect
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.toBeVisible()
+		// Where adding lives from the first visit on, so it never moves.
 		await expect
 			.element(screen.getByRole('button', { name: 'add recipe' }))
-			.not.toBeInTheDocument()
+			.toBeVisible()
 	})
 
 	phoneOnly(

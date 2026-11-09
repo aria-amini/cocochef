@@ -30,53 +30,30 @@ const navFeedbackClassName =
 const navIconFeedbackClassName =
 	'group-data-[transitioning=transitioning]:animate-pulse motion-reduce:animate-none'
 
-// A count of the screens asking to hide something, readable during render.
-function createHiders() {
-	let hiders = 0
+let hiders = 0
 
-	const listeners = new Set<() => void>()
+const hiderListeners = new Set<() => void>()
 
-	const notify = () => listeners.forEach((listener) => listener())
+function subscribeToHiders(listener: () => void) {
+	hiderListeners.add(listener)
 
-	function useHide(hide: boolean) {
-		useEffect(() => {
-			if (!hide) return
-
-			hiders++
-			notify()
-
-			return () => {
-				hiders--
-				notify()
-			}
-		}, [hide])
-	}
-
-	function useHidden() {
-		return useSyncExternalStore(
-			(listener) => {
-				listeners.add(listener)
-
-				return () => listeners.delete(listener)
-			},
-			() => hiders > 0,
-			() => false,
-		)
-	}
-
-	return { useHide, useHidden }
+	return () => hiderListeners.delete(listener)
 }
 
-const tabBarHiders = createHiders()
-
-const addButtonHiders = createHiders()
-
 // A screen that pins its own bottom actions calls this while they are showing.
-export const useHideTabBar = tabBarHiders.useHide
+export function useHideTabBar(hide: boolean) {
+	useEffect(() => {
+		if (!hide) return
 
-// A screen whose own content is the way to add a recipe calls this, so the round
-// button doesn't repeat it or cover that content.
-export const useHideAddButton = addButtonHiders.useHide
+		hiders++
+		hiderListeners.forEach((listener) => listener())
+
+		return () => {
+			hiders--
+			hiderListeners.forEach((listener) => listener())
+		}
+	}, [hide])
+}
 
 // Every page inside the app shell gets the tab bar. A route opts out, or adds
 // the shelf's round button, with its `tabBar` static data; the deepest match
@@ -85,7 +62,11 @@ export const useHideAddButton = addButtonHiders.useHide
 export function useTabBar(): TabBarMode {
 	const matches = useMatches()
 
-	const hidden = tabBarHiders.useHidden()
+	const hidden = useSyncExternalStore(
+		subscribeToHiders,
+		() => hiders > 0,
+		() => false,
+	)
 
 	if (!matches.some((match) => match.routeId === '/_app')) return 'none'
 
@@ -276,7 +257,6 @@ function TabBar() {
 	const { find } = useRecipeActions()
 	const lastRecipe = useLastOpenedRecipe()
 	const tab = useActiveTab()
-	const addHidden = addButtonHiders.useHidden()
 
 	if (!visible) return null
 
@@ -318,7 +298,7 @@ function TabBar() {
 					)
 				})}
 			</nav>
-			{mode === 'bar-fab' && !addHidden ? (
+			{mode === 'bar-fab' ? (
 				<button
 					type="button"
 					aria-label="add recipe"
