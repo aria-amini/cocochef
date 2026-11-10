@@ -1,9 +1,11 @@
 import { CopyIcon, ExportIcon, ShoppingCartIcon } from '@phosphor-icons/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
 import { buttonVariants } from '@/components/ui/button'
 import { groceryList } from '@/lib/groceries/list'
 import { addGroceries } from '@/lib/groceries/server'
@@ -82,6 +84,7 @@ export function GrocerySend({
 	have: ReadonlySet<string>
 }) {
 	const navigate = useNavigate()
+	const client = useQueryClient()
 	const items = groceryList(lines, have)
 	const text = items.join('\n')
 	const [adding, setAdding] = useState(false)
@@ -100,6 +103,9 @@ export function GrocerySend({
 				})),
 			})
 
+			// The groceries tab says how many landed, without leaving the recipe.
+			pulseGroceries(added.length)
+			void client.invalidateQueries({ queryKey: groceryCountKey })
 			toast.success(
 				added.length
 					? `${added.length} added to groceries`
@@ -138,7 +144,9 @@ export function GrocerySend({
 	}
 
 	return (
-		<div className="pb-bar pointer-events-none sticky bottom-0 z-10 flex justify-center pt-3">
+		// On a phone it floats above the tab bar, which stays, so the groceries
+		// tab can say what landed.
+		<div className="pb-bar max-md:bottom-fab pointer-events-none sticky bottom-0 z-10 flex justify-center pt-3 max-md:pb-0">
 			<div
 				role="toolbar"
 				aria-label="send the grocery list"

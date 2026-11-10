@@ -8,7 +8,6 @@ import {
 } from '@phosphor-icons/react'
 import { Fragment, useState } from 'react'
 
-import { useHideTabBar } from '@/components/app-nav'
 import { GrocerySend, useHave } from '@/components/grocery-send'
 import { IngredientText } from '@/components/ingredient-text'
 import { Marked } from '@/components/marked'
@@ -70,8 +69,6 @@ export function RecipeReader({
 	// Shopping, a tick means the kitchen has it, and the rest is sent on.
 	const [shopping, setShopping] = useState(false)
 	const { have, load, toggle: toggleHave } = useHave(recipe.id)
-
-	useHideTabBar(shopping)
 
 	const toggle = (item: string) =>
 		setChecked((current) => {

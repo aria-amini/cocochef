@@ -22,6 +22,7 @@ const server = vi.hoisted(() => ({
 
 vi.mock('@/lib/groceries/server', () => ({
 	listGroceries: async () => [],
+	countWaitingGroceries: async () => 0,
 	addGroceries: vi.fn(),
 	setGroceryChecked: vi.fn(),
 	renameGrocery: vi.fn(),

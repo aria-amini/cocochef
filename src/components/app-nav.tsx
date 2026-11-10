@@ -8,6 +8,7 @@ import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
+import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { useLastOpenedRecipe } from '@/lib/recipes/last-opened'
 import { cn } from '@/lib/utils/ui'
@@ -206,6 +207,12 @@ function Sidebar() {
 							className={navIconFeedbackClassName}
 						/>
 						{label}
+						{label === 'groceries' ? (
+							<>
+								<GroceryCount />
+								<GroceryBadge className="ml-auto" />
+							</>
+						) : null}
 					</Link>
 				)
 			})}
@@ -296,15 +303,22 @@ function TabBar() {
 							)}
 						>
 							<span
-								aria-hidden
 								className={cn(
-									'grid h-6 w-8 place-items-center',
+									'relative grid h-6 w-8 place-items-center',
 									navIconFeedbackClassName,
 								)}
 							>
-								<Icon size={22} weight={active ? 'fill' : 'regular'} />
+								<Icon
+									size={22}
+									weight={active ? 'fill' : 'regular'}
+									aria-hidden
+								/>
+								{label === 'groceries' ? (
+									<GroceryBadge className="absolute -top-1 -right-1.5" />
+								) : null}
 							</span>
 							{label}
+							{label === 'groceries' ? <GroceryCount /> : null}
 						</Link>
 					)
 				})}

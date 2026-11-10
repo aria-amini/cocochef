@@ -10,6 +10,7 @@ import { user } from '@/db/schema'
 import {
 	addGroceriesForUser,
 	clearCheckedGroceriesForUser,
+	countWaitingGroceriesForUser,
 	deleteGroceryForUser,
 	listGroceriesForUser,
 	renameGroceryForUser,
@@ -56,6 +57,23 @@ describe('groceries', () => {
 			['milk', 'dairy'],
 		])
 		expect(items[1]?.recipeTitle).toBe('pasta')
+	})
+
+	test('counts only the cook’s items still to buy', async ({ db }) => {
+		const userId = await seedUser(db)
+		const otherId = await seedUser(db)
+
+		const [onion] = await addGroceriesForUser(
+			userId,
+			[{ text: 'onion' }, { text: 'milk' }, { text: 'paprika' }],
+			db,
+		)
+
+		if (!onion) throw new Error('onion was not added')
+		await addGroceriesForUser(otherId, [{ text: 'eggs' }], db)
+		await setGroceryCheckedForUser(userId, onion.id, true, db)
+
+		expect(await countWaitingGroceriesForUser(userId, db)).toBe(2)
 	})
 
 	test('puts a bought item back on the list when it is needed again', async ({

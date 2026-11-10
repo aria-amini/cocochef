@@ -1,12 +1,13 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
-import { requireUserId } from '@/lib/auth/session'
+import { getCurrentSession, requireUserId } from '@/lib/auth/session'
 
 import { groceryFields, groceryInputs } from './model'
 import {
 	addGroceriesForUser,
 	clearCheckedGroceriesForUser,
+	countWaitingGroceriesForUser,
 	deleteGroceryForUser,
 	listGroceriesForUser,
 	renameGroceryForUser,
@@ -17,6 +18,16 @@ const itemId = z.object({ id: z.string().min(1) })
 
 export const listGroceries = createServerFn({ method: 'GET' }).handler(
 	async () => listGroceriesForUser(await requireUserId()),
+)
+
+// What the nav's badge shows on every page. A visitor with no session has
+// nothing to buy, and asking must not start a session for them.
+export const countWaitingGroceries = createServerFn({ method: 'GET' }).handler(
+	async () => {
+		const session = await getCurrentSession()
+
+		return session ? countWaitingGroceriesForUser(session.user.id) : 0
+	},
 )
 
 export const addGroceries = createServerFn({ method: 'POST' })

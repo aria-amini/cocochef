@@ -96,8 +96,11 @@ const groceryCalls = vi.hoisted(() => {
 	return calls
 })
 
+const groceryWaiting = vi.hoisted(() => ({ count: 0 }))
+
 vi.mock('@/lib/groceries/server', () => ({
 	listGroceries: () => Promise.resolve([]),
+	countWaitingGroceries: () => Promise.resolve(groceryWaiting.count),
 	addGroceries: ({ data }: { data: GroceryInput[] }) => {
 		groceryCalls.push(data)
 
@@ -332,6 +335,12 @@ describe('recipe detail', () => {
 		groceryCalls.length = 0
 		await screen.getByRole('button', { name: 'add to groceries' }).click()
 		await expect.element(page.getByText('2 added to groceries')).toBeVisible()
+		// The groceries tab says how many landed, without leaving the recipe.
+		await expect
+			.element(
+				screen.getByRole('navigation', { name: 'Primary' }).getByText('+2'),
+			)
+			.toBeVisible()
 		expect(groceryCalls).toEqual([
 			[
 				{

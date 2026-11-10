@@ -36,6 +36,8 @@ const make = (text: string, extra: Partial<Item> = {}): Item => ({
 
 vi.mock('@/lib/groceries/server', () => ({
 	listGroceries: () => Promise.resolve(list.items),
+	countWaitingGroceries: () =>
+		Promise.resolve(list.items.filter((item) => !item.checkedAt).length),
 	addGroceries: ({ data }: { data: { text: string }[] }) => {
 		const added = data.map((row) => make(row.text))
 		list.items = [...list.items, ...added]

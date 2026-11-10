@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm'
+import { and, asc, count, eq, isNotNull, isNull } from 'drizzle-orm'
 
 import { type Database, getDb } from '@/db/connection'
 import { groceryItems } from '@/db/schema'
@@ -17,6 +17,19 @@ export async function listGroceriesForUser(
 		.from(groceryItems)
 		.where(eq(groceryItems.userId, userId))
 		.orderBy(asc(groceryItems.createdAt))
+}
+
+// How many items are still to buy.
+export async function countWaitingGroceriesForUser(
+	userId: string,
+	database: Database = getDb(),
+) {
+	const [row] = await database
+		.select({ waiting: count() })
+		.from(groceryItems)
+		.where(and(eq(groceryItems.userId, userId), isNull(groceryItems.checkedAt)))
+
+	return row?.waiting ?? 0
 }
 
 // Adds what is not already waiting on the list, each shelved in its aisle.

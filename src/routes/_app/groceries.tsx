@@ -1,4 +1,5 @@
 import { CopyIcon, ExportIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import {
 	startTransition,
@@ -9,6 +10,7 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 
+import { groceryCountKey } from '@/components/grocery-badge'
 import { PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { buttonVariants } from '@/components/ui/button'
@@ -72,6 +74,7 @@ function applyChange(items: Item[], change: Change): Item[] {
 // in the cart below it. Recipes add to it; anything else is typed in.
 function Groceries() {
 	const router = useRouter()
+	const client = useQueryClient()
 	const saved = Route.useLoaderData()
 	const [items, apply] = useOptimistic(saved, applyChange)
 
@@ -88,7 +91,10 @@ function Groceries() {
 				toast.error('could not update the list. try again')
 			}
 
-			await router.invalidate()
+			await Promise.all([
+				router.invalidate(),
+				client.invalidateQueries({ queryKey: groceryCountKey }),
+			])
 		})
 	}
 
