@@ -264,7 +264,7 @@ describe('write a recipe', () => {
 		await expectIsolatedScreenshot(intro, 'new-recipe-intro')
 	})
 
-	test('sorts a whole recipe pasted into the name', async () => {
+	test('sorts a whole recipe pasted into the name, with undo', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
@@ -417,17 +417,6 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByRole('textbox', { name: 'name' }))
 			.toHaveValue('ramen')
-	})
-
-	test('lines the photo up with the name and its links', async () => {
-		const { screen } = await renderRoute({
-			path: '/recipes/new',
-			session: testSession,
-		})
-
-		const intro = screen.getByRole('group', { name: 'about the recipe' })
-		await expect.element(intro).toBeVisible()
-		await expectIsolatedScreenshot(intro, 'new-recipe-intro')
 	})
 
 	test('sorts a whole recipe pasted into the name', async () => {
