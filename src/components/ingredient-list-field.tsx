@@ -35,7 +35,12 @@ import {
 } from '@/lib/assistant/server'
 import type { PantryCategory } from '@/lib/pantry/model'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
-import { type Block, blocksOf, gatherBlock } from '@/lib/recipes/blocks'
+import {
+	type Block,
+	blocksOf,
+	gatherBlock,
+	moveBlockTo,
+} from '@/lib/recipes/blocks'
 import {
 	formatIngredientHeading,
 	ingredientHeading,
@@ -915,10 +920,15 @@ export function IngredientListField({
 					describe={describe}
 					onMove={(from, to) =>
 						change((current) => {
-							const moving = rows[from]
-							const target = rows[to]
+							const moving = shown[from]
+							const target = shown[to]
 
 							if (!moving || !target) return current
+
+							// A section's name carries its whole card, to wherever the
+							// card it is dropped in stands.
+							if (moving.heading)
+								return moveBlockTo(current, isHeading, moving, target)
 
 							return arrayMove(
 								current,
@@ -930,9 +940,22 @@ export function IngredientListField({
 					overlay={(id) => {
 						const row = rows.find((candidate) => candidate.id === id)
 
+						// A section carries its lines, so it says how many.
+						const under = row?.heading
+							? (blocks
+									.find((block) => block.head === row)
+									?.rows.filter((line) => !isBlank(line)).length ?? 0)
+							: 0
+
 						return row ? (
 							<div className="flex pl-7">
-								<RowFace row={row} />
+								<RowFace row={row}>
+									{under ? (
+										<span className="text-muted-foreground text-sm font-semibold">
+											+{under}
+										</span>
+									) : null}
+								</RowFace>
 							</div>
 						) : null
 					}}

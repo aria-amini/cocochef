@@ -48,6 +48,26 @@ export function moveBlock<T>(
 	return flattenBlocks(rest)
 }
 
+// Moves a head and everything under it to the block another row is in, where
+// that block's head stands. A row among the rows with no head sends it to the
+// first head, since those rows stay first.
+export function moveBlockTo<T>(
+	rows: readonly T[],
+	isHead: (row: T, index: number) => boolean,
+	from: T,
+	to: T,
+): T[] {
+	const blocks = blocksOf(rows, isHead)
+
+	const head =
+		blocks.find((block) => block.head === to || block.rows.includes(to))
+			?.head ?? blocks.find((block) => block.head !== undefined)?.head
+
+	return head === undefined || head === from
+		? [...rows]
+		: moveBlock(rows, isHead, from, head)
+}
+
 // Gathers the picked rows under a new head, in their order. The new block goes
 // right after the block the first picked row came from, so no block it passes
 // is split, and rows without a head stay first.

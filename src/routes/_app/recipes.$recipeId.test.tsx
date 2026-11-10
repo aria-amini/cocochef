@@ -627,6 +627,42 @@ describe('recipe detail', () => {
 		})
 	})
 
+	test('moves a whole section when it is taken by its name', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'## sauce',
+			'1 tbsp miso',
+			'2 tbsp butter',
+			'## pasta',
+			'200 g pasta',
+		]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		screen
+			.getByRole('button', { name: 'Move group 4, pasta' })
+			.element()
+			.focus()
+		await userEvent.keyboard('[Space]')
+		// Dropped on the card above, it goes where that card's name stands.
+		await userEvent.keyboard('[ArrowUp]')
+		await userEvent.keyboard('[Space]')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				ingredients: [
+					'## pasta',
+					'200 g pasta',
+					'## sauce',
+					'1 tbsp miso',
+					'2 tbsp butter',
+				],
+			})
+	})
+
 	test('leaves the lines unopened when a line is taken by its dots', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso']

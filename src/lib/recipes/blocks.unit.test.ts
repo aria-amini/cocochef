@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import { blocksOf, flattenBlocks, gatherBlock, moveBlock } from './blocks'
+import {
+	blocksOf,
+	flattenBlocks,
+	gatherBlock,
+	moveBlock,
+	moveBlockTo,
+} from './blocks'
 
 // Upper case marks a head: "A" heads "a1" and "a2".
 const isHead = (row: string) => row === row.toUpperCase()
@@ -55,6 +61,41 @@ describe('moveBlock', () => {
 	test('leaves the rows alone for an unknown or same head', () => {
 		expect(moveBlock(rows, isHead, 'A', 'A')).toEqual(rows)
 		expect(moveBlock(rows, isHead, 'Z', 'A')).toEqual(rows)
+	})
+})
+
+describe('moveBlockTo', () => {
+	const rows = ['x', 'A', 'a1', 'a2', 'B', 'b1']
+
+	test('takes a block to where the block of the row it lands on stands', () => {
+		expect(moveBlockTo(rows, isHead, 'A', 'b1')).toEqual([
+			'x',
+			'B',
+			'b1',
+			'A',
+			'a1',
+			'a2',
+		])
+		expect(moveBlockTo(rows, isHead, 'B', 'a2')).toEqual([
+			'x',
+			'B',
+			'b1',
+			'A',
+			'a1',
+			'a2',
+		])
+	})
+
+	test('stays put on its own rows, and below the rows with no head', () => {
+		expect(moveBlockTo(rows, isHead, 'A', 'a1')).toEqual(rows)
+		expect(moveBlockTo(rows, isHead, 'B', 'x')).toEqual([
+			'x',
+			'B',
+			'b1',
+			'A',
+			'a1',
+			'a2',
+		])
 	})
 })
 
