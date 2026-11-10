@@ -3,10 +3,13 @@ import {
 	GlobeHemisphereWestIcon,
 	LinkSimpleIcon,
 	LockSimpleIcon,
+	ShoppingCartIcon,
 	YoutubeLogoIcon,
 } from '@phosphor-icons/react'
 import { Fragment, useState } from 'react'
 
+import { useHideTabBar } from '@/components/app-nav'
+import { GrocerySend, useHave } from '@/components/grocery-send'
 import { IngredientText } from '@/components/ingredient-text'
 import { Marked } from '@/components/marked'
 import { PageTitle } from '@/components/page'
@@ -48,6 +51,7 @@ export function RecipeReader({
 	authorship,
 	status,
 	heading = 'h1',
+	shop = false,
 }: {
 	recipe: ReadableRecipe
 	// What the reader can do with it, under the title: save, edit, share.
@@ -59,8 +63,15 @@ export function RecipeReader({
 		| undefined
 	terms?: string[]
 	heading?: 'h1' | 'h2'
+	// Whether the ingredients can turn into a shopping list.
+	shop?: boolean
 }) {
 	const [checked, setChecked] = useState<Set<string>>(() => new Set())
+	// Shopping, a tick means the kitchen has it, and the rest is sent on.
+	const [shopping, setShopping] = useState(false)
+	const { have, load, toggle: toggleHave } = useHave(recipe.id)
+
+	useHideTabBar(shopping)
 
 	const toggle = (item: string) =>
 		setChecked((current) => {
@@ -201,7 +212,31 @@ export function RecipeReader({
 				<section>
 					<div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
 						<h2 className={sectionLabelClassName}>ingredients</h2>
+						{shop && recipe.ingredients.length ? (
+							<button
+								type="button"
+								aria-pressed={shopping}
+								onClick={() => {
+									if (!shopping) load()
+									setShopping(!shopping)
+								}}
+								className={cn(
+									'inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors',
+									shopping
+										? 'bg-kitchen-yolk border-transparent'
+										: 'border-input hover:bg-muted/60',
+								)}
+							>
+								<ShoppingCartIcon size={16} weight="bold" aria-hidden />
+								{shopping ? 'done shopping' : 'shop for this'}
+							</button>
+						) : null}
 					</div>
+					{shopping ? (
+						<p className="text-muted-foreground mt-1 text-sm">
+							tick what you already have. the rest is your list.
+						</p>
+					) : null}
 
 					<div className="mt-2">
 						<table aria-label="ingredients" className="w-full">
@@ -224,7 +259,11 @@ export function RecipeReader({
 										if (row.kind !== 'ingredient') return null
 										const item = `i${row.index}`
 										const id = `ingredient-${row.index}`
-										const done = checked.has(item)
+
+										const done = shopping
+											? have.has(row.text)
+											: checked.has(item)
+
 										const look = ingredientItemLook(row.text)
 
 										return (
@@ -237,10 +276,19 @@ export function RecipeReader({
 														<input
 															type="checkbox"
 															id={id}
-															aria-label={row.text}
+															aria-label={
+																shopping ? `have ${row.text}` : row.text
+															}
 															checked={done}
-															onChange={() => toggle(item)}
-															className="accent-kitchen-basil mt-1 size-6 shrink-0"
+															onChange={() =>
+																shopping ? toggleHave(row.text) : toggle(item)
+															}
+															className={cn(
+																'mt-1 size-6 shrink-0',
+																shopping
+																	? 'accent-kitchen-yolk'
+																	: 'accent-kitchen-basil',
+															)}
 														/>
 														<span
 															className="mt-1 flex size-6 shrink-0 items-center justify-center"
@@ -273,6 +321,14 @@ export function RecipeReader({
 							</tbody>
 						</table>
 					</div>
+					{shopping ? (
+						<GrocerySend
+							recipeId={recipe.id}
+							title={recipe.title}
+							lines={recipe.ingredients}
+							have={have}
+						/>
+					) : null}
 				</section>
 				<section>
 					<div className="flex min-h-11 items-center">

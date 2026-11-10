@@ -9,3 +9,5 @@ export * from './pantry'
 export * from './cooking'
 
 export * from './sharing'
+
+export * from './groceries'

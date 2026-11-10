@@ -28,6 +28,15 @@ vi.mock('@/lib/pantry/server', () => ({
 	deletePantryItem: vi.fn(),
 }))
 
+vi.mock('@/lib/groceries/server', () => ({
+	listGroceries: async () => [],
+	addGroceries: vi.fn(),
+	setGroceryChecked: vi.fn(),
+	renameGrocery: vi.fn(),
+	deleteGrocery: vi.fn(),
+	clearCheckedGroceries: vi.fn(),
+}))
+
 vi.mock('@/lib/shelf/server', () => ({
 	getShelfStats: async () => ({ recipes: 2, pantryItems: 3 }),
 }))
@@ -80,7 +89,7 @@ describe('app nav', () => {
 			.toHaveAttribute('href', '/coming-soon/ingredients')
 		await expect
 			.element(nav.getByRole('link', { name: 'groceries' }))
-			.toHaveAttribute('href', '/coming-soon/groceries')
+			.toHaveAttribute('href', '/groceries')
 		expect(router.state.location.pathname).toBe('/recipes')
 		expect(
 			nav
@@ -91,7 +100,7 @@ describe('app nav', () => {
 		).toEqual(['recipes', 'ingredients', 'groceries'])
 	})
 
-	test.each(['ingredients', 'groceries'])(
+	test.each(['ingredients'])(
 		'opens the %s WIP page from navigation',
 		async (label) => {
 			const { screen } = await renderRoute({
@@ -113,6 +122,18 @@ describe('app nav', () => {
 				.toBeVisible()
 		},
 	)
+
+	test('opens the grocery list from navigation', async () => {
+		const { screen } = await renderRoute({ path: '/recipes', session: member })
+
+		await screen
+			.getByRole('navigation', { name: 'Primary' })
+			.getByRole('link', { name: 'groceries' })
+			.click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'add an item' }))
+			.toBeVisible()
+	})
 
 	test('puts settings and sign out in the account menu', async () => {
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
@@ -249,7 +270,7 @@ describe('app nav', () => {
 
 	test('keeps thumb targets at least 44px tall', async () => {
 		const { screen } = await renderRoute({
-			path: '/coming-soon/groceries',
+			path: '/coming-soon/ingredients',
 			session: member,
 		})
 

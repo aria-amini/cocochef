@@ -88,6 +88,27 @@ vi.mock('@/lib/recipes/server', () => ({
 	},
 }))
 
+type GroceryInput = { text: string; recipeId?: string; recipeTitle?: string }
+
+const groceryCalls = vi.hoisted(() => {
+	const calls: GroceryInput[][] = []
+
+	return calls
+})
+
+vi.mock('@/lib/groceries/server', () => ({
+	listGroceries: () => Promise.resolve([]),
+	addGroceries: ({ data }: { data: GroceryInput[] }) => {
+		groceryCalls.push(data)
+
+		return Promise.resolve(data)
+	},
+	setGroceryChecked: vi.fn(),
+	renameGrocery: vi.fn(),
+	deleteGrocery: vi.fn(),
+	clearCheckedGroceries: vi.fn(),
+}))
+
 vi.mock('@/lib/s3', () => ({
 	getRecipePhotoUploadUrl: () =>
 		Promise.resolve({
@@ -279,6 +300,64 @@ describe('recipe detail', () => {
 		await expectPageScreenshot(screen.container, 'recipe-reader', {
 			fullHeight: true,
 		})
+	})
+
+	test('turns what the kitchen lacks into a list to send', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'## pasta',
+			'200 g pasta (any short shape)',
+			'2 cloves garlic, minced',
+			'## sauce',
+			'1 tbsp miso',
+			'2 tbsp butter',
+		]
+		window.localStorage.clear()
+
+		const writeText = vi
+			.spyOn(navigator.clipboard, 'writeText')
+			.mockResolvedValue(undefined)
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'shop for this' }).click()
+		await screen.getByRole('checkbox', { name: 'have 2 tbsp butter' }).click()
+		await screen.getByRole('checkbox', { name: 'have 1 tbsp miso' }).click()
+		await expect.element(screen.getByText('2 to buy')).toBeVisible()
+		await expectPageScreenshot(screen.container, 'recipe-shopping')
+
+		await screen.getByRole('button', { name: 'copy' }).click()
+		expect(writeText).toHaveBeenCalledWith('200 g pasta\n2 cloves garlic')
+
+		groceryCalls.length = 0
+		await screen.getByRole('button', { name: 'add to groceries' }).click()
+		await expect.element(page.getByText('2 added to groceries')).toBeVisible()
+		expect(groceryCalls).toEqual([
+			[
+				{
+					text: '200 g pasta',
+					recipeId: 'recipe-1',
+					recipeTitle: 'miso butter pasta',
+				},
+				{
+					text: '2 cloves garlic',
+					recipeId: 'recipe-1',
+					recipeTitle: 'miso butter pasta',
+				},
+			],
+		])
+
+		// Cooking ticks are their own; shopping again finds the kitchen's.
+		await screen.getByRole('button', { name: 'done shopping' }).click()
+		await expect
+			.element(screen.getByRole('checkbox', { name: '2 tbsp butter' }))
+			.not.toBeChecked()
+		await screen.getByRole('button', { name: 'shop for this' }).click()
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'have 2 tbsp butter' }))
+			.toBeChecked()
+		writeText.mockRestore()
+		window.localStorage.clear()
 	})
 
 	test('shows specific and family icons while leaving unknown ingredients empty', async () => {
