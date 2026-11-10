@@ -86,6 +86,10 @@ TLS edge.
 - `vp run db:migrate` — run migrations
 - `vp run dead-code` — find unused exports with fallow
 
+Each commit runs `.vite-hooks/pre-commit`: `vp staged` runs `vp check --fix` on
+the staged files, then `vp test run --changed` runs the tests that import the
+uncommitted changes. `vp i` installs the hook through `prepare`.
+
 Use `pnpm` through Vite+ (`vp i`, `vp run <script>`). Secrets resolve through
 Varlock; never commit generated or local secret files.
 

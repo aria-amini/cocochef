@@ -48,6 +48,11 @@ export default defineToolkit({
 		},
 	},
 	config: {
+		// The pre-commit hook (.vite-hooks/pre-commit) fixes what it can in the
+		// staged files before checking them.
+		staged: {
+			'*': 'vp check --fix',
+		},
 		fmt: {
 			ignorePatterns: (preset) => [
 				...preset,
