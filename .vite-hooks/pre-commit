@@ -1,2 +1,2 @@
 vp staged
-vp test run --changed --passWithNoTests
+vp test run --changed --project unit --project server --passWithNoTests

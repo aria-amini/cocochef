@@ -87,8 +87,11 @@ TLS edge.
 - `vp run dead-code` — find unused exports with fallow
 
 Each commit runs `.vite-hooks/pre-commit`: `vp staged` runs `vp check --fix` on
-the staged files, then `vp test run --changed` runs the tests that import the
-uncommitted changes. `vp i` installs the hook through `prepare`.
+the staged files, then the unit and server tests that import the uncommitted
+changes. Each push runs `.vite-hooks/pre-push`: the desktop and mobile browser
+tests that the pushed commits reach (since the branch's upstream or its copy on
+origin, or `main` on a first push), stopping at the first failure. `vp i`
+installs both hooks through `prepare`.
 
 Use `pnpm` through Vite+ (`vp i`, `vp run <script>`). Secrets resolve through
 Varlock; never commit generated or local secret files.
