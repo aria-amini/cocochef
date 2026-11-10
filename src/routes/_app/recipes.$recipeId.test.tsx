@@ -691,6 +691,15 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('button', { name: 'add section' }))
 			.not.toBeInTheDocument()
+		// Each name says what it holds, once the cards have closed up.
+		await expect.element(screen.getByText('2 ingredients')).toBeVisible()
+		await Promise.all(
+			document.getAnimations().map((animation) => animation.finished),
+		)
+		await expectIsolatedScreenshot(
+			screen.getByRole('group', { name: 'ingredients' }),
+			'sections-folded',
+		)
 		await userEvent.keyboard('[ArrowUp]')
 		await userEvent.keyboard('[ArrowUp]')
 		await userEvent.keyboard('[Space]')
@@ -710,6 +719,59 @@ describe('recipe detail', () => {
 					'1 tbsp miso',
 					'2 tbsp butter',
 					'## pasta',
+					'200 g pasta',
+				],
+			})
+	})
+
+	test('moves the main card like any section, naming it as it goes', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '## sauce', '1 tbsp miso']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen
+			.getByRole('textbox', { name: 'Section name', exact: true })
+			.click()
+		await screen
+			.getByRole('button', { name: 'Move section main ingredients down' })
+			.click()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				ingredients: [
+					'## sauce',
+					'1 tbsp miso',
+					'## main ingredients',
+					'200 g pasta',
+				],
+			})
+	})
+
+	test('carries a section above the main card, which takes its name', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '## sauce', '1 tbsp miso']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		screen
+			.getByRole('button', { name: 'Move group 2, sauce' })
+			.element()
+			.focus()
+		await userEvent.keyboard('[Space]')
+		await userEvent.keyboard('[ArrowUp]')
+		await userEvent.keyboard('[Space]')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				ingredients: [
+					'## sauce',
+					'1 tbsp miso',
+					'## main ingredients',
 					'200 g pasta',
 				],
 			})
