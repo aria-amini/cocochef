@@ -1,5 +1,7 @@
 import { arrayMove } from '@dnd-kit/sortable'
 import {
+	ArrowDownIcon,
+	ArrowUpIcon,
 	ArrowUUpLeftIcon,
 	CheckIcon,
 	MinusIcon,
@@ -41,6 +43,7 @@ import {
 	type Block,
 	blocksOf,
 	gatherBlock,
+	moveBlock,
 	moveBlockTo,
 } from '@/lib/recipes/blocks'
 import {
@@ -174,6 +177,18 @@ function proposalFrom(rows: Row[], groups: RegroupGroup[]) {
 	return same ? undefined : { rows: next }
 }
 
+// The box a row scrolls in: the nearest one that scrolls, or the page.
+function scrollerOf(node: HTMLElement): Element {
+	for (let at = node.parentElement; at; at = at.parentElement) {
+		const { overflowY } = getComputedStyle(at)
+
+		if (/auto|scroll/.test(overflowY) && at.scrollHeight > at.clientHeight)
+			return at
+	}
+
+	return document.scrollingElement ?? document.documentElement
+}
+
 // What the card with no name is called until it is named.
 const mainSection = 'main ingredients'
 
@@ -273,6 +288,12 @@ export function IngredientListField({
 
 	const [declined, setDeclined] = useState(false)
 	const [folded, setFolded] = useState(false)
+	// A section picked up by its name. While it is carried the cards fold to
+	// their names, so they move as whole cards and drop only between cards.
+	const [carrying, setCarrying] = useState<string>()
+	// Where the carried section's name stood before the cards folded or
+	// unfolded, to keep it under the finger.
+	const anchor = useRef<{ id: string; top: number }>(undefined)
 	// The line being worked on, whose amount bar shows under it.
 	const [inUse, setInUse] = useState<string>()
 	// Lines picked by their pictures, to gather into a section or remove.
@@ -310,6 +331,30 @@ export function IngredientListField({
 		glideFrom.current = undefined
 		glide(sheet.current, from.tops, from.glow)
 	}, [rows])
+
+	// Folding or unfolding the cards scrolls the page by as much as the carried
+	// name moved, so it stays where it was picked up or put down.
+	useLayoutEffect(() => {
+		const held = anchor.current
+		anchor.current = undefined
+
+		const band = held
+			? sheet.current?.querySelector<HTMLElement>(`[data-row-id="${held.id}"]`)
+			: undefined
+
+		if (!held || !band) return
+		const shift = band.getBoundingClientRect().top - held.top
+
+		if (shift) scrollerOf(band).scrollBy({ top: shift, behavior: 'instant' })
+	}, [carrying])
+
+	function hold(id: string) {
+		const band = sheet.current?.querySelector<HTMLElement>(
+			`[data-row-id="${id}"]`,
+		)
+
+		if (band) anchor.current = { id, top: band.getBoundingClientRect().top }
+	}
 
 	useEffect(() => {
 		onCountChange?.(
@@ -840,6 +885,24 @@ export function IngredientListField({
 							onUse={(name) => update(row.id, { text: name })}
 						/>
 					) : null}
+					{row.heading && sections.length > 1 ? (
+						<>
+							<RowAction
+								label={`Move section ${sectionName(row)} up`}
+								disabled={sections[0] === row}
+								onClick={() => step(row, -1)}
+							>
+								<ArrowUpIcon size={14} weight="bold" aria-hidden />
+							</RowAction>
+							<RowAction
+								label={`Move section ${sectionName(row)} down`}
+								disabled={sections.at(-1) === row}
+								onClick={() => step(row, 1)}
+							>
+								<ArrowDownIcon size={14} weight="bold" aria-hidden />
+							</RowAction>
+						</>
+					) : null}
 					{row.heading ? (
 						<RowAction
 							label={`Remove section ${row.text.trim() || index + 1}`}
@@ -864,6 +927,18 @@ export function IngredientListField({
 	}
 
 	const blocks = blocksOf(rows, isHeading)
+
+	// What can be moved: every row, or the sections alone while one is carried.
+	const sortable = carrying ? rows.filter(isHeading) : rows
+
+	// The sections in order, which a section's arrows step it among.
+	const sections = rows.filter(isHeading)
+
+	function step(head: Row, by: -1 | 1) {
+		const next = sections[sections.indexOf(head) + by]
+
+		if (next) change((current) => moveBlock(current, isHeading, head, next))
+	}
 
 	// The written lines of a section, to name it from.
 	const linesUnder = (head: Row) =>
@@ -951,12 +1026,21 @@ export function IngredientListField({
 					</Fragment>
 				))}
 				<SortableList
-					items={rows.map((row) => row.id)}
+					items={sortable.map((row) => row.id)}
 					describe={describe}
+					onPickUp={(id) => {
+						if (!rows.find((row) => row.id === id)?.heading) return
+						hold(id)
+						setCarrying(id)
+					}}
+					onPutDown={() => {
+						if (carrying) hold(carrying)
+						setCarrying(undefined)
+					}}
 					onMove={(from, to) =>
 						change((current) => {
-							const moving = rows[from]
-							const target = rows[to]
+							const moving = sortable[from]
+							const target = sortable[to]
 
 							if (!moving || !target) return current
 
@@ -985,9 +1069,9 @@ export function IngredientListField({
 						return row ? (
 							<div className="flex pl-7">
 								<RowFace row={row}>
-									{under ? (
+									{row.heading ? (
 										<span className="text-muted-foreground text-sm font-semibold">
-											+{under}
+											{under} {under === 1 ? 'ingredient' : 'ingredients'}
 										</span>
 									) : null}
 								</RowFace>
@@ -997,7 +1081,17 @@ export function IngredientListField({
 				>
 					{/* Each section is a card of its own, ending in a row that adds
 					    to it; a section not yet named or filled waits dashed. */}
-					<div ref={sheet} className="flex flex-col gap-3">
+					{/* While a section is carried, the cards close up into one list of
+					    names that touch, which is what the drag sorts by. */}
+					<div
+						ref={sheet}
+						className={cn(
+							'flex flex-col',
+							carrying
+								? 'divide-border border-input bg-card divide-y overflow-hidden rounded-xl border'
+								: 'gap-3',
+						)}
+					>
 						{blocks.map((block) => {
 							const head = block.head
 							const empty = !block.rows.some((row) => !isBlank(row))
@@ -1011,10 +1105,12 @@ export function IngredientListField({
 									<ul
 										aria-label={head ? sectionName(head) : 'ingredient lines'}
 										className={cn(
-											'divide-border flex flex-col divide-y rounded-xl border',
-											head && empty && !head.text.trim()
-												? 'border-foreground/30 border-dashed'
-												: 'bg-card border-input',
+											'divide-border flex flex-col divide-y',
+											carrying
+												? ''
+												: head && empty && !head.text.trim()
+													? 'border-foreground/30 rounded-xl border border-dashed'
+													: 'bg-card border-input rounded-xl border',
 										)}
 									>
 										{/* A card with no name is the main one: its band reads so,
@@ -1054,7 +1150,10 @@ export function IngredientListField({
 												</>
 											</li>
 										)}
-										{[...(head ? [head] : []), ...block.rows].map((row) => (
+										{[
+											...(head ? [head] : []),
+											...(carrying ? [] : block.rows),
+										].map((row) => (
 											<SortableRow
 												key={row.id}
 												id={row.id}
@@ -1075,7 +1174,7 @@ export function IngredientListField({
 												{(handle) => sheetRow(row, handle)}
 											</SortableRow>
 										))}
-										{head ? (
+										{head && !carrying ? (
 											<SectionLines
 												title={title ?? ''}
 												section={head.text}
@@ -1095,38 +1194,42 @@ export function IngredientListField({
 												}
 											/>
 										) : null}
-										<ListAddRow
-											what="ingredient"
-											label={
-												head
-													? `add ingredient to ${sectionName(head)}`
-													: undefined
-											}
-											onAdd={() => addTo(block)}
-										/>
+										{carrying ? null : (
+											<ListAddRow
+												what="ingredient"
+												label={
+													head
+														? `add ingredient to ${sectionName(head)}`
+														: undefined
+												}
+												onAdd={() => addTo(block)}
+											/>
+										)}
 									</ul>
 								</div>
 							)
 						})}
 						{/* A new section is a new card, so the way to one is shaped
 						    like the card it makes, below the rest. */}
-						<button
-							type="button"
-							onClick={addSection}
-							// One empty card at a time: it fills, or goes, before another.
-							disabled={blocks.some(
-								(block) => !block.rows.some((row) => !isBlank(row)),
-							)}
-							className="border-foreground/30 text-muted-foreground enabled:hover:text-foreground enabled:hover:border-foreground/50 flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-sm font-semibold transition-colors disabled:opacity-50"
-						>
-							<span aria-hidden className="grid size-6 place-items-center">
-								<Plus size={14} weight="bold" />
-							</span>
-							add section
-						</button>
+						{carrying ? null : (
+							<button
+								type="button"
+								onClick={addSection}
+								// One empty card at a time: it fills, or goes, before another.
+								disabled={blocks.some(
+									(block) => !block.rows.some((row) => !isBlank(row)),
+								)}
+								className="border-foreground/30 text-muted-foreground enabled:hover:text-foreground enabled:hover:border-foreground/50 flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-sm font-semibold transition-colors disabled:opacity-50"
+							>
+								<span aria-hidden className="grid size-6 place-items-center">
+									<Plus size={14} weight="bold" />
+								</span>
+								add section
+							</button>
+						)}
 					</div>
 				</SortableList>
-				{title === undefined ? null : (
+				{title === undefined || carrying ? null : (
 					<IngredientSuggestions
 						title={title}
 						lines={lines}

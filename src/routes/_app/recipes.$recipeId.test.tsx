@@ -663,7 +663,7 @@ describe('recipe detail', () => {
 			})
 	})
 
-	test('moves a whole section when it is taken by its name', async () => {
+	test('folds the cards to their names to move a whole section', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'## sauce',
@@ -671,31 +671,78 @@ describe('recipe detail', () => {
 			'2 tbsp butter',
 			'## pasta',
 			'200 g pasta',
+			'## to serve',
+			'basil',
 		]
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		await screen.getByRole('button', { name: 'edit' }).click()
 		screen
-			.getByRole('button', { name: 'Move group 4, pasta' })
+			.getByRole('button', { name: 'Move group 6, to serve' })
 			.element()
 			.focus()
 		await userEvent.keyboard('[Space]')
-		// Dropped on the card above, it goes where that card's name stands.
+
+		// Carried, the cards fold to their names, and drops land between cards.
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('button', { name: 'add section' }))
+			.not.toBeInTheDocument()
+		await userEvent.keyboard('[ArrowUp]')
 		await userEvent.keyboard('[ArrowUp]')
 		await userEvent.keyboard('[Space]')
-		await screen.getByRole('button', { name: 'save', exact: true }).click()
 
+		// Put down, the cards open again.
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+			.toBeVisible()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect
 			.poll(() => updateCalls.calls.at(-1))
 			.toMatchObject({
 				ingredients: [
-					'## pasta',
-					'200 g pasta',
+					'## to serve',
+					'basil',
 					'## sauce',
 					'1 tbsp miso',
 					'2 tbsp butter',
+					'## pasta',
+					'200 g pasta',
 				],
+			})
+	})
+
+	test('steps a section up and down with its arrows', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'## sauce',
+			'1 tbsp miso',
+			'## pasta',
+			'200 g pasta',
+		]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		// The arrows show on the section in use.
+		await screen.getByRole('textbox', { name: 'Section name 1' }).click()
+		await expect
+			.element(screen.getByRole('button', { name: 'Move section sauce up' }))
+			.toBeDisabled()
+		await screen
+			.getByRole('button', { name: 'Move section sauce down' })
+			.click()
+		await expect
+			.element(screen.getByRole('button', { name: 'Move section sauce down' }))
+			.toBeDisabled()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				ingredients: ['## pasta', '200 g pasta', '## sauce', '1 tbsp miso'],
 			})
 	})
 
