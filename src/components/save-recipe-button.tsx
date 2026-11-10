@@ -1,12 +1,13 @@
 import { BookmarkSimpleIcon } from '@phosphor-icons/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
 import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
 import { Button } from '@/components/ui/button'
+import { rememberAfterSignIn, takeAfterSignIn } from '@/lib/auth/after-sign-in'
 import { authClient } from '@/lib/auth/client'
 import { getRecipe, removeSavedRecipe, saveRecipe } from '@/lib/recipes/server'
 
@@ -38,6 +39,19 @@ export function SaveRecipeButton({
 
 	const saved = query.data?.saved ?? recipe.saved ?? false
 	const owned = query.data?.owned ?? false
+	const signedIn = !!account && !account.isAnonymous
+
+	async function refresh() {
+		// A reload already under way, like the one sign-in starts, read the recipe
+		// before this change, and the router would hand its result to ours too.
+		await router.latestLoadPromise
+
+		return Promise.all([
+			router.invalidate(),
+			client.invalidateQueries({ queryKey: ['shelf'] }),
+			client.invalidateQueries({ queryKey: ['recipe', recipe.id] }),
+		])
+	}
 
 	async function update() {
 		setPending(true)
@@ -50,11 +64,7 @@ export function SaveRecipeButton({
 
 				if (!removed) throw new Error('recipe could not be removed')
 			} else await saveRecipe({ data: { id: recipe.id } })
-			await Promise.all([
-				router.invalidate(),
-				client.invalidateQueries({ queryKey: ['shelf'] }),
-				client.invalidateQueries({ queryKey: ['recipe', recipe.id] }),
-			])
+			await refresh()
 			setConfirming(false)
 			toast.success(
 				saved ? 'removed from your recipes' : 'saved to your recipes',
@@ -66,6 +76,38 @@ export function SaveRecipeButton({
 		}
 	}
 
+	// Finishes the save a visitor asked for before signing in. The account they
+	// signed into may already have it, or may be its author, so ask again
+	// rather than trust what the page knew while signed out.
+	const finishSave = useEffectEvent(async () => {
+		setPending(true)
+
+		try {
+			const fresh = await getRecipe({ data: { id: recipe.id } })
+
+			if (!fresh) throw new Error('recipe unavailable')
+
+			if (!fresh.owned && !fresh.saved)
+				await saveRecipe({ data: { id: recipe.id } })
+			await refresh()
+
+			if (!fresh.owned) toast.success('saved to your recipes')
+		} catch {
+			toast.error("couldn't save that recipe — try again")
+		} finally {
+			setPending(false)
+		}
+	})
+
+	// Runs on the email path once the dialog's sign-in lands, and on the Google
+	// path when the page loads again signed in.
+	useEffect(() => {
+		if (signedIn && takeAfterSignIn({ action: 'save', recipeId: recipe.id }))
+			// It syncs with session storage and the session, both outside React.
+			// oxlint-disable-next-line react/set-state-in-effect
+			void finishSave()
+	}, [signedIn, recipe.id])
+
 	if (owned) return null
 
 	return (
@@ -75,14 +117,13 @@ export function SaveRecipeButton({
 				disabled={
 					pending ||
 					session.isPending ||
-					(!!account &&
-						!account.isAnonymous &&
-						recipe.saved === undefined &&
-						query.isPending)
+					(signedIn && recipe.saved === undefined && query.isPending)
 				}
 				onClick={() => {
-					if (!account || account.isAnonymous) setAuthOpen(true)
-					else if (saved) setConfirming(true)
+					if (!signedIn) {
+						rememberAfterSignIn({ action: 'save', recipeId: recipe.id })
+						setAuthOpen(true)
+					} else if (saved) setConfirming(true)
 					else void update()
 				}}
 			>

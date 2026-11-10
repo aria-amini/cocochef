@@ -100,3 +100,40 @@ vi.mock('@/routes/__root', async () => {
 		}),
 	}
 })
+
+// Suggestions and groupings come from the mock sources with nothing in the
+// pantry: no server round trip, and the same answers every run.
+vi.mock('@/lib/assistant/server', async () => {
+	const { mockSuggestions } = await import('@/lib/assistant/suggestions')
+	const { mockRegroup } = await import('@/lib/assistant/regroup')
+
+	const { mockSectionLines, mockSectionName } =
+		await import('@/lib/assistant/suggestions')
+
+	const { mockAmounts } = await import('@/lib/assistant/amounts')
+
+	return {
+		suggestIngredientSections: ({
+			data,
+		}: {
+			data: Parameters<typeof mockSuggestions>[0]
+		}) => Promise.resolve({ sections: mockSuggestions(data) }),
+		regroupIngredients: ({
+			data,
+		}: {
+			data: Parameters<typeof mockRegroup>[0]
+		}) => Promise.resolve(mockRegroup(data)),
+		suggestSectionLines: ({
+			data,
+		}: {
+			data: Parameters<typeof mockSectionLines>[0]
+		}) => Promise.resolve({ lines: mockSectionLines(data) }),
+		suggestSectionName: ({
+			data,
+		}: {
+			data: Parameters<typeof mockSectionName>[0]
+		}) => Promise.resolve({ name: mockSectionName(data) }),
+		suggestAmounts: ({ data }: { data: Parameters<typeof mockAmounts>[0] }) =>
+			Promise.resolve(mockAmounts(data)),
+	}
+})

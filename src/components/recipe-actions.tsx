@@ -2,10 +2,12 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 import { ImportDialog } from '@/components/import-link'
 import { RecipeFinder } from '@/components/recipe-finder'
+import type { StartingPoint } from '@/components/start-from'
 
 type RecipeActions = {
-	// Opens the one box, optionally already holding a query.
-	find: (query?: string) => void
+	// Opens the one box, optionally already holding a query. Given `onUse`, it
+	// finds a recipe to start one being written from, rather than to open.
+	find: (query?: string, onUse?: (start: StartingPoint) => void) => void
 	// Opens the import dialog, optionally holding a link.
 	importLink: (url?: string) => void
 }
@@ -28,7 +30,11 @@ export function RecipeActionsProvider({
 }: {
 	children: React.ReactNode
 }) {
-	const [finder, setFinder] = useState({ open: false, query: '' })
+	const [finder, setFinder] = useState<{
+		open: boolean
+		query: string
+		onUse?: ((start: StartingPoint) => void) | undefined
+	}>({ open: false, query: '' })
 
 	const [importing, setImporting] = useState<{
 		open: boolean
@@ -39,7 +45,7 @@ export function RecipeActionsProvider({
 
 	const actions = useMemo<RecipeActions>(
 		() => ({
-			find: (query = '') => setFinder({ open: true, query }),
+			find: (query = '', onUse) => setFinder({ open: true, query, onUse }),
 			importLink: (url) => {
 				setImporting({ open: true, url })
 			},
@@ -75,6 +81,7 @@ export function RecipeActionsProvider({
 			<RecipeFinder
 				open={finder.open}
 				defaultQuery={finder.query}
+				onUse={finder.onUse}
 				onOpenChange={(open) => setFinder((current) => ({ ...current, open }))}
 				onImportLink={actions.importLink}
 			>

@@ -346,6 +346,40 @@ describe('recipe shelf', () => {
 		expect(finalized?.finalizedAt).toBeInstanceOf(Date)
 	})
 
+	test('says how far each draft on the shelf has got', async ({ db }) => {
+		const userId = await seedUser(db)
+		await createRecipeForUser(userId, { title: 'dal' }, db)
+
+		const draft = await createRecipeForUser(
+			userId,
+			{ title: 'stew', finalized: false },
+			db,
+		)
+
+		if (!draft) throw new Error('draft was not created')
+		await updateRecipeForUser(
+			userId,
+			{
+				id: draft.id,
+				title: 'stew',
+				notes: null,
+				ingredients: ['## base', '1 onion', '2 carrots'],
+				steps: ['soften the onion'],
+			},
+			db,
+		)
+
+		const { recipes } = await listShelfForUser(userId, db)
+
+		expect(recipes.find((recipe) => recipe.id === draft.id)?.written).toEqual({
+			ingredients: 2,
+			steps: 1,
+		})
+		expect(recipes.find((recipe) => recipe.title === 'dal')).not.toHaveProperty(
+			'written',
+		)
+	})
+
 	test('keeps uploaded photos to their owner', async ({ db }) => {
 		const userId = await seedUser(db)
 
@@ -462,6 +496,48 @@ describe('shared recipes', () => {
 		expect(await getRecipeForUser(userId, copy.id, db)).toMatchObject({
 			sourceNotes: 'Source tip',
 			notes: 'My private note',
+		})
+	})
+
+	test('keeps more links than the original, and copies them on edit', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const shared = await seedShared(db)
+		await saveRecipeForUser(userId, shared.id, db)
+
+		const edit = {
+			id: shared.id,
+			title: 'shared dal',
+			imageUrl: null,
+			notes: null,
+			ingredients: ['lentils', 'salt'],
+			steps: ['simmer'],
+		}
+
+		// Adding a link is a change, so the cook gets their own copy.
+		const copy = await updateRecipeForUser(
+			userId,
+			{ ...edit, links: ['https://youtu.be/dal'] },
+			db,
+		)
+
+		if (!copy) throw new Error('copy was not created')
+		expect(copy.id).not.toBe(shared.id)
+		expect(await getRecipeForUser(userId, copy.id, db)).toMatchObject({
+			sourceUrl: 'https://example.com/dal',
+			links: ['https://youtu.be/dal'],
+		})
+
+		// Their copy keeps its links through an edit that leaves them out, and
+		// drops them when they are emptied.
+		await updateRecipeForUser(userId, { ...edit, id: copy.id }, db)
+		expect(await getRecipeForUser(userId, copy.id, db)).toMatchObject({
+			links: ['https://youtu.be/dal'],
+		})
+		await updateRecipeForUser(userId, { ...edit, id: copy.id, links: [] }, db)
+		expect(await getRecipeForUser(userId, copy.id, db)).toMatchObject({
+			links: [],
 		})
 	})
 

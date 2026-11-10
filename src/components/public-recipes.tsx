@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
-import { CopyRecipeButton } from '@/components/copy-recipe-button'
+import { EditSharedButton } from '@/components/edit-shared-button'
 import { BackBar, BackLink, PageTitle } from '@/components/page'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeReader } from '@/components/recipe-reader'
@@ -151,7 +151,7 @@ export function PublicRecipePage({
 												refreshSession((value) => value + 1)
 											}
 										/>
-										<CopyRecipeButton recipeId={recipe.id} />
+										<EditSharedButton recipeId={recipe.id} />
 									</>
 								)}
 							</div>

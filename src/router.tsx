@@ -40,5 +40,9 @@ declare module '@tanstack/react-router' {
 	interface HistoryState {
 		// A whole recipe pasted into the one box, for the new recipe page to sort.
 		pasted?: string
+		// The search a recipe was opened from, to go back to its results.
+		foundBy?: string
+		// Open the recipe straight in the editor, such as a copy made to edit.
+		editing?: boolean
 	}
 }

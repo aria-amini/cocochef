@@ -1,7 +1,8 @@
 import { getAuthMocks, setMockSession } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
+import { expectIsolatedScreenshot } from '@tests/support/screenshot'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 
 type Saved = {
 	id?: string
@@ -36,12 +37,39 @@ const state = vi.hoisted<State>(() => ({
 // The latest content saved for the new recipe, created or updated.
 const latest = () => state.updated.at(-1) ?? state.created.at(-1)
 
+// Recipes online for the name being written, and their content when opened.
+type Online = {
+	results: { recipeId: string; title: string; siteName: string }[]
+	recipe: {
+		id: string
+		title: string
+		sourceUrl: string
+		ingredients: string[]
+		steps: string[]
+	} | null
+}
+
+const online = vi.hoisted<Online>(() => ({ results: [], recipe: null }))
+
+vi.mock('@/lib/discover/server', () => ({
+	searchRecipes: () =>
+		Promise.resolve({
+			warming: false,
+			results: online.results.map((recipe) => ({
+				...recipe,
+				saved: false,
+				draft: false,
+				ingredientMatches: [],
+			})),
+		}),
+	popularRecipes: () => Promise.resolve({ warming: false, results: [] }),
+}))
+
 vi.mock('@/lib/recipes/server', () => ({
 	removeSavedRecipe: () => Promise.resolve(null),
-	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [] }),
-	getRecipe: () => Promise.resolve(null),
+	getRecipe: () => Promise.resolve(online.recipe),
 	createRecipe: async ({ data }: { data: Saved }) => {
 		state.created.push(data)
 
@@ -70,6 +98,19 @@ vi.mock('@/lib/s3', () => ({
 const testSession = {
 	user: { id: 'user-1', name: 'Test User', email: 'test@example.com' },
 	session: { id: 'session-1', token: 'token' },
+}
+
+// Pastes text into a field the way the clipboard does.
+function pasteInto(field: { element: () => Element }, text: string) {
+	const data = new DataTransfer()
+	data.setData('text', text)
+	field.element().dispatchEvent(
+		new ClipboardEvent('paste', {
+			clipboardData: data,
+			bubbles: true,
+			cancelable: true,
+		}),
+	)
 }
 
 describe('write a recipe', () => {
@@ -155,7 +196,7 @@ describe('write a recipe', () => {
 		await expect.element(save).toBeDisabled()
 		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
 		await expect.element(save).toBeEnabled()
-		await expect.element(screen.getByText('changed: name')).toBeVisible()
+		await expect.element(screen.getByText('not saved yet: name')).toBeVisible()
 	})
 
 	test('accepts notes with 1,001 emoji without treating them as too long', async () => {
@@ -184,17 +225,11 @@ describe('write a recipe', () => {
 			session: testSession,
 		})
 
-		await screen
-			.getByRole('button', { name: 'paste text', exact: true })
-			.click()
-		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		const longNotes = 'a'.repeat(2001)
-		await dialog
-			.getByRole('textbox', { name: 'recipe text' })
-			.fill(
-				`Toast\nIngredients\n2 slices bread\nSteps\nToast.\nNotes\n${longNotes}`,
-			)
-		await dialog.getByRole('button', { name: 'add recipe' }).click()
+		pasteInto(
+			screen.getByRole('textbox', { name: 'name' }),
+			`Toast\nIngredients\n2 slices bread\nSteps\nToast.\nNotes\n${longNotes}`,
+		)
 		const notes = screen.getByRole('textbox', { name: 'notes' })
 		await expect.element(notes).toHaveValue(longNotes)
 		await expect
@@ -218,25 +253,32 @@ describe('write a recipe', () => {
 			.toEqual(expect.objectContaining({ notes: 'short note' }))
 	})
 
-	test('sorts text pasted into the recipe dialog', async () => {
+	test('lines the photo up with the name and its links', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
 		})
 
-		await screen
-			.getByRole('button', { name: 'paste text', exact: true })
-			.click()
-		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
+		const intro = screen.getByRole('group', { name: 'about the recipe' })
+		await expect.element(intro).toBeVisible()
+		await expectIsolatedScreenshot(intro, 'new-recipe-intro')
+	})
+
+	test('sorts a whole recipe pasted into the name, with undo', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
 		await expect
-			.element(dialog.getByRole('button', { name: 'add recipe' }))
-			.toBeDisabled()
-		await dialog
-			.getByRole('textbox', { name: 'recipe text' })
-			.fill(
-				'Toast\nIngredients\n2 slices bread\nSteps\nToast the bread.\nNotes\nUse fresh bread.',
+			.element(
+				screen.getByText('or paste a link or a whole recipe into the name'),
 			)
-		await dialog.getByRole('button', { name: 'add recipe' }).click()
+			.toBeVisible()
+		pasteInto(
+			screen.getByRole('textbox', { name: 'name' }),
+			'Toast\nIngredients\n2 slices bread\nSteps\nToast the bread.\nNotes\nUse fresh bread.',
+		)
 		await expect
 			.element(screen.getByRole('textbox', { name: 'name' }))
 			.toHaveValue('Toast')
@@ -253,30 +295,25 @@ describe('write a recipe', () => {
 			.toHaveValue('')
 	})
 
-	test('offers import from the empty editor and keeps the editor when cancelled', async () => {
+	test('imports a link pasted into the empty name, and keeps the editor when cancelled', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
 		})
 
+		pasteInto(
+			screen.getByRole('textbox', { name: 'name' }),
+			'https://example.com/dal',
+		)
+		const dialog = screen.getByRole('dialog', { name: 'import a recipe' })
+		await expect.element(dialog).toBeVisible()
 		await expect
-			.element(
-				screen.getByRole('button', { name: 'blank recipe', exact: true }),
-			)
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByRole('button', { name: 'paste text', exact: true }))
-			.toBeVisible()
-		await screen
-			.getByRole('button', { name: 'import link', exact: true })
-			.click()
-		await expect
-			.element(screen.getByRole('dialog', { name: 'import a recipe' }))
-			.toBeVisible()
+			.element(dialog.getByRole('textbox'))
+			.toHaveValue('https://example.com/dal')
 		await userEvent.keyboard('{Escape}')
 		await expect
 			.element(screen.getByRole('textbox', { name: 'name' }))
-			.toBeVisible()
+			.toHaveValue('')
 	})
 
 	test('creates a finished recipe only when save is pressed', async () => {
@@ -615,31 +652,221 @@ describe('write a recipe', () => {
 			.toEqual(['1 1/2 cups flour', 'a knob of butter'])
 	})
 
-	test('groups ingredients under a section heading', async () => {
+	test('moves on to the ingredients with Enter in the name, saving nothing', async () => {
+		const { screen, router } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveFocus()
+		expect(router.state.location.pathname).toBe('/recipes/new')
+		expect(state.created.some((saved) => saved.finalized)).toBe(false)
+	})
+
+	test('asks before cancel throws away changes', async () => {
+		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+		const { screen, router } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await screen.getByRole('button', { name: 'cancel' }).click()
+		expect(confirm).toHaveBeenCalled()
+		expect(router.state.location.pathname).toBe('/recipes/new')
+
+		confirm.mockReturnValue(true)
+		await screen.getByRole('button', { name: 'cancel' }).click()
+		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
+		confirm.mockRestore()
+	})
+
+	test('offers recipes to start from only once the name finds some', async () => {
+		online.results = []
+
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		const name = screen.getByRole('textbox', { name: 'name' })
+		await name.fill('roman pasta')
+		await expect
+			.element(
+				screen.getByText('or paste a link or a whole recipe into the name'),
+			)
+			.not.toBeInTheDocument()
+		// Nothing found, nothing offered.
+		await new Promise((resolve) => setTimeout(resolve, 600))
+		await expect
+			.element(screen.getByRole('button', { name: /start from a recipe like/ }))
+			.not.toBeInTheDocument()
+
+		online.results = [
+			{ recipeId: 'shared-1', title: 'Cacio e pepe', siteName: 'Example' },
+		]
+		await name.fill('cacio e pepe')
+		await screen
+			.getByRole('button', { name: /start from a recipe like “cacio e pepe”/ })
+			.click()
+
+		// The same search as anywhere else, holding the name, without the ways
+		// to start a new recipe: this one is already being written.
+		const finder = page.getByRole('dialog', { name: 'find a recipe' })
+		await expect
+			.element(finder.getByRole('combobox', { name: 'find a recipe' }))
+			.toHaveValue('cacio e pepe')
+		await expect
+			.element(finder.getByRole('option', { name: /Cacio e pepe/ }))
+			.toBeVisible()
+		await expect
+			.element(finder.getByRole('option', { name: /start a blank recipe/ }))
+			.not.toBeInTheDocument()
+		online.results = []
+	})
+
+	test('starts from a recipe found online, with undo', async () => {
+		online.results = [
+			{
+				recipeId: 'shared-1',
+				title: 'Chicken tikka masala',
+				siteName: 'Example',
+			},
+		]
+		online.recipe = {
+			id: 'shared-1',
+			title: 'Chicken tikka masala',
+			sourceUrl: 'https://example.com/tikka',
+			ingredients: ['1 lb chicken thighs', '1 cup yogurt'],
+			steps: ['marinate the chicken'],
+		}
+
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('tikka masala')
+		await screen
+			.getByRole('button', { name: /start from a recipe like/ })
+			.click()
+
+		const finder = page.getByRole('dialog', { name: 'find a recipe' })
+		await finder.getByRole('option', { name: /Chicken tikka masala/ }).click()
+		await expect.element(finder.getByText(/chicken thighs/)).toBeVisible()
+		// Picked here, a recipe is used, not saved or opened.
+		await expect
+			.element(finder.getByRole('button', { name: 'save', exact: true }))
+			.not.toBeInTheDocument()
+		await expectIsolatedScreenshot(finder, 'start-from-preview')
+		await finder.getByRole('button', { name: 'use this recipe' }).click()
+
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('1 lb chicken thighs')
+		await expect.element(finder).not.toBeInTheDocument()
+		// The cook's name stays; the original is credited.
+		await expect
+			.element(screen.getByRole('textbox', { name: 'name' }))
+			.toHaveValue('tikka masala')
+		await expect
+			.element(screen.getByRole('button', { name: 'edit original link' }))
+			.toBeVisible()
+
+		// Undo puts the name back as it was too, even when it changed since.
+		await screen.getByRole('textbox', { name: 'name' }).fill('curry')
+		await screen.getByRole('button', { name: 'undo' }).click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'name' }))
+			.toHaveValue('tikka masala')
+		await expect
+			.element(
+				screen.getByRole('button', {
+					name: /start from a recipe like “tikka masala”/,
+				}),
+			)
+			.toBeVisible()
+		online.results = []
+		online.recipe = null
+	})
+
+	test('reads the amount as it is typed, in its short form', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
 		})
 
 		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
-		await screen.getByRole('combobox', { name: 'Ingredient 1' }).fill('bread')
-		// The suggestions would sit over the button.
+		const line = screen.getByRole('combobox', { name: 'Ingredient 1' })
+		await line.click()
+		await userEvent.keyboard('1 tablespoon butter')
 		await userEvent.keyboard('{Escape}')
-		await screen.getByRole('button', { name: 'add section' }).click()
-		await userEvent.keyboard('for the topping')
+		await expect.element(line).toHaveValue('1 tbsp butter')
+		await expectIsolatedScreenshot(
+			screen.getByRole('list', { name: 'ingredient lines' }),
+			'ingredient-amount-typed',
+		)
+	})
+
+	test('splits a line at the caret with Enter', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await screen
+			.getByRole('combobox', { name: 'Ingredient 1' })
+			.fill('2 eggs 1 cup milk')
+		await userEvent.keyboard('{Escape}')
+		await userEvent.keyboard('{ArrowLeft>10/}{Enter}')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('2 eggs')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+			.toHaveFocus()
+
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => latest()?.ingredients)
+			.toEqual(['2 eggs', '1 cup milk'])
+	})
+
+	test('makes a line ending in a colon a group', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await screen.getByRole('combobox', { name: 'Ingredient 1' }).click()
+		await userEvent.keyboard('for the topping:')
+		await userEvent.keyboard('{Escape}')
 		await userEvent.keyboard('[Enter]')
 		await expect
-			.element(screen.getByRole('combobox', { name: 'Ingredient 3' }))
+			.element(screen.getByRole('textbox', { name: 'Section name 1' }))
+			.toHaveValue('for the topping')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
 			.toHaveFocus()
 		await userEvent.keyboard('butter')
 
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect
 			.poll(() => latest()?.ingredients)
-			.toEqual(['bread', '## for the topping', 'butter'])
+			.toEqual(['## for the topping', 'butter'])
 	})
 
-	test('keeps a group label in a pasted list as a section', async () => {
+	test('keeps a group label in a pasted list as a group', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes/new',
 			session: testSession,
@@ -660,7 +887,7 @@ describe('write a recipe', () => {
 		)
 
 		await expect
-			.element(screen.getByRole('textbox', { name: 'Section heading 2' }))
+			.element(screen.getByRole('textbox', { name: 'Section name 2' }))
 			.toHaveValue('for the topping')
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect
@@ -682,13 +909,61 @@ describe('write a recipe', () => {
 			.element(screen.getByRole('textbox', { name: 'Step 1' }))
 			.toHaveValue('butter it')
 
-		screen.getByRole('button', { name: 'Reorder step 2' }).element().focus()
+		screen.getByRole('button', { name: 'Move step 2' }).element().focus()
 		await userEvent.keyboard('[Space]')
 		await userEvent.keyboard('[ArrowUp]')
 		await userEvent.keyboard('[Space]')
 
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect.poll(() => latest()?.steps).toEqual(['toast it', 'butter it'])
+	})
+
+	test('moves a step with its sub-steps from its handle', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await screen.getByRole('textbox', { name: 'Step 1' }).fill('toast it')
+		await userEvent.keyboard('[Enter]')
+		await userEvent.keyboard('make the butter')
+		await userEvent.keyboard('[Enter]')
+		await userEvent.keyboard('soften it')
+		await screen.getByRole('button', { name: 'Make step 3 a sub-step' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 2.1' }))
+			.toHaveValue('soften it')
+
+		// Every written step has its handle, with no mode to switch into: the
+		// row in hand shows it.
+		await screen.getByRole('textbox', { name: 'Step 2', exact: true }).click()
+		const stepList = screen.getByRole('group', { name: 'steps' })
+		stepList.element().scrollIntoView({ block: 'center', behavior: 'instant' })
+		await Promise.all(
+			document.getAnimations().map((animation) => animation.finished),
+		)
+		await expectIsolatedScreenshot(stepList, 'steps-handles')
+		screen.getByRole('button', { name: 'Move step 2' }).element().focus()
+		await userEvent.keyboard('[Space]')
+		// Steps fold to themselves while one is carried.
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 2.1' }))
+			.not.toBeInTheDocument()
+		await userEvent.keyboard('[ArrowUp]')
+		// A move toward the top of the page may scroll first; drop once it lands.
+		await expect
+			.element(screen.getByText('step 2 moved to position 1 of 2'))
+			.toBeInTheDocument()
+		await userEvent.keyboard('[Space]')
+
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 1.1' }))
+			.toHaveValue('soften it')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => latest()?.steps)
+			.toEqual(['make the butter', '- soften it', 'toast it'])
 	})
 
 	test('starts the next step on enter and skips empty ones', async () => {
@@ -707,6 +982,11 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByRole('textbox', { name: 'Step 3' }))
 			.toHaveFocus()
+		// Left blank, the new step goes once the cook moves on.
+		await screen.getByRole('textbox', { name: 'name' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Step 3' }))
+			.not.toBeInTheDocument()
 
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect
@@ -867,5 +1147,152 @@ describe('write a recipe', () => {
 		await expect
 			.element(screen.getByRole('textbox', { name: 'original link' }))
 			.not.toBeInTheDocument()
+	})
+
+	describe('suggested sections', () => {
+		test('offers a spice blend for chili as a chip, and adds it whole', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen
+				.getByRole('textbox', { name: 'name' })
+				.fill('Weeknight chili')
+
+			const blend = screen.getByRole('button', {
+				name: 'suggested spice blend',
+			})
+
+			// The name settles before it is asked about.
+			await expect.element(blend, { timeout: 4000 }).toBeVisible()
+			await expect
+				.element(screen.getByRole('button', { name: 'suggested toppings' }))
+				.toBeVisible()
+			await blend.click()
+
+			const lines = screen.getByRole('region', {
+				name: 'suggested spice blend lines',
+			})
+
+			await expect.element(lines).toBeVisible()
+			// One way in: the whole section, never a line at a time.
+			await expect
+				.element(lines.getByRole('button', { name: /^Add / }))
+				.not.toBeInTheDocument()
+			const panel = screen.getByLabelText('suggestions')
+			panel.element().scrollIntoView({ block: 'center', behavior: 'instant' })
+			await expectIsolatedScreenshot(panel, 'ingredient-suggestions')
+
+			await lines.getByRole('button', { name: 'add these 6' }).click()
+
+			await expect
+				.element(screen.getByRole('textbox', { name: 'Section name 1' }))
+				.toHaveValue('spice blend')
+			await expect
+				.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+				.toHaveValue('3 tbsp chili powder')
+			await expect.element(blend).not.toBeInTheDocument()
+			await screen.getByRole('button', { name: 'save', exact: true }).click()
+			await expect
+				.poll(() => latest()?.ingredients?.slice(0, 2))
+				.toEqual(['## spice blend', '3 tbsp chili powder'])
+		})
+
+		test('skips foods already written and keeps a waved-off section away', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('combobox', { name: 'Ingredient 1' }).fill('cumin')
+			await screen.getByRole('textbox', { name: 'name' }).fill('chili')
+			await screen
+				.getByRole('button', { name: 'suggested spice blend' })
+				.click()
+			await expect.element(screen.getByText('dried oregano')).toBeVisible()
+			await expect
+				.element(screen.getByText('ground cumin'))
+				.not.toBeInTheDocument()
+
+			await screen.getByRole('button', { name: 'suggested toppings' }).click()
+			await screen.getByRole('button', { name: 'no thanks' }).click()
+			await screen.getByRole('textbox', { name: 'name' }).fill('beef chili')
+
+			await expect
+				.element(screen.getByRole('button', { name: 'suggested spice blend' }))
+				.toBeVisible()
+			await expect
+				.element(screen.getByRole('button', { name: 'suggested toppings' }))
+				.not.toBeInTheDocument()
+		})
+
+		test('brings waved-off sections back from one chip', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('textbox', { name: 'name' }).fill('chili')
+			await screen.getByRole('button', { name: 'suggested toppings' }).click()
+			await screen.getByRole('button', { name: 'no thanks' }).click()
+			await expect
+				.element(screen.getByRole('button', { name: 'suggested toppings' }))
+				.not.toBeInTheDocument()
+
+			await screen.getByRole('button', { name: '1 hidden' }).click()
+
+			await expect
+				.element(screen.getByRole('button', { name: 'suggested toppings' }))
+				.toBeVisible()
+		})
+
+		test('suggests lines inside a section the cook names', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('textbox', { name: 'name' }).fill('toast')
+			await screen.getByRole('combobox', { name: 'Ingredient 1' }).fill('bread')
+			await userEvent.keyboard('{Escape}')
+			await screen.getByRole('button', { name: 'add section' }).click()
+			await expect
+				.element(screen.getByRole('textbox', { name: 'Section name 2' }))
+				.toHaveFocus()
+			// One empty card at a time.
+			await expect
+				.element(screen.getByRole('button', { name: 'add section' }))
+				.toBeDisabled()
+			await userEvent.keyboard('dressing')
+			await expect
+				.element(
+					screen.getByText('olive oil, red wine vinegar, dijon mustard +1'),
+				)
+				.toBeVisible()
+			await screen.getByRole('button', { name: 'add 4' }).click()
+			await expect
+				.element(screen.getByRole('combobox', { name: 'Ingredient 3' }))
+				.toHaveValue('3 tbsp olive oil')
+			await screen.getByRole('button', { name: 'save', exact: true }).click()
+			await expect
+				.poll(() => latest()?.ingredients?.slice(0, 3))
+				.toEqual(['bread', '## dressing', '3 tbsp olive oil'])
+		})
+
+		test('suggests nothing for a dish it does not know', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/new',
+				session: testSession,
+			})
+
+			await screen.getByRole('textbox', { name: 'name' }).fill('toast')
+			await expect
+				.element(screen.getByRole('textbox', { name: 'name' }))
+				.toHaveValue('toast')
+			await expect
+				.element(screen.getByLabelText('suggestions'))
+				.not.toBeInTheDocument()
+		})
 	})
 })

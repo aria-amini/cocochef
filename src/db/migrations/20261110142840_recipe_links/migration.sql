@@ -1,0 +1,1 @@
+ALTER TABLE "recipes" ADD COLUMN "links" text[] DEFAULT '{}'::text[] NOT NULL;

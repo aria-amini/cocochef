@@ -55,6 +55,7 @@ describe('recipe transfer files', () => {
 			toTransferRecipe({
 				...saved,
 				sourceUrl: 'https://example.com/resteh',
+				links: ['https://youtu.be/resteh'],
 				notes: 'less salt',
 				ingredientCategories: { '1 onion': 'other' },
 			}),
@@ -68,6 +69,7 @@ describe('recipe transfer files', () => {
 				{
 					title: 'Ash Resteh',
 					sourceUrl: 'https://example.com/resteh',
+					links: ['https://youtu.be/resteh'],
 					notes: 'less salt',
 					finalized: true,
 					ingredients: ['## sauce', '1 onion'],

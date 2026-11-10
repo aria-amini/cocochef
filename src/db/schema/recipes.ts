@@ -37,6 +37,8 @@ export const recipes = snakeCase.table(
 		title: text().notNull(),
 		imageUrl: text(),
 		sourceUrl: text(),
+		// More pages or videos for it beyond the one it came from, in order.
+		links: text().array().notNull().default([]),
 		// Publisher's recipe-card notes, separate from each cook's private notes.
 		sourceNotes: text(),
 		servings: integer(),

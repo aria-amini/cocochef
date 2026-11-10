@@ -1,3 +1,4 @@
+import { CheckCircleIcon } from '@phosphor-icons/react'
 import { PostHogProvider } from '@posthog/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -95,13 +96,24 @@ function RootComponent() {
 						offset: { bottom: tabBarOffset },
 						mobileOffset: { bottom: tabBarOffset },
 					})}
+					// Done is said with a small check, not a green slab; only a
+					// failure is loud.
+					icons={{
+						success: (
+							<CheckCircleIcon
+								size={18}
+								weight="fill"
+								aria-hidden
+								className="text-kitchen-basil shrink-0"
+							/>
+						),
+					}}
 					toastOptions={{
 						unstyled: true,
 						classNames: {
 							toast:
 								'floating bg-card text-foreground flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold overflow-hidden',
 							error: 'bg-kitchen-tomato text-foreground',
-							success: 'bg-kitchen-basil text-foreground',
 						},
 					}}
 				/>

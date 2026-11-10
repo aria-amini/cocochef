@@ -161,7 +161,7 @@ describe('sharing', () => {
 			.element(screen.getByRole('button', { name: 'save', exact: true }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: 'copy to my shelf' }))
+			.element(screen.getByRole('button', { name: 'edit', exact: true }))
 			.toBeVisible()
 		await expect.element(screen.getByText('1 onion')).toBeVisible()
 		await expect.element(screen.getByText('Chop the onion')).toBeVisible()

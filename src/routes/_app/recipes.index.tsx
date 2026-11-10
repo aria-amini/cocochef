@@ -1,8 +1,9 @@
 import {
+	MagnifyingGlassIcon,
 	ArrowRightIcon,
 	BookmarkSimpleIcon,
+	PencilSimpleLineIcon,
 	UserIcon,
-	GlobeHemisphereWestIcon,
 	PlusIcon,
 } from '@phosphor-icons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
@@ -54,7 +55,13 @@ function Shelf() {
 			}
 
 	const ownRecipes = shelfRecipes.filter(
-		(recipe) => !!account && recipe.userId === account.id,
+		(recipe) => !!account && recipe.userId === account.id && recipe.finalizedAt,
+	)
+
+	// Recipes still being written, kept apart so they are easy to come back to.
+	const drafts = shelfRecipes.filter(
+		(recipe) =>
+			!!account && recipe.userId === account.id && !recipe.finalizedAt,
 	)
 
 	const savedRecipes = shelfRecipes.filter(
@@ -110,6 +117,7 @@ function Shelf() {
 						</span>
 					</button>
 				) : null}
+				{drafts.length ? <Drafts drafts={drafts} /> : null}
 				{[
 					{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes },
 					{
@@ -178,7 +186,7 @@ function FinderBox({ onOpen }: { onOpen: () => void }) {
 			onClick={onOpen}
 			className="border-input bg-card text-muted-foreground hover:border-foreground/60 flex w-full min-w-0 items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-base transition-colors"
 		>
-			<GlobeHemisphereWestIcon
+			<MagnifyingGlassIcon
 				size={18}
 				weight="bold"
 				aria-hidden
@@ -195,29 +203,16 @@ function FinderBox({ onOpen }: { onOpen: () => void }) {
 	)
 }
 
-// A draft is still being written: drawn dashed on cream, like anything else
-// not yet real, until it is finished.
 function RecipeTile({ recipe, color }: { recipe: Recipe; color: TileColor }) {
-	const draft = !recipe.finalizedAt
-
 	return (
 		<Link
 			to="/recipes/$recipeId"
 			params={{ recipeId: recipe.id }}
 			className={cn(
 				'border-border relative flex aspect-square flex-col overflow-hidden border transition-shadow hover:shadow-md md:aspect-auto rounded-xl',
-				draft
-					? 'border-input bg-card border-dashed'
-					: recipe.imageUrl
-						? 'bg-card text-foreground'
-						: tileColors[color],
+				recipe.imageUrl ? 'bg-card text-foreground' : tileColors[color],
 			)}
 		>
-			{draft ? (
-				<span className="text-muted-foreground absolute top-2.5 left-3 z-10 text-xs font-semibold">
-					draft
-				</span>
-			) : null}
 			{recipe.imageUrl ? (
 				<>
 					<div className="relative min-h-0 flex-1">
@@ -239,17 +234,71 @@ function RecipeTile({ recipe, color }: { recipe: Recipe; color: TileColor }) {
 						size={40}
 						className="text-foreground/60 absolute top-3 right-3"
 					/>
-					{/* Long names stop short of the draft label rather than run under it. */}
-					<h3
-						className={cn(
-							'absolute right-3 bottom-2.5 left-3 text-xl leading-tight font-bold wrap-anywhere',
-							draft ? 'line-clamp-3' : 'line-clamp-4',
-						)}
-					>
+					<h3 className="absolute right-3 bottom-2.5 left-3 line-clamp-4 text-xl leading-tight font-bold wrap-anywhere">
 						{recipe.title}
 					</h3>
 				</>
 			)}
 		</Link>
+	)
+}
+
+const count = (total: number, one: string, many: string) =>
+	`${total} ${total === 1 ? one : many}`
+
+// What a draft has so far, and what it is still missing.
+function progressOf(written: Recipe['written']) {
+	if (!written || (!written.ingredients && !written.steps))
+		return 'just a name so far'
+
+	return [
+		written.ingredients
+			? count(written.ingredients, 'ingredient', 'ingredients')
+			: 'no ingredients yet',
+		written.steps ? count(written.steps, 'step', 'steps') : 'no steps yet',
+	].join(' · ')
+}
+
+// Recipes still being written, set apart from the finished ones: dashed and
+// unfilled, each saying how far it has got, and one tap from carrying on.
+function Drafts({ drafts }: { drafts: Recipe[] }) {
+	return (
+		<section aria-labelledby="drafts" className="flex min-w-0 flex-col gap-3">
+			<h2
+				id="drafts"
+				className={cn(
+					shelfHeadingClassName,
+					'border-foreground/30 flex items-center gap-1.5 border-dashed',
+				)}
+			>
+				<PencilSimpleLineIcon size={15} weight="bold" aria-hidden />
+				drafts
+			</h2>
+			<ul className="flex flex-col gap-2">
+				{drafts.map((recipe) => (
+					<li key={recipe.id}>
+						<Link
+							to="/recipes/$recipeId"
+							params={{ recipeId: recipe.id }}
+							className="border-input hover:border-foreground/60 group flex min-h-16 items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-colors"
+						>
+							<span className="flex min-w-0 flex-1 flex-col">
+								<span className="truncate text-base font-bold">
+									{recipe.title}
+								</span>
+								<span className="text-muted-foreground text-sm font-semibold">
+									{progressOf(recipe.written)}
+								</span>
+							</span>
+							<span className="text-muted-foreground group-hover:text-foreground flex shrink-0 items-center gap-1.5 text-sm font-bold transition-colors">
+								{/* On a phone the arrow alone says it; the row is the link. */}
+								<span className="max-sm:sr-only">keep writing</span>
+								<ArrowRightIcon size={14} weight="bold" aria-hidden />
+							</span>
+						</Link>
+					</li>
+				))}
+			</ul>
+		</section>
 	)
 }

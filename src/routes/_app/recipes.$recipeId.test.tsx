@@ -1,5 +1,9 @@
+import { getAuthMocks, setMockSession } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
-import { expectPageScreenshot } from '@tests/support/screenshot'
+import {
+	expectIsolatedScreenshot,
+	expectPageScreenshot,
+} from '@tests/support/screenshot'
 import { phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
@@ -39,7 +43,6 @@ vi.mock('@/lib/recipes/server', () => ({
 
 		return { id: data.id }
 	},
-	copyRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: () => Promise.resolve(recipeState.recipe),
 	updateRecipe: async ({ data }: { data: RecipeUpdate }) => {
@@ -120,6 +123,7 @@ describe('recipe detail', () => {
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
+		sessionStorage.removeItem('after-sign-in')
 		updateCalls.exported.length = 0
 		recipeState.recipe = {
 			id: 'recipe-1',
@@ -130,6 +134,7 @@ describe('recipe detail', () => {
 			title: 'miso butter pasta',
 			imageUrl: null,
 			sourceUrl: null,
+			links: [],
 			sourceNotes: null,
 			servings: null,
 			totalMinutes: null,
@@ -389,6 +394,7 @@ describe('recipe detail', () => {
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('button', { name: 'edit original link' }).click()
 		await expect
 			.element(screen.getByLabelText('original link'))
 			.toHaveValue('https://example.com/pasta')
@@ -403,10 +409,46 @@ describe('recipe detail', () => {
 			.not.toBeInTheDocument()
 	})
 
+	test('keeps more than one link, and lets an emptied one go', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.sourceUrl = 'https://example.com/pasta'
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('button', { name: 'add another link' }).click()
+		await screen.getByLabelText('link').fill('youtube.com/watch?v=pasta')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.element(screen.getByRole('button', { name: 'edit link' }))
+			.toHaveTextContent('youtube video')
+		await expectIsolatedScreenshot(
+			screen.getByRole('group', { name: 'about the recipe' }),
+			'recipe-links',
+		)
+
+		// A link added and left empty is not kept.
+		await screen.getByRole('button', { name: 'add another link' }).click()
+		await expect.element(screen.getByLabelText('link')).toHaveFocus()
+		await userEvent.keyboard('{Escape}')
+		await expect.element(screen.getByLabelText('link')).not.toBeInTheDocument()
+		expect(
+			screen.getByRole('button', { name: 'edit link' }).elements(),
+		).toHaveLength(1)
+
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				sourceUrl: 'https://example.com/pasta',
+				links: ['https://youtube.com/watch?v=pasta'],
+			})
+	})
+
 	test('points a recipe to a youtube video, adding the scheme', async () => {
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('button', { name: 'add original link' }).click()
 		await screen.getByLabelText('original link').fill('youtube.com/watch?v=abc')
 		await expect
 			.element(screen.getByText('a video to cook along with.'))
@@ -527,9 +569,10 @@ describe('recipe detail', () => {
 
 		await screen.getByRole('button', { name: 'edit' }).click()
 		await screen.getByRole('button', { name: 'add ingredient' }).click()
-		await screen
-			.getByRole('combobox', { name: 'Ingredient 2' })
-			.fill('2 tbsp butter')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+			.toHaveFocus()
+		await userEvent.keyboard('2 tbsp butter')
 		// The suggestions would sit over the button.
 		await userEvent.keyboard('{Escape}')
 		await screen.getByRole('button', { name: 'add step' }).click()
@@ -549,7 +592,7 @@ describe('recipe detail', () => {
 		expect(updateCalls.calls.at(-1)?.finalize).toBe(false)
 	})
 
-	test('reorders ingredients from the drag handle and removes rows', async () => {
+	test('moves a line by its dots and removes one by backspacing', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso', '1 onion']
 
@@ -560,18 +603,482 @@ describe('recipe detail', () => {
 
 		await screen.getByRole('button', { name: 'edit' }).click()
 		screen
-			.getByRole('button', { name: 'Reorder ingredient 2' })
+			.getByRole('button', { name: 'Move ingredient 2, 1 tbsp miso' })
 			.element()
 			.focus()
 		await userEvent.keyboard('[Space]')
 		await userEvent.keyboard('[ArrowUp]')
 		await userEvent.keyboard('[Space]')
-		await screen.getByRole('button', { name: 'Remove ingredient 3' }).click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+			.toHaveValue('200 g pasta')
+
+		// An emptied line backs out into the one above.
+		await screen.getByRole('combobox', { name: 'Ingredient 3' }).fill('')
+		await userEvent.keyboard('{Backspace}')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 2' }))
+			.toHaveFocus()
 		await screen.getByRole('button', { name: 'save' }).click()
 
 		await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
 		expect(updateCalls.calls.at(-1)).toMatchObject({
 			ingredients: ['1 tbsp miso', '200 g pasta'],
+		})
+	})
+
+	test('keeps a section with lines from saving until it has a name', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '## sauce', '1 tbsp miso']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		const sectionName = screen.getByRole('textbox', { name: 'Section name 2' })
+		await sectionName.fill('')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+
+		// Nothing saves; the way is pointed to the section that needs a name.
+		await expect.element(sectionName).toHaveFocus()
+		await expect.element(sectionName).toHaveAttribute('aria-invalid', 'true')
+		await expect.element(screen.getByText('needs a name')).toBeVisible()
+		await expect
+			.element(screen.getByText('name the marked section to save'))
+			.toBeVisible()
+		expect(updateCalls.calls).toEqual([])
+		await expectIsolatedScreenshot(
+			screen.getByRole('group', { name: 'ingredients' }),
+			'section-needs-name',
+		)
+
+		await sectionName.fill('for the sauce')
+		await expect
+			.element(screen.getByText('needs a name'))
+			.not.toBeInTheDocument()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				ingredients: ['200 g pasta', '## for the sauce', '1 tbsp miso'],
+			})
+	})
+
+	test('moves a whole section when it is taken by its name', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'## sauce',
+			'1 tbsp miso',
+			'2 tbsp butter',
+			'## pasta',
+			'200 g pasta',
+		]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		screen
+			.getByRole('button', { name: 'Move group 4, pasta' })
+			.element()
+			.focus()
+		await userEvent.keyboard('[Space]')
+		// Dropped on the card above, it goes where that card's name stands.
+		await userEvent.keyboard('[ArrowUp]')
+		await userEvent.keyboard('[Space]')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				ingredients: [
+					'## pasta',
+					'200 g pasta',
+					'## sauce',
+					'1 tbsp miso',
+					'2 tbsp butter',
+				],
+			})
+	})
+
+	test('leaves the lines unopened when a line is taken by its dots', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso']
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('combobox', { name: 'Ingredient 1' }).click()
+		await expect
+			.element(screen.getByRole('toolbar', { name: 'amount' }))
+			.toBeVisible()
+
+		const handle = screen.getByRole('button', {
+			name: 'Move ingredient 2, 1 tbsp miso',
+		})
+
+		await handle.click()
+
+		// Neither the line being written nor the one taken opens for editing.
+		await expect
+			.element(screen.getByRole('toolbar', { name: 'amount' }))
+			.not.toBeInTheDocument()
+		expect(document.activeElement).not.toBe(handle.element())
+	})
+
+	test('starts a group from a line ending in a colon', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'200 g pasta',
+			'1 tbsp miso',
+			'2 tbsp butter',
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('combobox', { name: 'Ingredient 1' }).click()
+		await userEvent.keyboard('{End}{Enter}for the sauce:')
+		await userEvent.keyboard('{Escape}{Enter}')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Section name 2' }))
+			.toHaveValue('for the sauce')
+		// The blank line it opened backs out into the name.
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 3' }))
+			.toHaveFocus()
+		await userEvent.keyboard('{Backspace}')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Section name 2' }))
+			.toHaveFocus()
+		screen.getByRole('textbox', { name: 'Section name 2' }).element().blur()
+		await expectIsolatedScreenshot(
+			screen.getByRole('group', { name: 'ingredients' }),
+			'ingredient-sections',
+		)
+		await screen.getByRole('button', { name: 'save' }).click()
+
+		await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
+		expect(updateCalls.calls.at(-1)).toMatchObject({
+			ingredients: [
+				'200 g pasta',
+				'## for the sauce',
+				'1 tbsp miso',
+				'2 tbsp butter',
+			],
+		})
+	})
+
+	test('steps an amount and swaps its unit from the bar under the line', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['1 tbsp miso', '200 g pasta']
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		const line = screen.getByRole('combobox', { name: 'Ingredient 1' })
+		await line.click()
+		const bar = screen.getByRole('toolbar', { name: 'amount' })
+		await expect.element(bar).toBeVisible()
+		await bar.getByRole('button', { name: 'more' }).click()
+		await expect.element(line).toHaveValue('1 ½ tbsp miso')
+		// The caret stays in the line, so typing carries on.
+		await expect.element(line).toHaveFocus()
+		await bar.getByRole('button', { name: 'tsp' }).click()
+		await expect.element(line).toHaveValue('1 ½ tsp miso')
+		await expectIsolatedScreenshot(
+			screen.getByRole('list', { name: 'ingredient lines' }),
+			'ingredient-amount-bar',
+		)
+		await screen.getByRole('button', { name: 'save' }).click()
+
+		await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
+		expect(updateCalls.calls.at(-1)).toMatchObject({
+			ingredients: ['1 ½ tsp miso', '200 g pasta'],
+		})
+	})
+
+	test('offers a likely amount for a line written without one', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['garlic', 'salt to taste', '200 g pasta']
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+
+		const guess = screen.getByRole('button', {
+			name: 'Use 3 cloves for garlic',
+		})
+
+		await expect.element(guess).toBeVisible()
+		// A line that goes by feel is left as it is.
+		await expect
+			.element(screen.getByRole('button', { name: /for salt to taste/ }))
+			.not.toBeInTheDocument()
+		await expectIsolatedScreenshot(
+			screen.getByRole('list', { name: 'ingredient lines' }),
+			'ingredient-amount-guess',
+		)
+		await guess.click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('3 cloves garlic')
+	})
+
+	test('calls an unnamed card main ingredients until it is named', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'2 tsp cumin',
+			'1 tbsp chili powder',
+			'1 tsp oregano',
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Section name' }))
+			.toHaveAttribute('placeholder', 'main ingredients')
+		await expect
+			.element(screen.getByRole('button', { name: 'Name it spice blend' }))
+			.toBeVisible()
+		await expectIsolatedScreenshot(
+			screen.getByRole('list', { name: 'ingredient lines' }),
+			'ingredient-unnamed-card',
+		)
+		await screen.getByRole('button', { name: 'Name it spice blend' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Section name 1' }))
+			.toHaveValue('spice blend')
+		await screen.getByRole('button', { name: 'save' }).click()
+
+		await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
+		expect(updateCalls.calls.at(-1)?.ingredients?.slice(0, 2)).toEqual([
+			'## spice blend',
+			'2 tsp cumin',
+		])
+	})
+
+	test('shows a line as typed while it is edited', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'## sauce',
+			'1 tbsp miso',
+			'2 tbsp butter, softened',
+			'salt to taste',
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		const field = screen.getByRole('combobox', { name: 'Ingredient 3' })
+		field.element().focus()
+		await expect.element(field).toHaveFocus()
+		await expectIsolatedScreenshot(
+			screen.getByRole('group', { name: 'ingredients' }),
+			'ingredient-editing',
+		)
+	})
+
+	test('turns a group back into a line, and joins lines, with backspace', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['## sauce', '1 tbsp miso']
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('textbox', { name: 'Section name 1' }).click()
+		await userEvent.keyboard('{Home}{Backspace}')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('sauce')
+		await screen.getByRole('combobox', { name: 'Ingredient 2' }).click()
+		await userEvent.keyboard('{Home}{Backspace}')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('sauce 1 tbsp miso')
+		await screen.getByRole('button', { name: 'save' }).click()
+
+		await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
+		expect(updateCalls.calls.at(-1)).toMatchObject({
+			ingredients: ['sauce 1 tbsp miso'],
+		})
+	})
+
+	phoneOnly('folds the ingredients and steps away on a phone', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso']
+		recipeState.recipe.steps = ['boil the pasta']
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		const ingredients = screen.getByRole('button', { name: 'ingredients' })
+		await ingredients.click()
+
+		// Folded, the list is a card saying what it holds.
+		const folded = screen.getByRole('button', {
+			name: 'ingredients, 2 ingredients',
+		})
+
+		await expect.element(folded).toHaveAttribute('aria-expanded', 'false')
+		await expectIsolatedScreenshot(folded, 'ingredients-folded')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.not.toBeInTheDocument()
+		await folded.click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toBeVisible()
+		await screen.getByRole('button', { name: 'steps' }).click()
+		await expect
+			.element(screen.getByRole('button', { name: 'steps, 1 step' }))
+			.toBeVisible()
+
+		// Folded lists still save what they hold.
+		await screen.getByLabelText('notes').fill('more miso')
+		await screen.getByRole('button', { name: 'save' }).click()
+		await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
+		expect(updateCalls.calls.at(-1)).toMatchObject({
+			ingredients: ['200 g pasta', '1 tbsp miso'],
+			steps: ['boil the pasta'],
+		})
+	})
+
+	describe('regrouping', () => {
+		const tikka = {
+			ingredients: [
+				'1 lb chicken thighs',
+				'1 cup plain yogurt',
+				'1 tsp salt',
+				'2 tbsp butter',
+				'1 onion, diced',
+				'fresh cilantro',
+				'naan',
+			],
+			steps: [
+				'Mix the yogurt and salt, and marinate the chicken in it.',
+				'For the sauce, melt the butter and soften the onion.',
+				'Serve with naan, scattered with cilantro.',
+			],
+		}
+
+		beforeEach(() => {
+			if (!recipeState.recipe) throw new Error('recipe was not seeded')
+			Object.assign(recipeState.recipe, tikka)
+		})
+
+		test('organizes the list at once, and saves it as organized', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/recipe-1',
+				session,
+			})
+
+			await screen.getByRole('button', { name: 'edit' }).click()
+			await screen.getByRole('button', { name: /^organize/ }).click()
+
+			// Taken at once: the sections are the list's own, ready to edit.
+			await expect
+				.element(screen.getByText('organized into 3 sections'))
+				.toBeVisible()
+			await expect
+				.element(screen.getByRole('textbox', { name: 'Section name 5' }))
+				.toHaveValue('for the sauce')
+
+			// The lines have settled into their groups.
+			await Promise.all(
+				document.getAnimations().map((animation) => animation.finished),
+			)
+			await expectIsolatedScreenshot(
+				screen.getByRole('group', { name: 'ingredients' }),
+				'ingredient-regroup',
+			)
+			await screen.getByRole('button', { name: 'save' }).click()
+
+			await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
+			expect(updateCalls.calls.at(-1)).toMatchObject({
+				ingredients: [
+					'## for the marinade',
+					'1 lb chicken thighs',
+					'1 cup plain yogurt',
+					'1 tsp salt',
+					'## for the sauce',
+					'2 tbsp butter',
+					'1 onion, diced',
+					'## to serve',
+					'fresh cilantro',
+					'naan',
+				],
+			})
+		})
+
+		test('undoes an organized list back to how it was', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/recipe-1',
+				session,
+			})
+
+			await screen.getByRole('button', { name: 'edit' }).click()
+
+			const pill = screen
+				.getByRole('button', { name: 'not now' })
+				.element().parentElement
+
+			if (!pill) throw new Error('missing the organize offer')
+			// The offer fades in; capture it settled.
+			await Promise.all(
+				document.getAnimations().map((animation) => animation.finished),
+			)
+			await expectIsolatedScreenshot(pill, 'ingredient-organize-offer')
+
+			await screen.getByRole('button', { name: /^organize/ }).click()
+			await screen.getByRole('button', { name: 'undo' }).click()
+			await expect
+				.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+				.toHaveValue('1 lb chicken thighs')
+			// Undone, the offer stands again, to go back and forth between them.
+			await expect
+				.element(screen.getByText('organized into 3 sections'))
+				.not.toBeInTheDocument()
+			await screen.getByRole('button', { name: /^organize/ }).click()
+			await expect
+				.element(screen.getByRole('textbox', { name: 'Section name 5' }))
+				.toHaveValue('for the sauce')
+		})
+
+		test('waves the offer off', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/recipe-1',
+				session,
+			})
+
+			await screen.getByRole('button', { name: 'edit' }).click()
+			await screen.getByRole('button', { name: 'not now' }).click()
+			await expect
+				.element(screen.getByRole('button', { name: /^organize/ }))
+				.not.toBeInTheDocument()
 		})
 	})
 
@@ -641,6 +1148,7 @@ describe('recipe detail', () => {
 	test('keeps an invalid source link in the editor until corrected', async () => {
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('button', { name: 'add original link' }).click()
 		const source = screen.getByRole('textbox', { name: 'original link' })
 		await source.fill('not a url')
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
@@ -664,11 +1172,11 @@ describe('recipe detail', () => {
 		const notes = screen.getByLabelText('notes')
 		await notes.fill('more lemon')
 		await expect.element(save).toBeEnabled()
-		await expect.element(screen.getByText('changed: notes')).toBeVisible()
+		await expect.element(screen.getByText('not saved yet: notes')).toBeVisible()
 		await notes.fill('')
 		await expect.element(save).toBeDisabled()
 		await expect
-			.element(screen.getByText('changed: notes'))
+			.element(screen.getByText('not saved yet: notes'))
 			.not.toBeInTheDocument()
 	})
 
@@ -798,7 +1306,8 @@ describe('recipe detail', () => {
 		})
 
 		await screen.getByRole('button', { name: 'edit' }).click()
-		await screen.getByRole('button', { name: 'delete', exact: true }).click()
+		await screen.getByRole('button', { name: 'more' }).click()
+		await page.getByRole('menuitem', { name: 'delete recipe' }).click()
 		await expect
 
 			.element(page.getByText('there is no undo', { exact: false }))
@@ -807,7 +1316,8 @@ describe('recipe detail', () => {
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument()
 		expect(updateCalls.deleted).toEqual([])
 
-		await screen.getByRole('button', { name: 'delete', exact: true }).click()
+		await screen.getByRole('button', { name: 'more' }).click()
+		await page.getByRole('menuitem', { name: 'delete recipe' }).click()
 		await page.getByRole('button', { name: 'delete', exact: true }).click()
 
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
@@ -865,15 +1375,214 @@ describe('recipe detail', () => {
 			.toBeVisible()
 	})
 
-	test('offers a copy action for shared recipes without offering edit', async () => {
+	test('opens a published recipe to edit instead of sending it to its page', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		Object.assign(recipeState.recipe, { userId: null, owned: false })
-		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		// Its readable page only reads, so editing stays at this address.
+		Object.assign(recipeState.recipe, {
+			userId: null,
+			owned: false,
+			publicPath: '/sites/example/miso',
+		})
+
+		const { screen, router } = await renderRoute({ path: '/recipes', session })
+
+		await router.navigate({
+			to: '/recipes/$recipeId',
+			params: { recipeId: 'recipe-1' },
+			state: { editing: true },
+		})
 		await expect
-			.element(screen.getByRole('button', { name: 'copy to my shelf' }))
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
 			.toBeVisible()
+		expect(router.state.location.pathname).toBe('/recipes/recipe-1')
+	})
+
+	test('keeps the way back to a search when a found recipe is published', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		Object.assign(recipeState.recipe, {
+			userId: null,
+			owned: false,
+			publicPath: '/sites/example/miso',
+		})
+
+		const { router } = await renderRoute({ path: '/recipes', session })
+
+		await router.navigate({
+			to: '/recipes/$recipeId',
+			params: { recipeId: 'recipe-1' },
+			state: { foundBy: 'miso' },
+		})
 		await expect
-			.element(screen.getByRole('button', { name: 'edit' }))
-			.not.toBeInTheDocument()
+			.poll(() => router.state.location.pathname)
+			.toBe('/sites/example/miso')
+		expect(router.state.location.state.foundBy).toBe('miso')
+	})
+
+	test('sends a published recipe back to its page when its edit is cancelled', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		Object.assign(recipeState.recipe, {
+			userId: null,
+			owned: false,
+			publicPath: '/sites/example/miso',
+		})
+
+		const { screen, router } = await renderRoute({ path: '/recipes', session })
+
+		await router.navigate({
+			to: '/recipes/$recipeId',
+			params: { recipeId: 'recipe-1' },
+			state: { editing: true },
+		})
+		await screen.getByRole('button', { name: 'cancel' }).click()
+		// The edit request is spent, so a reload would not open the editor again.
+		await expect
+			.poll(() => router.state.location.pathname)
+			.toBe('/sites/example/miso')
+		expect(router.state.location.state.editing).toBeUndefined()
+	})
+
+	test('keeps the caret in place when the amount is edited from inside', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 tablespoons butter']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		const line = screen.getByRole('combobox', { name: 'Ingredient 1' })
+		await line.click()
+		const field = line.element()
+
+		if (!(field instanceof HTMLTextAreaElement)) throw new Error('not a field')
+		field.setSelectionRange(1, 1)
+		await userEvent.keyboard('0')
+
+		await expect.element(line).toHaveValue('20 tbsp butter')
+		expect(field.selectionStart).toBe(2)
+	})
+
+	test('copies a shared recipe only once a change is saved', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		Object.assign(recipeState.recipe, {
+			userId: null,
+			owned: false,
+			saved: true,
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		// Opening the editor copies nothing; cancelling leaves the shelf alone.
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await expect
+			.element(screen.getByText('in place of the saved one', { exact: false }))
+			.toBeVisible()
+		await screen.getByRole('button', { name: 'cancel' }).click()
+		expect(updateCalls.calls).toEqual([])
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen
+			.getByRole('combobox', { name: 'Ingredient 1' })
+			.fill('300 g pasta')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect.poll(() => updateCalls.calls.at(-1)?.id).toBe('recipe-1')
+	})
+
+	describe('asked for before signing in', () => {
+		beforeEach(() => {
+			if (!recipeState.recipe) throw new Error('recipe was not seeded')
+			Object.assign(recipeState.recipe, {
+				userId: null,
+				saved: false,
+				owned: false,
+				savedAt: null,
+			})
+		})
+
+		async function signUpInDialog() {
+			getAuthMocks().signUpEmail.mockImplementationOnce(async () => {
+				setMockSession(session)
+
+				return { error: null }
+			})
+			const dialog = page.getByRole('dialog', { name: 'create an account' })
+			await dialog.getByLabelText('name').fill('Test User')
+			await dialog.getByLabelText('email').fill('test@example.com')
+			await dialog.getByLabelText('password').fill('password123')
+			await dialog
+				.getByRole('button', { name: 'create account', exact: true })
+				.click()
+		}
+
+		test('saves once the dialog signs the visitor in', async () => {
+			const { screen } = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await screen.getByRole('button', { name: 'save', exact: true }).click()
+			expect(updateCalls.saved).toEqual([])
+			await signUpInDialog()
+
+			await expect.poll(() => updateCalls.saved).toEqual(['recipe-1'])
+			await expect
+				.element(screen.getByRole('button', { name: 'saved', exact: true }))
+				.toBeVisible()
+		})
+
+		test('saves when the page loads again after google sign-in', async () => {
+			const first = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await first.screen
+				.getByRole('button', { name: 'save', exact: true })
+				.click()
+			await expect
+				.element(page.getByRole('dialog', { name: 'create an account' }))
+				.toBeVisible()
+			// Google sign-in leaves the page and loads it again signed in.
+			await first.screen.unmount()
+
+			const next = await renderRoute({ path: '/recipes/recipe-1', session })
+
+			await expect.poll(() => updateCalls.saved).toEqual(['recipe-1'])
+			await expect
+				.element(
+					next.screen.getByRole('button', { name: 'saved', exact: true }),
+				)
+				.toBeVisible()
+			expect(sessionStorage.getItem('after-sign-in')).toBeNull()
+		})
+
+		test('leaves a recipe alone when the account already has it', async () => {
+			const first = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await first.screen
+				.getByRole('button', { name: 'save', exact: true })
+				.click()
+			await first.screen.unmount()
+			Object.assign(recipeState.recipe ?? {}, { saved: true })
+
+			const next = await renderRoute({ path: '/recipes/recipe-1', session })
+
+			await expect
+				.element(
+					next.screen.getByRole('button', { name: 'saved', exact: true }),
+				)
+				.toBeVisible()
+			expect(updateCalls.saved).toEqual([])
+			expect(sessionStorage.getItem('after-sign-in')).toBeNull()
+		})
+
+		test('opens the editor once the dialog signs the visitor in', async () => {
+			const { screen } = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await screen.getByRole('button', { name: 'edit' }).click()
+			await signUpInDialog()
+
+			await expect
+				.element(screen.getByRole('button', { name: 'cancel' }))
+				.toBeVisible()
+			// Only editing was asked for: nothing is saved or copied yet.
+			expect(updateCalls.saved).toEqual([])
+			expect(updateCalls.calls).toEqual([])
+		})
 	})
 })

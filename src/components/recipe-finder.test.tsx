@@ -27,9 +27,10 @@ vi.mock('@/lib/discover/server', () => ({
 
 vi.mock('@/lib/import/server', () => ({ importRecipe: server.import }))
 
-vi.mock('@/lib/recipes/server', () => ({
+vi.mock('@/lib/recipes/server', async (importOriginal) => ({
+	// The recipe page a search opens needs the rest, which it never calls here.
+	...(await importOriginal<object>()),
 	removeSavedRecipe: () => Promise.resolve(null),
-	copyRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: server.getRecipe,
 	saveRecipe: server.save,
@@ -52,6 +53,7 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 		title,
 		imageUrl: null,
 		sourceUrl: null,
+		links: [],
 		sourceNotes: null,
 		servings: null,
 		totalMinutes: null,
@@ -356,10 +358,26 @@ describe('the one box', () => {
 			.element(screen.getByRole('button', { name: 'back to results' }))
 			.toBeVisible()
 		expect(router.state.location.pathname).toBe('/recipes')
+		server.getRecipe.mockResolvedValue({
+			...miso,
+			ingredients: ['200 g pasta'],
+			steps: ['boil'],
+			saved: true,
+			owned: true,
+		})
 		await screen.getByRole('button', { name: 'open recipe' }).click()
 		await expect
 			.poll(() => router.state.location.pathname)
 			.toBe('/recipes/recipe-1')
+
+		// The recipe's way back is to the search it came from.
+		await screen.getByRole('button', { name: 'back to results' }).click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
+			.toHaveValue('mis')
+		await expect
+			.element(screen.getByRole('option', { name: /miso butter pasta/ }))
+			.toBeVisible()
 	})
 
 	phoneOnly(
@@ -470,7 +488,7 @@ describe('the one box', () => {
 		await option.click()
 		await expect
 			.element(screen.getByRole('button', { name: 'save', exact: true }))
-			.not.toBeInTheDocument()
+			.toBeVisible()
 		await expect
 			.element(screen.getByRole('button', { name: 'open recipe' }))
 			.toBeVisible()
@@ -532,10 +550,6 @@ describe('the one box', () => {
 		expect(dialog.getBoundingClientRect().height).toBe(
 			window.innerHeight - (isPhone() ? 24 : 64),
 		)
-		await expect
-			.element(screen.getByRole('button', { name: 'save', exact: true }))
-			.not.toBeInTheDocument()
-
 		expect(router.state.location.pathname).toBe('/recipes')
 		await expect.element(screen.getByRole('listbox')).not.toBeInTheDocument()
 		await expect
@@ -550,6 +564,46 @@ describe('the one box', () => {
 			.poll(() => router.state.location.pathname)
 			.toBe('/recipes/shared-1')
 		expect(server.save).not.toHaveBeenCalled()
+	})
+
+	test('saves a previewed recipe in one tap, staying in the search', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({ recipeId: 'shared-1', title: 'lemon chicken' }),
+				found({ url: 'https://example.com/dal', title: 'tadka dal' }),
+			],
+		})
+		server.getRecipe.mockResolvedValue({
+			...shelfRecipe('shared-1', 'lemon chicken', { userId: null }),
+			ingredients: ['6 chicken thighs'],
+			steps: ['roast'],
+			saved: false,
+			owned: false,
+		})
+		server.save.mockResolvedValue({ id: 'shared-1' })
+		server.import.mockResolvedValue({ id: 'shared-2' })
+		const { screen, router, input } = await openBox()
+		await input.fill('lemon')
+		await screen.getByRole('option', { name: /lemon chicken/ }).click()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+
+		await expect
+			.element(screen.getByText('saved', { exact: true }))
+			.toBeVisible()
+		expect(server.save).toHaveBeenCalledWith({ data: { id: 'shared-1' } })
+		expect(router.state.location.pathname).toBe('/recipes')
+
+		// A site page is brought in and kept in one go.
+		await screen.getByRole('button', { name: 'back to results' }).click()
+		await screen.getByRole('option', { name: /tadka dal/ }).click()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.element(screen.getByText('saved', { exact: true }))
+			.toBeVisible()
+		expect(server.import).toHaveBeenCalledWith({
+			data: { url: 'https://example.com/dal', keep: true },
+		})
 	})
 
 	test('keeps the selected preview when discovery refreshes a URL into a recipe ID', async () => {

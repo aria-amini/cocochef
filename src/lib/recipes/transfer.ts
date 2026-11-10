@@ -28,7 +28,7 @@ export const transferRecipeMax = 500
 const lines = z.array(z.string()).max(300)
 
 const transferRecipe = recipeInput
-	.pick({ title: true, sourceUrl: true, finalized: true })
+	.pick({ title: true, sourceUrl: true, links: true, finalized: true })
 	.extend({
 		notes: z.string().trim().max(recipeNotesMax).optional(),
 		sourceNotes: recipeSourceNotes.optional(),
@@ -58,6 +58,7 @@ function webImage(imageUrl: string | null) {
 export function toTransferRecipe(recipe: {
 	title: string
 	sourceUrl: string | null
+	links?: string[] | undefined
 	imageUrl: string | null
 	notes: string | null
 	sourceNotes?: string | null | undefined
@@ -76,6 +77,8 @@ export function toTransferRecipe(recipe: {
 	}
 
 	if (recipe.sourceUrl) transfer.sourceUrl = recipe.sourceUrl
+
+	if (recipe.links?.length) transfer.links = recipe.links
 
 	if (image) transfer.imageUrl = image
 
