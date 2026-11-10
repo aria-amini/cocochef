@@ -79,3 +79,17 @@ export function checkableStepIndexes(steps: string[]) {
 			: [row.index],
 	)
 }
+
+// Each stored step's number as the cook reads it: "3", or "3.2" for a sub-step.
+export function stepLabels(steps: string[]) {
+	const labels: string[] = []
+
+	for (const row of stepRows(steps)) {
+		labels[row.index] = row.label
+
+		if (row.kind === 'group')
+			for (const child of row.children) labels[child.index] = child.label
+	}
+
+	return labels
+}

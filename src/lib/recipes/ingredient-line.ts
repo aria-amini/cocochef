@@ -30,6 +30,32 @@ const unitByAlias = new Map<string, string>(
 	),
 )
 
+// The short form each measure is shown in, however the line spells it.
+const abbreviations: [RegExp, string][] = [
+	[/^(?:tablespoons?|tbsps?|tbs|tbl|tb)$/i, 'tbsp'],
+	[/^(?:teaspoons?|tsps?|ts)$/i, 'tsp'],
+	[/^(?:ounces?|oz)$/i, 'oz'],
+	[/^(?:pounds?|lbs?)$/i, 'lb'],
+	[/^(?:grams?|gr)$/i, 'g'],
+	[/^(?:kilograms?|kilos?|kgs?)$/i, 'kg'],
+	[/^(?:millilit(?:er|re)s?|mls?)$/i, 'ml'],
+	[/^(?:lit(?:er|re)s?)$/i, 'l'],
+]
+
+const MEASURE_AFTER_NUMBER =
+	/(\d|[¼½¾⅓⅔⅛])(\s*|-)(tablespoons?|tbsps?|tbs|tbl|teaspoons?|tsps?|ounces?|pounds?|lbs|grams?|kilograms?|kilos?|millilit(?:er|re)s?|lit(?:er|re)s?)\.?(?=[\s),/]|$)/giu
+
+// A line with its measures in their short form: "2 tablespoons butter" reads
+// "2 tbsp butter", and "1 (15-ounce) can" reads "1 (15-oz) can". Only a word
+// right after a number is a measure, so "pound the chicken" stays as it is.
+export function abbreviateUnits(text: string) {
+	return text.replace(MEASURE_AFTER_NUMBER, (whole, digit, gap, unit) => {
+		const short = abbreviations.find(([pattern]) => pattern.test(unit))?.[1]
+
+		return short ? `${digit}${gap}${short}` : whole
+	})
+}
+
 // ===== Quantity =====
 
 const FRACTIONS = new Map([
@@ -112,7 +138,10 @@ export function splitIngredientAmount(line: string, includeAlternate = true) {
 	const quantity = match[1] ?? ''
 
 	if (!alternate)
-		return { amount: [quantity, unit].join(' ').trim(), name: rest }
+		return {
+			amount: abbreviateUnits([quantity, unit].join(' ').trim()),
+			name: rest,
+		}
 
 	const { rest: name } = takeUnit((alternate[1] ?? '').trim())
 
@@ -122,9 +151,144 @@ export function splitIngredientAmount(line: string, includeAlternate = true) {
 		.trim()
 
 	return {
-		amount: [quantity, unit].join(' ').trim(),
-		name: includeAlternate ? `${name} · ${measure}` : name,
+		amount: abbreviateUnits([quantity, unit].join(' ').trim()),
+		name: includeAlternate ? `${name} · ${abbreviateUnits(measure)}` : name,
 	}
+}
+
+// The amount at the start of a line as it was typed ("1 ½ tablespoons"), once
+// a space after it shows it is finished; nothing while it may still grow, so
+// "1" in "12 g" is not taken early.
+export function settledAmount(line: string) {
+	const match = new RegExp(`^(${QUANTITY})`, 'u').exec(line)
+	const quantity = match?.[1]
+
+	if (!quantity || quantityFrom(quantity) === undefined) return undefined
+
+	const after = line.slice(quantity.length)
+	const unit = /^(\s*)(\S+)/.exec(after)
+	const word = unit?.[2] ?? ''
+
+	const amount = unitByAlias.has(word.toLowerCase().replace(/\.$/, ''))
+		? quantity + (unit?.[1] ?? '') + word
+		: quantity
+
+	return /^\s/.test(line.slice(amount.length)) ? amount : undefined
+}
+
+// A line with its settled amount in the short form ("1 tablespoon " becomes
+// "1 tbsp "), the rest as typed.
+export function settleAmount(line: string) {
+	const amount = settledAmount(line)
+
+	return amount ? abbreviateUnits(amount) + line.slice(amount.length) : line
+}
+
+// ===== Adjusting an amount =====
+
+// The units the amount bar offers, in the order a cook reaches for them.
+export const amountUnits = ['tsp', 'tbsp', 'cup', 'g', 'ml'] as const
+
+// Units counted in whole things take a plural after more than one.
+const plurals = new Map([
+	['cup', 'cups'],
+	['clove', 'cloves'],
+	['can', 'cans'],
+	['bunch', 'bunches'],
+	['pinch', 'pinches'],
+])
+
+const glyphs: [number, string][] = [
+	[0.125, '⅛'],
+	[0.25, '¼'],
+	[1 / 3, '⅓'],
+	[0.5, '½'],
+	[2 / 3, '⅔'],
+	[0.75, '¾'],
+]
+
+// A quantity as a cook writes it: "1 ½", "¾", "250"; a share no glyph fits
+// stays a short decimal.
+export function formatQuantity(quantity: number) {
+	const whole = Math.floor(quantity + 1e-9)
+	const part = quantity - whole
+	const glyph = glyphs.find(([value]) => Math.abs(value - part) < 0.01)?.[1]
+
+	if (part < 0.01) return String(whole)
+
+	if (glyph) return whole ? `${whole} ${glyph}` : glyph
+
+	return String(Number(quantity.toFixed(2)))
+}
+
+// A line's amount taken apart: how much, in what (its usual short name), and
+// the rest of the line as written. Nothing for a line with no amount.
+export function amountOf(line: string) {
+	const text = line.trimStart()
+	const match = LINE.exec(text)
+	const quantity = match?.[1] ? quantityFrom(match[1]) : undefined
+
+	if (!match || quantity === undefined) return undefined
+
+	const { unit, rest } = takeUnit((match[2] ?? '').trim())
+	const canonical = unitByAlias.get(unit.toLowerCase().replace(/\.$/, '')) ?? ''
+
+	return { quantity, unit: canonical, rest }
+}
+
+function withAmount(quantity: number, unit: string, rest: string) {
+	const named = quantity > 1 ? (plurals.get(unit) ?? unit) : unit
+
+	return [formatQuantity(quantity), named, rest].filter(Boolean).join(' ')
+}
+
+// How far one tap moves an amount in this unit: a quarter of a spoon below
+// one, a half above it, and so on, so each step is one a cook would make.
+function stepFor(quantity: number, unit: string) {
+	if (unit === 'tsp' || unit === 'tbsp') return quantity < 1 ? 0.25 : 0.5
+
+	if (unit === 'cup' || unit === 'lb' || unit === 'kg' || unit === 'l')
+		return 0.25
+
+	if (unit === 'g' || unit === 'ml')
+		return quantity < 25 ? 5 : quantity < 100 ? 25 : 50
+
+	if (unit === 'oz') return quantity < 4 ? 0.5 : 1
+
+	return quantity < 1 ? 0.25 : 1
+}
+
+// The line with its amount one step up or down, landing on the step's own
+// marks ("1 ⅓ tbsp" up is "1 ½"). An amount never steps below its smallest
+// step; a line with none starts at 1.
+export function stepAmount(line: string, by: 1 | -1) {
+	const amount = amountOf(line)
+
+	if (!amount) return by > 0 ? `1 ${line.trim()}` : line
+
+	const { quantity, unit, rest } = amount
+	const step = stepFor(by > 0 ? quantity : quantity - 1e-6, unit)
+
+	const next =
+		by > 0
+			? Math.floor(quantity / step + 1e-6) * step + step
+			: Math.ceil(quantity / step - 1e-6) * step - step
+
+	return withAmount(next > 0 ? next : step, unit, rest)
+}
+
+// The line in another unit, the number kept: the cook is relabelling, not
+// converting.
+export function setAmountUnit(line: string, unit: string) {
+	const amount = amountOf(line)
+
+	if (!amount) return `1 ${unit} ${line.trim()}`.trim()
+
+	return withAmount(
+		amount.quantity,
+		amount.unit === unit ? '' : unit,
+		amount.rest,
+	)
 }
 
 // Only separate a trailing parenthetical when the prefix already names an
