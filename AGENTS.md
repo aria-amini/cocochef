@@ -91,7 +91,9 @@ the staged files, then the unit and server tests that import the uncommitted
 changes. Each push runs `.vite-hooks/pre-push`: the desktop and mobile browser
 tests that the pushed commits reach (since the branch's upstream or its copy on
 origin, or `main` on a first push), stopping at the first failure. `vp i`
-installs both hooks through `prepare`.
+installs both hooks through `prepare`; in a worktree whose packages are already
+installed, `vp i` skips that, so run `vp config`. Without it, git skips the
+hooks silently.
 
 Use `pnpm` through Vite+ (`vp i`, `vp run <script>`). Secrets resolve through
 Varlock; never commit generated or local secret files.
