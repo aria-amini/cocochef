@@ -141,13 +141,13 @@ function proposalFrom(rows: Row[], groups: RegroupGroup[]) {
 	const next: Row[] = []
 	const steps = new Map<string, number>()
 
-	for (const [at, group] of groups.entries()) {
+	for (const group of groups) {
 		if (group.heading) {
 			const name = group.heading
 
 			const head = written.find(
 				(row) => row.heading && sameName(row.text, name) && !next.includes(row),
-			) ?? { id: `regroup-${at}-${name}`, text: name, heading: true as const }
+			) ?? { id: crypto.randomUUID(), text: name, heading: true as const }
 
 			next.push(head)
 			steps.set(head.id, group.step)

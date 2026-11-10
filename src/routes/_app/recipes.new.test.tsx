@@ -778,10 +778,22 @@ describe('write a recipe', () => {
 			.element(screen.getByRole('button', { name: 'edit original link' }))
 			.toBeVisible()
 
+		// Undo puts the name back as it was too, even when it changed since.
+		await screen.getByRole('textbox', { name: 'name' }).fill('curry')
 		await screen.getByRole('button', { name: 'undo' }).click()
 		await expect
 			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
 			.toHaveValue('')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'name' }))
+			.toHaveValue('tikka masala')
+		await expect
+			.element(
+				screen.getByRole('button', {
+					name: /start from a recipe like “tikka masala”/,
+				}),
+			)
+			.toBeVisible()
 		online.results = []
 		online.recipe = null
 	})

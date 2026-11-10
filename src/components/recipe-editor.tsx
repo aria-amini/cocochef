@@ -351,13 +351,14 @@ export function RecipeEditor({
 	// and crediting the original, with a way back to the empty page.
 	const startFrom = (start: StartingPoint) => {
 		const before = {
+			name,
 			source,
 			notes: form.current ? formField(new FormData(form.current), 'notes') : '',
 		}
 
 		const empty = (version: number) => ({
 			version,
-			title: name,
+			title: before.name,
 			ingredients: [],
 			steps: [],
 			notes: before.notes,
@@ -374,6 +375,7 @@ export function RecipeEditor({
 				label: 'undo',
 				onClick: () => {
 					if (finishing.current) return
+					setName(before.name)
 					setSource(before.source)
 					setSeed((current) => empty(current.version + 1))
 				},
