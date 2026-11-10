@@ -1,4 +1,10 @@
-import { CopyIcon, ExportIcon, ShoppingCartIcon } from '@phosphor-icons/react'
+import {
+	CopyIcon,
+	ExportIcon,
+	PlusIcon,
+	ShoppingCartIcon,
+	XIcon,
+} from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -7,6 +13,15 @@ import { z } from 'zod'
 
 import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
 import { buttonVariants } from '@/components/ui/button'
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog'
+import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { groceryList } from '@/lib/groceries/list'
 import { addGroceries } from '@/lib/groceries/server'
 import { cn } from '@/lib/utils/ui'
@@ -88,15 +103,17 @@ export function GrocerySend({
 	const items = groceryList(lines, have)
 	const text = items.join('\n')
 	const [adding, setAdding] = useState(false)
+	// What will be added, shown to change before anything is saved.
+	const [reviewing, setReviewing] = useState(false)
 	// Shown only once the cook starts shopping, so only ever in the browser.
 	const canShare = 'share' in navigator
 
-	async function add() {
+	async function add(chosen: string[]) {
 		setAdding(true)
 
 		try {
 			const added = await addGroceries({
-				data: items.map((item) => ({
+				data: chosen.map((item) => ({
 					text: item,
 					recipeId,
 					recipeTitle: title,
@@ -106,6 +123,7 @@ export function GrocerySend({
 			// The groceries tab says how many landed, without leaving the recipe.
 			pulseGroceries(added.length)
 			void client.invalidateQueries({ queryKey: groceryCountKey })
+			setReviewing(false)
 			toast.success(
 				added.length
 					? `${added.length} added to groceries`
@@ -182,14 +200,165 @@ export function GrocerySend({
 				) : null}
 				<button
 					type="button"
-					disabled={!items.length || adding}
-					onClick={add}
+					disabled={!items.length}
+					onClick={() => setReviewing(true)}
 					className={buttonVariants({ className: 'rounded-full px-5' })}
 				>
 					<ShoppingCartIcon size={16} weight="bold" aria-hidden />
 					add to groceries
 				</button>
 			</div>
+			{reviewing ? (
+				<AddReview
+					title={title}
+					items={items}
+					adding={adding}
+					onClose={() => setReviewing(false)}
+					onAdd={(chosen) => void add(chosen)}
+				/>
+			) : null}
 		</div>
+	)
+}
+
+type Draft = { id: string; text: string; on: boolean }
+
+const draftOf = (text: string): Draft => ({
+	id: crypto.randomUUID(),
+	text,
+	on: true,
+})
+
+// What a recipe would add, to change before it goes on the list: a line's
+// words, whether it goes, and any line the recipe forgot.
+function AddReview({
+	title,
+	items,
+	adding,
+	onClose,
+	onAdd,
+}: {
+	title: string
+	items: string[]
+	adding: boolean
+	onClose: () => void
+	onAdd: (chosen: string[]) => void
+}) {
+	const [drafts, setDrafts] = useState(() => items.map(draftOf))
+	const [extra, setExtra] = useState('')
+
+	const chosen = drafts.flatMap((draft) =>
+		draft.on && draft.text.trim() ? [draft.text.trim()] : [],
+	)
+
+	const change = (id: string, patch: Partial<Draft>) =>
+		setDrafts((current) =>
+			current.map((draft) =>
+				draft.id === id ? { ...draft, ...patch } : draft,
+			),
+		)
+
+	function addExtra() {
+		const text = extra.trim()
+
+		if (!text) return
+		setDrafts((current) => [...current, draftOf(text)])
+		setExtra('')
+	}
+
+	return (
+		<Dialog open onOpenChange={(open) => !open && onClose()}>
+			<DialogContent className="flex max-h-[85dvh] flex-col">
+				<DialogHeader>
+					<DialogTitle>add to groceries</DialogTitle>
+					<DialogDescription>
+						from {title}. change a line, or untick what you do not need.
+					</DialogDescription>
+				</DialogHeader>
+				<ul
+					aria-label="items to add"
+					className="divide-border border-input -mx-1 min-h-0 flex-1 divide-y overflow-y-auto rounded-xl border"
+				>
+					{drafts.map((draft, index) => (
+						<li key={draft.id} className="flex items-center gap-2 pr-1 pl-3">
+							<input
+								type="checkbox"
+								aria-label={`add item ${index + 1}`}
+								checked={draft.on}
+								onChange={(event) =>
+									change(draft.id, { on: event.target.checked })
+								}
+								className="accent-kitchen-basil size-5 shrink-0"
+							/>
+							<input
+								aria-label={`item ${index + 1}`}
+								value={draft.text}
+								maxLength={200}
+								onChange={(event) =>
+									change(draft.id, { text: event.target.value })
+								}
+								className={cn(
+									'min-h-11 min-w-0 flex-1 bg-transparent text-base outline-none',
+									!draft.on && 'text-muted-foreground line-through',
+								)}
+							/>
+							<button
+								type="button"
+								aria-label={`remove ${draft.text.trim() || `item ${index + 1}`}`}
+								onClick={() =>
+									setDrafts((current) =>
+										current.filter((other) => other.id !== draft.id),
+									)
+								}
+								className="text-muted-foreground hover:text-foreground grid size-10 shrink-0 place-items-center rounded-full"
+							>
+								<XIcon size={14} weight="bold" aria-hidden />
+							</button>
+						</li>
+					))}
+				</ul>
+				<form
+					onSubmit={(event) => {
+						event.preventDefault()
+						addExtra()
+					}}
+					className="flex items-center gap-2"
+				>
+					<input
+						aria-label="add another item"
+						placeholder="add another item"
+						maxLength={200}
+						value={extra}
+						onChange={(event) => setExtra(event.target.value)}
+						className={cn(fieldClassName, placeholderClassName, 'flex-1')}
+					/>
+					<button
+						type="submit"
+						aria-label="put it on the list"
+						disabled={!extra.trim()}
+						className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
+					>
+						<PlusIcon size={14} weight="bold" aria-hidden />
+					</button>
+				</form>
+				<DialogFooter>
+					<button
+						type="button"
+						onClick={onClose}
+						className={buttonVariants({ variant: 'outline' })}
+					>
+						cancel
+					</button>
+					<button
+						type="button"
+						disabled={!chosen.length || adding}
+						onClick={() => onAdd(chosen)}
+						className={buttonVariants()}
+					>
+						{adding ? 'adding…' : `add ${chosen.length}`}
+					</button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	)
 }

@@ -334,6 +334,28 @@ describe('recipe detail', () => {
 
 		groceryCalls.length = 0
 		await screen.getByRole('button', { name: 'add to groceries' }).click()
+
+		// What will be added shows first, to change before anything saves.
+		const review = page.getByRole('dialog', { name: 'add to groceries' })
+		await expect
+			.element(review.getByRole('textbox', { name: 'item 1' }))
+			.toHaveValue('200 g pasta')
+		await review.getByRole('checkbox', { name: 'add item 1' }).click()
+		await review
+			.getByRole('textbox', { name: 'item 2' })
+			.fill('3 cloves garlic')
+		await review
+			.getByRole('textbox', { name: 'add another item' })
+			.fill('parmesan')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.element(review.getByRole('textbox', { name: 'item 3' }))
+			.toHaveValue('parmesan')
+		expect(groceryCalls).toEqual([])
+		await expectIsolatedScreenshot(review, 'add-to-groceries')
+		await review.getByRole('button', { name: 'add 2' }).click()
+
+		await expect.element(review).not.toBeInTheDocument()
 		await expect.element(page.getByText('2 added to groceries')).toBeVisible()
 		// The groceries tab says how many landed, without leaving the recipe.
 		await expect
@@ -344,12 +366,12 @@ describe('recipe detail', () => {
 		expect(groceryCalls).toEqual([
 			[
 				{
-					text: '200 g pasta',
+					text: '3 cloves garlic',
 					recipeId: 'recipe-1',
 					recipeTitle: 'miso butter pasta',
 				},
 				{
-					text: '2 cloves garlic',
+					text: 'parmesan',
 					recipeId: 'recipe-1',
 					recipeTitle: 'miso butter pasta',
 				},
