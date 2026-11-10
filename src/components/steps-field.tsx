@@ -173,7 +173,7 @@ export function StepsField({
 		return (
 			<span className="flex min-w-0 flex-1 items-baseline py-2.5 pl-7">
 				<span className={numberClassName}>{numbered[index]}</span>
-				<span className="line-clamp-2 min-w-0 flex-1 px-3 font-medium">
+				<span className="line-clamp-2 min-w-0 flex-1 px-3 font-semibold">
 					{row.text.trim()}
 				</span>
 				{carrying && count(row) ? (

@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils/ui'
 const sizes = {
 	sm: { box: 'size-6 rounded-md text-xs', icon: 14 },
 	md: { box: 'size-8 rounded-md text-sm', icon: 16 },
-	lg: { box: 'size-10 rounded-lg text-base', icon: 22 },
+	lg: { box: 'size-10 rounded-md text-base', icon: 22 },
 	xl: { box: 'size-24 rounded-xl text-3xl', icon: 44 },
 } as const
 

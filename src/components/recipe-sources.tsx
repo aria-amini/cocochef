@@ -14,7 +14,7 @@ export function RecipeSources() {
 						<img
 							src={importSiteLogo(site.id)}
 							alt={site.name}
-							className="size-4 rounded-sm object-contain"
+							className="size-4 object-contain"
 						/>
 					</li>
 				))}

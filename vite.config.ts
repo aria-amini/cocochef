@@ -5,6 +5,22 @@ import { sentryTanstackStart } from '@sentry/tanstackstart-react/vite'
 import '@varlock/vite-integration'
 import { playwright } from 'vite-plus/test/browser-playwright'
 
+// Class strings live in className, cn() and cva().
+const classStrings =
+	':matches(JSXAttribute[name.name="className"], CallExpression[callee.name=/^(cn|cva)$/])'
+
+const designClassRules = [
+	{
+		selector: `${classStrings} Literal[value=/(^|[\\s:])(uppercase|capitalize)(\\s|$)/]`,
+		message:
+			'All UI copy is lowercase: no uppercase or capitalize (DESIGN.md).',
+	},
+	{
+		selector: `${classStrings} Literal[value=/(^|[\\s:])bg-(linear|radial|conic|gradient)/]`,
+		message: 'No gradients: ingredient colors are flat tints (DESIGN.md).',
+	},
+]
+
 export default defineToolkit({
 	root: import.meta.dirname,
 	tests: {
@@ -45,6 +61,11 @@ export default defineToolkit({
 				// cannot resolve values declared that way, so it is allow-listed by
 				// name.
 				'shadcn/no-unknown-classes': ['error', { allow: ['leading-poster'] }],
+				// DESIGN.md's class-level rules. The theme in src/styles.css
+				// allowlists shadows and tracking; these cover what a theme cannot
+				// remove. Appended to the toolkit's own className rule.
+				'eslint-js/no-restricted-syntax': (current) =>
+					Array.isArray(current) ? [...current, ...designClassRules] : current,
 			},
 		},
 		plugins: [

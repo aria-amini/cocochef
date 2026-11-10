@@ -134,7 +134,7 @@ export function IngredientSuggestions({
 								dismiss(shown.heading)
 								setOpen(undefined)
 							}}
-							className="bg-kitchen-eggplant text-accent-foreground min-h-10 rounded-lg px-4 text-sm font-bold transition-opacity hover:opacity-90"
+							className="bg-kitchen-eggplant text-accent-foreground min-h-10 rounded-md px-4 text-sm font-bold transition-opacity hover:opacity-90"
 						>
 							add these {shown.ingredients.length}
 						</button>
@@ -144,7 +144,7 @@ export function IngredientSuggestions({
 								dismiss(shown.heading)
 								setOpen(undefined)
 							}}
-							className="text-muted-foreground hover:text-foreground min-h-10 rounded-lg px-3 text-sm font-bold transition-colors"
+							className="text-muted-foreground hover:text-foreground min-h-10 rounded-md px-3 text-sm font-bold transition-colors"
 						>
 							no thanks
 						</button>

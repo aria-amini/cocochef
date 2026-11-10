@@ -739,7 +739,7 @@ export function IngredientListField({
 					<span
 						aria-hidden
 						className={cn(
-							'grid size-6 place-items-center rounded-full border-2 transition-colors',
+							'grid size-6 place-items-center rounded-full border transition-colors',
 							on
 								? 'bg-kitchen-eggplant border-kitchen-eggplant text-accent-foreground'
 								: 'border-foreground/40 bg-card',
@@ -822,9 +822,14 @@ export function IngredientListField({
 						<span
 							id={`section-name-${row.id}`}
 							role="alert"
-							className="text-kitchen-tomato mr-1 inline-flex shrink-0 items-center gap-1 self-center text-xs font-bold whitespace-nowrap"
+							className="mr-1 inline-flex shrink-0 items-center gap-1 self-center text-xs font-bold whitespace-nowrap"
 						>
-							<WarningCircleIcon size={14} weight="fill" aria-hidden />
+							<WarningCircleIcon
+								size={14}
+								weight="fill"
+								aria-hidden
+								className="text-kitchen-tomato"
+							/>
 							needs a name
 						</span>
 					) : null}
@@ -1151,7 +1156,7 @@ function PickBar({
 				type="button"
 				aria-label="stop picking"
 				onClick={onClear}
-				className="text-muted-foreground hover:text-foreground grid size-10 shrink-0 place-items-center rounded-lg"
+				className="text-muted-foreground hover:text-foreground grid size-10 shrink-0 place-items-center rounded-md"
 			>
 				<X size={16} weight="bold" aria-hidden />
 			</button>
@@ -1161,14 +1166,14 @@ function PickBar({
 			<button
 				type="button"
 				onClick={onRemove}
-				className="text-kitchen-tomato hover:bg-kitchen-tomato/10 min-h-10 rounded-lg px-3 text-sm font-bold transition-colors"
+				className="text-kitchen-tomato hover:bg-kitchen-tomato/10 min-h-10 rounded-md px-3 text-sm font-bold transition-colors"
 			>
 				remove
 			</button>
 			<button
 				type="button"
 				onClick={onMakeSection}
-				className="bg-kitchen-eggplant text-accent-foreground min-h-10 rounded-lg px-4 text-sm font-extrabold transition-opacity hover:opacity-90"
+				className="bg-kitchen-eggplant text-accent-foreground min-h-10 rounded-md px-4 text-sm font-bold transition-opacity hover:opacity-90"
 			>
 				make section
 			</button>
@@ -1238,7 +1243,7 @@ function SectionLines({
 					onAdd(found)
 					setDone(settled.section)
 				}}
-				className="text-kitchen-eggplant hover:bg-kitchen-eggplant/10 min-h-10 shrink-0 rounded-lg px-3 text-sm font-bold transition-colors"
+				className="text-kitchen-eggplant hover:bg-kitchen-eggplant/10 min-h-10 shrink-0 rounded-md px-3 text-sm font-bold transition-colors"
 			>
 				add {found.length === 1 ? 'it' : found.length}
 			</button>
@@ -1246,7 +1251,7 @@ function SectionLines({
 				type="button"
 				aria-label={`No thanks to suggestions for ${settled.section}`}
 				onClick={() => setDone(settled.section)}
-				className="text-muted-foreground hover:text-foreground grid size-10 shrink-0 place-items-center rounded-lg"
+				className="text-muted-foreground hover:text-foreground grid size-10 shrink-0 place-items-center rounded-md"
 			>
 				<X size={14} weight="bold" aria-hidden />
 			</button>
@@ -1267,7 +1272,7 @@ function AmountBar({
 	const amount = amountOf(line)
 
 	const chip =
-		'min-h-9 shrink-0 rounded-lg px-2 text-sm font-bold transition-colors'
+		'min-h-9 shrink-0 rounded-md px-2 text-sm font-bold transition-colors'
 
 	return (
 		<div
@@ -1276,13 +1281,13 @@ function AmountBar({
 			onPointerDown={(event) => event.preventDefault()}
 			className="animate-in fade-in flex items-center gap-0.5 overflow-x-auto pr-2 pb-2 pl-2 duration-150 md:pl-9"
 		>
-			<span className="bg-background flex shrink-0 items-center rounded-lg">
+			<span className="bg-background flex shrink-0 items-center rounded-md">
 				<button
 					type="button"
 					aria-label="less"
 					disabled={!amount}
 					onClick={() => onChange(stepAmount(line, -1))}
-					className="hover:bg-kitchen-yolk/40 grid size-9 place-items-center rounded-lg disabled:opacity-30"
+					className="hover:bg-kitchen-yolk/40 grid size-9 place-items-center rounded-md disabled:opacity-30"
 				>
 					<MinusIcon size={14} weight="bold" aria-hidden />
 				</button>
@@ -1293,7 +1298,7 @@ function AmountBar({
 					type="button"
 					aria-label="more"
 					onClick={() => onChange(stepAmount(line, 1))}
-					className="hover:bg-kitchen-yolk/40 grid size-9 place-items-center rounded-lg"
+					className="hover:bg-kitchen-yolk/40 grid size-9 place-items-center rounded-md"
 				>
 					<Plus size={14} weight="bold" aria-hidden />
 				</button>
@@ -1329,11 +1334,11 @@ function AmountMark({ text }: { text: string }) {
 	return (
 		<span
 			aria-hidden
-			className="pointer-events-none absolute inset-0 hidden px-3 py-2.5 pl-12 text-base font-medium wrap-break-word whitespace-pre-wrap text-transparent group-focus-within/row:block"
+			className="pointer-events-none absolute inset-0 hidden px-3 py-2.5 pl-12 text-base font-semibold wrap-break-word whitespace-pre-wrap text-transparent group-focus-within/row:block"
 		>
 			{/* The mark reaches up, down and left, never right, so the space
 			    before the food stays clear. */}
-			<span className="bg-kitchen-yolk/45 -ml-0.75 rounded-sm py-0.75 pl-0.75">
+			<span className="bg-kitchen-yolk/45 -ml-0.75 rounded-md py-0.75 pl-0.75">
 				{amount}
 			</span>
 			{text.slice(amount.length)}

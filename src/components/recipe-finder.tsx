@@ -22,6 +22,7 @@ import { toast } from 'sonner'
 import { AuthDialog } from '@/components/auth-dialog'
 import { Marked } from '@/components/marked'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
+import { FieldError } from '@/components/recipe-form'
 import {
 	asRecipeUrl,
 	RecipeThumb,
@@ -201,7 +202,7 @@ export function RecipeFinder({
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={input}
-					className="bg-background border-foreground/30 fixed inset-x-2 top-[calc(var(--vv-top)+var(--vv-gap))] z-50 flex h-[min(28rem,calc(var(--vv-height)-var(--vv-gap)-0.5rem))] flex-col overflow-hidden rounded-2xl border shadow-md outline-none has-[[data-previewing]]:h-[calc(var(--vv-height)-var(--vv-gap)-0.5rem)] md:inset-auto md:top-[calc(var(--vv-top)+2rem)] md:left-1/2 md:h-[calc(var(--vv-height)-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl md:has-[[data-previewing]]:h-[calc(var(--vv-height)-4rem)]"
+					className="floating bg-background fixed inset-x-2 top-[calc(var(--vv-top)+var(--vv-gap))] z-50 flex h-[min(28rem,calc(var(--vv-height)-var(--vv-gap)-0.5rem))] flex-col overflow-hidden outline-none has-[[data-previewing]]:h-[calc(var(--vv-height)-var(--vv-gap)-0.5rem)] md:inset-auto md:top-[calc(var(--vv-top)+2rem)] md:left-1/2 md:h-[calc(var(--vv-height)-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl md:has-[[data-previewing]]:h-[calc(var(--vv-height)-4rem)]"
 				>
 					<Dialog.Title className="sr-only">find a recipe</Dialog.Title>
 					<FinderPanel
@@ -642,7 +643,7 @@ function FinderPanel({
 	const recipeRowClassName = (index: number) =>
 		cn(
 			rowClassName(index),
-			'mx-2 rounded-lg border',
+			'mx-2 rounded-md border',
 			index === active ? 'border-foreground/45' : 'border-transparent',
 		)
 
@@ -699,7 +700,7 @@ function FinderPanel({
 					className="text-muted-foreground hover:text-foreground shrink-0 rounded-md px-2 py-1 text-sm font-semibold"
 				>
 					<XIcon size={20} weight="bold" aria-hidden className="md:hidden" />
-					<kbd className="border-border hidden rounded border px-1.5 text-xs md:inline">
+					<kbd className="border-border hidden rounded-md border px-1.5 text-xs md:inline">
 						esc
 					</kbd>
 				</Dialog.Close>
@@ -756,12 +757,9 @@ function FinderPanel({
 						</button>
 					) : null}
 					{error ? (
-						<p
-							role="alert"
-							className="text-kitchen-tomato px-4 pb-4 text-sm font-semibold"
-						>
-							{error}
-						</p>
+						<div className="px-4 pb-4">
+							<FieldError>{error}</FieldError>
+						</div>
 					) : null}
 				</div>
 				<div
@@ -787,12 +785,9 @@ function FinderPanel({
 						</div>
 					) : null}
 					{previewing && error ? (
-						<p
-							role="alert"
-							className="text-kitchen-tomato px-4 py-2 text-sm font-semibold"
-						>
-							{error}
-						</p>
+						<div className="px-4 py-2">
+							<FieldError>{error}</FieldError>
+						</div>
 					) : null}
 					<div
 						ref={previewRef}
@@ -980,7 +975,7 @@ function SectionRows({
 									}
 								/>
 								<span className="min-w-0 flex-1">
-									<span className="block truncate text-sm font-medium">
+									<span className="block truncate text-sm font-semibold">
 										<Marked text={recipe.title} terms={terms} />
 									</span>
 									{busy === key || recipeNote(recipe) ? (
@@ -1005,7 +1000,7 @@ function SectionRows({
 							>
 								<span
 									aria-hidden
-									className="border-border bg-kitchen-basil/25 grid size-10 shrink-0 place-items-center rounded-lg border"
+									className="border-border bg-kitchen-basil/25 grid size-10 shrink-0 place-items-center rounded-md border"
 								>
 									<LinkSimpleIcon size={18} weight="bold" />
 								</span>
@@ -1034,7 +1029,7 @@ function SectionRows({
 							>
 								<span
 									aria-hidden
-									className="border-border bg-kitchen-eggplant/15 grid size-10 shrink-0 place-items-center rounded-lg border"
+									className="border-border bg-kitchen-eggplant/15 grid size-10 shrink-0 place-items-center rounded-md border"
 								>
 									<PencilSimpleIcon size={18} weight="bold" />
 								</span>

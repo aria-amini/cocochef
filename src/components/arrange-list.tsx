@@ -13,7 +13,7 @@ export const listRowClassName =
 
 // The text of a row, without the field's own frame.
 export const listFieldClassName =
-	'min-w-0 flex-1 resize-none bg-transparent px-3 py-2.5 text-base font-medium outline-none'
+	'min-w-0 flex-1 resize-none bg-transparent px-3 py-2.5 text-base font-semibold outline-none'
 
 // The list's last row, where the next one goes: faint, in the rows' own
 // columns, so the list reads as one card that keeps going. Smaller actions sit

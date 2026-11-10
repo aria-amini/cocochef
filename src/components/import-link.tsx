@@ -40,7 +40,7 @@ function ImportSites() {
 						src={importSiteLogo(site.id)}
 						alt=""
 						title={site.name}
-						className="size-3.5 rounded-sm"
+						className="size-3.5"
 					/>
 				))}
 			</span>
