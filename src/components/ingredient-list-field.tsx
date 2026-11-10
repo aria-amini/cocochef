@@ -4,6 +4,7 @@ import {
 	MinusIcon,
 	Plus,
 	SparkleIcon,
+	WarningCircleIcon,
 	X,
 } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
@@ -23,7 +24,6 @@ import {
 import { IngredientLineView } from '@/components/ingredient-line-view'
 import { IngredientSuggestions } from '@/components/ingredient-suggestions'
 import { PantrySprite } from '@/components/pantry-sprite'
-import { FieldError } from '@/components/recipe-form'
 import { SortableList, SortableRow } from '@/components/sortable-list'
 import { placeholderClassName } from '@/components/ui/input'
 import { wantsAmount } from '@/lib/assistant/amounts'
@@ -828,6 +828,17 @@ export function IngredientListField({
 							{field(row, index)}
 						</div>
 					</div>
+					{/* Said in the band itself, so nothing below it moves. */}
+					{flagUnnamed && needsName(row) ? (
+						<span
+							id={`section-name-${row.id}`}
+							role="alert"
+							className="text-kitchen-tomato mr-1 inline-flex shrink-0 items-center gap-1 self-center text-xs font-bold whitespace-nowrap"
+						>
+							<WarningCircleIcon size={14} weight="fill" aria-hidden />
+							needs a name
+						</span>
+					) : null}
 					{row.heading && !row.text.trim() ? (
 						<NameGuess
 							title={title ?? ''}
@@ -854,13 +865,6 @@ export function IngredientListField({
 				{row.heading || blank || inUse !== row.id ? null : (
 					<AmountBar line={row.text} onChange={(next) => adjust(row, next)} />
 				)}
-				{flagUnnamed && needsName(row) ? (
-					<div className="bg-card px-3 py-2">
-						<FieldError id={`section-name-${row.id}`}>
-							give this section a name
-						</FieldError>
-					</div>
-				) : null}
 			</div>
 		)
 	}

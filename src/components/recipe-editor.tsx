@@ -707,17 +707,20 @@ export function RecipeEditor({
 					</FieldError>
 				) : null}
 			</div>
-			{flagSections && unnamedSections ? (
-				<FieldError>
-					{unnamedSections === 1
-						? 'name the section marked above to save'
-						: `name the ${unnamedSections} sections marked above to save`}
-				</FieldError>
-			) : null}
 			{error ? <FieldError>{error}</FieldError> : null}
 			<FormActions
 				status={
-					changes.length ? (
+					// What keeps it from saving comes first, in the same place.
+					flagSections && unnamedSections ? (
+						<p
+							role="alert"
+							className="text-kitchen-tomato truncate font-semibold"
+						>
+							{unnamedSections === 1
+								? 'name the marked section to save'
+								: `name the ${unnamedSections} marked sections to save`}
+						</p>
+					) : changes.length ? (
 						<p aria-live="polite" className="truncate">
 							not saved yet: {changes.join(', ')}
 						</p>

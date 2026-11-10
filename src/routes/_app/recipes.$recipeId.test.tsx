@@ -641,11 +641,9 @@ describe('recipe detail', () => {
 		// Nothing saves; the way is pointed to the section that needs a name.
 		await expect.element(sectionName).toHaveFocus()
 		await expect.element(sectionName).toHaveAttribute('aria-invalid', 'true')
+		await expect.element(screen.getByText('needs a name')).toBeVisible()
 		await expect
-			.element(screen.getByText('give this section a name'))
-			.toBeVisible()
-		await expect
-			.element(screen.getByText('name the section marked above to save'))
+			.element(screen.getByText('name the marked section to save'))
 			.toBeVisible()
 		expect(updateCalls.calls).toEqual([])
 		await expectIsolatedScreenshot(
@@ -655,7 +653,7 @@ describe('recipe detail', () => {
 
 		await sectionName.fill('for the sauce')
 		await expect
-			.element(screen.getByText('give this section a name'))
+			.element(screen.getByText('needs a name'))
 			.not.toBeInTheDocument()
 		await screen.getByRole('button', { name: 'save', exact: true }).click()
 		await expect
