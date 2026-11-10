@@ -261,10 +261,8 @@ export function RecipeEditor({
 	const [source, setSource] = useState(recipe?.sourceUrl ?? '')
 	const [links, setLinks] = useState(recipe?.links ?? [])
 
-	// The steps as written, which the ingredients regroup by, and the one a
-	// group of them points at.
+	// The steps as written, which the ingredients regroup by.
 	const [steps, setSteps] = useState(seed.steps)
-	const [litStep, setLitStep] = useState<number>()
 	// How much is written, so the ways to import stay until something is.
 	const [ingredientCount, setIngredientCount] = useState(0)
 	const [stepCount, setStepCount] = useState(0)
@@ -668,7 +666,6 @@ export function RecipeEditor({
 					defaultCategories={seed.ingredientCategories}
 					title={name}
 					steps={steps}
-					onPointStep={setLitStep}
 					onCountChange={setIngredientCount}
 					onUnnamedChange={setUnnamedSections}
 					flagUnnamed={flagSections}
@@ -677,7 +674,6 @@ export function RecipeEditor({
 			<StepsField
 				key={seed.version}
 				defaultValue={seed.steps}
-				lit={litStep}
 				onStepsChange={keepSteps}
 				onCountChange={setStepCount}
 			/>

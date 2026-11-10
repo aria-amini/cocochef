@@ -990,7 +990,7 @@ describe('recipe detail', () => {
 			Object.assign(recipeState.recipe, tikka)
 		})
 
-		test('shows a grouping from the steps in place, and keeps it', async () => {
+		test('organizes the list at once, and saves it as organized', async () => {
 			const { screen } = await renderRoute({
 				path: '/recipes/recipe-1',
 				session,
@@ -998,17 +998,14 @@ describe('recipe detail', () => {
 
 			await screen.getByRole('button', { name: 'edit' }).click()
 			await screen.getByRole('button', { name: /^organize/ }).click()
-			await expect
-				.element(screen.getByText('3 sections from the steps'))
-				.toBeVisible()
-			await expect.element(screen.getByText('step 2')).toBeVisible()
 
-			// Pointing at a group lights the step it goes into.
-			await screen.getByText('for the sauce').hover()
-			const step = screen.getByRole('textbox', { name: 'Step 2' }).element()
+			// Taken at once: the sections are the list's own, ready to edit.
 			await expect
-				.poll(() => step.closest('li')?.className)
-				.toMatch(/bg-kitchen-eggplant/)
+				.element(screen.getByText('organized into 3 sections'))
+				.toBeVisible()
+			await expect
+				.element(screen.getByRole('textbox', { name: 'Section name 5' }))
+				.toHaveValue('for the sauce')
 
 			// The lines have settled into their groups.
 			await Promise.all(
@@ -1018,17 +1015,6 @@ describe('recipe detail', () => {
 				screen.getByRole('group', { name: 'ingredients' }),
 				'ingredient-regroup',
 			)
-			await screen.getByRole('button', { name: 'keep' }).click()
-			await expect
-				.element(screen.getByRole('textbox', { name: 'Section name 5' }))
-				.toHaveValue('for the sauce')
-			await expect
-				.element(
-					screen.getByRole('button', {
-						name: /^organize/,
-					}),
-				)
-				.not.toBeInTheDocument()
 			await screen.getByRole('button', { name: 'save' }).click()
 
 			await expect.poll(() => updateCalls.calls.at(-1)).toBeDefined()
@@ -1048,25 +1034,13 @@ describe('recipe detail', () => {
 			})
 		})
 
-		test('puts the list back as it was', async () => {
+		test('undoes an organized list back to how it was', async () => {
 			const { screen } = await renderRoute({
 				path: '/recipes/recipe-1',
 				session,
 			})
 
 			await screen.getByRole('button', { name: 'edit' }).click()
-			await screen.getByRole('button', { name: /^organize/ }).click()
-			await screen.getByRole('button', { name: 'put it back' }).click()
-			await expect
-				.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
-				.toHaveValue('1 lb chicken thighs')
-			await expect
-				.element(
-					screen.getByRole('button', {
-						name: /^organize/,
-					}),
-				)
-				.toBeVisible()
 
 			const pill = screen
 				.getByRole('button', { name: 'not now' })
@@ -1078,13 +1052,31 @@ describe('recipe detail', () => {
 				document.getAnimations().map((animation) => animation.finished),
 			)
 			await expectIsolatedScreenshot(pill, 'ingredient-organize-offer')
+
+			await screen.getByRole('button', { name: /^organize/ }).click()
+			await screen.getByRole('button', { name: 'undo' }).click()
+			await expect
+				.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+				.toHaveValue('1 lb chicken thighs')
+			// Undone, the same grouping is not offered again.
+			await expect
+				.element(screen.getByRole('button', { name: /^organize/ }))
+				.not.toBeInTheDocument()
+			await expect
+				.element(screen.getByText('organized into 3 sections'))
+				.not.toBeInTheDocument()
+		})
+
+		test('waves the offer off', async () => {
+			const { screen } = await renderRoute({
+				path: '/recipes/recipe-1',
+				session,
+			})
+
+			await screen.getByRole('button', { name: 'edit' }).click()
 			await screen.getByRole('button', { name: 'not now' }).click()
 			await expect
-				.element(
-					screen.getByRole('button', {
-						name: /^organize/,
-					}),
-				)
+				.element(screen.getByRole('button', { name: /^organize/ }))
 				.not.toBeInTheDocument()
 		})
 	})

@@ -75,14 +75,10 @@ const numberClassName =
 // `step` field with a `step-level` beside it; read them with `stepsFrom`.
 export function StepsField({
 	defaultValue = [],
-	lit,
 	onCountChange,
 	onStepsChange,
 }: {
 	defaultValue?: string[] | undefined
-	// A stored step to light up, such as the one a group of ingredients goes
-	// into.
-	lit?: number | undefined
 	onCountChange?: (count: number) => void
 	// The steps as they would be saved.
 	onStepsChange?: (steps: string[]) => void
@@ -163,12 +159,6 @@ export function StepsField({
 
 	const count = (step: Row) =>
 		blocks.find((block) => block.head === step)?.rows.length ?? 0
-
-	// Where each row is in the saved list; blank rows are not saved.
-	const places = rows.map(
-		(_, index) =>
-			rows.slice(0, index).filter((before) => before.text.trim()).length,
-	)
 
 	function describe(id: string) {
 		const index = rows.findIndex((row) => row.id === id)
@@ -325,10 +315,6 @@ export function StepsField({
 										listRowClassName,
 										'group/row transition-colors',
 										!carrying && isSub(row, index) && 'pl-8',
-										lit !== undefined &&
-											!blank &&
-											places[index] === lit &&
-											'bg-kitchen-eggplant/10',
 									)}
 									handleClassName={cn(
 										'absolute inset-0 size-auto opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-45',

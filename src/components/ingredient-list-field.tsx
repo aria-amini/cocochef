@@ -58,7 +58,6 @@ import {
 } from '@/lib/recipes/ingredient-line'
 import type { IngredientCategories } from '@/lib/recipes/model'
 import { pastedIngredients } from '@/lib/recipes/paste'
-import { stepLabels } from '@/lib/recipes/step-groups'
 import { cn } from '@/lib/utils/ui'
 import { useSettled } from '@/lib/utils/use-settled'
 
@@ -132,9 +131,8 @@ function caretAtEdge(
 	return field.scrollHeight - padding < line * 1.5
 }
 
-// A grouping on offer, as the rows it would make, with the step each group's
-// name points at.
-type Proposal = { rows: Row[]; steps: Map<string, number> }
+// A grouping on offer, as the rows it would make.
+type Proposal = { rows: Row[] }
 
 const sameName = (a: string, b: string) =>
 	a.trim().toLowerCase() === b.trim().toLowerCase()
@@ -146,7 +144,6 @@ function proposalFrom(rows: Row[], groups: RegroupGroup[]) {
 	const written = rows.filter((row) => lineOf(row))
 	const lines = written.filter((row) => !row.heading)
 	const next: Row[] = []
-	const steps = new Map<string, number>()
 
 	for (const group of groups) {
 		if (group.heading) {
@@ -157,7 +154,6 @@ function proposalFrom(rows: Row[], groups: RegroupGroup[]) {
 			) ?? { id: crypto.randomUUID(), text: name, heading: true as const }
 
 			next.push(head)
-			steps.set(head.id, group.step)
 		}
 
 		for (const index of group.lines) {
@@ -175,7 +171,7 @@ function proposalFrom(rows: Row[], groups: RegroupGroup[]) {
 		next.length === written.length &&
 		next.every((row, index) => row === written[index])
 
-	return same ? undefined : { rows: next, steps }
+	return same ? undefined : { rows: next }
 }
 
 // What the card with no name is called until it is named.
@@ -250,7 +246,6 @@ export function IngredientListField({
 	onCountChange,
 	onUnnamedChange,
 	flagUnnamed = false,
-	onPointStep,
 }: {
 	defaultValue?: string[] | undefined
 	defaultCategories?: IngredientCategories | undefined
@@ -263,15 +258,19 @@ export function IngredientListField({
 	// saving; once saving was tried, `flagUnnamed` marks each of them.
 	onUnnamedChange?: (count: number) => void
 	flagUnnamed?: boolean
-	// Points at the stored step a group goes into, or at none.
-	onPointStep?: (step: number | undefined) => void
 }) {
 	const [rows, setRows] = useState(() =>
 		orBlank(toRows(defaultValue, defaultCategories)),
 	)
 
-	// The grouping on offer, while it is shown in place of the list.
-	const [preview, setPreview] = useState<Proposal>()
+	// The grouping on offer, while it is rows in place of the list.
+	// A grouping taken from the offer, with the list as it was, to undo it.
+	const [applied, setApplied] = useState<{
+		before: Row[]
+		after: Row[]
+		groups: number
+	}>()
+
 	const [declined, setDeclined] = useState(false)
 	const [folded, setFolded] = useState(false)
 	// The line being worked on, whose amount bar shows under it.
@@ -281,8 +280,11 @@ export function IngredientListField({
 	// Sections named here, which suggest their lines.
 	const [named, setNamed] = useState<ReadonlySet<string>>(() => new Set())
 	const sheet = useRef<HTMLDivElement>(null)
+
 	// Where each row stood before the list was swapped, to glide from.
-	const glideFrom = useRef<Map<string, number>>(undefined)
+	const glideFrom = useRef<{ tops: Map<string, number>; glow: boolean }>(
+		undefined,
+	)
 
 	const fields = useRef(
 		new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
@@ -306,8 +308,8 @@ export function IngredientListField({
 
 		if (!from || !sheet.current) return
 		glideFrom.current = undefined
-		glide(sheet.current, from, preview !== undefined)
-	}, [preview])
+		glide(sheet.current, from.tops, from.glow)
+	}, [rows])
 
 	useEffect(() => {
 		onCountChange?.(
@@ -587,18 +589,19 @@ export function IngredientListField({
 		staleTime: Number.POSITIVE_INFINITY,
 	})
 
+	// The grouping just taken, while the list is still as it left it.
+	const taken = applied?.after === rows ? applied : undefined
+
 	// Only an answer about the list as it stands now is offered.
 	const offer =
 		!declined &&
-		!preview &&
+		!taken &&
 		regroup.data?.groups.length &&
 		JSON.stringify(settled) === requestKey
 			? proposalFrom(rows, regroup.data.groups)
 			: undefined
 
-	const labels = stepLabels(steps)
-
-	// Likely amounts for lines written without one, shown faintly to take.
+	// Likely amounts for lines written without one, rows faintly to take.
 	const bare = rows.flatMap((row) =>
 		!row.heading && wantsAmount(row.text) ? [row.text.trim()] : [],
 	)
@@ -641,28 +644,38 @@ export function IngredientListField({
 		)
 	}
 
-	const shown = preview?.rows ?? rows
-
 	// Notes where each row stands, then swaps the list for `next`.
-	function swap(next: Proposal | undefined) {
-		const from = new Map<string, number>()
+	// Rows move to their new places from where they stood; taking a grouping
+	// also lights the rows that moved.
+	function glideNext(glow: boolean) {
+		const tops = new Map<string, number>()
 
 		for (const row of sheet.current?.querySelectorAll<HTMLElement>(
 			'[data-row-id]',
 		) ?? [])
-			from.set(row.dataset.rowId ?? '', row.getBoundingClientRect().top)
+			tops.set(row.dataset.rowId ?? '', row.getBoundingClientRect().top)
 
-		glideFrom.current = from
-		onPointStep?.(undefined)
-		setPreview(next)
+		glideFrom.current = { tops, glow }
 	}
 
-	function keep() {
-		if (!preview) return
-		const kept = preview.rows
-		onPointStep?.(undefined)
-		setPreview(undefined)
-		change(() => kept)
+	// Taking the offer regroups the list at once; undo puts it back as it was.
+	function apply(proposal: Proposal) {
+		glideNext(true)
+		setApplied({
+			before: rows,
+			after: proposal.rows,
+			groups: proposal.rows.filter(isHeading).length,
+		})
+		change(() => proposal.rows)
+	}
+
+	function undo() {
+		if (!taken) return
+		glideNext(false)
+		setApplied(undefined)
+		// Undone, the same grouping is not offered again.
+		setDeclined(true)
+		change(() => taken.before)
 	}
 
 	const field = (row: Row, index: number) =>
@@ -750,30 +763,6 @@ export function IngredientListField({
 	const sheetRow = (row: Row, handle?: React.ReactNode) => {
 		const index = rows.indexOf(row)
 		const blank = isBlank(row)
-		const step = preview?.steps.get(row.id)
-
-		// On offer, the rows are read, not written.
-		if (preview)
-			return (
-				<div
-					data-row-id={row.id}
-					onPointerEnter={() => {
-						if (step !== undefined) onPointStep?.(step)
-					}}
-					onPointerLeave={() => {
-						if (step !== undefined) onPointStep?.(undefined)
-					}}
-					className="relative flex items-stretch pl-7"
-				>
-					<RowFace row={row}>
-						{step === undefined ? null : (
-							<span className="bg-kitchen-eggplant/10 text-kitchen-eggplant rounded-full px-2 text-xs leading-5 font-bold whitespace-nowrap">
-								step {labels[step] ?? step + 1}
-							</span>
-						)}
-					</RowFace>
-				</div>
-			)
 
 		return (
 			<div
@@ -800,7 +789,7 @@ export function IngredientListField({
 							'ring-kitchen-tomato ring-2 ring-inset',
 					)}
 				>
-					{/* The gutter holds the handle, shown while the row is in use. */}
+					{/* The gutter holds the handle, rows while the row is in use. */}
 					<span className="relative flex w-7 shrink-0 items-center justify-center pointer-coarse:w-9">
 						{handle}
 					</span>
@@ -870,7 +859,7 @@ export function IngredientListField({
 		)
 	}
 
-	const blocks = blocksOf(shown, isHeading)
+	const blocks = blocksOf(rows, isHeading)
 
 	// The written lines of a section, to name it from.
 	const linesUnder = (head: Row) =>
@@ -892,7 +881,7 @@ export function IngredientListField({
 
 	// A section is named by its heading, or by where it stands until it has one.
 	const sectionName = (head: Row) =>
-		head.text.trim() || `section ${shown.filter(isHeading).indexOf(head) + 1}`
+		head.text.trim() || `section ${rows.filter(isHeading).indexOf(head) + 1}`
 
 	return (
 		<fieldset className="flex min-w-0 flex-col gap-2">
@@ -934,13 +923,12 @@ export function IngredientListField({
 			<div className={cn('contents', folded && 'max-md:hidden')}>
 				<RegroupOffer
 					offer={offer}
-					preview={preview}
-					onTry={() => swap(offer)}
+					taken={taken?.groups}
+					onTry={() => offer && apply(offer)}
 					onDecline={() => setDeclined(true)}
-					onPutBack={() => swap(undefined)}
-					onKeep={keep}
+					onUndo={undo}
 				/>
-				{picking && !preview ? (
+				{picking ? (
 					<PickBar
 						count={picked.size}
 						onMakeSection={makeSection}
@@ -959,12 +947,12 @@ export function IngredientListField({
 					</Fragment>
 				))}
 				<SortableList
-					items={shown.map((row) => row.id)}
+					items={rows.map((row) => row.id)}
 					describe={describe}
 					onMove={(from, to) =>
 						change((current) => {
-							const moving = shown[from]
-							const target = shown[to]
+							const moving = rows[from]
+							const target = rows[to]
 
 							if (!moving || !target) return current
 
@@ -1038,34 +1026,28 @@ export function IngredientListField({
 													aria-hidden
 													className="w-7 shrink-0 pointer-coarse:w-9"
 												/>
-												{preview ? (
-													<span className="text-muted-foreground flex-1 px-3 py-2.5 text-base font-bold">
-														{mainSection}
-													</span>
-												) : (
-													<>
-														<input
-															aria-label="Section name"
-															placeholder={mainSection}
-															maxLength={500}
-															value=""
-															onChange={(event) =>
-																nameLoose(block, event.target.value)
-															}
-															className={cn(
-																'w-full min-w-0 flex-1 bg-transparent px-3 py-2.5 text-base font-bold outline-none',
-																'placeholder:text-muted-foreground',
-															)}
+												<>
+													<input
+														aria-label="Section name"
+														placeholder={mainSection}
+														maxLength={500}
+														value=""
+														onChange={(event) =>
+															nameLoose(block, event.target.value)
+														}
+														className={cn(
+															'w-full min-w-0 flex-1 bg-transparent px-3 py-2.5 text-base font-bold outline-none',
+															'placeholder:text-muted-foreground',
+														)}
+													/>
+													{written.length ? (
+														<NameGuess
+															title={title ?? ''}
+															lines={written}
+															onUse={(name) => nameLoose(block, name)}
 														/>
-														{written.length ? (
-															<NameGuess
-																title={title ?? ''}
-																lines={written}
-																onUse={(name) => nameLoose(block, name)}
-															/>
-														) : null}
-													</>
-												)}
+													) : null}
+												</>
 											</li>
 										)}
 										{[...(head ? [head] : []), ...block.rows].map((row) => (
@@ -1082,15 +1064,14 @@ export function IngredientListField({
 												)}
 												handleClassName={cn(
 													'absolute inset-0 size-auto opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-45',
-													// A blank line has nothing to carry, and an offer is
-													// not arranged.
-													(isBlank(row) || preview) && 'hidden',
+													// A blank line has nothing to carry.
+													isBlank(row) && 'hidden',
 												)}
 											>
 												{(handle) => sheetRow(row, handle)}
 											</SortableRow>
 										))}
-										{head && !preview ? (
+										{head ? (
 											<SectionLines
 												title={title ?? ''}
 												section={head.text}
@@ -1110,42 +1091,38 @@ export function IngredientListField({
 												}
 											/>
 										) : null}
-										{preview ? null : (
-											<ListAddRow
-												what="ingredient"
-												label={
-													head
-														? `add ingredient to ${sectionName(head)}`
-														: undefined
-												}
-												onAdd={() => addTo(block)}
-											/>
-										)}
+										<ListAddRow
+											what="ingredient"
+											label={
+												head
+													? `add ingredient to ${sectionName(head)}`
+													: undefined
+											}
+											onAdd={() => addTo(block)}
+										/>
 									</ul>
 								</div>
 							)
 						})}
 						{/* A new section is a new card, so the way to one is shaped
 						    like the card it makes, below the rest. */}
-						{preview ? null : (
-							<button
-								type="button"
-								onClick={addSection}
-								// One empty card at a time: it fills, or goes, before another.
-								disabled={blocks.some(
-									(block) => !block.rows.some((row) => !isBlank(row)),
-								)}
-								className="border-foreground/30 text-muted-foreground enabled:hover:text-foreground enabled:hover:border-foreground/50 flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-sm font-semibold transition-colors disabled:opacity-50"
-							>
-								<span aria-hidden className="grid size-6 place-items-center">
-									<Plus size={14} weight="bold" />
-								</span>
-								add section
-							</button>
-						)}
+						<button
+							type="button"
+							onClick={addSection}
+							// One empty card at a time: it fills, or goes, before another.
+							disabled={blocks.some(
+								(block) => !block.rows.some((row) => !isBlank(row)),
+							)}
+							className="border-foreground/30 text-muted-foreground enabled:hover:text-foreground enabled:hover:border-foreground/50 flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-sm font-semibold transition-colors disabled:opacity-50"
+						>
+							<span aria-hidden className="grid size-6 place-items-center">
+								<Plus size={14} weight="bold" />
+							</span>
+							add section
+						</button>
 					</div>
 				</SortableList>
-				{title === undefined || preview ? null : (
+				{title === undefined ? null : (
 					<IngredientSuggestions
 						title={title}
 						lines={lines}
@@ -1433,50 +1410,43 @@ function RowFace({
 }
 
 // The one offer of a better grouping, and the bar it turns into while the
-// grouping is shown in the list.
+// grouping is rows in the list.
 function RegroupOffer({
 	offer,
-	preview,
+	taken,
 	onTry,
 	onDecline,
-	onPutBack,
-	onKeep,
+	onUndo,
 }: {
 	offer: Proposal | undefined
-	preview: Proposal | undefined
+	// How many sections the grouping just taken made.
+	taken: number | undefined
 	onTry: () => void
 	onDecline: () => void
-	onPutBack: () => void
-	onKeep: () => void
+	onUndo: () => void
 }) {
 	const sparkle = <SparkleIcon size={16} weight="fill" aria-hidden />
 
-	if (preview) {
-		const groups = preview.rows.filter((row) => row.heading).length
-
+	// Taken, the pill says what changed, with the way to put it back.
+	if (taken !== undefined)
 		return (
-			<output className="bg-kitchen-eggplant/10 animate-in fade-in slide-in-from-top-1 flex min-h-12 items-center gap-1 rounded-xl py-1 pr-1 pl-3 duration-300">
-				<span className="text-kitchen-eggplant flex min-w-0 flex-1 items-center gap-2 text-sm font-bold">
-					{sparkle}
-					{groups} {groups === 1 ? 'section' : 'sections'} from the steps
-				</span>
-				<button
-					type="button"
-					onClick={onPutBack}
-					className="text-muted-foreground hover:text-foreground min-h-10 rounded-lg px-3 text-sm font-bold transition-colors"
-				>
-					put it back
-				</button>
-				<button
-					type="button"
-					onClick={onKeep}
-					className="bg-kitchen-eggplant text-accent-foreground min-h-10 rounded-lg px-4 text-sm font-extrabold transition-opacity hover:opacity-90"
-				>
-					keep
-				</button>
-			</output>
+			<div className="animate-in fade-in flex items-center gap-2 duration-300">
+				<output className="bg-kitchen-eggplant/10 text-kitchen-eggplant inline-flex min-h-10 items-center rounded-full">
+					<span className="inline-flex items-center gap-2 pr-2 pl-3 text-sm font-bold">
+						{sparkle}
+						organized into {taken} {taken === 1 ? 'section' : 'sections'}
+					</span>
+					<button
+						type="button"
+						aria-label="undo"
+						onClick={onUndo}
+						className="hover:bg-kitchen-eggplant/10 grid min-h-10 w-9 place-items-center rounded-r-full transition-colors"
+					>
+						<ArrowUUpLeftIcon size={14} weight="bold" aria-hidden />
+					</button>
+				</output>
+			</div>
 		)
-	}
 
 	if (!offer) return null
 
@@ -1501,7 +1471,7 @@ function RegroupOffer({
 					onClick={onDecline}
 					className="hover:bg-kitchen-eggplant/10 grid min-h-10 w-9 place-items-center rounded-r-full transition-colors"
 				>
-					<ArrowUUpLeftIcon size={14} weight="bold" aria-hidden />
+					<X size={14} weight="bold" aria-hidden />
 				</button>
 			</span>
 		</div>
