@@ -1436,10 +1436,7 @@ describe('recipe detail', () => {
 		await step.click()
 		await expect.element(ingredient).toBeChecked()
 		await expect.element(step).toBeChecked()
-		await router.navigate({
-			to: '/coming-soon/$feature',
-			params: { feature: 'groceries' },
-		})
+		await router.navigate({ to: '/settings' })
 		await router.navigate({
 			to: '/recipes/$recipeId',
 			params: { recipeId: 'recipe-1' },

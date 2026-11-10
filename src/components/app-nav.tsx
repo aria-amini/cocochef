@@ -19,15 +19,6 @@ const navItems = [
 	{ label: 'groceries', icon: ShoppingCartIcon, to: '/groceries' },
 ] as const
 
-// Destinations not built yet open a page that says so.
-const comingSoon = new Set<string>(['ingredients'])
-
-function navTarget(to: (typeof navItems)[number]['to'], label: string) {
-	return comingSoon.has(label)
-		? ({ to: '/coming-soon/$feature', params: { feature: label } } as const)
-		: ({ to } as const)
-}
-
 type TabBarMode = 'none' | 'bar' | 'bar-fab'
 
 // What a nav item does between a tap and the next page showing. It answers at
@@ -106,11 +97,7 @@ function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
 	for (const { label } of navItems) {
 		if (label === 'recipes') continue
 
-		if (
-			pathname === `/${label}` ||
-			pathname.startsWith(`/${label}/`) ||
-			pathname === `/coming-soon/${label}`
-		)
+		if (pathname === `/${label}` || pathname.startsWith(`/${label}/`))
 			return label
 	}
 
@@ -190,7 +177,7 @@ function Sidebar() {
 				return (
 					<Link
 						key={to}
-						{...navTarget(to, label)}
+						to={to}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
 							navFeedbackClassName,
@@ -257,10 +244,9 @@ function MobileHeader() {
 
 function tabTarget(
 	to: (typeof navItems)[number]['to'],
-	label: string,
 	lastRecipe: string | undefined,
 ) {
-	if (to !== '/recipes') return navTarget(to, label)
+	if (to !== '/recipes') return { to } as const
 
 	return lastRecipe
 		? ({ to: '/recipes/$recipeId', params: { recipeId: lastRecipe } } as const)
@@ -294,7 +280,7 @@ function TabBar() {
 					return (
 						<Link
 							key={to}
-							{...tabTarget(to, label, !inRecipes ? lastRecipe : undefined)}
+							{...tabTarget(to, !inRecipes ? lastRecipe : undefined)}
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,

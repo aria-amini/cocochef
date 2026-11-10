@@ -81,7 +81,7 @@ describe('app nav', () => {
 		groceryWaiting.count = 0
 	})
 
-	test('opens WIP pages for unfinished destinations and opens the shelf from the root', async () => {
+	test('links every destination and opens the shelf from the root', async () => {
 		const { screen, router } = await renderRoute({ path: '/', session: member })
 
 		const nav = screen.getByRole('navigation', { name: 'Primary' })
@@ -90,7 +90,7 @@ describe('app nav', () => {
 			.toHaveAttribute('aria-current', 'page')
 		await expect
 			.element(nav.getByRole('link', { name: 'ingredients' }))
-			.toHaveAttribute('href', '/coming-soon/ingredients')
+			.toHaveAttribute('href', '/ingredients')
 		await expect
 			.element(nav.getByRole('link', { name: 'groceries' }))
 			.toHaveAttribute('href', '/groceries')
@@ -104,28 +104,23 @@ describe('app nav', () => {
 		).toEqual(['recipes', 'ingredients', 'groceries'])
 	})
 
-	test.each(['ingredients'])(
-		'opens the %s WIP page from navigation',
-		async (label) => {
-			const { screen } = await renderRoute({
-				path: '/recipes',
-				session: member,
-			})
+	test('opens the ingredients from navigation', async () => {
+		const { screen, router } = await renderRoute({
+			path: '/recipes',
+			session: member,
+		})
 
-			await screen
-				.getByRole('navigation', { name: 'Primary' })
-				.getByRole('link', { name: label })
-				.click()
-			await expect
-				.element(screen.getByRole('heading', { name: label, exact: true }))
-				.toBeVisible()
-			await expect.element(screen.getByText('work in progress')).toBeVisible()
-			await screen.getByRole('link', { name: 'back to recipes' }).click()
-			await expect
-				.element(screen.getByRole('button', { name: /search any recipe/ }))
-				.toBeVisible()
-		},
-	)
+		await screen
+			.getByRole('navigation', { name: 'Primary' })
+			.getByRole('link', { name: 'ingredients' })
+			.click()
+		await expect
+			.element(
+				screen.getByRole('heading', { name: 'ingredients', exact: true }),
+			)
+			.toBeVisible()
+		expect(router.state.location.pathname).toBe('/ingredients')
+	})
 
 	test('opens the grocery list from navigation', async () => {
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
@@ -299,7 +294,7 @@ describe('app nav', () => {
 
 	test('keeps thumb targets at least 44px tall', async () => {
 		const { screen } = await renderRoute({
-			path: '/coming-soon/ingredients',
+			path: '/groceries',
 			session: member,
 		})
 
@@ -319,7 +314,7 @@ describe('app nav', () => {
 			expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
 
 		expect(
-			heightOf(screen.getByRole('link', { name: 'back to recipes' })),
+			heightOf(screen.getByRole('textbox', { name: 'add an item' })),
 		).toBeGreaterThanOrEqual(44)
 
 		if (isPhone())
