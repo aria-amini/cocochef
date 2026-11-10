@@ -658,7 +658,8 @@ export function IngredientListField({
 		glideFrom.current = { tops, glow }
 	}
 
-	// Taking the offer regroups the list at once; undo puts it back as it was.
+	// Taking the offer regroups the list at once; undo puts it back as it was,
+	// and the offer stands again, so the two can be compared.
 	function apply(proposal: Proposal) {
 		glideNext(true)
 		setApplied({
@@ -673,8 +674,6 @@ export function IngredientListField({
 		if (!taken) return
 		glideNext(false)
 		setApplied(undefined)
-		// Undone, the same grouping is not offered again.
-		setDeclined(true)
 		change(() => taken.before)
 	}
 

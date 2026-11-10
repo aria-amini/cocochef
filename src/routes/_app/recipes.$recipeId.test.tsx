@@ -1058,13 +1058,14 @@ describe('recipe detail', () => {
 			await expect
 				.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
 				.toHaveValue('1 lb chicken thighs')
-			// Undone, the same grouping is not offered again.
-			await expect
-				.element(screen.getByRole('button', { name: /^organize/ }))
-				.not.toBeInTheDocument()
+			// Undone, the offer stands again, to go back and forth between them.
 			await expect
 				.element(screen.getByText('organized into 3 sections'))
 				.not.toBeInTheDocument()
+			await screen.getByRole('button', { name: /^organize/ }).click()
+			await expect
+				.element(screen.getByRole('textbox', { name: 'Section name 5' }))
+				.toHaveValue('for the sauce')
 		})
 
 		test('waves the offer off', async () => {
