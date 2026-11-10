@@ -1353,6 +1353,48 @@ describe('recipe detail', () => {
 		expect(router.state.location.state.foundBy).toBe('miso')
 	})
 
+	test('sends a published recipe back to its page when its edit is cancelled', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		Object.assign(recipeState.recipe, {
+			userId: null,
+			owned: false,
+			publicPath: '/sites/example/miso',
+		})
+
+		const { screen, router } = await renderRoute({ path: '/recipes', session })
+
+		await router.navigate({
+			to: '/recipes/$recipeId',
+			params: { recipeId: 'recipe-1' },
+			state: { editing: true },
+		})
+		await screen.getByRole('button', { name: 'cancel' }).click()
+		// The edit request is spent, so a reload would not open the editor again.
+		await expect
+			.poll(() => router.state.location.pathname)
+			.toBe('/sites/example/miso')
+		expect(router.state.location.state.editing).toBeUndefined()
+	})
+
+	test('keeps the caret in place when the amount is edited from inside', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 tablespoons butter']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		const line = screen.getByRole('combobox', { name: 'Ingredient 1' })
+		await line.click()
+		const field = line.element()
+
+		if (!(field instanceof HTMLTextAreaElement)) throw new Error('not a field')
+		field.setSelectionRange(1, 1)
+		await userEvent.keyboard('0')
+
+		await expect.element(line).toHaveValue('20 tbsp butter')
+		expect(field.selectionStart).toBe(2)
+	})
+
 	test('copies a shared recipe only once a change is saved', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		Object.assign(recipeState.recipe, {

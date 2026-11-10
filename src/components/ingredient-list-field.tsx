@@ -353,9 +353,14 @@ export function IngredientListField({
 
 		if (settled !== text) {
 			const at = fields.current.get(row.id)?.selectionStart ?? text.length
+			const typed = settledAmount(text)?.length ?? 0
+			const shift = text.length - settled.length
+
+			// After the amount, the caret moves back as it shortens; inside it,
+			// the caret stays put, within the shorter amount.
 			caret.current = {
 				id: row.id,
-				at: Math.max(0, at - (text.length - settled.length)),
+				at: at >= typed ? at - shift : Math.min(at, typed - shift),
 			}
 		}
 

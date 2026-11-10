@@ -70,10 +70,14 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 								// Moving to the copy must not leave the editor open there.
 								setEditing(false)
 
-								if (recipeId !== recipe.id)
+								// An edit the address asked for leaves that entry, so going
+								// back or reloading does not open the editor again; a
+								// published recipe goes back to its readable page.
+								if (recipeId !== recipe.id || editRequested)
 									void navigate({
 										to: '/recipes/$recipeId',
 										params: { recipeId },
+										replace: editRequested,
 									})
 							}}
 						/>
