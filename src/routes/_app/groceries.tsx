@@ -179,8 +179,8 @@ function Groceries() {
 						>
 							recipe
 						</Link>
-						, tap <strong className="text-foreground">shop for this</strong> and
-						tick off what you already have.
+						, tap <strong className="text-foreground">add to groceries</strong>{' '}
+						and untick what you already have.
 					</p>
 				)}
 				{inCart.length ? (

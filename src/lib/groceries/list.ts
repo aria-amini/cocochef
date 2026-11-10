@@ -24,11 +24,10 @@ export function groceryLine(line: string) {
 	return bare || kept
 }
 
-// What is left to buy, one line each: the recipe's lines but its section
-// names and the lines the cook already has.
-export function groceryList(lines: string[], have: ReadonlySet<string>) {
+// A recipe's lines to buy, one each: all but its section names.
+export function groceryList(lines: string[]) {
 	return lines.flatMap((line) =>
-		have.has(line) || !line.trim() || ingredientHeading(line) !== undefined
+		!line.trim() || ingredientHeading(line) !== undefined
 			? []
 			: [groceryLine(line)],
 	)

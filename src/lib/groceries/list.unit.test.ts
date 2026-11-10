@@ -24,9 +24,9 @@ describe('groceryLine', () => {
 })
 
 describe('groceryList', () => {
-	test('lists what is not had, without section names', () => {
+	test('lists the lines to buy, without section names', () => {
 		const lines = ['## for the sauce', '1 onion, diced', '2 tbsp butter', '']
 
-		expect(groceryList(lines, new Set(['2 tbsp butter']))).toEqual(['1 onion'])
+		expect(groceryList(lines)).toEqual(['1 onion', '2 tbsp butter'])
 	})
 })

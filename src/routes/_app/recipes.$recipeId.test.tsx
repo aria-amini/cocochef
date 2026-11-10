@@ -305,7 +305,7 @@ describe('recipe detail', () => {
 		})
 	})
 
-	test('turns what the kitchen lacks into a list to send', async () => {
+	test('opens what the recipe would add to groceries, to change before adding', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'## pasta',
@@ -313,9 +313,7 @@ describe('recipe detail', () => {
 			'2 cloves garlic, minced',
 			'## sauce',
 			'1 tbsp miso',
-			'2 tbsp butter',
 		]
-		window.localStorage.clear()
 
 		const writeText = vi
 			.spyOn(navigator.clipboard, 'writeText')
@@ -323,24 +321,20 @@ describe('recipe detail', () => {
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		await screen.getByRole('button', { name: 'shop for this' }).click()
-		await screen.getByRole('checkbox', { name: 'have 2 tbsp butter' }).click()
-		await screen.getByRole('checkbox', { name: 'have 1 tbsp miso' }).click()
-		await expect.element(screen.getByText('2 to buy')).toBeVisible()
-		await expectPageScreenshot(screen.container, 'recipe-shopping')
-
-		await screen.getByRole('button', { name: 'copy' }).click()
-		expect(writeText).toHaveBeenCalledWith('200 g pasta\n2 cloves garlic')
-
 		groceryCalls.length = 0
 		await screen.getByRole('button', { name: 'add to groceries' }).click()
 
-		// What will be added shows first, to change before anything saves.
+		// Every line shows, without its preparation, to change before saving.
 		const review = page.getByRole('dialog', { name: 'add to groceries' })
 		await expect
 			.element(review.getByRole('textbox', { name: 'item 1' }))
 			.toHaveValue('200 g pasta')
-		await review.getByRole('checkbox', { name: 'add item 1' }).click()
+		await expect
+			.element(review.getByRole('textbox', { name: 'item 2' }))
+			.toHaveValue('2 cloves garlic')
+
+		// What the kitchen has is unticked, a line changed, another added.
+		await review.getByRole('checkbox', { name: 'add item 3' }).click()
 		await review
 			.getByRole('textbox', { name: 'item 2' })
 			.fill('3 cloves garlic')
@@ -349,12 +343,17 @@ describe('recipe detail', () => {
 			.fill('parmesan')
 		await userEvent.keyboard('{Enter}')
 		await expect
-			.element(review.getByRole('textbox', { name: 'item 3' }))
+			.element(review.getByRole('textbox', { name: 'item 4' }))
 			.toHaveValue('parmesan')
+		await review.getByRole('button', { name: 'remove 200 g pasta' }).click()
 		expect(groceryCalls).toEqual([])
 		await expectIsolatedScreenshot(review, 'add-to-groceries')
-		await review.getByRole('button', { name: 'add 2' }).click()
 
+		// The list as it stands can be copied for a message instead.
+		await review.getByRole('button', { name: 'copy' }).click()
+		expect(writeText).toHaveBeenCalledWith('3 cloves garlic\nparmesan')
+
+		await review.getByRole('button', { name: 'add 2' }).click()
 		await expect.element(review).not.toBeInTheDocument()
 		await expect.element(page.getByText('2 added to groceries')).toBeVisible()
 		// The groceries tab says how many landed, without leaving the recipe.
@@ -377,18 +376,7 @@ describe('recipe detail', () => {
 				},
 			],
 		])
-
-		// Cooking ticks are their own; shopping again finds the kitchen's.
-		await screen.getByRole('button', { name: 'done shopping' }).click()
-		await expect
-			.element(screen.getByRole('checkbox', { name: '2 tbsp butter' }))
-			.not.toBeChecked()
-		await screen.getByRole('button', { name: 'shop for this' }).click()
-		await expect
-			.element(screen.getByRole('checkbox', { name: 'have 2 tbsp butter' }))
-			.toBeChecked()
 		writeText.mockRestore()
-		window.localStorage.clear()
 	})
 
 	test('shows specific and family icons while leaving unknown ingredients empty', async () => {

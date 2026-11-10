@@ -7,9 +7,8 @@ import {
 } from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
-import { z } from 'zod'
 
 import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
 import { buttonVariants } from '@/components/ui/button'
@@ -26,89 +25,101 @@ import { groceryList } from '@/lib/groceries/list'
 import { addGroceries } from '@/lib/groceries/server'
 import { cn } from '@/lib/utils/ui'
 
-const haveKey = (recipeId: string) => `cocochef:have:${recipeId}`
-
-const haveLines = z.array(z.string()).catch([])
-
-// Storage may be missing or refuse (a private window); the list still works,
-// it just forgets.
-function stored(key: string) {
-	try {
-		return window.localStorage.getItem(key)
-	} catch {
-		return null
-	}
-}
-
-function store(key: string, value: string | null) {
-	try {
-		if (value === null) window.localStorage.removeItem(key)
-		else window.localStorage.setItem(key, value)
-	} catch {
-		// Remembering is a convenience.
-	}
-}
-
-// The lines of a recipe the cook already has, remembered on this device so a
-// trip to the fridge and back keeps the ticks.
-export function useHave(recipeId: string) {
-	const [have, setHave] = useState<ReadonlySet<string>>(() => new Set())
-
-	// Read when shopping starts, so the page renders the same on the server.
-	function load() {
-		const saved = stored(haveKey(recipeId))
-
-		try {
-			setHave(new Set(haveLines.parse(saved ? JSON.parse(saved) : [])))
-		} catch {
-			setHave(new Set())
-		}
-	}
-
-	const toggle = (line: string) =>
-		setHave((current) => {
-			const next = new Set(current)
-
-			if (next.has(line)) next.delete(line)
-			else next.add(line)
-
-			store(haveKey(recipeId), next.size ? JSON.stringify([...next]) : null)
-
-			return next
-		})
-
-	return { have, load, toggle }
-}
-
-const pillActionClassName = buttonVariants({
-	variant: 'ghost',
-	className: 'rounded-full',
-})
-
-// What is left to buy, sent on: onto the groceries list, or as text for a
-// message or a note.
-export function GrocerySend({
+// A recipe's ingredients, sent to the groceries list: the cart opens what
+// would be added, to untick what the kitchen has, change a line or add one,
+// before anything goes on the list.
+export function AddToGroceries({
 	recipeId,
 	title,
 	lines,
-	have,
 }: {
 	recipeId: string
 	title: string
 	lines: string[]
-	have: ReadonlySet<string>
+}) {
+	const [open, setOpen] = useState(false)
+	const items = groceryList(lines)
+
+	if (!items.length) return null
+
+	return (
+		<>
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				className="border-input hover:bg-muted/60 inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors"
+			>
+				<ShoppingCartIcon size={16} weight="bold" aria-hidden />
+				add to groceries
+			</button>
+			{open ? (
+				<GroceryReview
+					recipeId={recipeId}
+					title={title}
+					items={items}
+					onClose={() => setOpen(false)}
+				/>
+			) : null}
+		</>
+	)
+}
+
+type Draft = { id: string; text: string; on: boolean }
+
+const draftOf = (text: string): Draft => ({
+	id: crypto.randomUUID(),
+	text,
+	on: true,
+})
+
+const noSubscription = () => () => {}
+
+function GroceryReview({
+	recipeId,
+	title,
+	items,
+	onClose,
+}: {
+	recipeId: string
+	title: string
+	items: string[]
+	onClose: () => void
 }) {
 	const navigate = useNavigate()
 	const client = useQueryClient()
-	const items = groceryList(lines, have)
-	const text = items.join('\n')
+	const [drafts, setDrafts] = useState(() => items.map(draftOf))
+	const [extra, setExtra] = useState('')
 	const [adding, setAdding] = useState(false)
-	// What will be added, shown to change before anything is saved.
-	const [reviewing, setReviewing] = useState(false)
-	// Shown only once the cook starts shopping, so only ever in the browser.
-	const canShare = 'share' in navigator
 
-	async function add(chosen: string[]) {
+	// Known only in the browser; the server renders without it.
+	const canShare = useSyncExternalStore(
+		noSubscription,
+		() => 'share' in navigator,
+		() => false,
+	)
+
+	const chosen = drafts.flatMap((draft) =>
+		draft.on && draft.text.trim() ? [draft.text.trim()] : [],
+	)
+
+	const text = chosen.join('\n')
+
+	const change = (id: string, patch: Partial<Draft>) =>
+		setDrafts((current) =>
+			current.map((draft) =>
+				draft.id === id ? { ...draft, ...patch } : draft,
+			),
+		)
+
+	function addExtra() {
+		const line = extra.trim()
+
+		if (!line) return
+		setDrafts((current) => [...current, draftOf(line)])
+		setExtra('')
+	}
+
+	async function add() {
 		setAdding(true)
 
 		try {
@@ -123,7 +134,7 @@ export function GrocerySend({
 			// The groceries tab says how many landed, without leaving the recipe.
 			pulseGroceries(added.length)
 			void client.invalidateQueries({ queryKey: groceryCountKey })
-			setReviewing(false)
+			onClose()
 			toast.success(
 				added.length
 					? `${added.length} added to groceries`
@@ -162,122 +173,17 @@ export function GrocerySend({
 	}
 
 	return (
-		// On a phone it floats above the tab bar, which stays, so the groceries
-		// tab can say what landed.
-		<div className="pb-bar max-md:bottom-fab pointer-events-none sticky bottom-0 z-10 flex justify-center pt-3 max-md:pb-0">
-			<div
-				role="toolbar"
-				aria-label="send the grocery list"
-				className="bg-card border-border pointer-events-auto flex max-w-full items-center gap-1 rounded-full border p-1.5 shadow-md"
-			>
-				<p
-					aria-live="polite"
-					className="text-muted-foreground min-w-0 truncate pr-1 pl-3 text-sm font-semibold"
-				>
-					{items.length ? `${items.length} to buy` : 'nothing to buy'}
-				</p>
-				<button
-					type="button"
-					aria-label="copy"
-					title="copy the list"
-					disabled={!items.length}
-					onClick={copy}
-					className={cn(pillActionClassName, 'px-3')}
-				>
-					<CopyIcon size={16} weight="bold" aria-hidden />
-				</button>
-				{canShare ? (
-					<button
-						type="button"
-						aria-label="share"
-						title="share the list"
-						disabled={!items.length}
-						onClick={share}
-						className={cn(pillActionClassName, 'px-3')}
-					>
-						<ExportIcon size={16} weight="bold" aria-hidden />
-					</button>
-				) : null}
-				<button
-					type="button"
-					disabled={!items.length}
-					onClick={() => setReviewing(true)}
-					className={buttonVariants({ className: 'rounded-full px-5' })}
-				>
-					<ShoppingCartIcon size={16} weight="bold" aria-hidden />
-					add to groceries
-				</button>
-			</div>
-			{reviewing ? (
-				<AddReview
-					title={title}
-					items={items}
-					adding={adding}
-					onClose={() => setReviewing(false)}
-					onAdd={(chosen) => void add(chosen)}
-				/>
-			) : null}
-		</div>
-	)
-}
-
-type Draft = { id: string; text: string; on: boolean }
-
-const draftOf = (text: string): Draft => ({
-	id: crypto.randomUUID(),
-	text,
-	on: true,
-})
-
-// What a recipe would add, to change before it goes on the list: a line's
-// words, whether it goes, and any line the recipe forgot.
-function AddReview({
-	title,
-	items,
-	adding,
-	onClose,
-	onAdd,
-}: {
-	title: string
-	items: string[]
-	adding: boolean
-	onClose: () => void
-	onAdd: (chosen: string[]) => void
-}) {
-	const [drafts, setDrafts] = useState(() => items.map(draftOf))
-	const [extra, setExtra] = useState('')
-
-	const chosen = drafts.flatMap((draft) =>
-		draft.on && draft.text.trim() ? [draft.text.trim()] : [],
-	)
-
-	const change = (id: string, patch: Partial<Draft>) =>
-		setDrafts((current) =>
-			current.map((draft) =>
-				draft.id === id ? { ...draft, ...patch } : draft,
-			),
-		)
-
-	function addExtra() {
-		const text = extra.trim()
-
-		if (!text) return
-		setDrafts((current) => [...current, draftOf(text)])
-		setExtra('')
-	}
-
-	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
+		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent className="flex max-h-[85dvh] flex-col">
 				<DialogHeader>
 					<DialogTitle>add to groceries</DialogTitle>
 					<DialogDescription>
-						from {title}. change a line, or untick what you do not need.
+						from {title}. untick what you have, or change a line.
 					</DialogDescription>
 				</DialogHeader>
 				<ul
 					aria-label="items to add"
-					className="divide-border border-input -mx-1 min-h-0 flex-1 divide-y overflow-y-auto rounded-xl border"
+					className="divide-border border-input min-h-0 flex-1 divide-y overflow-y-auto rounded-xl border"
 				>
 					{drafts.map((draft, index) => (
 						<li key={draft.id} className="flex items-center gap-2 pr-1 pl-3">
@@ -341,6 +247,38 @@ function AddReview({
 						<PlusIcon size={14} weight="bold" aria-hidden />
 					</button>
 				</form>
+				{/* The same list as text, for a message or a note. */}
+				<div className="-mt-2 flex items-center gap-1">
+					<span className="text-muted-foreground mr-1 text-xs font-semibold">
+						as text
+					</span>
+					<button
+						type="button"
+						disabled={!chosen.length}
+						onClick={copy}
+						className={buttonVariants({
+							variant: 'ghost',
+							className: 'min-h-9 px-2.5',
+						})}
+					>
+						<CopyIcon size={16} weight="bold" aria-hidden />
+						copy
+					</button>
+					{canShare ? (
+						<button
+							type="button"
+							disabled={!chosen.length}
+							onClick={share}
+							className={buttonVariants({
+								variant: 'ghost',
+								className: 'min-h-9 px-2.5',
+							})}
+						>
+							<ExportIcon size={16} weight="bold" aria-hidden />
+							share
+						</button>
+					) : null}
+				</div>
 				<DialogFooter>
 					<button
 						type="button"
@@ -352,7 +290,7 @@ function AddReview({
 					<button
 						type="button"
 						disabled={!chosen.length || adding}
-						onClick={() => onAdd(chosen)}
+						onClick={() => void add()}
 						className={buttonVariants()}
 					>
 						{adding ? 'adding…' : `add ${chosen.length}`}
