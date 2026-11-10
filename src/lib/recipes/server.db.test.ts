@@ -346,6 +346,40 @@ describe('recipe shelf', () => {
 		expect(finalized?.finalizedAt).toBeInstanceOf(Date)
 	})
 
+	test('says how far each draft on the shelf has got', async ({ db }) => {
+		const userId = await seedUser(db)
+		await createRecipeForUser(userId, { title: 'dal' }, db)
+
+		const draft = await createRecipeForUser(
+			userId,
+			{ title: 'stew', finalized: false },
+			db,
+		)
+
+		if (!draft) throw new Error('draft was not created')
+		await updateRecipeForUser(
+			userId,
+			{
+				id: draft.id,
+				title: 'stew',
+				notes: null,
+				ingredients: ['## base', '1 onion', '2 carrots'],
+				steps: ['soften the onion'],
+			},
+			db,
+		)
+
+		const { recipes } = await listShelfForUser(userId, db)
+
+		expect(recipes.find((recipe) => recipe.id === draft.id)?.written).toEqual({
+			ingredients: 2,
+			steps: 1,
+		})
+		expect(recipes.find((recipe) => recipe.title === 'dal')).not.toHaveProperty(
+			'written',
+		)
+	})
+
 	test('keeps uploaded photos to their owner', async ({ db }) => {
 		const userId = await seedUser(db)
 

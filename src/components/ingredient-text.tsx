@@ -1,5 +1,8 @@
 import { Marked } from '@/components/marked'
-import { splitIngredientDetails } from '@/lib/recipes/ingredient-line'
+import {
+	abbreviateUnits,
+	splitIngredientDetails,
+} from '@/lib/recipes/ingredient-line'
 import { cn } from '@/lib/utils/ui'
 
 export function IngredientText({
@@ -11,7 +14,7 @@ export function IngredientText({
 	done?: boolean
 	terms?: string[]
 }) {
-	const display = text
+	const display = abbreviateUnits(text)
 		.replace(/\(\s*,\s*/g, '(')
 		.replace(/\(\(([^()]*)\)([^()]*)\)/g, '($1$2)')
 

@@ -4,20 +4,22 @@
    can express. */
 import { Dialog } from '@base-ui/react/dialog'
 import {
+	MagnifyingGlassIcon,
 	ArrowLeftIcon,
 	ArrowRightIcon,
+	BookmarkSimpleIcon,
 	ClipboardTextIcon,
 	LinkSimpleIcon,
-	GlobeHemisphereWestIcon,
 	PencilSimpleIcon,
 	XIcon,
 	CaretDownIcon,
 } from '@phosphor-icons/react'
-import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
+import { AuthDialog } from '@/components/auth-dialog'
 import { Marked } from '@/components/marked'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import {
@@ -27,12 +29,14 @@ import {
 } from '@/components/recipe-online'
 import { RecipeReader } from '@/components/recipe-reader'
 import { SiteIcon } from '@/components/site-icon'
+import type { StartingPoint } from '@/components/start-from'
 import { Skeleton } from '@/components/ui/skeleton'
+import { authClient } from '@/lib/auth/client'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
 import { matchesRecipeQuery } from '@/lib/recipes/model'
 import { isPastedRecipe } from '@/lib/recipes/paste'
-import { getRecipe, listShelf } from '@/lib/recipes/server'
+import { getRecipe, listShelf, saveRecipe } from '@/lib/recipes/server'
 import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
 import { cn } from '@/lib/utils/ui'
 import { useVisualViewportVars } from '@/lib/utils/viewport'
@@ -177,11 +181,14 @@ export function RecipeFinder({
 	onOpenChange,
 	defaultQuery,
 	onImportLink,
+	onUse,
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	defaultQuery: string
 	onImportLink: (url?: string) => void
+	// Given, a recipe picked here starts the one being written.
+	onUse?: ((start: StartingPoint) => void) | undefined
 	children?: React.ReactNode
 }) {
 	const input = useRef<HTMLInputElement>(null)
@@ -202,6 +209,7 @@ export function RecipeFinder({
 						defaultQuery={defaultQuery}
 						close={() => onOpenChange(false)}
 						onImportLink={onImportLink}
+						onUse={onUse}
 					/>
 				</Dialog.Popup>
 			</Dialog.Portal>
@@ -215,13 +223,31 @@ function FinderPanel({
 	defaultQuery,
 	close,
 	onImportLink,
+	onUse,
 }: {
 	inputRef: React.RefObject<HTMLInputElement | null>
 	defaultQuery: string
 	close: () => void
 	onImportLink: (url?: string) => void
+	onUse?: ((start: StartingPoint) => void) | undefined
 }) {
 	const navigate = useNavigate()
+	const router = useRouter()
+	const client = useQueryClient()
+	const account = authClient.useSession().data?.user
+
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	})
+
+	// Saving asks a visitor to sign in first.
+	const [authOpen, setAuthOpen] = useState(false)
+
+	// Recipes saved from here, by link or id, before the shelf catches up.
+	const [savedHere, setSavedHere] = useState<ReadonlySet<string>>(
+		() => new Set(),
+	)
+
 	const listboxId = useId()
 	const [pasteOpen, setPasteOpen] = useState(false)
 	// The ways to start stay tucked behind one button until asked for.
@@ -285,12 +311,14 @@ function FinderPanel({
 	if (url) {
 		section('', [{ kind: 'link', url }])
 	} else if (!trimmed) {
-		section(
-			'',
-			starts.flatMap(({ start }): Option[] =>
-				start === 'write' || startsOpen ? [{ kind: 'start', start }] : [],
-			),
-		)
+		// Starting from a recipe happens inside one already being written.
+		if (!onUse)
+			section(
+				'',
+				starts.flatMap(({ start }): Option[] =>
+					start === 'write' || startsOpen ? [{ kind: 'start', start }] : [],
+				),
+			)
 
 		const drafts = shelfRecipes.filter(
 			(recipe) => recipe.userId !== null && !recipe.finalizedAt,
@@ -331,7 +359,8 @@ function FinderPanel({
 					.slice(0, visibleRecipes),
 			),
 		)
-		section('', [{ kind: 'write', title: trimmed }])
+
+		if (!onUse) section('', [{ kind: 'write', title: trimmed }])
 	}
 
 	const pickedAt = options.findIndex((option) => optionKey(option) === picked)
@@ -432,15 +461,72 @@ function FinderPanel({
 		return brought.id
 	}
 
+	// The search goes along, so the recipe's way back can return to it.
 	const go = async (recipeId: string) => {
 		close()
-		await navigate({ to: '/recipes/$recipeId', params: { recipeId } })
+		await navigate({
+			to: '/recipes/$recipeId',
+			params: { recipeId },
+			state: trimmed && !url ? { foundBy: trimmed } : {},
+		})
 	}
+
+	// Hands a recipe's lines to the one being written, read in first if it is
+	// only a page so far, without going on the shelf.
+	const useFound = (recipe: FoundRecipe) =>
+		run(optionKey({ kind: 'recipe', recipe }), async () => {
+			const full = await getRecipe({ data: { id: await recipeIdFor(recipe) } })
+
+			if (!full) throw new Error("couldn't read this recipe")
+			close()
+			onUse?.({
+				title: full.title,
+				sourceUrl: full.sourceUrl ?? recipe.url,
+				ingredients: full.ingredients,
+				steps: full.steps,
+			})
+		})
 
 	const openRecipe = (recipe: FoundRecipe) =>
 		run(optionKey({ kind: 'recipe', recipe }), async () =>
 			go(await recipeIdFor(recipe)),
 		)
+
+	const savedKey = (recipe: FoundRecipe) =>
+		recipe.url ?? recipe.recipeId ?? recipe.title
+
+	const isSaved = (recipe: FoundRecipe) =>
+		recipe.saved || savedHere.has(savedKey(recipe))
+
+	// Puts a found recipe on the shelf without leaving the search: a site page
+	// is brought in and kept in one go.
+	const saveFound = (recipe: FoundRecipe) => {
+		if (!account || account.isAnonymous) {
+			setAuthOpen(true)
+
+			return
+		}
+
+		void run(`${optionKey({ kind: 'recipe', recipe })}:save`, async () => {
+			const known = idOf(recipe)
+
+			let id = known
+
+			if (known) await saveRecipe({ data: { id: known } })
+			else if (recipe.url)
+				id = (await importRecipe({ data: { url: recipe.url, keep: true } })).id
+			else throw new Error("couldn't find that recipe")
+
+			setSavedHere((current) => new Set(current).add(savedKey(recipe)))
+			await Promise.all([
+				router.invalidate(),
+				client.invalidateQueries({ queryKey: ['shelf'] }),
+			])
+			toast.success('saved to your recipes', {
+				action: id ? { label: 'open', onClick: () => void go(id) } : undefined,
+			})
+		})
+	}
 
 	const write = (title = '') => {
 		close()
@@ -470,6 +556,16 @@ function FinderPanel({
 				return
 			case 'link': {
 				const link = option.url
+
+				if (onUse)
+					return void useFound({
+						title: hostOf(link),
+						url: link,
+						siteName: hostOf(link),
+						saved: false,
+						draft: false,
+						ingredientMatches: [],
+					})
 
 				return void run(optionKey(option), async () => {
 					const recipe = await importRecipe({ data: { url: link, keep: true } })
@@ -569,7 +665,7 @@ function FinderPanel({
 				{url ? (
 					<LinkSimpleIcon size={20} weight="bold" aria-hidden />
 				) : (
-					<GlobeHemisphereWestIcon size={20} weight="bold" aria-hidden />
+					<MagnifyingGlassIcon size={20} weight="bold" aria-hidden />
 				)}
 				<input
 					ref={inputRef}
@@ -724,20 +820,60 @@ function FinderPanel({
 						lookErrors[current.recipe.url] &&
 						!idOf(current.recipe)
 					) ? (
-						<div className="border-border bg-background shrink-0 border-t p-4">
-							<button
-								type="button"
-								disabled={busy !== undefined}
-								onClick={() => void openRecipe(current.recipe)}
-								className="bg-kitchen-basil flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold disabled:opacity-50"
-							>
-								<ArrowRightIcon size={18} weight="bold" aria-hidden />
-								{busy ? 'one moment…' : 'open recipe'}
-							</button>
+						<div className="border-border bg-background flex shrink-0 gap-2 border-t p-4">
+							{onUse ? (
+								<button
+									type="button"
+									disabled={busy !== undefined}
+									onClick={() => void useFound(current.recipe)}
+									className="bg-kitchen-basil flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold hover:brightness-95 disabled:opacity-50"
+								>
+									<ArrowRightIcon size={18} weight="bold" aria-hidden />
+									{busy ? 'one moment…' : 'use this recipe'}
+								</button>
+							) : (
+								<>
+									{/* Saving keeps the cook in the search; opening goes to the
+							    recipe. */}
+									{isSaved(current.recipe) ? (
+										<span className="text-kitchen-eggplant bg-kitchen-eggplant/10 flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold">
+											<BookmarkSimpleIcon size={18} weight="fill" aria-hidden />
+											saved
+										</span>
+									) : (
+										<button
+											type="button"
+											disabled={busy !== undefined}
+											onClick={() => saveFound(current.recipe)}
+											className="bg-kitchen-basil flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold hover:brightness-95 disabled:opacity-50"
+										>
+											<BookmarkSimpleIcon size={18} weight="bold" aria-hidden />
+											{busy?.endsWith(':save') ? 'saving…' : 'save'}
+										</button>
+									)}
+									<button
+										type="button"
+										disabled={busy !== undefined}
+										onClick={() => void openRecipe(current.recipe)}
+										className="border-foreground/40 hover:bg-card flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-base font-semibold transition-colors disabled:opacity-50"
+									>
+										<ArrowRightIcon size={18} weight="bold" aria-hidden />
+										{busy && !busy.endsWith(':save')
+											? 'one moment…'
+											: 'open recipe'}
+									</button>
+								</>
+							)}
 						</div>
 					) : null}
 				</div>
 			</div>
+			<AuthDialog
+				open={authOpen}
+				onOpenChange={setAuthOpen}
+				redirect={pathname}
+				onSuccess={() => void router.invalidate()}
+			/>
 		</>
 	)
 }

@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react'
 
 import { useHideTabBar } from '@/components/app-nav'
 import { EditSharedButton } from '@/components/edit-shared-button'
-import { BackBar, BackLink } from '@/components/page'
+import { BackBar, BackButton, BackLink } from '@/components/page'
+import { useRecipeActions } from '@/components/recipe-actions'
 import { RecipeEditor } from '@/components/recipe-editor'
 import { RecipeReader } from '@/components/recipe-reader'
 import { RecipeSharing } from '@/components/recipe-sharing'
@@ -22,6 +23,12 @@ export type Recipe = NonNullable<Awaited<ReturnType<typeof getRecipe>>>
 // A recipe on its own page: read, cooked from, edited in place.
 export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 	const navigate = useNavigate()
+	const { find } = useRecipeActions()
+
+	// Opened from a search, the way back is to its results.
+	const foundBy = useRouterState({
+		select: (state) => state.location.state.foundBy,
+	})
 
 	// A recipe you are writing stays in the editor until it is finished.
 	const editRequested = useRouterState({
@@ -46,7 +53,13 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 		>
 			<div className={cn(editing ? 'max-w-2xl' : 'max-w-5xl')}>
 				<BackBar>
-					<BackLink to="/recipes">back to recipes</BackLink>
+					{foundBy ? (
+						<BackButton onClick={() => find(foundBy)}>
+							back to results
+						</BackButton>
+					) : (
+						<BackLink to="/recipes">back to recipes</BackLink>
+					)}
 				</BackBar>
 				{editing ? (
 					<>

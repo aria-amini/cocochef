@@ -1,8 +1,5 @@
-import {
-	ClipboardTextIcon,
-	LinkSimpleIcon,
-	TrashIcon,
-} from '@phosphor-icons/react'
+import { Menu } from '@base-ui/react/menu'
+import { DotsThreeIcon, TrashIcon } from '@phosphor-icons/react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import {
 	useCallback,
@@ -15,13 +12,12 @@ import { toast } from 'sonner'
 
 import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
 import { IngredientListField } from '@/components/ingredient-list-field'
-import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import {
 	FieldError,
-	fieldLabelClassName,
+	sectionLabelClassName,
+	dockActionClassName,
+	dockSaveClassName,
 	FormActions,
-	primaryActionClassName,
-	quietActionClassName,
 	RecipeIntro,
 	RecipeNameField,
 } from '@/components/recipe-form'
@@ -29,8 +25,9 @@ import {
 	GuestPhotoSlot,
 	RecipePhotoField,
 } from '@/components/recipe-photo-field'
+import { SourceLinkField } from '@/components/source-link-field'
+import { FindRecipe, type StartingPoint } from '@/components/start-from'
 import { StepsField, stepsFrom } from '@/components/steps-field'
-import { buttonVariants } from '@/components/ui/button'
 import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import { forgetRecipe } from '@/lib/recipes/last-opened'
@@ -42,7 +39,7 @@ import {
 } from '@/lib/recipes/model'
 import { isPastedRecipe, parsePastedRecipe } from '@/lib/recipes/paste'
 import { createRecipe, deleteRecipe, updateRecipe } from '@/lib/recipes/server'
-import { isYouTube, parseSourceInput } from '@/lib/recipes/source'
+import { parseSourceInput } from '@/lib/recipes/source'
 import { formField } from '@/lib/utils/form'
 import { cn } from '@/lib/utils/ui'
 
@@ -151,7 +148,6 @@ export function RecipeEditor({
 	onImportLink?: (url?: string) => void
 	onDone: (recipeId: string) => void
 }) {
-	const [pasteOpen, setPasteOpen] = useState(false)
 	const router = useRouter()
 	const navigate = useNavigate()
 	const form = useRef<HTMLFormElement>(null)
@@ -253,6 +249,25 @@ export function RecipeEditor({
 
 	const [source, setSource] = useState(recipe?.sourceUrl ?? '')
 
+	// The steps as written, which the ingredients regroup by, and the one a
+	// group of them points at.
+	const [steps, setSteps] = useState(seed.steps)
+	const [litStep, setLitStep] = useState<number>()
+	// How much is written, so the ways to import stay until something is.
+	const [ingredientCount, setIngredientCount] = useState(0)
+	const [stepCount, setStepCount] = useState(0)
+
+	const keepSteps = useCallback(
+		(next: string[]) =>
+			setSteps((current) =>
+				current.length === next.length &&
+				current.every((step, index) => step === next[index])
+					? current
+					: next,
+			),
+		[],
+	)
+
 	const [notesTooLong, setNotesTooLong] = useState(
 		() =>
 			Array.from((recipe?.notes ?? arrived?.notes ?? '').trim()).length >
@@ -322,6 +337,40 @@ export function RecipeEditor({
 		announcedArrival.current = true
 		announceSorted(arrived, { name: defaultTitle, draft: undefined, notes: '' })
 	}, [arrived, defaultTitle, announceSorted])
+
+	// A recipe found online fills the empty one being written, keeping its name
+	// and crediting the original, with a way back to the empty page.
+	const startFrom = (start: StartingPoint) => {
+		const before = {
+			source,
+			notes: form.current ? formField(new FormData(form.current), 'notes') : '',
+		}
+
+		const empty = (version: number) => ({
+			version,
+			title: name,
+			ingredients: [],
+			steps: [],
+			notes: before.notes,
+		})
+
+		setSource(start.sourceUrl ?? '')
+		setSeed((current) => ({
+			...empty(current.version + 1),
+			ingredients: start.ingredients,
+			steps: start.steps,
+		}))
+		toast(`started from ${start.title}`, {
+			action: {
+				label: 'undo',
+				onClick: () => {
+					if (finishing.current) return
+					setSource(before.source)
+					setSeed((current) => empty(current.version + 1))
+				},
+			},
+		})
+	}
 
 	// A pasted recipe is sorted at once, with a way back to the empty page.
 	const sortPasted = useCallback(
@@ -461,10 +510,6 @@ export function RecipeEditor({
 		}
 	}
 
-	const parsedSource = parseSourceInput(source)
-
-	const sourceInvalid = parsedSource === undefined
-
 	// Once an edit to a shared recipe saves, the user is editing their own copy.
 	const onShared = shared && savedId === recipe?.id
 
@@ -484,27 +529,6 @@ export function RecipeEditor({
 				void done()
 			}}
 		>
-			<PasteRecipeDialog
-				open={pasteOpen}
-				onOpenChange={setPasteOpen}
-				onAdd={(text) => {
-					if (
-						!form.current ||
-						!empty(form.current) ||
-						form.current
-							.querySelector<HTMLTextAreaElement>('#edit-title')
-							?.value.trim()
-					) {
-						toast('start with an empty recipe to paste text')
-
-						return
-					}
-
-					if (/^https?:\/\/\S+$/i.test(text.trim()) && onImportLink)
-						onImportLink(text.trim())
-					else sortPasted(text)
-				}}
-			/>
 			{shared ? (
 				<p className="bg-kitchen-eggplant/10 border-border rounded-xl border px-4 py-3 text-sm font-semibold">
 					{onShared
@@ -538,6 +562,7 @@ export function RecipeEditor({
 							<GuestPhotoSlot />
 						)
 					}
+					links={<SourceLinkField value={source} onChange={setSource} />}
 				>
 					<RecipeNameField
 						key={seed.version}
@@ -547,94 +572,46 @@ export function RecipeEditor({
 						defaultValue={seed.title}
 						placeholder="name it"
 						errorId={unnamed && !name.trim() ? 'edit-title-error' : undefined}
+						onEnter={() =>
+							form.current
+								?.querySelector<HTMLElement>('#recipe-ingredients textarea')
+								?.focus()
+						}
 						onChange={(value) => {
 							setName(value)
 							setUnnamed(false)
 						}}
 						onPaste={(event) => {
-							const text = event.clipboardData.getData('text')
+							const text = event.clipboardData.getData('text').trim()
 
-							if (!isPastedRecipe(text) || !form.current) return
+							if (!form.current || !empty(form.current)) return
 
-							if (!empty(form.current)) return
+							// A link pasted into an empty recipe brings that recipe in.
+							if (/^https?:\/\/\S+$/i.test(text) && onImportLink) {
+								event.preventDefault()
+								onImportLink(text)
+
+								return
+							}
+
+							if (!isPastedRecipe(text)) return
 							event.preventDefault()
 							sortPasted(text)
 						}}
 					/>
-					<div className="mt-3 flex min-w-0 flex-col gap-2">
-						<label className={fieldLabelClassName} htmlFor="edit-source">
-							original link
-						</label>
-						<input
-							id="edit-source"
-							name="sourceUrl"
-							type="text"
-							inputMode="url"
-							autoCapitalize="none"
-							autoCorrect="off"
-							spellCheck={false}
-							value={source}
-							onChange={(event) => setSource(event.target.value)}
-							aria-invalid={sourceInvalid || undefined}
-							aria-describedby="edit-source-hint"
-							placeholder="a web page or a youtube video"
-							className={cn(fieldClassName, placeholderClassName)}
-						/>
-						{sourceInvalid ? (
-							<FieldError id="edit-source-hint">
-								that doesn&apos;t look like a web address yet
-							</FieldError>
-						) : (
-							<p
-								id="edit-source-hint"
-								className="text-muted-foreground text-sm"
-							>
-								{parsedSource && isYouTube(parsedSource)
-									? 'a video to cook along with.'
-									: 'where the recipe came from, if it came from somewhere.'}
-							</p>
-						)}
-					</div>
 				</RecipeIntro>
-				{!recipe && !name.trim() && !unnamed ? (
-					<div className="flex flex-wrap gap-2" aria-label="start a recipe">
-						{onImportLink ? (
-							<button
-								type="button"
-								className={cn(
-									quietActionClassName,
-									'border-foreground/40 inline-flex items-center gap-1.5 border',
-								)}
-								onClick={() => {
-									if (
-										!form.current ||
-										!empty(form.current) ||
-										form.current
-											.querySelector<HTMLInputElement>('#edit-title')
-											?.value.trim()
-									) {
-										toast('start with an empty recipe to import a link')
-
-										return
-									}
-
-									onImportLink()
-								}}
-							>
-								<LinkSimpleIcon size={16} aria-hidden /> import link
-							</button>
-						) : null}
-						<button
-							type="button"
-							className={cn(
-								quietActionClassName,
-								'border-foreground/40 inline-flex items-center gap-1.5 border',
-							)}
-							onClick={() => setPasteOpen(true)}
-						>
-							<ClipboardTextIcon size={16} aria-hidden /> paste text
-						</button>
-					</div>
+				{/* Bringing a recipe in fills an empty one, so the ways to do it
+				    stay until ingredients or steps are written. They live in the
+				    name: a link or a whole recipe pasted there comes in, and a
+				    name typed there may find recipes to start from. */}
+				{(!recipe || isDraft) && !ingredientCount && !stepCount ? (
+					name.trim() ? (
+						<FindRecipe name={name} onStart={startFrom} />
+					) : (
+						<p className="text-muted-foreground text-sm">
+							or paste a link or a whole recipe into the name
+						</p>
+					)
 				) : null}
 				{unnamed && !name.trim() ? (
 					<FieldError id="edit-title-error">
@@ -647,11 +624,21 @@ export function RecipeEditor({
 					key={seed.version}
 					defaultValue={seed.ingredients}
 					defaultCategories={seed.ingredientCategories}
+					title={name}
+					steps={steps}
+					onPointStep={setLitStep}
+					onCountChange={setIngredientCount}
 				/>
 			</div>
-			<StepsField key={seed.version} defaultValue={seed.steps} />
+			<StepsField
+				key={seed.version}
+				defaultValue={seed.steps}
+				lit={litStep}
+				onStepsChange={keepSteps}
+				onCountChange={setStepCount}
+			/>
 			<div className="flex flex-col gap-2">
-				<label className={fieldLabelClassName} htmlFor="edit-notes">
+				<label className={sectionLabelClassName} htmlFor="edit-notes">
 					notes
 				</label>
 				<textarea
@@ -676,53 +663,74 @@ export function RecipeEditor({
 					</FieldError>
 				) : null}
 			</div>
-			<FormActions>
-				{error ? (
-					<div className="w-full">
-						<FieldError>{error}</FieldError>
-					</div>
-				) : null}
-				{changes.length ? (
-					<p
-						className="text-muted-foreground w-full text-sm"
-						aria-live="polite"
-					>
-						changed: {changes.join(', ')}
-					</p>
-				) : null}
+			{error ? <FieldError>{error}</FieldError> : null}
+			<FormActions
+				status={
+					changes.length ? (
+						<p aria-live="polite" className="truncate">
+							not saved yet: {changes.join(', ')}
+						</p>
+					) : null
+				}
+			>
+				{/* Deleting is rare and final, so it waits behind "more". */}
+				{onShared && !recipe?.saved ? null : (
+					<Menu.Root>
+						<Menu.Trigger
+							aria-label="more"
+							disabled={pending}
+							className={cn(dockActionClassName, 'px-2.5')}
+						>
+							<DotsThreeIcon size={20} weight="bold" aria-hidden />
+						</Menu.Trigger>
+						<Menu.Portal>
+							<Menu.Positioner
+								className="z-50"
+								side="top"
+								align="start"
+								sideOffset={8}
+							>
+								<Menu.Popup className="floating bg-background overflow-hidden py-1 outline-none">
+									<Menu.Item
+										onClick={() =>
+											savedId ? setConfirmingDelete(true) : void remove()
+										}
+										className="text-destructive data-highlighted:bg-destructive/10 flex cursor-default items-center gap-2.5 px-3 py-2.5 text-sm font-semibold outline-none select-none"
+									>
+										<TrashIcon size={16} aria-hidden />
+										{onShared || savedId ? 'delete recipe' : 'discard recipe'}
+									</Menu.Item>
+								</Menu.Popup>
+							</Menu.Positioner>
+						</Menu.Portal>
+					</Menu.Root>
+				)}
+				<button
+					type="button"
+					className={dockActionClassName}
+					onClick={() => {
+						// Leaving throws the changes away, so it asks first.
+						if (
+							changes.length &&
+							!window.confirm('leave without saving your changes?')
+						)
+							return
+
+						if (recipe) onDone(recipe.id)
+						else void navigate({ to: '/recipes' })
+					}}
+				>
+					cancel
+				</button>
 				<button
 					type="submit"
 					disabled={
 						pending || photoBusy || (!changes.length && !(recipe && isDraft))
 					}
-					className={primaryActionClassName}
+					className={dockSaveClassName}
 				>
 					{pending ? 'saving…' : 'save'}
 				</button>
-				<button
-					type="button"
-					className={quietActionClassName}
-					onClick={() =>
-						recipe ? onDone(recipe.id) : void navigate({ to: '/recipes' })
-					}
-				>
-					cancel
-				</button>
-				<span className="ml-auto flex gap-2">
-					{onShared && !recipe?.saved ? null : (
-						<button
-							type="button"
-							disabled={pending}
-							onClick={() =>
-								savedId ? setConfirmingDelete(true) : void remove()
-							}
-							className={buttonVariants({ variant: 'destructive', size: 'lg' })}
-						>
-							<TrashIcon size={16} aria-hidden />
-							{onShared || savedId ? 'delete' : 'discard'}
-						</button>
-					)}
-				</span>
 			</FormActions>
 			<DeleteRecipeDialog
 				open={confirmingDelete}

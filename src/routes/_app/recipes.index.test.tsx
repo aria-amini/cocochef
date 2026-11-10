@@ -1,5 +1,8 @@
 import { renderRoute } from '@tests/support/render/route'
-import { expectPageScreenshot } from '@tests/support/screenshot'
+import {
+	expectIsolatedScreenshot,
+	expectPageScreenshot,
+} from '@tests/support/screenshot'
 import { desktopOnly, isPhone } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
@@ -549,18 +552,30 @@ describe('recipes shelf', () => {
 		)
 	})
 
-	test('labels a draft', async () => {
-		shelfState.recipes = [{ ...dal, finalizedAt: null }, misoButterPasta]
+	test('keeps drafts apart, saying how far each has got', async () => {
+		shelfState.recipes = [
+			{ ...dal, finalizedAt: null, written: { ingredients: 3, steps: 0 } },
+			misoButterPasta,
+		]
 
 		const { screen } = await renderRoute({
 			path: '/recipes',
 			session: testSession,
 		})
 
-		const draft = screen.getByRole('link', { name: /dal/ })
+		const drafts = screen.getByRole('region', { name: 'drafts' })
 
-		await expect.element(draft).toBeVisible()
-		expect(draft.element().textContent).toBe('draftdal')
+		await expect
+			.element(drafts.getByRole('link', { name: /dal/ }))
+			.toHaveTextContent('dal3 ingredients · no steps yetkeep writing')
+		await expect
+			.element(
+				screen
+					.getByRole('region', { name: 'your recipes' })
+					.getByRole('link', { name: /dal/ }),
+			)
+			.not.toBeInTheDocument()
+		await expectIsolatedScreenshot(drafts, 'shelf-drafts')
 	})
 
 	// Full-height captures of the shelf page alone. The app shell around it has

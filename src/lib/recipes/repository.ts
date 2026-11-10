@@ -117,7 +117,67 @@ export async function listShelfForUser(
 		.where(and(eq(shelfRecipes.userId, userId), visibleTo(userId, database)))
 		.orderBy(desc(shelfRecipes.addedAt))
 
-	return { recipes: userRecipes }
+	const drafts = userRecipes
+		.filter((recipe) => recipe.userId === userId && !recipe.finalizedAt)
+		.map((recipe) => recipe.id)
+
+	const written = await draftProgress(database, drafts)
+
+	return {
+		recipes: userRecipes.map(
+			(
+				recipe,
+			): typeof recipe & {
+				// How far a draft has got, so the cook can tell where to pick up.
+				written?: { ingredients: number; steps: number }
+			} => {
+				const progress = written.get(recipe.id)
+
+				return progress ? { ...recipe, written: progress } : recipe
+			},
+		),
+	}
+}
+
+// How many ingredients and steps each draft has, group names not counted.
+async function draftProgress(database: Database, ids: string[]) {
+	const progress = new Map<string, { ingredients: number; steps: number }>()
+
+	if (!ids.length) return progress
+
+	const [ingredients, steps] = await Promise.all([
+		database
+			.select({ recipeId: recipeIngredients.recipeId, total: count() })
+			.from(recipeIngredients)
+			.where(
+				and(
+					inArray(recipeIngredients.recipeId, ids),
+					sql`${recipeIngredients.text} not like '## %'`,
+				),
+			)
+			.groupBy(recipeIngredients.recipeId),
+		database
+			.select({ recipeId: recipeSteps.recipeId, total: count() })
+			.from(recipeSteps)
+			.where(inArray(recipeSteps.recipeId, ids))
+			.groupBy(recipeSteps.recipeId),
+	])
+
+	for (const id of ids) progress.set(id, { ingredients: 0, steps: 0 })
+
+	for (const row of ingredients) {
+		const entry = progress.get(row.recipeId)
+
+		if (entry) entry.ingredients = row.total
+	}
+
+	for (const row of steps) {
+		const entry = progress.get(row.recipeId)
+
+		if (entry) entry.steps = row.total
+	}
+
+	return progress
 }
 
 async function recipeContent(database: RecipeDatabase, recipeId: string) {

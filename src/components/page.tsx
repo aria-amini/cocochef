@@ -47,6 +47,26 @@ const BackAnchor = React.forwardRef<
 
 export const BackLink = createLink(BackAnchor)
 
+// The same way back, for one that opens something rather than going to a page.
+export function BackButton({
+	onClick,
+	children,
+}: {
+	onClick: () => void
+	children: React.ReactNode
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold"
+		>
+			<ArrowLeftIcon size={14} weight="bold" aria-hidden />
+			{children}
+		</button>
+	)
+}
+
 // The way back on phones is a bar that stays put while the page scrolls; on
 // desktop it is just the link above the title. It sits inside a page's padded
 // <main>, so it pulls out to the edges.
