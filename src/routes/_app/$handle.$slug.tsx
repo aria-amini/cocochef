@@ -66,7 +66,7 @@ function SharedRecipe() {
 	const data = Route.useLoaderData()
 
 	return data.kind === 'app' ? (
-		<RecipeDetail recipe={data.recipe} />
+		<RecipeDetail key={data.recipe.id} recipe={data.recipe} />
 	) : (
 		<PublicRecipePage recipe={data.recipe} />
 	)

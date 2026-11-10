@@ -31,7 +31,6 @@ vi.mock('@/lib/import/server', () => ({ importRecipe: discovery.import }))
 
 vi.mock('@/lib/recipes/server', () => ({
 	removeSavedRecipe: () => Promise.resolve(null),
-	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: ({ data }: { data: { id: string } }) => {

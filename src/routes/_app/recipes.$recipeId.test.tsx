@@ -39,7 +39,6 @@ vi.mock('@/lib/recipes/server', () => ({
 
 		return { id: data.id }
 	},
-	copyRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: () => Promise.resolve(recipeState.recipe),
 	updateRecipe: async ({ data }: { data: RecipeUpdate }) => {
@@ -865,15 +864,50 @@ describe('recipe detail', () => {
 			.toBeVisible()
 	})
 
-	test('offers a copy action for shared recipes without offering edit', async () => {
+	test('opens a published recipe to edit instead of sending it to its page', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
-		Object.assign(recipeState.recipe, { userId: null, owned: false })
-		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		// Its readable page only reads, so editing stays at this address.
+		Object.assign(recipeState.recipe, {
+			userId: null,
+			owned: false,
+			publicPath: '/sites/example/miso',
+		})
+
+		const { screen, router } = await renderRoute({ path: '/recipes', session })
+
+		await router.navigate({
+			to: '/recipes/$recipeId',
+			params: { recipeId: 'recipe-1' },
+			state: { editing: true },
+		})
+		await expect.element(screen.getByLabelText('notes')).toBeVisible()
+		expect(router.state.location.pathname).toBe('/recipes/recipe-1')
+	})
+
+	test('copies a shared recipe only once a change is saved', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		Object.assign(recipeState.recipe, {
+			userId: null,
+			owned: false,
+			saved: true,
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes/recipe-1',
+			session,
+		})
+
+		// Opening the editor copies nothing; cancelling leaves the shelf alone.
+		await screen.getByRole('button', { name: 'edit' }).click()
 		await expect
-			.element(screen.getByRole('button', { name: 'copy to my shelf' }))
+			.element(screen.getByText('in place of the saved one', { exact: false }))
 			.toBeVisible()
-		await expect
-			.element(screen.getByRole('button', { name: 'edit' }))
-			.not.toBeInTheDocument()
+		await screen.getByRole('button', { name: 'cancel' }).click()
+		expect(updateCalls.calls).toEqual([])
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByLabelText('notes').fill('more miso')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect.poll(() => updateCalls.calls.at(-1)?.id).toBe('recipe-1')
 	})
 })

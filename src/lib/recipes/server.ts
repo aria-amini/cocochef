@@ -14,7 +14,6 @@ import {
 
 import { recipeIdInput, recipeInput, recipeUpdateInput } from './model'
 import {
-	copyRecipeForUser,
 	createRecipeForUser,
 	deleteRecipeForUser,
 	getRecipeForUser,
@@ -84,12 +83,6 @@ export const getRecipe = createServerFn({ method: 'GET' })
 
 		return withSignedImage(recipe)
 	})
-
-export const copyRecipe = createServerFn({ method: 'POST' })
-	.validator(recipeIdInput)
-	.handler(async ({ data }) =>
-		copyRecipeForUser(await requireAccountId('copy recipes'), data.id),
-	)
 
 export const createRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeInput)

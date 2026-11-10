@@ -426,6 +426,13 @@ export function RecipeEditor({
 
 			// Finishing a recipe puts it on the shelf for real; that is worth saying.
 			if (isDraft) toast.success(`${latest.title} is on your shelf`)
+			// A changed shared recipe became the cook's own, in its place.
+			else if (shared && id !== recipe?.id)
+				toast.success(
+					recipe?.saved
+						? `your own ${latest.title} replaces the saved one`
+						: `your own ${latest.title} is on your shelf`,
+				)
 			onDone(id)
 		} catch {
 			finishing.current = false
@@ -501,7 +508,9 @@ export function RecipeEditor({
 			{shared ? (
 				<p className="bg-kitchen-eggplant/10 border-border rounded-xl border px-4 py-3 text-sm font-semibold">
 					{onShared
-						? 'this recipe is shared — changing it makes your own copy. notes stay yours either way.'
+						? recipe?.saved
+							? 'saving a change makes this your own copy, in place of the saved one. the original stays as it is.'
+							: 'saving a change makes this your own copy, on your shelf. the original stays as it is.'
 						: 'editing your own copy now. the shared one stays as it was.'}
 				</p>
 			) : null}

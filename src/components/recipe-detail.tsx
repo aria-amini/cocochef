@@ -1,10 +1,10 @@
 import { PencilSimple } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { useHideTabBar } from '@/components/app-nav'
-import { CopyRecipeButton } from '@/components/copy-recipe-button'
+import { EditSharedButton } from '@/components/edit-shared-button'
 import { BackBar, BackLink } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
 import { RecipeReader } from '@/components/recipe-reader'
@@ -22,8 +22,17 @@ export type Recipe = NonNullable<Awaited<ReturnType<typeof getRecipe>>>
 // A recipe on its own page: read, cooked from, edited in place.
 export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 	const navigate = useNavigate()
+
 	// A recipe you are writing stays in the editor until it is finished.
-	const [editing, setEditing] = useState(recipe.owned && !recipe.finalizedAt)
+	const editRequested = useRouterState({
+		select: (state) => state.location.state.editing === true,
+	})
+
+	// Someone else's recipe opens in the editor only when asked; saving a change
+	// there makes the cook's own copy.
+	const [editing, setEditing] = useState(
+		(recipe.owned && !recipe.finalizedAt) || editRequested,
+	)
 
 	useHideTabBar(editing)
 
@@ -118,7 +127,7 @@ function RecipeView({
 								<PencilSimple size={14} weight="bold" aria-hidden /> edit
 							</button>
 						) : (
-							<CopyRecipeButton recipeId={recipe.id} />
+							<EditSharedButton recipeId={recipe.id} onEdit={onEdit} />
 						)}
 
 						{recipe.owned && recipe.finalizedAt ? (

@@ -5,7 +5,6 @@ import type { RenderResult } from 'vitest-browser-react'
 
 vi.mock('@/lib/recipes/server', () => ({
 	removeSavedRecipe: () => Promise.resolve(null),
-	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [] }),
 	getRecipe: () => Promise.resolve(null),

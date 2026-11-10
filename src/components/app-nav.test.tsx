@@ -13,7 +13,6 @@ const shelf = vi.hoisted<{ recipes: Recipe[] }>(() => ({ recipes: [] }))
 
 vi.mock('@/lib/recipes/server', () => ({
 	removeSavedRecipe: () => Promise.resolve(null),
-	copyRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: shelf.recipes }),
 	getRecipe: vi.fn(),

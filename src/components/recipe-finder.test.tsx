@@ -29,7 +29,6 @@ vi.mock('@/lib/import/server', () => ({ importRecipe: server.import }))
 
 vi.mock('@/lib/recipes/server', () => ({
 	removeSavedRecipe: () => Promise.resolve(null),
-	copyRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: server.getRecipe,
 	saveRecipe: server.save,
