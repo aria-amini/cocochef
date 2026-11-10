@@ -116,6 +116,7 @@ function RecipeView({
 	return (
 		<RecipeReader
 			recipe={recipe}
+			shop
 			status={{
 				saved: recipe.saved && !recipe.owned,
 				visibility: recipe.owned

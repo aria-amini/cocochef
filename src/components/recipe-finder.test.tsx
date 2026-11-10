@@ -20,6 +20,15 @@ const server = vi.hoisted(() => ({
 	getRecipe: vi.fn(),
 }))
 
+vi.mock('@/lib/groceries/server', () => ({
+	listGroceries: async () => [],
+	addGroceries: vi.fn(),
+	setGroceryChecked: vi.fn(),
+	renameGrocery: vi.fn(),
+	deleteGrocery: vi.fn(),
+	clearCheckedGroceries: vi.fn(),
+}))
+
 vi.mock('@/lib/discover/server', () => ({
 	searchRecipes: server.search,
 	popularRecipes: server.popular,

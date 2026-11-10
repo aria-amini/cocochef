@@ -18,6 +18,15 @@ const navItems = [
 	{ label: 'groceries', icon: ShoppingCartIcon, to: '/groceries' },
 ] as const
 
+// Destinations not built yet open a page that says so.
+const comingSoon = new Set<string>(['ingredients'])
+
+function navTarget(to: (typeof navItems)[number]['to'], label: string) {
+	return comingSoon.has(label)
+		? ({ to: '/coming-soon/$feature', params: { feature: label } } as const)
+		: ({ to } as const)
+}
+
 type TabBarMode = 'none' | 'bar' | 'bar-fab'
 
 // What a nav item does between a tap and the next page showing. It answers at
@@ -180,8 +189,7 @@ function Sidebar() {
 				return (
 					<Link
 						key={to}
-						to={to === '/recipes' ? '/recipes' : '/coming-soon/$feature'}
-						params={to === '/recipes' ? {} : { feature: label }}
+						{...navTarget(to, label)}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
 							navFeedbackClassName,
@@ -240,9 +248,12 @@ function MobileHeader() {
 	)
 }
 
-function tabTarget(to: string, label: string, lastRecipe: string | undefined) {
-	if (to !== '/recipes')
-		return { to: '/coming-soon/$feature', params: { feature: label } } as const
+function tabTarget(
+	to: (typeof navItems)[number]['to'],
+	label: string,
+	lastRecipe: string | undefined,
+) {
+	if (to !== '/recipes') return navTarget(to, label)
 
 	return lastRecipe
 		? ({ to: '/recipes/$recipeId', params: { recipeId: lastRecipe } } as const)
