@@ -1,5 +1,6 @@
 import { arrayMove } from '@dnd-kit/sortable'
 import {
+	ArrowUUpLeftIcon,
 	CheckIcon,
 	MinusIcon,
 	Plus,
@@ -1500,7 +1501,7 @@ function RegroupOffer({
 					onClick={onDecline}
 					className="hover:bg-kitchen-eggplant/10 grid min-h-10 w-9 place-items-center rounded-r-full transition-colors"
 				>
-					<X size={14} weight="bold" aria-hidden />
+					<ArrowUUpLeftIcon size={14} weight="bold" aria-hidden />
 				</button>
 			</span>
 		</div>
