@@ -150,7 +150,7 @@ export function GrocerySend({
 			<div
 				role="toolbar"
 				aria-label="send the grocery list"
-				className="bg-card border-border pointer-events-auto flex max-w-full items-center gap-1 rounded-full border p-1.5 shadow-xl"
+				className="bg-card border-border pointer-events-auto flex max-w-full items-center gap-1 rounded-full border p-1.5 shadow-md"
 			>
 				<p
 					aria-live="polite"

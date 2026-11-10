@@ -161,7 +161,7 @@ function Groceries() {
 								key={category}
 								aria-label={pantryCategoryLabels[category]}
 							>
-								<h2 className="text-muted-foreground px-1 pb-1 text-xs font-bold tracking-wide uppercase">
+								<h2 className="text-muted-foreground px-1 pb-1 text-sm font-bold">
 									{pantryCategoryLabels[category]}
 								</h2>
 								<ul className="bg-card border-input divide-border divide-y rounded-xl border">
@@ -186,7 +186,7 @@ function Groceries() {
 				{inCart.length ? (
 					<section aria-label="in the cart" className="flex flex-col gap-1">
 						<div className="flex items-center justify-between px-1">
-							<h2 className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+							<h2 className="text-muted-foreground text-sm font-bold">
 								in the cart · {inCart.length}
 							</h2>
 							<button
@@ -322,7 +322,7 @@ function GroceryRow({
 				className={cn(
 					'border-foreground/40 grid size-6 shrink-0 cursor-pointer appearance-none place-items-center rounded-full border-2 transition-colors',
 					'checked:bg-kitchen-basil checked:border-kitchen-basil',
-					"checked:after:text-foreground checked:after:text-xs checked:after:font-black checked:after:content-['✓']",
+					"checked:after:text-foreground checked:after:text-xs checked:after:font-bold checked:after:content-['✓']",
 				)}
 			/>
 			<span aria-hidden className="grid size-6 shrink-0 place-items-center">
