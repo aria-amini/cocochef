@@ -29,14 +29,6 @@ export function rememberAfterSignIn(request: AfterSignIn) {
 	}
 }
 
-export function forgetAfterSignIn() {
-	try {
-		sessionStorage.removeItem(storageKey)
-	} catch {
-		// Nothing was stored.
-	}
-}
-
 // Removes the request as it reads it, so it runs once even if two buttons for
 // the same recipe are on the page.
 export function takeAfterSignIn(request: AfterSignIn): boolean {

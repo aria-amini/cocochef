@@ -1332,6 +1332,27 @@ describe('recipe detail', () => {
 		expect(router.state.location.pathname).toBe('/recipes/recipe-1')
 	})
 
+	test('keeps the way back to a search when a found recipe is published', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		Object.assign(recipeState.recipe, {
+			userId: null,
+			owned: false,
+			publicPath: '/sites/example/miso',
+		})
+
+		const { router } = await renderRoute({ path: '/recipes', session })
+
+		await router.navigate({
+			to: '/recipes/$recipeId',
+			params: { recipeId: 'recipe-1' },
+			state: { foundBy: 'miso' },
+		})
+		await expect
+			.poll(() => router.state.location.pathname)
+			.toBe('/sites/example/miso')
+		expect(router.state.location.state.foundBy).toBe('miso')
+	})
+
 	test('copies a shared recipe only once a change is saved', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		Object.assign(recipeState.recipe, {
