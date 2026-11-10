@@ -158,7 +158,7 @@ export function IngredientCombobox({
 				className={cn(
 					'field-sizing-content block w-full resize-none',
 					bare
-						? 'bg-transparent px-3 py-2.5 text-base font-medium outline-none'
+						? 'bg-transparent px-3 py-2.5 text-base font-semibold outline-none'
 						: 'border-input bg-card rounded-xl border ',
 					placeholderClassName,
 					!bare &&

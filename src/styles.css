@@ -85,15 +85,25 @@
 		'JetBrains Mono Variable', ui-monospace, sfmono-regular, menlo, monaco,
 		consolas, monospace;
 
-	--radius-sm: calc(var(--radius) - 2px);
+	/* Two corners: md for controls, chips and rows; xl for cards, tiles, lists,
+	   photos and popups. rounded-full and rounded-none need no token. */
+	--radius-*: initial;
 	--radius-md: var(--radius);
-	--radius-lg: calc(var(--radius) + 2px);
 	--radius-xl: calc(var(--radius) + 6px);
-	--radius-2xl: calc(var(--radius) + 10px);
-	--radius-3xl: calc(var(--radius) + 14px);
-	--radius-4xl: calc(var(--radius) + 18px);
 
+	/* The weight ladder: hierarchy comes from these and size, never case. */
+	--font-weight-*: initial;
+	--font-weight-normal: 400;
+	--font-weight-semibold: 600;
+	--font-weight-bold: 700;
+
+	/* One shadow and one tracking. Like radius and weight above, Tailwind only
+	   generates what is declared, and shadcn/no-unknown-classes rejects the rest. */
+	--shadow-*: initial;
 	--shadow-md: var(--shadow-md);
+
+	--tracking-*: initial;
+	--tracking-tight: -0.025em;
 }
 
 /* Bottom bars clear the iOS home indicator (needs viewport-fit=cover). */

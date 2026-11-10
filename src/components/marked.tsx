@@ -13,7 +13,7 @@ export function Marked({ text, terms }: { text: string; terms: string[] }) {
 				// Parts repeat; their place in the line is what tells them apart.
 				// oxlint-disable-next-line react/no-array-index-key
 				key={index}
-				className="bg-kitchen-yolk/45 text-foreground rounded-sm px-0.5"
+				className="bg-kitchen-yolk/45 text-foreground rounded-md px-0.5"
 			>
 				{part}
 			</mark>

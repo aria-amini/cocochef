@@ -140,7 +140,7 @@ export function RecipeThumb({
 			<span
 				aria-hidden
 				className={cn(
-					'bg-kitchen-yolk border-border grid size-10 shrink-0 place-items-center rounded-lg border',
+					'bg-kitchen-yolk border-border grid size-10 shrink-0 place-items-center rounded-md border',
 					className,
 				)}
 			>
@@ -156,7 +156,7 @@ export function RecipeThumb({
 			referrerPolicy="no-referrer"
 			onError={() => setBroken(true)}
 			className={cn(
-				'border-border size-10 shrink-0 rounded-lg border object-cover',
+				'border-border size-10 shrink-0 rounded-md border object-cover',
 				className,
 			)}
 		/>

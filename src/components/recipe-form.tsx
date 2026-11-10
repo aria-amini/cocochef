@@ -143,7 +143,7 @@ export function FormActions({
 }) {
 	return (
 		<div className="pb-bar pointer-events-none sticky bottom-0 z-10 flex justify-center pt-3">
-			<div className="bg-card border-border pointer-events-auto flex max-w-full items-center gap-1 rounded-full border p-1.5 shadow-xl">
+			<div className="bg-card border-border pointer-events-auto flex max-w-full items-center gap-1 rounded-full border p-1.5 shadow-md">
 				{status ? (
 					<div className="text-muted-foreground min-w-0 truncate pr-2 pl-4 text-sm">
 						{status}

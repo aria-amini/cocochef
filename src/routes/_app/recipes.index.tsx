@@ -195,7 +195,7 @@ function FinderBox({ onOpen }: { onOpen: () => void }) {
 			<span className="min-w-0 flex-1 truncate">search any recipe</span>
 			<kbd
 				aria-hidden
-				className="border-border hidden shrink-0 rounded border px-1.5 text-xs font-semibold md:inline"
+				className="border-border hidden shrink-0 rounded-md border px-1.5 text-xs font-semibold md:inline"
 			>
 				{isMac ? '⌘K' : 'ctrl K'}
 			</kbd>

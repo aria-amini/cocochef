@@ -141,7 +141,7 @@ export function SortableList({
 			</SortableContext>
 			<DragOverlay dropAnimation={reducedMotion() ? null : dropAnimation}>
 				{carried ? (
-					<div className="bg-card border-input scale-[1.02] rounded-xl border shadow-lg">
+					<div className="bg-card border-input scale-[1.02] rounded-xl border shadow-md">
 						{overlay(carried)}
 					</div>
 				) : null}

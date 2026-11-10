@@ -15,7 +15,7 @@ export function SiteIcon({
 		<img
 			src={logo}
 			alt=""
-			className={cn('size-4 shrink-0 rounded-sm object-contain', className)}
+			className={cn('size-4 shrink-0 object-contain', className)}
 		/>
 	) : null
 }

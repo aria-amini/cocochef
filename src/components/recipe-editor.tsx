@@ -1,5 +1,9 @@
 import { Menu } from '@base-ui/react/menu'
-import { DotsThreeIcon, TrashIcon } from '@phosphor-icons/react'
+import {
+	DotsThreeIcon,
+	TrashIcon,
+	WarningCircleIcon,
+} from '@phosphor-icons/react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import {
 	useCallback,
@@ -710,11 +714,19 @@ export function RecipeEditor({
 					flagSections && unnamedSections ? (
 						<p
 							role="alert"
-							className="text-kitchen-tomato truncate font-semibold"
+							className="flex min-w-0 items-center gap-1.5 font-semibold"
 						>
-							{unnamedSections === 1
-								? 'name the marked section to save'
-								: `name the ${unnamedSections} marked sections to save`}
+							<WarningCircleIcon
+								size={18}
+								weight="fill"
+								aria-hidden
+								className="text-kitchen-tomato shrink-0"
+							/>
+							<span className="truncate">
+								{unnamedSections === 1
+									? 'name the marked section to save'
+									: `name the ${unnamedSections} marked sections to save`}
+							</span>
 						</p>
 					) : changes.length ? (
 						<p aria-live="polite" className="truncate">

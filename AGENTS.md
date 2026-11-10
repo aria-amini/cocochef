@@ -146,30 +146,7 @@ meaningful behavior changes; skip trivial edits.
 Install full Chromium with `vp exec playwright install chromium --no-shell`.
 Screenshot assertions belong in Vitest Browser Mode.
 
-## Style rules
+## Design
 
-### Always build `className` with `cn()`
-
-Compose conditional or combined classes with `cn()`. Never interpolate classes
-with template literals or string concatenation — an oxlint
-`no-restricted-syntax` rule rejects template literals in `className`.
-
-Bad:
-
-```tsx
-const className = `flex border-2 ${active ? 'bg-kitchen-yolk' : 'bg-card'} ${
-	disabled ? 'opacity-35' : ''
-}`
-return <Link className={`${className} focus-visible:outline-2`} />
-```
-
-Good:
-
-```tsx
-const className = cn(
-	'flex border-2',
-	active ? 'bg-kitchen-yolk' : 'bg-card',
-	disabled && 'opacity-35',
-)
-return <Link className={cn(className, 'focus-visible:outline-2')} />
-```
+The theme in `src/styles.css` and lint enforce the mechanical UI rules;
+`DESIGN.md` holds the judgment calls code can't check. Read it before UI work.
