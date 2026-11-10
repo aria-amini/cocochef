@@ -627,6 +627,44 @@ describe('recipe detail', () => {
 		})
 	})
 
+	test('keeps a section with lines from saving until it has a name', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '## sauce', '1 tbsp miso']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		const sectionName = screen.getByRole('textbox', { name: 'Section name 2' })
+		await sectionName.fill('')
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+
+		// Nothing saves; the way is pointed to the section that needs a name.
+		await expect.element(sectionName).toHaveFocus()
+		await expect.element(sectionName).toHaveAttribute('aria-invalid', 'true')
+		await expect
+			.element(screen.getByText('give this section a name'))
+			.toBeVisible()
+		await expect
+			.element(screen.getByText('name the section marked above to save'))
+			.toBeVisible()
+		expect(updateCalls.calls).toEqual([])
+		await expectIsolatedScreenshot(
+			screen.getByRole('group', { name: 'ingredients' }),
+			'section-needs-name',
+		)
+
+		await sectionName.fill('for the sauce')
+		await expect
+			.element(screen.getByText('give this section a name'))
+			.not.toBeInTheDocument()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				ingredients: ['200 g pasta', '## for the sauce', '1 tbsp miso'],
+			})
+	})
+
 	test('moves a whole section when it is taken by its name', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [

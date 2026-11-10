@@ -23,6 +23,7 @@ import {
 import { IngredientLineView } from '@/components/ingredient-line-view'
 import { IngredientSuggestions } from '@/components/ingredient-suggestions'
 import { PantrySprite } from '@/components/pantry-sprite'
+import { FieldError } from '@/components/recipe-form'
 import { SortableList, SortableRow } from '@/components/sortable-list'
 import { placeholderClassName } from '@/components/ui/input'
 import { wantsAmount } from '@/lib/assistant/amounts'
@@ -246,6 +247,8 @@ export function IngredientListField({
 	title,
 	steps = [],
 	onCountChange,
+	onUnnamedChange,
+	flagUnnamed = false,
 	onPointStep,
 }: {
 	defaultValue?: string[] | undefined
@@ -255,6 +258,10 @@ export function IngredientListField({
 	// The recipe's steps, which a better grouping comes from.
 	steps?: string[] | undefined
 	onCountChange?: (count: number) => void
+	// How many sections have lines but no name, which keeps the recipe from
+	// saving; once saving was tried, `flagUnnamed` marks each of them.
+	onUnnamedChange?: (count: number) => void
+	flagUnnamed?: boolean
 	// Points at the stored step a group goes into, or at none.
 	onPointStep?: (step: number | undefined) => void
 }) {
@@ -306,6 +313,22 @@ export function IngredientListField({
 			rows.filter((row) => !row.heading && row.text.trim()).length,
 		)
 	}, [rows, onCountChange])
+
+	// A section with lines needs a name, or its lines would be saved into the
+	// section above. One with no lines just goes.
+	const needsName = (row: Row) =>
+		Boolean(row.heading) &&
+		!row.text.trim() &&
+		blocksOf(rows, isHeading).some(
+			(block) =>
+				block.head === row && block.rows.some((line) => !isBlank(line)),
+		)
+
+	const unnamed = rows.filter(needsName).length
+
+	useEffect(() => {
+		onUnnamedChange?.(unnamed)
+	}, [unnamed, onUnnamedChange])
 
 	const fieldRef =
 		(id: string) => (node: HTMLInputElement | HTMLTextAreaElement | null) => {
@@ -647,6 +670,11 @@ export function IngredientListField({
 				ref={fieldRef(row.id)}
 				value={row.text}
 				aria-label={`Section name ${index + 1}`}
+				data-needs-name={needsName(row) || undefined}
+				aria-invalid={(flagUnnamed && needsName(row)) || undefined}
+				aria-describedby={
+					flagUnnamed && needsName(row) ? `section-name-${row.id}` : undefined
+				}
 				size={1}
 				placeholder="name it, like spice blend"
 				enterKeyHint="next"
@@ -766,6 +794,9 @@ export function IngredientListField({
 					className={cn(
 						'group/row relative flex items-stretch transition-colors',
 						picked.has(row.id) && 'bg-kitchen-eggplant/10',
+						flagUnnamed &&
+							needsName(row) &&
+							'ring-kitchen-tomato ring-2 ring-inset',
 					)}
 				>
 					{/* The gutter holds the handle, shown while the row is in use. */}
@@ -823,6 +854,13 @@ export function IngredientListField({
 				{row.heading || blank || inUse !== row.id ? null : (
 					<AmountBar line={row.text} onChange={(next) => adjust(row, next)} />
 				)}
+				{flagUnnamed && needsName(row) ? (
+					<div className="bg-card px-3 py-2">
+						<FieldError id={`section-name-${row.id}`}>
+							give this section a name
+						</FieldError>
+					</div>
+				) : null}
 			</div>
 		)
 	}

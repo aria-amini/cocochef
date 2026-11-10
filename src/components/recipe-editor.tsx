@@ -164,6 +164,9 @@ export function RecipeEditor({
 	const [pending, setPending] = useState(false)
 	const [error, setError] = useState<string>()
 	const [unnamed, setUnnamed] = useState(false)
+	// Sections with lines and no name, and whether saving has pointed at them.
+	const [unnamedSections, setUnnamedSections] = useState(0)
+	const [flagSections, setFlagSections] = useState(false)
 	const [confirmingDelete, setConfirmingDelete] = useState(false)
 	const [photoBusy, setPhotoBusy] = useState(false)
 	const [changes, setChanges] = useState<string[]>([])
@@ -458,6 +461,17 @@ export function RecipeEditor({
 			return
 		}
 
+		// A section with lines needs its name before the recipe saves.
+		const nameless =
+			form.current?.querySelector<HTMLElement>('[data-needs-name]')
+
+		if (nameless) {
+			setFlagSections(true)
+			nameless.focus()
+
+			return
+		}
+
 		const content = form.current ? contentFrom(form.current) : undefined
 
 		if (!content) {
@@ -656,6 +670,8 @@ export function RecipeEditor({
 					steps={steps}
 					onPointStep={setLitStep}
 					onCountChange={setIngredientCount}
+					onUnnamedChange={setUnnamedSections}
+					flagUnnamed={flagSections}
 				/>
 			</div>
 			<StepsField
@@ -691,6 +707,13 @@ export function RecipeEditor({
 					</FieldError>
 				) : null}
 			</div>
+			{flagSections && unnamedSections ? (
+				<FieldError>
+					{unnamedSections === 1
+						? 'name the section marked above to save'
+						: `name the ${unnamedSections} sections marked above to save`}
+				</FieldError>
+			) : null}
 			{error ? <FieldError>{error}</FieldError> : null}
 			<FormActions
 				status={
