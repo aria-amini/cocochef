@@ -1,6 +1,7 @@
 import {
 	BookmarkSimpleIcon,
 	GlobeHemisphereWestIcon,
+	LinkSimpleIcon,
 	LockSimpleIcon,
 	YoutubeLogoIcon,
 } from '@phosphor-icons/react'
@@ -28,6 +29,7 @@ export type ReadableRecipe = {
 	title: string
 	imageUrl: string | null
 	sourceUrl: string | null
+	links?: string[] | undefined
 	sourceNotes?: string | null | undefined
 	notes?: string | null | undefined
 	servings: number | null
@@ -372,6 +374,24 @@ function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
 				{video ? 'watch on youtube' : `from ${hostOf(recipe.sourceUrl)}`}
 			</a>
 		) : null,
+		...(recipe.links ?? []).map((link, index) => (
+			<a
+				// The same page can be linked twice; its place tells them apart.
+				// oxlint-disable-next-line react/no-array-index-key
+				key={`link-${index}`}
+				href={link}
+				target="_blank"
+				rel="noreferrer"
+				className="hover:text-foreground inline-flex items-center gap-1.5 underline"
+			>
+				{isYouTube(link) ? (
+					<YoutubeLogoIcon size={16} weight="fill" aria-hidden />
+				) : (
+					<LinkSimpleIcon size={16} aria-hidden />
+				)}
+				{isYouTube(link) ? 'youtube video' : hostOf(link)}
+			</a>
+		)),
 	].filter((item) => item !== null)
 
 	if (!items.length) return null

@@ -50,6 +50,8 @@ export type EditableRecipe = {
 	imageUrl: string | null
 	// The page or video it came from, if any.
 	sourceUrl: string | null
+	// More pages or videos for it.
+	links?: string[] | undefined
 	notes: string | null
 	ingredients: string[]
 	ingredientCategories?: IngredientCategories | undefined
@@ -90,6 +92,10 @@ function contentFrom(form: HTMLFormElement) {
 		notes: formField(data, 'notes'),
 		// Empty removes the link; text that is not an address yet leaves it alone.
 		sourceUrl: parseSourceInput(formField(data, 'sourceUrl')),
+		links: data
+			.getAll('link')
+			.map(String)
+			.flatMap((link) => parseSourceInput(link) ?? []),
 		ingredients: data.getAll('ingredient').map(String),
 		ingredientCategories: categoriesFrom(data),
 		steps: stepsFrom(data),
@@ -104,7 +110,9 @@ function changeSnapshot(form: HTMLFormElement, hadPhoto: boolean) {
 
 	return {
 		name: formField(data, 'title').trim(),
-		link: formField(data, 'sourceUrl').trim(),
+		link: [formField(data, 'sourceUrl'), ...data.getAll('link').map(String)]
+			.flatMap((link) => link.trim() || [])
+			.join('\n'),
 		photo: data.has('imageUrl')
 			? formField(data, 'imageUrl') || (hadPhoto ? '' : undefined)
 			: undefined,
@@ -248,6 +256,7 @@ export function RecipeEditor({
 	})
 
 	const [source, setSource] = useState(recipe?.sourceUrl ?? '')
+	const [links, setLinks] = useState(recipe?.links ?? [])
 
 	// The steps as written, which the ingredients regroup by, and the one a
 	// group of them points at.
@@ -431,6 +440,16 @@ export function RecipeEditor({
 			return
 		}
 
+		const badLink = links.findIndex(
+			(link) => parseSourceInput(link) === undefined,
+		)
+
+		if (badLink >= 0) {
+			form.current?.querySelector<HTMLElement>(`#edit-link-${badLink}`)?.focus()
+
+			return
+		}
+
 		if (notesTooLong) {
 			form.current?.querySelector<HTMLElement>('#edit-notes')?.focus()
 
@@ -562,7 +581,14 @@ export function RecipeEditor({
 							<GuestPhotoSlot />
 						)
 					}
-					links={<SourceLinkField value={source} onChange={setSource} />}
+					links={
+						<SourceLinkField
+							value={source}
+							onChange={setSource}
+							links={links}
+							onLinksChange={setLinks}
+						/>
+					}
 				>
 					<RecipeNameField
 						key={seed.version}

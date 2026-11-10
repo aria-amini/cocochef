@@ -134,6 +134,7 @@ describe('recipe detail', () => {
 			title: 'miso butter pasta',
 			imageUrl: null,
 			sourceUrl: null,
+			links: [],
 			sourceNotes: null,
 			servings: null,
 			totalMinutes: null,
@@ -406,6 +407,41 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByText('from example.com'))
 			.not.toBeInTheDocument()
+	})
+
+	test('keeps more than one link, and lets an emptied one go', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.sourceUrl = 'https://example.com/pasta'
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('button', { name: 'add another link' }).click()
+		await screen.getByLabelText('link').fill('youtube.com/watch?v=pasta')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.element(screen.getByRole('button', { name: 'edit link' }))
+			.toHaveTextContent('youtube video')
+		await expectIsolatedScreenshot(
+			screen.getByRole('group', { name: 'about the recipe' }),
+			'recipe-links',
+		)
+
+		// A link added and left empty is not kept.
+		await screen.getByRole('button', { name: 'add another link' }).click()
+		await expect.element(screen.getByLabelText('link')).toHaveFocus()
+		await userEvent.keyboard('{Escape}')
+		await expect.element(screen.getByLabelText('link')).not.toBeInTheDocument()
+		expect(
+			screen.getByRole('button', { name: 'edit link' }).elements(),
+		).toHaveLength(1)
+
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				sourceUrl: 'https://example.com/pasta',
+				links: ['https://youtube.com/watch?v=pasta'],
+			})
 	})
 
 	test('points a recipe to a youtube video, adding the scheme', async () => {

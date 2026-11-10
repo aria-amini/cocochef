@@ -8,23 +8,104 @@ import { useState } from 'react'
 
 import { FieldError, fieldLabelClassName } from '@/components/recipe-form'
 import { fieldClassName, placeholderClassName } from '@/components/ui/input'
+import { recipeLinksMax } from '@/lib/recipes/model'
 import { hostOf, isYouTube, parseSourceInput } from '@/lib/recipes/source'
 import { cn } from '@/lib/utils/ui'
 
 const chipClassName =
-	'border-input text-muted-foreground hover:text-foreground hover:bg-card inline-flex min-h-9 max-w-full items-center gap-1.5 self-start rounded-md border px-2.5 text-sm font-semibold transition-colors'
+	'border-input text-muted-foreground hover:text-foreground hover:bg-card inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-md border px-2.5 text-sm font-semibold transition-colors'
 
-// Where the recipe came from, kept small under its name: a chip that says
-// where, or offers to add it. It opens into the field to change it, and stays
-// open while what is typed is not an address yet.
+// What a recipe links to, kept small under its name: the page or video it came
+// from first, then any others, each a chip that opens into a field to change
+// it, and one more chip to add the next.
 export function SourceLinkField({
 	value,
 	onChange,
+	links,
+	onLinksChange,
 }: {
 	value: string
 	onChange: (value: string) => void
+	links: string[]
+	onLinksChange: (links: string[]) => void
 }) {
-	const [open, setOpen] = useState(false)
+	// The link just added opens to be typed into.
+	const [added, setAdded] = useState<number>()
+
+	const setLink = (at: number, next: string) =>
+		onLinksChange(links.map((link, index) => (index === at ? next : link)))
+
+	return (
+		<div className="flex min-w-0 flex-wrap items-start gap-2">
+			<LinkChip
+				id="edit-source"
+				name="sourceUrl"
+				label="original link"
+				hint="where the recipe came from, if it came from somewhere."
+				value={value}
+				onChange={onChange}
+			/>
+			{links.map((link, index) => (
+				<LinkChip
+					// Links have no identity but their place in the row.
+					// oxlint-disable-next-line react/no-array-index-key
+					key={index}
+					id={`edit-link-${index}`}
+					name="link"
+					label="link"
+					hint="another page or a video for this recipe."
+					value={link}
+					startOpen={added === index}
+					onChange={(next) => setLink(index, next)}
+					// A link emptied and left goes away.
+					onLeave={() => {
+						setAdded(undefined)
+
+						if (!link.trim())
+							onLinksChange(links.filter((_, at) => at !== index))
+					}}
+				/>
+			))}
+			{value.trim() && links.length < recipeLinksMax ? (
+				<button
+					type="button"
+					aria-label="add another link"
+					onClick={() => {
+						setAdded(links.length)
+						onLinksChange([...links, ''])
+					}}
+					className={chipClassName}
+				>
+					<Plus size={12} weight="bold" aria-hidden />
+					link
+				</button>
+			) : null}
+		</div>
+	)
+}
+
+// One link: a chip that says where, or offers to add it, opening into the
+// field to change it. It stays open while what is typed is not an address yet.
+function LinkChip({
+	id,
+	name,
+	label,
+	hint,
+	value,
+	startOpen = false,
+	onChange,
+	onLeave,
+}: {
+	id: string
+	name: string
+	label: string
+	hint: string
+	value: string
+	startOpen?: boolean
+	onChange: (value: string) => void
+	onLeave?: () => void
+}) {
+	const [open, setOpen] = useState(startOpen)
 	const parsed = parseSourceInput(value)
 	const invalid = parsed === undefined
 
@@ -33,10 +114,10 @@ export function SourceLinkField({
 
 		return (
 			<>
-				<input type="hidden" name="sourceUrl" value={value} />
+				<input type="hidden" name={name} value={value} />
 				<button
 					type="button"
-					aria-label={parsed ? 'edit original link' : 'add original link'}
+					aria-label={parsed ? `edit ${label}` : `add ${label}`}
 					onClick={() => setOpen(true)}
 					className={chipClassName}
 				>
@@ -55,7 +136,7 @@ export function SourceLinkField({
 					) : (
 						<>
 							<Plus size={12} weight="bold" aria-hidden />
-							original link
+							{label}
 						</>
 					)}
 				</button>
@@ -64,13 +145,13 @@ export function SourceLinkField({
 	}
 
 	return (
-		<div className="flex min-w-0 flex-col gap-2">
-			<label className={fieldLabelClassName} htmlFor="edit-source">
-				original link
+		<div className="flex w-full min-w-0 flex-col gap-2">
+			<label className={fieldLabelClassName} htmlFor={id}>
+				{label}
 			</label>
 			<input
-				id="edit-source"
-				name="sourceUrl"
+				id={id}
+				name={name}
 				type="text"
 				inputMode="url"
 				autoCapitalize="none"
@@ -81,28 +162,29 @@ export function SourceLinkField({
 				autoFocus={open}
 				value={value}
 				onChange={(event) => onChange(event.target.value)}
-				onBlur={() => setOpen(false)}
+				onBlur={() => {
+					setOpen(false)
+					onLeave?.()
+				}}
 				onKeyDown={(event) => {
 					if (event.key === 'Enter' || event.key === 'Escape') {
 						event.preventDefault()
 
-						if (!invalid) setOpen(false)
+						if (!invalid) event.currentTarget.blur()
 					}
 				}}
 				aria-invalid={invalid || undefined}
-				aria-describedby="edit-source-hint"
+				aria-describedby={`${id}-hint`}
 				placeholder="a web page or a youtube video"
 				className={cn(fieldClassName, placeholderClassName)}
 			/>
 			{invalid ? (
-				<FieldError id="edit-source-hint">
+				<FieldError id={`${id}-hint`}>
 					that doesn&apos;t look like a web address yet
 				</FieldError>
 			) : (
-				<p id="edit-source-hint" className="text-muted-foreground text-sm">
-					{parsed && isYouTube(parsed)
-						? 'a video to cook along with.'
-						: 'where the recipe came from, if it came from somewhere.'}
+				<p id={`${id}-hint`} className="text-muted-foreground text-sm">
+					{parsed && isYouTube(parsed) ? 'a video to cook along with.' : hint}
 				</p>
 			)}
 		</div>

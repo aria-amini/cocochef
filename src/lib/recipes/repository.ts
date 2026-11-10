@@ -523,6 +523,7 @@ export async function copyRecipeForUser(
 				title: original.title,
 				imageUrl: original.imageUrl,
 				sourceUrl: original.sourceUrl,
+				links: original.links,
 				sourceNotes: original.sourceNotes,
 				servings: original.servings,
 				totalMinutes: original.totalMinutes,
@@ -572,6 +573,7 @@ export async function createRecipeForUser(
 		title: string
 		imageUrl?: string | undefined
 		sourceUrl?: string | undefined
+		links?: string[] | undefined
 		sourceNotes?:
 			| NonNullable<typeof recipes.$inferSelect.sourceNotes>
 			| undefined
@@ -597,6 +599,7 @@ export async function createRecipeForUser(
 				title: input.title,
 				imageUrl: input.imageUrl ?? null,
 				sourceUrl: input.sourceUrl ?? null,
+				links: input.links ?? [],
 				sourceNotes: input.sourceNotes ?? null,
 				createdAt: new Date(),
 				finalizedAt: input.finalized === false ? null : new Date(),
@@ -850,6 +853,8 @@ export async function updateRecipeForUser(
 				(details.imageUrl !== undefined &&
 					details.imageUrl !== current.imageUrl) ||
 				(sourceUrl !== undefined && sourceUrl !== current.sourceUrl) ||
+				(details.links !== undefined &&
+					!sameLines(details.links, current.links)) ||
 				!sameLines(contentLines(ingredients), content.ingredients) ||
 				!sameCategories(
 					categoriesFor(contentLines(ingredients), ingredientCategories),
@@ -870,6 +875,7 @@ export async function updateRecipeForUser(
 								? current.imageUrl
 								: details.imageUrl,
 						sourceUrl: sourceUrl === undefined ? current.sourceUrl : sourceUrl,
+						links: details.links ?? current.links,
 						sourceNotes: current.sourceNotes,
 						servings: current.servings,
 						totalMinutes: current.totalMinutes,

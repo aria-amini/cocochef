@@ -49,6 +49,7 @@ const misoButterPasta: Recipe = {
 	title: 'miso butter pasta',
 	imageUrl: null,
 	sourceUrl: null,
+	links: [],
 	sourceNotes: null,
 	servings: null,
 	totalMinutes: null,

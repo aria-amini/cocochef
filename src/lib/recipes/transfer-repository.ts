@@ -85,6 +85,7 @@ export async function importRecipesForUser(
 				title: recipe.title,
 				imageUrl: recipe.imageUrl,
 				sourceUrl: recipe.sourceUrl,
+				links: recipe.links,
 				sourceNotes: recipe.sourceNotes,
 				notes: recipe.notes || undefined,
 				ingredients,

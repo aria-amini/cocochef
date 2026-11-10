@@ -499,6 +499,48 @@ describe('shared recipes', () => {
 		})
 	})
 
+	test('keeps more links than the original, and copies them on edit', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const shared = await seedShared(db)
+		await saveRecipeForUser(userId, shared.id, db)
+
+		const edit = {
+			id: shared.id,
+			title: 'shared dal',
+			imageUrl: null,
+			notes: null,
+			ingredients: ['lentils', 'salt'],
+			steps: ['simmer'],
+		}
+
+		// Adding a link is a change, so the cook gets their own copy.
+		const copy = await updateRecipeForUser(
+			userId,
+			{ ...edit, links: ['https://youtu.be/dal'] },
+			db,
+		)
+
+		if (!copy) throw new Error('copy was not created')
+		expect(copy.id).not.toBe(shared.id)
+		expect(await getRecipeForUser(userId, copy.id, db)).toMatchObject({
+			sourceUrl: 'https://example.com/dal',
+			links: ['https://youtu.be/dal'],
+		})
+
+		// Their copy keeps its links through an edit that leaves them out, and
+		// drops them when they are emptied.
+		await updateRecipeForUser(userId, { ...edit, id: copy.id }, db)
+		expect(await getRecipeForUser(userId, copy.id, db)).toMatchObject({
+			links: ['https://youtu.be/dal'],
+		})
+		await updateRecipeForUser(userId, { ...edit, id: copy.id, links: [] }, db)
+		expect(await getRecipeForUser(userId, copy.id, db)).toMatchObject({
+			links: [],
+		})
+	})
+
 	test('stores one recipe per page, for everyone', async ({ db }) => {
 		const first = await seedShared(db)
 		const again = await seedShared(db)

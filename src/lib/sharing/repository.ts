@@ -314,6 +314,7 @@ const publicFields = {
 	title: recipes.title,
 	imageUrl: recipes.imageUrl,
 	sourceUrl: recipes.sourceUrl,
+	links: recipes.links,
 	sourceNotes: recipes.sourceNotes,
 	servings: recipes.servings,
 	totalMinutes: recipes.totalMinutes,

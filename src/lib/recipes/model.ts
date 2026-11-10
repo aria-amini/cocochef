@@ -31,6 +31,11 @@ const recipeFields = {
 	notes: z.string().trim().max(recipeNotesMax),
 }
 
+export const recipeLinksMax = 10
+
+// More pages or videos for a recipe, beside the one it came from.
+const recipeLinks = z.array(recipeFields.sourceUrl).max(recipeLinksMax)
+
 const contentLines = z
 	.array(z.string())
 	.transform((lines) => lines.map((line) => line.trim()).filter(Boolean))
@@ -50,6 +55,7 @@ export const recipeInput = z.object({
 		z.union([recipeFields.imageUrl, recipePhotoPath]).optional(),
 	),
 	sourceUrl: recipeFields.sourceUrl.optional(),
+	links: recipeLinks.optional(),
 	finalized: z.boolean().optional(),
 	notes: recipeFields.notes.optional().transform((notes) => notes || undefined),
 	ingredients: contentLines.optional(),
@@ -64,6 +70,8 @@ export const recipeUpdateInput = z.object({
 	imageUrl: z.union([recipeFields.imageUrl, recipePhotoPath]).nullish(),
 	// Omitted keeps the link to where the recipe came from; null removes it.
 	sourceUrl: recipeFields.sourceUrl.nullish(),
+	// Omitted keeps the other links; empty removes them.
+	links: recipeLinks.optional(),
 	notes: recipeFields.notes.nullable().transform((notes) => notes || null),
 	finalize: z.boolean().optional(),
 	ingredients: contentLines,
