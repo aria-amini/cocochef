@@ -15,4 +15,7 @@ const groceryInput = z.object(groceryFields)
 
 export type GroceryInput = z.infer<typeof groceryInput>
 
+// Two lines name the same item when they read the same, case aside.
+export const sameItem = (text: string) => text.trim().toLowerCase()
+
 export const groceryInputs = z.array(groceryInput).min(1).max(groceryBulkMax)

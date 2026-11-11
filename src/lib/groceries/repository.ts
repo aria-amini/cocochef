@@ -4,9 +4,12 @@ import { type Database, getDb } from '@/db/connection'
 import { groceryItems } from '@/db/schema'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 
-import { type GroceryInput, groceryFields, groceryInputs } from './model'
-
-const sameItem = (text: string) => text.trim().toLowerCase()
+import {
+	type GroceryInput,
+	groceryFields,
+	groceryInputs,
+	sameItem,
+} from './model'
 
 export async function listGroceriesForUser(
 	userId: string,

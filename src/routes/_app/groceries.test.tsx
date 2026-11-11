@@ -163,6 +163,24 @@ describe('groceries', () => {
 		])
 	})
 
+	test('does not add an item already waiting, so a tick lands on it', async () => {
+		list.items = [make('milk')]
+
+		const { screen } = await renderRoute({ path: '/groceries', session })
+
+		await screen.getByRole('textbox', { name: 'add an item' }).fill('Milk')
+		await screen.getByRole('button', { name: 'add', exact: true }).click()
+		await expect.element(screen.getByText('already on your list')).toBeVisible()
+		expect(
+			screen.getByRole('checkbox', { name: /^milk$/i }).all(),
+		).toHaveLength(1)
+
+		await screen.getByRole('checkbox', { name: 'milk' }).click()
+		await expect
+			.poll(() => list.items.map((item) => !!item.checkedAt))
+			.toEqual([true])
+	})
+
 	test('renames and removes an item', async () => {
 		list.items = [make('1 onion')]
 

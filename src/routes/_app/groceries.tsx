@@ -14,6 +14,7 @@ import { groceryCountKey } from '@/components/grocery-badge'
 import { PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { buttonVariants } from '@/components/ui/button'
+import { sameItem } from '@/lib/groceries/model'
 import {
 	addGroceries,
 	clearCheckedGroceries,
@@ -119,6 +120,13 @@ function Groceries() {
 	}
 
 	function add(text: string) {
+		// An item already waiting is not added twice, here or on the server.
+		if (waiting.some((item) => sameItem(item.text) === sameItem(text))) {
+			toast('already on your list')
+
+			return
+		}
+
 		const draft = draftItem(text)
 
 		change({ kind: 'add', items: [draft] }, async () => {
