@@ -20,6 +20,10 @@ describe('groceryLine', () => {
 
 	test('keeps a comma that is part of what to buy', () => {
 		expect(groceryLine('2 large, ripe tomatoes')).toBe('2 large, ripe tomatoes')
+		expect(groceryLine('2 large, red tomatoes')).toBe('2 large, red tomatoes')
+		expect(groceryLine('1 cup salted, roasted peanuts')).toBe(
+			'1 cup salted, roasted peanuts',
+		)
 		expect(groceryLine('1,000 g potatoes, peeled')).toBe('1,000 g potatoes')
 		expect(groceryLine('salt, to taste')).toBe('salt')
 	})

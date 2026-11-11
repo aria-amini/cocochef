@@ -1,8 +1,13 @@
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 
+// Words that describe the food rather than name it: a comma after one joins
+// two descriptions ("2 large, ripe tomatoes"), not a food and its note.
+const describing =
+	/(?:^|\s)(?:\w+ed|large|small|medium|big|ripe|fresh|whole|extra|good|firm|heaping|thick|thin|mild|hot|sweet|red|green|yellow|white|black)$/i
+
 // Words that start a preparation note after a comma: "minced", "to taste".
 const preparation =
-	/^\s*(?:\w+ly\s+)?(?:\w+ed\b|\w+en\b|to taste|divided|plus\b|for\b|at room|optional|or\b|and\b|cut\b|torn\b|left\b|room temperature|softened|melted|beaten|grated|thawed|drained|rinsed|trimmed|peeled|halved|quartered|seeded|zested|juiced)/i
+	/^\s*(?:\w+ly\s+)?(?:\w{3,}ed\b|\w+en\b|to taste|divided|plus\b|for\b|at room|optional|or\b|and\b|cut\b|torn\b|left\b|room temperature|softened|melted|beaten|grated|thawed|drained|rinsed|trimmed|peeled|halved|quartered|seeded|zested|juiced)/i
 
 // A recipe line as it reads on a grocery list: what to buy and how much, with
 // a preparation note after a comma, and a bracketed note with no amount in it,
@@ -22,6 +27,7 @@ export function groceryLine(line: string) {
 			depth === 0 &&
 			// "1,000 g" is one number.
 			!/\d/.test(line[at - 1] ?? '') &&
+			!describing.test(line.slice(0, at).trim()) &&
 			preparation.test(line.slice(at + 1))
 		) {
 			end = at
