@@ -1,13 +1,7 @@
-import {
-	CopyIcon,
-	ExportIcon,
-	PlusIcon,
-	ShoppingCartIcon,
-	XIcon,
-} from '@phosphor-icons/react'
-import { useQueryClient } from '@tanstack/react-query'
+import { ShoppingCartIcon } from '@phosphor-icons/react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useState, useSyncExternalStore } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
@@ -15,19 +9,19 @@ import { buttonVariants } from '@/components/ui/button'
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog'
-import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { groceryList } from '@/lib/groceries/list'
-import { addGroceries } from '@/lib/groceries/server'
+import { sameItem } from '@/lib/groceries/model'
+import { addGroceries, listGroceries } from '@/lib/groceries/server'
 import { cn } from '@/lib/utils/ui'
 
-// A recipe's ingredients, sent to the groceries list: the cart opens what
-// would be added, to untick what the kitchen has, change a line or add one,
-// before anything goes on the list.
+// A recipe's ingredients, sent to the groceries list: the cart opens every
+// line, to untick what the kitchen has before anything goes on the list.
+// Adding other things, changing a line, copying and sharing all live on the
+// groceries page.
 export function AddToGroceries({
 	recipeId,
 	title,
@@ -64,16 +58,9 @@ export function AddToGroceries({
 	)
 }
 
-type Draft = { id: string; text: string; on: boolean }
-
-const draftOf = (text: string): Draft => ({
-	id: crypto.randomUUID(),
-	text,
-	on: true,
-})
-
-const noSubscription = () => () => {}
-
+// The recipe's lines with what each will do: a ticked one goes on the list,
+// an unticked one stays off it. A line already waiting on the list starts
+// unticked, so nothing is added twice.
 function GroceryReview({
 	recipeId,
 	title,
@@ -87,44 +74,36 @@ function GroceryReview({
 }) {
 	const navigate = useNavigate()
 	const client = useQueryClient()
-	const [drafts, setDrafts] = useState(() => items.map(draftOf))
-	const [extra, setExtra] = useState('')
 	const [adding, setAdding] = useState(false)
+	// The cook's own ticks, by line; the rest follow the list.
+	const [ticks, setTicks] = useState<Record<number, boolean>>({})
 
-	// Known only in the browser; the server renders without it.
-	const canShare = useSyncExternalStore(
-		noSubscription,
-		() => 'share' in navigator,
-		() => false,
-	)
-
-	const chosen = drafts.flatMap((draft) =>
-		draft.on && draft.text.trim() ? [draft.text.trim()] : [],
-	)
-
-	const text = chosen.join('\n')
-
-	const change = (id: string, patch: Partial<Draft>) =>
-		setDrafts((current) =>
-			current.map((draft) =>
-				draft.id === id ? { ...draft, ...patch } : draft,
+	const waiting = useQuery({
+		queryKey: ['groceries', 'waiting'],
+		queryFn: async () =>
+			new Set(
+				(await listGroceries())
+					.filter((item) => !item.checkedAt)
+					.map((item) => sameItem(item.text)),
 			),
-		)
+		staleTime: 0,
+	})
 
-	function addExtra() {
-		const line = extra.trim()
+	const onList = (item: string) => waiting.data?.has(sameItem(item)) ?? false
+	const ticked = (index: number) => ticks[index] ?? !onList(items[index] ?? '')
 
-		if (!line) return
-		setDrafts((current) => [...current, draftOf(line)])
-		setExtra('')
-	}
+	const chosen = items.filter((_, index) => ticked(index))
+	const alreadyOn = items.filter(onList).length
+
+	const tickAll = (on: boolean) =>
+		setTicks(Object.fromEntries(items.map((_, index) => [index, on])))
 
 	async function add() {
 		setAdding(true)
 
 		try {
 			const added = await addGroceries({
-				// The list holds a line of 200 characters and 100 lines at a time.
+				// The list takes a hundred lines at a time, each up to 200 letters.
 				data: chosen.slice(0, 100).map((item) => ({
 					text: item.slice(0, 200),
 					recipeId,
@@ -135,6 +114,7 @@ function GroceryReview({
 			// The groceries tab says how many landed, without leaving the recipe.
 			pulseGroceries(added.length)
 			void client.invalidateQueries({ queryKey: groceryCountKey })
+			void client.invalidateQueries({ queryKey: ['groceries'] })
 			onClose()
 			toast.success(
 				added.length
@@ -154,151 +134,92 @@ function GroceryReview({
 		}
 	}
 
-	async function copy() {
-		try {
-			await navigator.clipboard.writeText(text)
-			toast.success('copied the list')
-		} catch {
-			toast.error('could not copy the list')
-		}
-	}
-
-	async function share() {
-		try {
-			await navigator.share({ title: `${title} groceries`, text })
-		} catch (error) {
-			// Closing the share sheet is not a failure.
-			if (error instanceof DOMException && error.name === 'AbortError') return
-			toast.error('could not share the list')
-		}
-	}
-
 	return (
 		<Dialog
 			open
 			// Held open while adding, so a late answer cannot close a new review.
 			onOpenChange={(next) => !next && !adding && onClose()}
 		>
-			<DialogContent className="flex max-h-[85dvh] flex-col">
-				<DialogHeader>
-					<DialogTitle>add to groceries</DialogTitle>
-					<DialogDescription>
-						from {title}. untick what you have, or change a line.
-					</DialogDescription>
+			<DialogContent className="flex flex-col">
+				{/* Centered, clear of the corner close button on either side. */}
+				<DialogHeader className="mx-8 text-center">
+					<DialogTitle>add groceries</DialogTitle>
 				</DialogHeader>
+				<div className="text-muted-foreground -mb-3 flex items-center gap-1 text-sm font-semibold">
+					<p aria-live="polite" className="flex-1">
+						{chosen.length} of {items.length}
+						{alreadyOn ? ` · ${alreadyOn} already on your list` : ''}
+					</p>
+					<button
+						type="button"
+						onClick={() => tickAll(true)}
+						className="hover:text-foreground rounded-md px-2 py-1"
+					>
+						all
+					</button>
+					<button
+						type="button"
+						onClick={() => tickAll(false)}
+						className="hover:text-foreground rounded-md px-2 py-1"
+					>
+						none
+					</button>
+				</div>
+				{/* Every line of the recipe, straight on the dialog: a tap anywhere on
+				    a row ticks it, and an unticked one fades so the two read apart. */}
 				<ul
 					aria-label="items to add"
-					className="divide-border border-input min-h-0 flex-1 divide-y overflow-y-auto rounded-xl border"
+					className="divide-border border-border scrollbar-visible max-h-[55dvh] divide-y overflow-y-auto border-y"
 				>
-					{drafts.map((draft, index) => (
-						<li key={draft.id} className="flex items-center gap-2 pr-1 pl-3">
-							<input
-								type="checkbox"
-								aria-label={`add item ${index + 1}`}
-								checked={draft.on}
-								onChange={(event) =>
-									change(draft.id, { on: event.target.checked })
-								}
-								className="accent-kitchen-basil size-5 shrink-0"
-							/>
-							<input
-								aria-label={`item ${index + 1}`}
-								value={draft.text}
-								maxLength={200}
-								onChange={(event) =>
-									change(draft.id, { text: event.target.value })
-								}
-								className={cn(
-									'min-h-11 min-w-0 flex-1 bg-transparent text-base outline-none',
-									!draft.on && 'text-muted-foreground line-through',
-								)}
-							/>
-							<button
-								type="button"
-								aria-label={`remove ${draft.text.trim() || `item ${index + 1}`}`}
-								onClick={() =>
-									setDrafts((current) =>
-										current.filter((other) => other.id !== draft.id),
-									)
-								}
-								className="text-muted-foreground hover:text-foreground grid size-10 shrink-0 place-items-center rounded-full"
-							>
-								<XIcon size={14} weight="bold" aria-hidden />
-							</button>
-						</li>
-					))}
+					{items.map((item, index) => {
+						const on = ticked(index)
+
+						return (
+							// The same line can appear twice in a recipe.
+							// oxlint-disable-next-line react/no-array-index-key
+							<li key={index}>
+								<label className="flex min-h-11 cursor-pointer items-center gap-3 py-1.5">
+									<input
+										type="checkbox"
+										checked={on}
+										onChange={(event) =>
+											setTicks((now) => ({
+												...now,
+												[index]: event.target.checked,
+											}))
+										}
+										className="accent-kitchen-basil size-5 shrink-0"
+									/>
+									<span
+										className={cn(
+											'min-w-0 flex-1 text-base',
+											!on && 'text-muted-foreground',
+										)}
+									>
+										{item}
+									</span>
+									{onList(item) ? (
+										<span className="text-muted-foreground shrink-0 text-xs font-semibold">
+											on your list
+										</span>
+									) : null}
+								</label>
+							</li>
+						)
+					})}
 				</ul>
-				<form
-					onSubmit={(event) => {
-						event.preventDefault()
-						addExtra()
-					}}
-					className="flex items-center gap-2"
-				>
-					<input
-						aria-label="add another item"
-						placeholder="add another item"
-						maxLength={200}
-						value={extra}
-						onChange={(event) => setExtra(event.target.value)}
-						className={cn(fieldClassName, placeholderClassName, 'flex-1')}
-					/>
-					<button
-						type="submit"
-						aria-label="put it on the list"
-						disabled={!extra.trim()}
-						className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
-					>
-						<PlusIcon size={14} weight="bold" aria-hidden />
-					</button>
-				</form>
-				{/* The same list as text, for a message or a note. */}
-				<div className="-mt-2 flex items-center gap-1">
-					<span className="text-muted-foreground mr-1 text-xs font-semibold">
-						as text
-					</span>
-					<button
-						type="button"
-						disabled={!chosen.length}
-						onClick={copy}
-						className={buttonVariants({
-							variant: 'ghost',
-							className: 'min-h-9 px-2.5',
-						})}
-					>
-						<CopyIcon size={16} weight="bold" aria-hidden />
-						copy
-					</button>
-					{canShare ? (
-						<button
-							type="button"
-							disabled={!chosen.length}
-							onClick={share}
-							className={buttonVariants({
-								variant: 'ghost',
-								className: 'min-h-9 px-2.5',
-							})}
-						>
-							<ExportIcon size={16} weight="bold" aria-hidden />
-							share
-						</button>
-					) : null}
-				</div>
 				<DialogFooter>
-					<button
-						type="button"
-						onClick={onClose}
-						className={buttonVariants({ variant: 'outline' })}
-					>
-						cancel
-					</button>
 					<button
 						type="button"
 						disabled={!chosen.length || adding}
 						onClick={() => void add()}
 						className={buttonVariants()}
 					>
-						{adding ? 'adding…' : `add ${chosen.length}`}
+						{adding
+							? 'adding…'
+							: chosen.length === items.length
+								? `add all ${items.length}`
+								: `add ${chosen.length} of ${items.length}`}
 					</button>
 				</DialogFooter>
 			</DialogContent>

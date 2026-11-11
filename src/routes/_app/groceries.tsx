@@ -1,8 +1,22 @@
-import { CopyIcon, ExportIcon, PlusIcon, XIcon } from '@phosphor-icons/react'
+import {
+	CheckIcon,
+	ExportIcon,
+	PlusIcon,
+	ShoppingCartIcon,
+	TrashIcon,
+} from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
+import {
+	AnimatePresence,
+	animate,
+	motion,
+	useMotionValue,
+	useReducedMotion,
+} from 'framer-motion'
 import {
 	startTransition,
+	useEffect,
 	useOptimistic,
 	useRef,
 	useState,
@@ -11,10 +25,10 @@ import {
 import { toast } from 'sonner'
 
 import { groceryCountKey } from '@/components/grocery-badge'
-import { PageTitle } from '@/components/page'
+import { GroceryField, useGroceryComposer } from '@/components/grocery-entry'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { buttonVariants } from '@/components/ui/button'
-import { sameItem } from '@/lib/groceries/model'
+import { sameItem, type GroceryInput } from '@/lib/groceries/model'
 import {
 	addGroceries,
 	clearCheckedGroceries,
@@ -29,6 +43,8 @@ import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/groceries')({
+	// Adding floats above the tab bar on phones, as on the other tabs.
+	staticData: { tabBar: 'own-fab' },
 	loader: () => listGroceries(),
 	component: Groceries,
 })
@@ -91,6 +107,18 @@ function Groceries() {
 	const client = useQueryClient()
 	const saved = Route.useLoaderData()
 	const [items, apply] = useOptimistic(saved, applyChange)
+	// Select mode: tap rows to pick them, then act on them all at once.
+	const [selecting, setSelecting] = useState(false)
+	const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set())
+	// The item just added, lit for a moment so the eye finds its aisle.
+	const [fresh, setFresh] = useState<string>()
+
+	useEffect(() => {
+		if (!fresh) return
+		const timer = setTimeout(() => setFresh(undefined), 1500)
+
+		return () => clearTimeout(timer)
+	}, [fresh])
 
 	const waiting = items.filter((item) => !item.checkedAt)
 	const inCart = items.filter((item) => item.checkedAt)
@@ -129,15 +157,87 @@ function Groceries() {
 
 		const draft = draftItem(text)
 
+		setFresh(draft.id)
 		change({ kind: 'add', items: [draft] }, async () => {
 			await addGroceries({ data: [{ id: draft.id, text }] })
 		})
 	}
 
+	const composer = useGroceryComposer(add)
+	const cartRef = useRef<HTMLElement>(null)
+	const reduceMotion = useReducedMotion()
+	const field = useRef<HTMLTextAreaElement>(null)
+
+	// Puts a removed item back as it was, from the same recipe.
+	function restore(item: Item) {
+		const back: Item = { ...item, id: crypto.randomUUID() }
+		const input: GroceryInput = { id: back.id, text: back.text }
+
+		if (back.recipeId) input.recipeId = back.recipeId
+
+		if (back.recipeTitle) input.recipeTitle = back.recipeTitle
+
+		change({ kind: 'add', items: [back] }, async () => {
+			await addGroceries({ data: [input] })
+
+			if (back.checkedAt)
+				await setGroceryChecked({ data: { id: back.id, checked: true } })
+		})
+	}
+
+	function removeAll(gone: Item[]) {
+		for (const item of gone)
+			change({ kind: 'remove', id: item.id }, async () => {
+				await deleteGrocery({ data: { id: item.id } })
+			})
+
+		// A slip of the thumb is one tap from undone.
+		toast(
+			gone.length === 1 ? `removed ${gone[0]?.text}` : `removed ${gone.length}`,
+			{
+				action: {
+					label: 'undo',
+					onClick: () => {
+						for (const item of gone) restore(item)
+					},
+				},
+			},
+		)
+	}
+
+	function checkAll(bought: Item[]) {
+		for (const item of bought)
+			change({ kind: 'check', id: item.id, checked: true }, async () => {
+				await setGroceryChecked({ data: { id: item.id, checked: true } })
+			})
+	}
+
+	function stopSelecting() {
+		setSelecting(false)
+		setPicked(new Set())
+	}
+
+	const chosen = items.filter((item) => picked.has(item.id))
+
+	const actions = (
+		<ItemActions
+			count={chosen.length}
+			onBought={() => {
+				checkAll(chosen.filter((item) => !item.checkedAt))
+				stopSelecting()
+			}}
+			onRemove={() => {
+				removeAll(chosen)
+				stopSelecting()
+			}}
+		/>
+	)
+
 	const row = (item: Item) => (
 		<GroceryRow
 			key={item.id}
 			item={item}
+			fresh={item.id === fresh}
 			onCheck={(checked) =>
 				change({ kind: 'check', id: item.id, checked }, async () => {
 					await setGroceryChecked({ data: { id: item.id, checked } })
@@ -148,9 +248,17 @@ function Groceries() {
 					await renameGrocery({ data: { id: item.id, text } })
 				})
 			}
-			onRemove={() =>
-				change({ kind: 'remove', id: item.id }, async () => {
-					await deleteGrocery({ data: { id: item.id } })
+			onRemove={() => removeAll([item])}
+			selecting={selecting}
+			picked={picked.has(item.id)}
+			onPick={(on) =>
+				setPicked((now) => {
+					const next = new Set(now)
+
+					if (on) next.add(item.id)
+					else next.delete(item.id)
+
+					return next
 				})
 			}
 		/>
@@ -159,20 +267,70 @@ function Groceries() {
 	return (
 		<main className="flex-1">
 			<div className="flex max-w-2xl flex-col gap-6 p-6 md:p-10">
-				<div className="flex flex-wrap items-end justify-between gap-3">
-					<div>
-						<PageTitle>groceries</PageTitle>
-						<p className="text-muted-foreground mt-1 text-sm font-semibold">
-							{waiting.length
-								? `${waiting.length} to buy`
-								: inCart.length
-									? 'all in the cart'
-									: 'nothing to buy'}
-						</p>
-					</div>
-					<SendList items={waiting.map((item) => item.text)} />
-				</div>
-				<AddItem onAdd={add} />
+				{/* The sidebar says where you are; the page opens on what is left. */}
+				<h1 className="sr-only">groceries</h1>
+				{/* Ticked items move down into the cart, which says how the shop
+				    goes. Once all of it is there, the trip ends here. */}
+				{items.length ? (
+					selecting ? (
+						<SelectBar
+							count={chosen.length}
+							all={chosen.length === items.length}
+							onAll={(on) =>
+								setPicked(new Set(on ? items.map((item) => item.id) : []))
+							}
+							onDone={stopSelecting}
+							actions={actions}
+						/>
+					) : (
+						<div className="bg-background/90 sticky top-0 z-20 -mx-2 flex items-center justify-end gap-1 px-2 py-1 backdrop-blur-sm">
+							{/* How the shop goes, at a glance while scrolling: a tap goes to
+							    the cart. */}
+							{inCart.length ? (
+								<button
+									type="button"
+									aria-label={`${inCart.length} in the cart: go to the cart`}
+									onClick={() =>
+										cartRef.current?.scrollIntoView({
+											behavior: reduceMotion ? 'auto' : 'smooth',
+											block: 'start',
+										})
+									}
+									className="text-muted-foreground hover:text-foreground mr-auto inline-flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-sm font-semibold transition-colors"
+								>
+									<ShoppingCartIcon size={16} weight="bold" aria-hidden />
+									<motion.span
+										key={inCart.length}
+										initial={reduceMotion ? false : { scale: 1.4 }}
+										animate={{ scale: 1 }}
+										className="text-foreground inline-block tabular-nums"
+									>
+										{inCart.length}
+									</motion.span>
+									in the cart
+								</button>
+							) : null}
+							<ShareList items={waiting.map((item) => item.text)} />
+							<button
+								type="button"
+								onClick={() => setSelecting(true)}
+								className={buttonVariants({
+									variant: 'ghost',
+									className: 'px-2.5',
+								})}
+							>
+								edit
+							</button>
+						</div>
+					)
+				) : null}
+				{selecting ? null : (
+					<>
+						<GroceryField onAdd={add} inputRef={field} />
+						{/* The plus waits for items: an empty list has its own way in. */}
+						{items.length ? composer.button : null}
+					</>
+				)}
 				{waiting.length ? (
 					<div className="flex flex-col gap-5">
 						{shelved(waiting).map(({ category, items: aisle }) => (
@@ -184,26 +342,33 @@ function Groceries() {
 									{pantryCategoryLabels[category]}
 								</h2>
 								<ul className="bg-card border-input divide-border divide-y rounded-xl border">
-									{aisle.map(row)}
+									<AnimatePresence initial={false}>
+										{aisle.map(row)}
+									</AnimatePresence>
 								</ul>
 							</section>
 						))}
 					</div>
-				) : inCart.length ? null : (
-					<p className="border-foreground/30 text-muted-foreground rounded-xl border border-dashed p-6 text-sm">
-						add what you need above, or open a{' '}
-						<Link
-							to="/recipes"
-							className="text-foreground font-semibold underline"
-						>
-							recipe
-						</Link>
-						, tap <strong className="text-foreground">add to groceries</strong>{' '}
-						and untick what you already have.
-					</p>
+				) : null}
+				{items.length || composer.open ? null : (
+					<EmptyList
+						// The field over the list where there is one; on a phone, the
+						// row the plus would open.
+						onAdd={() => {
+							if (field.current?.offsetParent) field.current.focus()
+							else composer.start()
+						}}
+					/>
 				)}
+				{/* One place whatever the list holds, so it keeps focus as the
+				    first item lands. */}
+				{composer.draft}
 				{inCart.length ? (
-					<section aria-label="in the cart" className="flex flex-col gap-1">
+					<section
+						ref={cartRef}
+						aria-label="in the cart"
+						className="flex scroll-mt-16 flex-col gap-1"
+					>
 						<div className="flex items-center justify-between px-1">
 							<h2 className="text-muted-foreground text-sm font-bold">
 								in the cart · {inCart.length}
@@ -225,12 +390,48 @@ function Groceries() {
 							</button>
 						</div>
 						<ul className="divide-border border-input divide-y rounded-xl border border-dashed">
-							{inCart.map(row)}
+							<AnimatePresence initial={false}>
+								{inCart.map(row)}
+							</AnimatePresence>
 						</ul>
 					</section>
 				) : null}
 			</div>
 		</main>
+	)
+}
+
+// Nothing to buy yet: an empty cart, one line on what adding does, and the
+// way to add.
+function EmptyList({ onAdd }: { onAdd: () => void }) {
+	return (
+		<section
+			aria-labelledby="nothing-to-buy"
+			className="border-border bg-card flex flex-col items-center gap-4 rounded-xl border p-10 text-center"
+		>
+			<ShoppingCartIcon
+				size={56}
+				weight="duotone"
+				aria-hidden
+				className="text-muted-foreground"
+			/>
+			<div className="flex flex-col gap-1">
+				<h2 id="nothing-to-buy" className="text-lg font-bold">
+					nothing to buy yet
+				</h2>
+				<p className="text-muted-foreground max-w-xs text-sm font-semibold">
+					add what you need, and it finds its own aisle
+				</p>
+			</div>
+			<button
+				type="button"
+				onClick={onAdd}
+				className={buttonVariants({ className: 'min-h-11 gap-1.5' })}
+			>
+				<PlusIcon size={16} weight="bold" aria-hidden />
+				add an item
+			</button>
+		</section>
 	)
 }
 
@@ -257,67 +458,71 @@ function shelved(items: Item[]) {
 	})
 }
 
-// Typed items go in one after another: the field stays put and empties.
-function AddItem({ onAdd }: { onAdd: (text: string) => void }) {
-	const [text, setText] = useState('')
-
-	function submit() {
-		const trimmed = text.trim()
-
-		if (!trimmed) return
-		onAdd(trimmed)
-		setText('')
-	}
-
-	return (
-		<form
-			onSubmit={(event) => {
-				event.preventDefault()
-				submit()
-			}}
-			className="bg-card border-input focus-within:border-foreground/40 flex items-center gap-2 rounded-xl border pr-1.5 pl-3 transition-colors"
-		>
-			<PlusIcon
-				size={18}
-				weight="bold"
-				aria-hidden
-				className="text-muted-foreground"
-			/>
-			<input
-				aria-label="add an item"
-				placeholder="add an item"
-				maxLength={200}
-				value={text}
-				onChange={(event) => setText(event.target.value)}
-				enterKeyHint="done"
-				className="placeholder:text-muted-foreground min-h-12 min-w-0 flex-1 bg-transparent text-base outline-none"
-			/>
-			{text.trim() ? (
-				<button
-					type="submit"
-					className={buttonVariants({ className: 'min-h-9' })}
-				>
-					add
-				</button>
-			) : null}
-		</form>
-	)
-}
-
 function GroceryRow({
 	item,
+	fresh,
 	onCheck,
 	onRename,
 	onRemove,
+	selecting,
+	picked,
+	onPick,
 }: {
 	item: Item
+	fresh: boolean
 	onCheck: (checked: boolean) => void
 	onRename: (text: string) => void
 	onRemove: () => void
+	selecting: boolean
+	picked: boolean
+	onPick: (on: boolean) => void
 }) {
-	const checked = !!item.checkedAt
+	const reduceMotion = useReducedMotion()
+	// A tick shows on the row for a moment before it moves to or from the
+	// cart, so the eye sees what happened.
+	const [ticking, setTicking] = useState<boolean>()
+	const checked = ticking ?? !!item.checkedAt
+
+	function tick(on: boolean) {
+		if (reduceMotion) {
+			onCheck(on)
+
+			return
+		}
+
+		setTicking(on)
+		setTimeout(() => onCheck(on), 450)
+	}
+
 	const look = ingredientItemLook(item.text)
 	const field = useRef<HTMLInputElement>(null)
+	const rowRef = useRef<HTMLLIElement>(null)
+
+	// On a touch screen the row slides left to uncover delete.
+	const coarse = useSyncExternalStore(
+		subscribeCoarse,
+		() => matchMedia('(pointer: coarse)').matches,
+		() => false,
+	)
+
+	const reveal = 88
+	const x = useMotionValue(0)
+	const [open, setOpen] = useState(false)
+	const dragged = useRef(false)
+
+	function settle(next: boolean) {
+		setOpen(next)
+		void animate(x, next ? -reveal : 0, {
+			type: 'spring',
+			stiffness: 500,
+			damping: 40,
+		})
+	}
+
+	// A new item may land in an aisle off screen: bring it into view.
+	useEffect(() => {
+		if (fresh) rowRef.current?.scrollIntoView({ block: 'nearest' })
+	}, [fresh])
 
 	function rename(text: string) {
 		const trimmed = text.trim()
@@ -331,23 +536,28 @@ function GroceryRow({
 		if (trimmed !== item.text) onRename(trimmed)
 	}
 
-	return (
-		<li className="group/item flex min-h-13 items-center gap-3 pr-1 pl-3">
-			<input
-				type="checkbox"
-				aria-label={item.text}
-				checked={checked}
-				onChange={(event) => onCheck(event.target.checked)}
+	// Editing, the box and picture pick the row and its name can be renamed;
+	// outside editing a name is only read, so a tap never opens a keyboard.
+	if (selecting)
+		return (
+			<li
 				className={cn(
-					'border-foreground/40 grid size-6 shrink-0 cursor-pointer appearance-none place-items-center rounded-full border-2 transition-colors',
-					'checked:bg-kitchen-basil checked:border-kitchen-basil',
-					"checked:after:text-foreground checked:after:text-xs checked:after:font-bold checked:after:content-['✓']",
+					'flex min-h-13 items-center gap-3 pr-3 pl-3 transition-colors',
+					picked && 'bg-kitchen-yolk/30',
 				)}
-			/>
-			<span aria-hidden className="grid size-6 shrink-0 place-items-center">
-				{look ? <PantrySprite look={look} className="size-6" /> : null}
-			</span>
-			<span className="flex min-w-0 flex-1 flex-col py-2">
+			>
+				<label className="flex shrink-0 cursor-pointer items-center gap-3 self-stretch">
+					<input
+						type="checkbox"
+						aria-label={`select ${item.text}`}
+						checked={picked}
+						onChange={(event) => onPick(event.target.checked)}
+						className="accent-kitchen-eggplant size-5 shrink-0"
+					/>
+					<span aria-hidden className="grid size-6 shrink-0 place-items-center">
+						{look ? <PantrySprite look={look} className="size-6" /> : null}
+					</span>
+				</label>
 				<input
 					ref={field}
 					key={item.text}
@@ -364,42 +574,204 @@ function GroceryRow({
 						}
 					}}
 					className={cn(
-						'w-full min-w-0 bg-transparent text-base outline-none',
+						'border-input focus:border-foreground/40 min-h-10 w-full min-w-0 flex-1 rounded-md border border-dashed bg-transparent px-2 text-base outline-none',
 						checked && 'text-muted-foreground line-through',
 					)}
 				/>
-				{item.recipeTitle ? (
-					item.recipeId ? (
-						<Link
-							to="/recipes/$recipeId"
-							params={{ recipeId: item.recipeId }}
-							className="text-muted-foreground hover:text-foreground w-fit truncate text-xs"
-						>
-							{item.recipeTitle}
-						</Link>
-					) : (
-						<span className="text-muted-foreground truncate text-xs">
-							{item.recipeTitle}
-						</span>
-					)
-				) : null}
-			</span>
+			</li>
+		)
+
+	return (
+		<motion.li
+			ref={rowRef}
+			// A ticked item travels from its aisle down into the cart, and back up
+			// when unticked, while the rows around it close the gap: the eye
+			// follows where it went. One that leaves the list for good fades.
+			// With reduced motion it moves at once.
+			layout
+			layoutId={item.id}
+			initial={reduceMotion ? false : { opacity: 0 }}
+			animate={{ opacity: 1 }}
+			exit={{ opacity: 0 }}
+			transition={{ duration: reduceMotion ? 0 : 0.35, ease: 'easeInOut' }}
+			className={cn(
+				'relative z-10 scroll-my-32 overflow-hidden transition-colors duration-700 first:rounded-t-xl last:rounded-b-xl',
+				fresh && 'bg-kitchen-yolk/30',
+			)}
+		>
+			{/* Uncovered by a swipe to the left, so deleting takes two moves. */}
 			<button
 				type="button"
-				aria-label={`remove ${item.text}`}
+				inert={!open}
 				onClick={onRemove}
-				className="text-muted-foreground hover:text-foreground grid size-10 shrink-0 place-items-center rounded-full opacity-0 transition-opacity group-hover/item:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"
+				className="bg-kitchen-tomato text-foreground absolute inset-y-0 right-0 w-22 text-sm font-bold"
 			>
-				<XIcon size={14} weight="bold" aria-hidden />
+				delete
 			</button>
-		</li>
+			<motion.div
+				drag={coarse ? 'x' : false}
+				dragDirectionLock
+				dragConstraints={{ left: -reveal, right: 0 }}
+				dragElastic={0.1}
+				onDragStart={() => {
+					dragged.current = true
+				}}
+				onDragEnd={() => settle(x.get() < -reveal / 2)}
+				// A swipe is not a tap, and while open a tap on the row closes it
+				// instead of ticking it.
+				onClickCapture={(event) => {
+					if (!open && !dragged.current) return
+					event.preventDefault()
+					event.stopPropagation()
+
+					if (!dragged.current) settle(false)
+					dragged.current = false
+				}}
+				// A motion value only moves the row through style.
+				// oxlint-disable-next-line shadcn/no-inline-styles
+				style={{ x }}
+				className={cn(
+					'relative flex items-center pl-3',
+					checked ? 'bg-background' : 'bg-card',
+				)}
+			>
+				{/* The whole row ticks it, not only the circle. */}
+				<label className="flex min-h-13 min-w-0 flex-1 cursor-pointer items-center gap-3 pr-3">
+					<input
+						type="checkbox"
+						aria-label={item.text}
+						checked={checked}
+						onChange={(event) => tick(event.target.checked)}
+						className={cn(
+							'border-foreground/40 grid size-6 shrink-0 cursor-pointer appearance-none place-items-center rounded-full border-2 transition-colors',
+							'checked:bg-kitchen-basil checked:border-kitchen-basil',
+							"checked:after:text-foreground checked:after:text-xs checked:after:font-bold checked:after:content-['✓']",
+						)}
+					/>
+					<span aria-hidden className="grid size-6 shrink-0 place-items-center">
+						{look ? <PantrySprite look={look} className="size-6" /> : null}
+					</span>
+					<span
+						className={cn(
+							'min-w-0 flex-1 py-2 text-base',
+							checked && 'text-muted-foreground line-through',
+						)}
+					>
+						{item.text}
+					</span>
+				</label>
+			</motion.div>
+		</motion.li>
+	)
+}
+
+const subscribeCoarse = (notify: () => void) => {
+	const query = matchMedia('(pointer: coarse)')
+	query.addEventListener('change', notify)
+
+	return () => query.removeEventListener('change', notify)
+}
+
+// Editing's header, in place of the list's, held at the top while the list
+// scrolls: a box to select all (half ticked when some are), how many are
+// picked, and done. Once anything is picked, what to do with it shows
+// right under it.
+function SelectBar({
+	count,
+	all,
+	onAll,
+	onDone,
+	actions,
+}: {
+	count: number
+	all: boolean
+	onAll: (on: boolean) => void
+	onDone: () => void
+	actions: React.ReactNode
+}) {
+	return (
+		<div
+			role="toolbar"
+			aria-label="editing"
+			className="border-border bg-card sticky top-2 z-20 flex flex-col gap-1 rounded-xl border p-1.5"
+		>
+			<div className="flex items-center gap-2 pl-1.5">
+				<label className="flex min-h-10 flex-1 cursor-pointer items-center gap-3 text-sm font-bold">
+					<input
+						type="checkbox"
+						checked={all}
+						ref={(node) => {
+							if (node) node.indeterminate = count > 0 && !all
+						}}
+						onChange={(event) => onAll(event.target.checked)}
+						className="accent-kitchen-eggplant size-5 shrink-0"
+					/>
+					select all
+					<span
+						aria-live="polite"
+						className="text-muted-foreground font-semibold"
+					>
+						{count ? `· ${count} selected` : ''}
+					</span>
+				</label>
+				<button
+					type="button"
+					onClick={onDone}
+					className={buttonVariants({ variant: 'ghost', className: 'px-2.5' })}
+				>
+					done
+				</button>
+			</div>
+			{count ? (
+				<div className="border-border border-t pt-1">{actions}</div>
+			) : null}
+		</div>
+	)
+}
+
+// What editing does to the picked items: buy them, or delete them.
+function ItemActions({
+	count,
+	onBought,
+	onRemove,
+}: {
+	count: number
+	onBought: () => void
+	onRemove: () => void
+}) {
+	const action = buttonVariants({
+		variant: 'ghost',
+		className: 'flex-1 gap-1.5 px-2.5',
+	})
+
+	return (
+		<div className="flex items-center gap-1">
+			<button
+				type="button"
+				disabled={!count}
+				onClick={onBought}
+				className={action}
+			>
+				<CheckIcon size={16} weight="bold" aria-hidden />
+				bought
+			</button>
+			<button
+				type="button"
+				disabled={!count}
+				onClick={onRemove}
+				className={action}
+			>
+				<TrashIcon size={16} weight="bold" aria-hidden />
+				delete
+			</button>
+		</div>
 	)
 }
 
 const noSubscription = () => () => {}
 
-// The list as text, one item a line, for a message or a note.
-function SendList({ items }: { items: string[] }) {
+// The list as text, one item a line, to send where the phone can share it.
+function ShareList({ items }: { items: string[] }) {
 	const text = items.join('\n')
 
 	// Known only in the browser; the server renders without it.
@@ -409,43 +781,24 @@ function SendList({ items }: { items: string[] }) {
 		() => false,
 	)
 
-	if (!items.length) return null
+	if (!items.length || !canShare) return null
 
 	return (
-		<div className="flex gap-1">
-			<button
-				type="button"
-				onClick={async () => {
-					try {
-						await navigator.clipboard.writeText(text)
-						toast.success('copied the list')
-					} catch {
-						toast.error('could not copy the list')
-					}
-				}}
-				className={buttonVariants({ variant: 'ghost' })}
-			>
-				<CopyIcon size={16} weight="bold" aria-hidden />
-				copy
-			</button>
-			{canShare ? (
-				<button
-					type="button"
-					onClick={async () => {
-						try {
-							await navigator.share({ title: 'groceries', text })
-						} catch (error) {
-							if (error instanceof DOMException && error.name === 'AbortError')
-								return
-							toast.error('could not share the list')
-						}
-					}}
-					className={buttonVariants({ variant: 'outline' })}
-				>
-					<ExportIcon size={16} weight="bold" aria-hidden />
-					share
-				</button>
-			) : null}
-		</div>
+		<button
+			type="button"
+			onClick={async () => {
+				try {
+					await navigator.share({ title: 'groceries', text })
+				} catch (error) {
+					if (error instanceof DOMException && error.name === 'AbortError')
+						return
+					toast.error('could not share the list')
+				}
+			}}
+			className={buttonVariants({ variant: 'outline' })}
+		>
+			<ExportIcon size={16} weight="bold" aria-hidden />
+			share
+		</button>
 	)
 }

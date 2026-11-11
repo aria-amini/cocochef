@@ -43,6 +43,8 @@ export function IngredientCombobox({
 	bare = false,
 	maxLength = 80,
 	completion,
+	above = false,
+	inputClassName,
 	inputRef,
 	onKeyDown,
 	onPaste,
@@ -60,7 +62,11 @@ export function IngredientCombobox({
 	bare?: boolean
 	maxLength?: number
 	completion?: LineCompletion | undefined
-	inputRef?: React.Ref<HTMLTextAreaElement>
+	// Opens the suggestions over the field, for one docked at the bottom.
+	above?: boolean
+	// Restyles the field to match the row it stands in for.
+	inputClassName?: string | undefined
+	inputRef?: React.Ref<HTMLTextAreaElement> | undefined
 	// Runs for keys the suggestion list does not handle.
 	onKeyDown?: React.KeyboardEventHandler<HTMLTextAreaElement>
 	onPaste?: React.ClipboardEventHandler<HTMLTextAreaElement>
@@ -165,6 +171,7 @@ export function IngredientCombobox({
 						(compact
 							? 'px-3 py-2 text-sm font-semibold'
 							: 'px-3 py-3 text-lg font-semibold'),
+					inputClassName,
 				)}
 			/>
 			{expanded ? (
@@ -172,7 +179,10 @@ export function IngredientCombobox({
 					id={listboxId}
 					role="listbox"
 					aria-label="Ingredient suggestions"
-					className="floating bg-card absolute inset-x-0 top-full z-10 mt-1.5 overflow-hidden"
+					className={cn(
+						'floating bg-card absolute inset-x-0 z-10 overflow-hidden',
+						above ? 'bottom-full mb-1.5' : 'top-full mt-1.5',
+					)}
 				>
 					{suggestions.map((suggestion, index) => (
 						<li

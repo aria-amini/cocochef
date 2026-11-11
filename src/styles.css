@@ -138,6 +138,31 @@
 	@apply border-foreground/30 rounded-xl border shadow-md;
 }
 
+/* A scrolling list whose bar stays on screen, so it reads as scrollable before
+   it is touched: macOS otherwise hides the bar until a scroll. Only the bar
+   is drawn here; pair it with overflow-y-auto. Chrome and Safari draw this
+   bar; Firefox a thin one in the same ink. */
+@utility scrollbar-visible {
+	scrollbar-gutter: stable;
+
+	&::-webkit-scrollbar {
+		width: 10px;
+	}
+
+	&::-webkit-scrollbar-thumb {
+		border: 3px solid transparent;
+		border-radius: 9999px;
+		background-clip: padding-box;
+		background-color: color-mix(in oklab, var(--foreground) 30%, transparent);
+	}
+
+	@supports not selector(::-webkit-scrollbar) {
+		scrollbar-color: color-mix(in oklab, var(--foreground) 30%, transparent)
+			transparent;
+		scrollbar-width: thin;
+	}
+}
+
 @keyframes progress-slide {
 	from {
 		transform: translateX(-100%);

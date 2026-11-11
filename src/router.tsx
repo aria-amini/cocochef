@@ -31,8 +31,9 @@ declare module '@tanstack/react-router' {
 	// Pages sit inside the app shell by default; a route says what it changes.
 	interface StaticDataRouteOption {
 		// 'none' when the page pins its own bottom actions; 'fab' for the shelf's
-		// round add button.
-		tabBar?: 'none' | 'fab'
+		// round add button; 'own-fab' when the page floats an add button of its
+		// own in the same place.
+		tabBar?: 'none' | 'fab' | 'own-fab'
 		// 'none' when the page leads with its own back bar on phones.
 		header?: 'none'
 	}

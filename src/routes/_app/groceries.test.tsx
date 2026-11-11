@@ -1,7 +1,7 @@
 import { renderRoute } from '@tests/support/render/route'
 import { expectPageScreenshot } from '@tests/support/screenshot'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 
@@ -74,6 +74,18 @@ vi.mock('@/lib/groceries/server', () => ({
 	},
 }))
 
+// The field over the list on a wide screen; on a phone, the row the round
+// plus opens over the keyboard.
+async function addField(
+	screen: Awaited<ReturnType<typeof renderRoute>>['screen'],
+) {
+	// An empty list is its own way in; a list with items has the round plus.
+	if (window.innerWidth < 768)
+		await screen.getByRole('button', { name: /^add (items|an item)$/ }).click()
+
+	return screen.getByRole('combobox', { name: 'add an item' })
+}
+
 const session = {
 	user: { id: 'user-1', name: 'Cook', email: 'cook@example.com' },
 	session: { id: 'session-1', token: 'token' },
@@ -84,16 +96,31 @@ describe('groceries', () => {
 		list.items = []
 	})
 
-	test('says how to fill an empty list', async () => {
+	test('invites an empty list to add, not to go elsewhere', async () => {
 		const { screen } = await renderRoute({ path: '/groceries', session })
 
 		await expect
 			.element(screen.getByRole('heading', { name: 'groceries', level: 1 }))
 			.toBeVisible()
-		await expect.element(screen.getByText('nothing to buy')).toBeVisible()
 		await expect
-			.element(screen.getByRole('main').getByRole('link', { name: 'recipe' }))
-			.toHaveAttribute('href', '/recipes')
+			.element(screen.getByRole('heading', { name: 'nothing to buy yet' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('main').getByRole('link', { name: /recipes/ }))
+			.not.toBeInTheDocument()
+		await expectPageScreenshot(screen.container, 'groceries-empty')
+
+		// The plus waits for items: the card is the way in.
+		await expect
+			.element(screen.getByRole('button', { name: 'add items' }))
+			.not.toBeInTheDocument()
+		await screen
+			.getByRole('region', { name: 'nothing to buy yet' })
+			.getByRole('button', { name: 'add an item' })
+			.click()
+		await expect
+			.element(screen.getByRole('combobox', { name: 'add an item' }))
+			.toHaveFocus()
 	})
 
 	test('shelves the list by aisle and moves bought items to the cart', async () => {
@@ -118,20 +145,16 @@ describe('groceries', () => {
 		await expect
 			.element(vegetables.getByRole('checkbox', { name: '1 onion' }))
 			.toBeVisible()
-		await expect
-			.element(
-				screen
-					.getByRole('region', { name: 'dairy & eggs' })
-					.getByRole('link', { name: 'miso butter pasta' }),
-			)
-			.toHaveAttribute('href', '/recipes/recipe-1')
+		// What to buy, not where it came from: no recipe names on the rows.
+		expect(screen.getByText('miso butter pasta').elements()).toHaveLength(0)
+
+		await expectPageScreenshot(screen.container, 'groceries')
 
 		// Typed items go in one after another and find their own aisle.
-		await screen.getByRole('textbox', { name: 'add an item' }).fill('paprika')
+		const field = await addField(screen)
+		await field.fill('paprika')
 		await userEvent.keyboard('{Enter}')
-		await expect
-			.element(screen.getByRole('textbox', { name: 'add an item' }))
-			.toHaveValue('')
+		await expect.element(field).toHaveValue('')
 		await expect
 			.element(
 				screen
@@ -139,8 +162,6 @@ describe('groceries', () => {
 					.getByRole('checkbox', { name: 'paprika' }),
 			)
 			.toBeVisible()
-		await expect.element(screen.getByText('4 to buy')).toBeVisible()
-		await expectPageScreenshot(screen.container, 'groceries')
 
 		await screen.getByRole('checkbox', { name: '1 onion' }).click()
 		await expect
@@ -150,7 +171,13 @@ describe('groceries', () => {
 					.getByRole('checkbox', { name: '1 onion' }),
 			)
 			.toBeChecked()
-		await expect.element(screen.getByText('3 to buy')).toBeVisible()
+		// The top says how the shop goes, and leads to the cart.
+		await expect
+			.element(
+				screen.getByRole('button', { name: '1 in the cart: go to the cart' }),
+			)
+			.toBeVisible()
+		await expectPageScreenshot(screen.container, 'groceries-shopping')
 
 		await screen.getByRole('button', { name: 'clear' }).click()
 		await expect
@@ -168,34 +195,178 @@ describe('groceries', () => {
 
 		const { screen } = await renderRoute({ path: '/groceries', session })
 
-		await screen.getByRole('textbox', { name: 'add an item' }).fill('Milk')
+		await (await addField(screen)).fill('Milk')
 		await screen.getByRole('button', { name: 'add', exact: true }).click()
 		await expect.element(screen.getByText('already on your list')).toBeVisible()
 		expect(
 			screen.getByRole('checkbox', { name: /^milk$/i }).all(),
 		).toHaveLength(1)
-
-		await screen.getByRole('checkbox', { name: 'milk' }).click()
-		await expect
-			.poll(() => list.items.map((item) => !!item.checkedAt))
-			.toEqual([true])
+		expect(list.items).toHaveLength(1)
 	})
 
-	test('renames and removes an item', async () => {
+	test('ticks an item from anywhere on its row, and names it only in edit', async () => {
 		list.items = [make('1 onion')]
 
 		const { screen } = await renderRoute({ path: '/groceries', session })
 
+		// Outside edit the name is read, not typed into.
+		await expect
+			.element(screen.getByRole('textbox', { name: 'rename 1 onion' }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('button', { name: 'remove 1 onion' }))
+			.not.toBeInTheDocument()
+
+		// A tap on the name ticks it.
+		await screen.getByText('1 onion', { exact: true }).click()
+		await expect.poll(() => list.items[0]?.checkedAt).toBeInstanceOf(Date)
+		await screen.getByText('1 onion', { exact: true }).click()
+		await expect.poll(() => list.items[0]?.checkedAt).toBeNull()
+
+		await screen.getByRole('button', { name: 'edit' }).click()
 		await screen
 			.getByRole('textbox', { name: 'rename 1 onion' })
 			.fill('2 onions')
 		await userEvent.keyboard('{Enter}')
+		await expect.poll(() => list.items[0]?.text).toBe('2 onions')
+		await screen.getByRole('button', { name: 'done' }).click()
 		await expect
 			.element(screen.getByRole('checkbox', { name: '2 onions' }))
 			.toBeVisible()
+	})
 
-		await screen.getByRole('button', { name: 'remove 2 onions' }).click()
-		await expect.element(screen.getByText('nothing to buy')).toBeVisible()
+	test('finishes a food from its first letters, and steps its amount', async () => {
+		const { screen } = await renderRoute({ path: '/groceries', session })
+		const field = await addField(screen)
+
+		await field.fill('garl')
+		await screen.getByRole('option', { name: 'garlic' }).click()
+		await expect.element(field).toHaveValue('garlic')
+
+		const amount = screen.getByRole('toolbar', { name: 'amount' })
+
+		await amount.getByRole('button', { name: 'more' }).click()
+		await expect.element(field).toHaveValue('1 garlic')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.poll(() => list.items.map((item) => item.text))
+			.toEqual(['1 garlic'])
+	})
+
+	test('keeps the phone row open for the next item, and says where each went', async () => {
+		if (window.innerWidth >= 768) return
+		const { screen } = await renderRoute({ path: '/groceries', session })
+
+		const field = await addField(screen)
+		await expect.element(field).toHaveFocus()
+		await field.fill('milk')
+		// Drawn as the item it will be, with its picture once it is named.
+		await expectPageScreenshot(screen.container, 'groceries-draft')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.element(screen.getByText('added to dairy & eggs'))
+			.toBeVisible()
+		await expect.element(field).toHaveFocus()
+
+		// Enter on the empty row puts it away.
+		await userEvent.keyboard('{Enter}')
+		await expect.element(field).not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('button', { name: 'add items' }))
+			.toBeVisible()
+		expect(list.items.map((item) => item.text)).toEqual(['milk'])
+	})
+
+	test('deletes with undo, behind a swipe or in edit', async () => {
+		list.items = [make('1 onion')]
+		const { screen } = await renderRoute({ path: '/groceries', session })
+		const onion = screen.getByRole('checkbox', { name: '1 onion' })
+
+		await expect.element(onion).toBeVisible()
+		// The swipe's delete is out of reach until the row slides.
+		await expect
+			.element(screen.getByRole('button', { name: 'delete' }))
+			.toHaveAttribute('inert')
+
+		// Anywhere, edit deletes too.
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('checkbox', { name: 'select 1 onion' }).click()
+		await screen.getByRole('button', { name: 'delete' }).last().click()
+		await expect.element(onion).not.toBeInTheDocument()
 		expect(list.items).toEqual([])
+
+		await screen.getByRole('button', { name: 'undo' }).click()
+		await expect
+			.element(screen.getByRole('checkbox', { name: '1 onion' }))
+			.toBeVisible()
+		expect(list.items.map((item) => item.text)).toEqual(['1 onion'])
+	})
+
+	test('edits many items at once: bought or deleted', async () => {
+		list.items = [make('1 onion'), make('2 tbsp butter'), make('paprika')]
+		const { screen } = await renderRoute({ path: '/groceries', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+
+		const bar = screen.getByRole('toolbar', { name: 'editing' })
+		const action = (name: string) => screen.getByRole('button', { name })
+
+		// What to do shows once something is picked.
+		await expect.element(action('delete')).not.toBeInTheDocument()
+		await screen.getByRole('checkbox', { name: 'select 1 onion' }).click()
+		await screen.getByRole('checkbox', { name: 'select paprika' }).click()
+		await expect.element(bar.getByText('· 2 selected')).toBeVisible()
+		await expect
+			.element(bar.getByRole('checkbox', { name: /select all/ }))
+			.toBePartiallyChecked()
+		await expectPageScreenshot(screen.container, 'groceries-editing')
+
+		await action('delete').click()
+		await expect
+			.poll(() => list.items.map((item) => item.text))
+			.toEqual(['2 tbsp butter'])
+		await page.getByRole('button', { name: 'undo' }).click()
+		await expect.poll(() => list.items).toHaveLength(3)
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		await bar.getByRole('checkbox', { name: /select all/ }).click()
+		await action('bought').click()
+		await expect
+			.poll(() => list.items.every((item) => item.checkedAt))
+			.toBe(true)
+		await expect
+			.element(
+				screen
+					.getByRole('region', { name: 'in the cart' })
+					.getByRole('checkbox', { name: 'paprika' }),
+			)
+			.toBeChecked()
+	})
+
+	test('steps an amount on a phone without closing the row', async () => {
+		if (window.innerWidth >= 768) return
+		list.items = [make('1 onion')]
+		const { screen } = await renderRoute({ path: '/groceries', session })
+
+		await screen.getByRole('button', { name: 'add items' }).click()
+
+		const field = screen.getByRole('combobox', { name: 'add an item' })
+
+		await field.fill('milk')
+
+		// A phone takes focus off the field as the plus is touched, before its
+		// click; the row stays open and the plus still steps the amount.
+		const more = screen.getByRole('button', { name: 'more' })
+
+		more
+			.element()
+			.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+		field.element().dispatchEvent(new FocusEvent('blur'))
+		field.element().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+		await more.click()
+
+		await expect.element(field).toHaveValue('1 milk')
+		await expect.element(field).toHaveFocus()
+		expect(list.items.map((item) => item.text)).toEqual(['1 onion'])
 	})
 })
