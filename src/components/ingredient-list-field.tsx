@@ -326,6 +326,11 @@ export function IngredientListField({
 	// Where the caret goes once the rows have changed.
 	const caret = useRef<{ id: string; at: number }>(undefined)
 
+	// The lines, and the first card's id, as they were before the card took a
+	// name to be carried, put back if it is set down without moving, so its
+	// handle keeps the focus.
+	const beforeNaming = useRef<{ rows: Row[]; id: typeof looseId }>(undefined)
+
 	useLayoutEffect(() => {
 		const target = caret.current
 
@@ -1097,6 +1102,7 @@ export function IngredientListField({
 							// Picked up, the first card takes its default name.
 							glideNext(false, true)
 							hold(id)
+							beforeNaming.current = { rows, id: looseId }
 							const [named] = nameFirst()
 							change(() => named)
 							setCarrying(id)
@@ -1112,10 +1118,19 @@ export function IngredientListField({
 					onPutDown={() => {
 						glideNext(false, true)
 
+						const unmoved = beforeNaming.current
+						beforeNaming.current = undefined
+
+						if (unmoved) {
+							setLooseId(unmoved.id)
+							change(() => unmoved.rows)
+						}
+
 						if (carrying) hold(carrying)
 						setCarrying(undefined)
 					}}
 					onMove={(from, to) => {
+						beforeNaming.current = undefined
 						let list = rows
 						let target = rows.find((row) => row.id === sortableIds[to])
 						const moving = rows.find((row) => row.id === sortableIds[from])

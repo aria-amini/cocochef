@@ -848,6 +848,29 @@ describe('recipe detail', () => {
 			})
 	})
 
+	test('leaves the main card unnamed when it is picked up and put back', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '## sauce', '1 tbsp miso']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		screen
+			.getByRole('button', { name: /^Move main ingredients/ })
+			.element()
+			.focus()
+		await userEvent.keyboard('[Space]')
+		await userEvent.keyboard('{Escape}')
+		// The handle keeps the focus, and nothing changed, so there is nothing
+		// to save.
+		await expect
+			.element(screen.getByRole('button', { name: /^Move main ingredients/ }))
+			.toHaveFocus()
+		await expect
+			.element(screen.getByRole('button', { name: 'save', exact: true }))
+			.toBeDisabled()
+	})
+
 	test('carries a section above the main card, which takes its name', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200 g pasta', '## sauce', '1 tbsp miso']

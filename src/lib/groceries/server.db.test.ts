@@ -59,6 +59,20 @@ describe('groceries', () => {
 		expect(items[1]?.recipeTitle).toBe('pasta')
 	})
 
+	test('keeps the id a list gave an item, so a tick right away lands', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const id = crypto.randomUUID()
+
+		await addGroceriesForUser(userId, [{ id, text: 'milk' }], db)
+		await setGroceryCheckedForUser(userId, id, true, db)
+
+		const [milk] = await listGroceriesForUser(userId, db)
+		expect(milk?.id).toBe(id)
+		expect(milk?.checkedAt).not.toBeNull()
+	})
+
 	test('counts only the cook’s items still to buy', async ({ db }) => {
 		const userId = await seedUser(db)
 		const otherId = await seedUser(db)

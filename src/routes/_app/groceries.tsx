@@ -111,7 +111,7 @@ function Groceries() {
 		}
 
 		change({ kind: 'add', items: [draft] }, async () => {
-			await addGroceries({ data: [{ text }] })
+			await addGroceries({ data: [{ id: draft.id, text }] })
 		})
 	}
 

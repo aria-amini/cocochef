@@ -64,7 +64,7 @@ export async function addGroceriesForUser(
 		.insert(groceryItems)
 		.values(
 			fresh.map((row, index) => ({
-				id: crypto.randomUUID(),
+				id: row.id ?? crypto.randomUUID(),
 				userId,
 				text: row.text,
 				category: ingredientCategory(row.text),
