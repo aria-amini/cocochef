@@ -3,7 +3,7 @@ import type { z } from 'zod'
 
 type RecipeJson = z.infer<ReturnType<typeof z.json>>
 
-import { parseRecipe } from './parse'
+import { durationMinutes, parseRecipe } from './parse'
 
 const JSON_LD_PAGE = `
 <html><head>
@@ -377,5 +377,120 @@ describe('source ingredient sections', () => {
 			{ raw: '## sauce' },
 			{ raw: 'salt' },
 		])
+	})
+})
+
+describe('durationMinutes', () => {
+	test('reads the ISO 8601 durations recipe pages use', () => {
+		expect(durationMinutes('PT45M')).toBe(45)
+		expect(durationMinutes('PT1H30M')).toBe(90)
+		expect(durationMinutes('P0DT2H')).toBe(120)
+		expect(durationMinutes('P1D')).toBe(1440)
+	})
+
+	test('knows nothing from zero, nonsense, or nothing', () => {
+		expect(durationMinutes('PT0M')).toBeUndefined()
+		expect(durationMinutes('45 minutes')).toBeUndefined()
+		expect(durationMinutes(undefined)).toBeUndefined()
+	})
+})
+
+describe('recipe times', () => {
+	const timed = (times: Record<string, string>) =>
+		parseRecipe(
+			`<script type="application/ld+json">${JSON.stringify({
+				'@type': 'Recipe',
+				name: 'Dal',
+				recipeIngredient: ['1 cup red lentils'],
+				recipeInstructions: ['Simmer the lentils.'],
+				...times,
+			})}</script>`,
+		)
+
+	test('takes the total time a page gives', () => {
+		expect(timed({ totalTime: 'PT40M', prepTime: 'PT5M' })?.totalMinutes).toBe(
+			40,
+		)
+	})
+
+	test('adds prep and cook time when there is no total', () => {
+		expect(timed({ prepTime: 'PT10M', cookTime: 'PT25M' })?.totalMinutes).toBe(
+			35,
+		)
+		expect(timed({})?.totalMinutes).toBeUndefined()
+	})
+})
+
+describe('what readers said', () => {
+	const page = (graph: object[]) =>
+		parseRecipe(
+			`<script type="application/ld+json">${JSON.stringify({
+				'@context': 'https://schema.org',
+				'@graph': graph,
+			})}</script>`,
+		)
+
+	const dal = {
+		'@type': 'Recipe',
+		name: 'Dal',
+		recipeIngredient: ['1 cup red lentils'],
+		recipeInstructions: ['Simmer the lentils.'],
+	}
+
+	test('reads the stars, how many rated, and the comments around it', () => {
+		const recipe = page([
+			{ '@type': 'Article', commentCount: 337 },
+			{
+				...dal,
+				aggregateRating: {
+					'@type': 'AggregateRating',
+					ratingValue: '4.94',
+					ratingCount: '138',
+					reviewCount: '14',
+				},
+			},
+		])
+
+		expect(recipe?.rating).toEqual({ value: 4.94, count: 138 })
+		expect(recipe?.commentCount).toBe(337)
+	})
+
+	test('finds a rating the page gives in a block of its own', () => {
+		const recipe = parseRecipe(
+			[
+				dal,
+				{ aggregateRating: { ratingValue: 4, reviewCount: 8, bestRating: 5 } },
+			]
+				.map(
+					(block) =>
+						`<script type="application/ld+json">${JSON.stringify(block)}</script>`,
+				)
+				.join(''),
+		)
+
+		expect(recipe?.rating).toEqual({ value: 4, count: 8 })
+	})
+
+	test('takes a review count when there is no rating count', () => {
+		expect(
+			page([
+				{
+					...dal,
+					aggregateRating: { ratingValue: 4.6, reviewCount: '1,204' },
+				},
+			])?.rating,
+		).toEqual({ value: 4.6, count: 1204 })
+	})
+
+	test('ignores a rating nobody gave, or one out of range', () => {
+		expect(
+			page([{ ...dal, aggregateRating: { ratingValue: 5, ratingCount: 0 } }])
+				?.rating,
+		).toBeUndefined()
+		expect(
+			page([{ ...dal, aggregateRating: { ratingValue: 9, ratingCount: 3 } }])
+				?.rating,
+		).toBeUndefined()
+		expect(page([dal])?.commentCount).toBeUndefined()
 	})
 })

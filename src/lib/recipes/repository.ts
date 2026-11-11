@@ -447,6 +447,8 @@ export async function popularSharedRecipes(
 			title: recipes.title,
 			imageUrl: recipes.imageUrl,
 			sourceUrl: recipes.sourceUrl,
+			ratingValue: recipes.ratingValue,
+			ratingCount: recipes.ratingCount,
 		})
 		.from(recipes)
 		.leftJoin(saves, eq(saves.recipeId, recipes.id))
@@ -667,6 +669,9 @@ export async function createSharedRecipe(
 		imageUrl?: string | undefined
 		sourceUrl: string
 		sourceNotes?: string | undefined
+		totalMinutes?: number | undefined
+		rating?: { value: number; count: number } | undefined
+		commentCount?: number | undefined
 		ingredients?: string[] | undefined
 		steps?: string[] | undefined
 	},
@@ -684,6 +689,10 @@ export async function createSharedRecipe(
 				imageUrl: input.imageUrl ?? null,
 				sourceUrl: input.sourceUrl,
 				sourceNotes: input.sourceNotes ?? null,
+				totalMinutes: input.totalMinutes ?? null,
+				ratingValue: input.rating?.value ?? null,
+				ratingCount: input.rating?.count ?? null,
+				commentCount: input.commentCount ?? null,
 				createdAt: now,
 				finalizedAt: now,
 			})

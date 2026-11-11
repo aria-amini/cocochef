@@ -67,6 +67,9 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 		sourceNotes: null,
 		servings: null,
 		totalMinutes: null,
+		ratingValue: null,
+		ratingCount: null,
+		commentCount: null,
 		notes: null,
 		createdAt: new Date(),
 		finalizedAt: new Date(),
@@ -462,6 +465,50 @@ describe('the one box', () => {
 			.toBeVisible()
 		await expect.element(screen.getByText('more recipes')).toBeVisible()
 		expect(server.search).toHaveBeenCalledWith({ data: { q: 'lemon thighs' } })
+	})
+
+	test('shows how found recipes were rated, and puts the most loved first', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({ recipeId: 'shared-2', title: 'lemon tart' }),
+				found({
+					recipeId: 'shared-1',
+					title: 'lemon chicken',
+					rating: { value: 4.86, count: 1204 },
+				}),
+			],
+		})
+
+		const { screen, input } = await openBox()
+
+		await input.fill('lemon')
+		await expect
+			.element(
+				screen
+					.getByRole('option', { name: /lemon chicken/ })
+					.getByLabelText('rated 4.9 by 1204'),
+			)
+			.toBeVisible()
+		expect(
+			screen
+				.getByRole('option', { name: /lemon tart/ })
+				.getByLabelText(/^rated/)
+				.all(),
+		).toHaveLength(0)
+
+		const titles = () =>
+			screen
+				.getByRole('option', { name: /^lemon (tart|chicken)/ })
+				.elements()
+				.map((option) => /lemon (tart|chicken)/.exec(option.textContent)?.[0])
+
+		expect(titles()).toEqual(['lemon tart', 'lemon chicken'])
+		await screen.getByRole('button', { name: 'most loved' }).click()
+		await expect
+			.element(screen.getByRole('button', { name: 'most loved' }))
+			.toHaveAttribute('aria-pressed', 'true')
+		expect(titles()).toEqual(['lemon chicken', 'lemon tart'])
 	})
 
 	test('keeps hover previews free of actions until a recipe is selected', async () => {
@@ -899,11 +946,13 @@ describe('the one box, captured', () => {
 					recipeId: 'shared-1',
 					title: 'lemon pasta',
 					ingredientMatches: ['pasta'],
+					rating: { value: 4.86, count: 1204 },
 				}),
 				found({
 					title: 'pasta e fagioli',
 					url: 'https://www.bbcgoodfood.com/recipes/pasta-e-fagioli',
 					siteName: 'BBC Good Food',
+					rating: { value: 4, count: 87 },
 				}),
 			],
 		})

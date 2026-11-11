@@ -13,6 +13,11 @@ export type ImportedRecipe = {
 	ingredients: RecipeIngredient[]
 	steps: string[]
 	sourceNotes?: string | undefined
+	// How long the whole recipe takes, when the page says.
+	totalMinutes?: number | undefined
+	// What its readers said of it, when the page says.
+	rating?: { value: number; count: number } | undefined
+	commentCount?: number | undefined
 }
 
 // ===== Shared =====
@@ -431,6 +436,81 @@ const instructions = z
 	])
 	.catch([])
 
+// Minutes in an ISO 8601 duration such as "PT1H30M" or "P0DT45M". Pages
+// also write zero ("PT0M") for a time they do not know.
+export function durationMinutes(text: string | undefined) {
+	const match =
+		/^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:\d+(?:\.\d+)?S)?)?$/i.exec(
+			text?.trim() ?? '',
+		)
+
+	if (!match) return undefined
+
+	const [, days = '0', hours = '0', minutes = '0'] = match
+
+	const total = Math.round(
+		Number(days) * 24 * 60 + Number(hours) * 60 + Number(minutes),
+	)
+
+	return total > 0 ? total : undefined
+}
+
+const duration = z
+	.string()
+	.transform(durationMinutes)
+	.optional()
+	.catch(undefined)
+
+// A number a page may write as text ("4.94", "1,204").
+const pageNumber = z
+	.union([
+		z.number(),
+		z.string().transform((value) => Number(value.replace(/,/g, ''))),
+	])
+	.pipe(z.number().finite().nonnegative())
+
+const pageCount = pageNumber.pipe(z.number().int())
+
+// The stars a recipe's readers gave it. Publishers name the count either way,
+// and a rating nobody gave is no rating.
+const aggregateRating = z
+	.object({
+		ratingValue: pageNumber.pipe(z.number().max(5)),
+		ratingCount: pageCount.optional().catch(undefined),
+		reviewCount: pageCount.optional().catch(undefined),
+	})
+	.transform(({ ratingValue, ratingCount, reviewCount }) => {
+		const count = Math.max(ratingCount ?? 0, reviewCount ?? 0)
+
+		return count > 0 ? { value: ratingValue, count } : undefined
+	})
+	.optional()
+	.catch(undefined)
+
+const commentCount = pageCount.optional().catch(undefined)
+
+// A rating the page gives on its own, outside the recipe, when it gives one.
+function pageRating(nodes: z.infer<typeof jsonLdNode>[]) {
+	for (const node of nodes) {
+		const rating = aggregateRating.parse(node['aggregateRating'])
+
+		if (rating) return rating
+	}
+
+	return undefined
+}
+
+// The comments a page counts, on the recipe or on the article around it.
+function pageCommentCount(nodes: z.infer<typeof jsonLdNode>[]) {
+	const counts = nodes.flatMap((node) => {
+		const count = commentCount.parse(node['commentCount'])
+
+		return count === undefined ? [] : [count]
+	})
+
+	return counts.length ? Math.max(...counts) : undefined
+}
+
 const recipeFields = z.object({
 	name: z
 		.string()
@@ -439,6 +519,10 @@ const recipeFields = z.object({
 	image,
 	recipeIngredient: ingredientList,
 	recipeInstructions: instructions,
+	totalTime: duration,
+	prepTime: duration,
+	cookTime: duration,
+	aggregateRating,
 })
 
 function parseJsonLd(html: string): ImportedRecipe | null {
@@ -446,35 +530,39 @@ function parseJsonLd(html: string): ImportedRecipe | null {
 		/<script\b[^>]*\btype\s*=\s*("application\/ld\+json"|'application\/ld\+json')[^>]*>([\s\S]*?)<\/script>/gi,
 	)
 
-	for (const block of blocks) {
-		let json: unknown
-
+	// Every node on the page: some publishers put the recipe's rating or the
+	// article's comments in a block of their own beside the recipe.
+	const nodes = [...blocks].flatMap((block) => {
 		try {
-			json = JSON.parse(block[2] ?? '')
+			const parsed = z.json().safeParse(JSON.parse(block[2] ?? ''))
+
+			return parsed.success ? [...candidateNodes(parsed.data)] : []
 		} catch {
-			continue
+			return []
 		}
+	})
 
-		const parsed = z.json().safeParse(json)
+	for (const node of nodes) {
+		if (!node['@type']?.includes('recipe')) continue
 
-		if (!parsed.success) continue
+		const fields = recipeFields.parse(node)
 
-		for (const node of candidateNodes(parsed.data)) {
-			if (!node['@type']?.includes('recipe')) continue
+		if (!fields.name) continue
 
-			const fields = recipeFields.parse(node)
-
-			if (!fields.name) continue
-
-			return {
-				title: fields.name,
-				imageUrl: fields.image,
-				ingredients: withHtmlIngredientGroups(
-					html,
-					fields.recipeIngredient,
-				).map((raw) => ({ raw })),
-				steps: fields.recipeInstructions,
-			}
+		return {
+			title: fields.name,
+			imageUrl: fields.image,
+			ingredients: withHtmlIngredientGroups(html, fields.recipeIngredient).map(
+				(raw) => ({ raw }),
+			),
+			steps: fields.recipeInstructions,
+			totalMinutes:
+				fields.totalTime ??
+				(fields.prepTime || fields.cookTime
+					? (fields.prepTime ?? 0) + (fields.cookTime ?? 0)
+					: undefined),
+			rating: fields.aggregateRating ?? pageRating(nodes),
+			commentCount: pageCommentCount(nodes),
 		}
 	}
 
