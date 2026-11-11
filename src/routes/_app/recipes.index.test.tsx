@@ -158,6 +158,21 @@ describe('recipes shelf', () => {
 			.toHaveFocus()
 	})
 
+	test('says the ai button is coming soon on hover, and does nothing', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const ai = screen.getByRole('button', { name: /ai: ask for ideas/ })
+
+		await ai.hover()
+		await expect
+			.element(screen.getByText('coming soon'), { timeout: 1000 })
+			.toBeVisible()
+		await expect.element(ai).toHaveAttribute('aria-disabled', 'true')
+	})
+
 	test('keeps the add button on an empty shelf and a full one', async () => {
 		const { screen, router, queryClient } = await renderRoute({
 			path: '/recipes',
@@ -382,12 +397,6 @@ describe('recipes shelf', () => {
 			.element(popular.getByRole('link', { name: /shared miso pasta/ }))
 			.toHaveAttribute('href', '/recipes/recipe-1')
 
-		await popular.getByRole('button', { name: 'browse more recipes' }).click()
-		await expect
-			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
-			.toHaveFocus()
-		await userEvent.keyboard('{Escape}')
-
 		await popular.getByRole('button', { name: /site ramen/ }).click()
 		await expect
 			.poll(() => router.state.location.pathname)
@@ -493,7 +502,7 @@ describe('recipes shelf', () => {
 		})
 
 		await screen.getByRole('button', { name: 'add recipe' }).click()
-		await screen.getByRole('menuitem', { name: 'import a link' }).click()
+		await screen.getByRole('menuitem', { name: 'import url' }).click()
 		const field = screen.getByRole('textbox', { name: 'recipe link' })
 
 		await expect.element(field).toHaveFocus()

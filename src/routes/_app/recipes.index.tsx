@@ -1,3 +1,4 @@
+import { Tooltip } from '@base-ui/react/tooltip'
 import {
 	MagnifyingGlassIcon,
 	ArrowRightIcon,
@@ -160,29 +161,39 @@ function Shelf() {
 	)
 }
 
-// Where the recipe chat will open, beside the search it complements, with its
-// beta chip on the button's top edge. Until the chat lands it is shown but not
-// yet usable.
+// Where an assistant may open one day, beside the search, with its beta chip on
+// the button's top edge. Until then it is greyed out, does nothing, and says
+// "coming soon" at once on hover or focus.
 function AskForIdeas() {
 	return (
-		<button
-			type="button"
-			disabled
-			title="coming soon"
-			aria-label="ai: ask for ideas (coming soon)"
-			className="border-input bg-card relative inline-flex shrink-0 cursor-default items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold"
-		>
-			<RobotIcon
-				size={20}
-				weight="duotone"
-				aria-hidden
-				className="text-kitchen-eggplant"
-			/>
-			ai
-			<Badge size="small" tone="beta" className="absolute -top-2 -right-1.5">
-				beta
-			</Badge>
-		</button>
+		<Tooltip.Root>
+			{/* aria-disabled, not disabled: a disabled button gets no hover or
+			    focus, so it could never say why it does nothing. */}
+			<Tooltip.Trigger
+				delay={150}
+				render={
+					<button
+						type="button"
+						aria-disabled
+						aria-label="ai: ask for ideas (coming soon)"
+						className="border-input bg-card text-muted-foreground relative inline-flex shrink-0 cursor-default items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold opacity-60"
+					/>
+				}
+			>
+				<RobotIcon size={20} weight="duotone" aria-hidden />
+				ai
+				<Badge size="small" tone="beta" className="absolute -top-2 -right-1.5">
+					beta
+				</Badge>
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner side="bottom" sideOffset={6} className="z-50">
+					<Tooltip.Popup className="floating bg-background px-2.5 py-1 text-xs font-semibold">
+						coming soon
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	)
 }
 

@@ -282,18 +282,12 @@ describe('app nav', () => {
 			// Every way to add a recipe of your own sits behind it.
 			await add.click()
 
-			for (const name of [
-				'write a blank recipe',
-				'import a link',
-				'paste recipe text',
-			])
+			for (const name of ['blank recipe', 'import url', 'paste text'])
 				await expect
 					.element(screen.getByRole('menuitem', { name }))
 					.toBeVisible()
 
-			await screen
-				.getByRole('menuitem', { name: 'write a blank recipe' })
-				.click()
+			await screen.getByRole('menuitem', { name: 'blank recipe' }).click()
 			await expect
 				.poll(() => router.state.location.pathname)
 				.toBe('/recipes/new')
