@@ -88,7 +88,11 @@ vi.mock('@/lib/recipes/server', () => ({
 	},
 }))
 
-type GroceryInput = { text: string; recipeId?: string; recipeTitle?: string }
+type GroceryInput = {
+	text: string
+	recipeId?: string
+	recipeTitle?: string
+}
 
 const groceryCalls = vi.hoisted(() => {
 	const calls: GroceryInput[][] = []
@@ -103,6 +107,53 @@ const groceryWaiting = vi.hoisted(() => {
 
 	return { count: 0, items }
 })
+
+type KeptFood = {
+	name: string
+	level: 'plenty' | 'low' | 'out'
+	stale: boolean
+	confirmedAt: Date
+}
+
+const pantryState = vi.hoisted(() => {
+	const items: KeptFood[] = []
+	const learned: { text: string }[][] = []
+	const marked: string[] = []
+
+	return { items, learned, marked }
+})
+
+const kept = (
+	name: string,
+	level: KeptFood['level'] = 'plenty',
+	stale = false,
+): KeptFood => ({
+	name,
+	level,
+	stale,
+	confirmedAt: new Date('2026-03-02T12:00:00Z'),
+})
+
+vi.mock('@/lib/pantry/server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
+	// Copies, as the server sends, so a change shows up after a refetch.
+	pantryOnHand: () => Promise.resolve([...pantryState.items]),
+	restockPantry: ({ data }: { data: { text: string }[] }) => {
+		pantryState.learned.push(data.map(({ text }) => ({ text })))
+
+		return Promise.resolve({ restocked: 0, added: data.length })
+	},
+	markHave: ({ data }: { data: { text: string } }) => {
+		pantryState.marked.push(data.text)
+		pantryState.items.push(kept(data.text))
+
+		return Promise.resolve({ id: 'new', created: true, level: null })
+	},
+}))
+
+// The recipe's groceries button, whatever count it shows.
+const shopButton = (screen: { getByRole: typeof page.getByRole }) =>
+	screen.getByRole('button', { name: /to groceries|more$/ })
 
 vi.mock('@/lib/groceries/server', () => ({
 	listGroceries: () => Promise.resolve(groceryWaiting.items),
@@ -153,6 +204,9 @@ function fillRecipe() {
 
 describe('recipe detail', () => {
 	beforeEach(() => {
+		// No kitchen unless a test stocks one.
+		pantryState.items = []
+		groceryWaiting.items = []
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
@@ -338,26 +392,30 @@ describe('recipe detail', () => {
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		groceryCalls.length = 0
-		await screen.getByRole('button', { name: 'add to groceries' }).click()
+		pantryState.learned.length = 0
+		await screen
+			.getByRole('button', { name: 'add 3 to groceries, 0 of 3 on your list' })
+			.click()
 
-		// Every line shows ticked, without its preparation or section names.
+		// Every line shows ticked, as it is bought: no preparation, no section
+		// names, no spoonfuls for what comes in a package.
 		const review = page.getByRole('dialog', { name: 'add groceries' })
 		const line = (name: string) => review.getByRole('checkbox', { name })
 
-		await expect.element(line('200 g pasta')).toBeChecked()
-		await expect.element(line('2 cloves garlic')).toBeChecked()
-		await expect.element(line('1 tbsp miso')).toBeChecked()
-		await expect.element(review.getByText('3 of 3')).toBeVisible()
+		await expect.element(line('pasta')).toBeChecked()
+		await expect.element(line('1 head garlic')).toBeChecked()
+		await expect.element(line('miso')).toBeChecked()
 
-		// What the kitchen has is unticked, and the count says so.
-		await review.getByText('1 tbsp miso').click()
-		await expect.element(line('1 tbsp miso')).not.toBeChecked()
-		await expect.element(review.getByText('2 of 3')).toBeVisible()
+		// What the kitchen has is unticked.
+		await review.getByText('miso', { exact: true }).click()
+		await expect.element(line('miso')).not.toBeChecked()
 		expect(groceryCalls).toEqual([])
 		await expectIsolatedScreenshot(review, 'add-to-groceries')
 
-		await review.getByRole('button', { name: 'add 2 of 3' }).click()
+		await review.getByRole('button', { name: 'add 2' }).click()
 		await expect.element(review).not.toBeInTheDocument()
+		// Unticking it said the kitchen has it: the pantry learns so.
+		await expect.poll(() => pantryState.learned).toEqual([[{ text: 'miso' }]])
 		await expect.element(page.getByText('2 added to groceries')).toBeVisible()
 		// The groceries tab says how many landed, without leaving the recipe.
 		await expect
@@ -368,12 +426,12 @@ describe('recipe detail', () => {
 		expect(groceryCalls).toEqual([
 			[
 				{
-					text: '200 g pasta',
+					text: 'pasta',
 					recipeId: 'recipe-1',
 					recipeTitle: 'miso butter pasta',
 				},
 				{
-					text: '2 cloves garlic',
+					text: '1 head garlic',
 					recipeId: 'recipe-1',
 					recipeTitle: 'miso butter pasta',
 				},
@@ -392,21 +450,170 @@ describe('recipe detail', () => {
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		await screen.getByRole('button', { name: 'add to groceries' }).click()
+		await screen
+			.getByRole('button', { name: 'add 1 to groceries, 1 of 2 on your list' })
+			.click()
 
 		const review = page.getByRole('dialog', { name: 'add groceries' })
 
 		await expect
-			.element(review.getByRole('checkbox', { name: /2 cloves garlic/ }))
-			.not.toBeChecked()
+			.element(
+				review
+					.getByRole('region', { name: 'already have' })
+					.getByRole('button', { name: 'buy 1 head garlic anyway' }),
+			)
+			.toBeVisible()
 		await expect.element(review.getByText('on your list')).toBeVisible()
 		await expect
-			.element(review.getByText('1 of 2 · 1 already on your list'))
-			.toBeVisible()
-		await expect
-			.element(review.getByRole('checkbox', { name: /200 g pasta/ }))
+			.element(review.getByRole('checkbox', { name: /pasta/ }))
 			.toBeChecked()
 		groceryWaiting.items = []
+	})
+
+	test('leads to the list once it holds all the recipe still needs', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 cloves garlic', '1 cup milk']
+		groceryWaiting.items = [{ text: '1 cup milk', checkedAt: null }]
+		pantryState.items = [kept('garlic')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(
+				screen.getByRole('link', {
+					name: 'all 1 on your list: groceries list',
+				}),
+			)
+			.toHaveAttribute('href', '/groceries')
+
+		groceryWaiting.items = []
+		pantryState.items = []
+	})
+
+	test('offers no groceries when the kitchen has it all', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 cloves garlic', '1 cup milk']
+		groceryWaiting.items = []
+		pantryState.items = [kept('garlic'), kept('milk')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(screen.getByRole('button', { name: /groceries|more$/ }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('link', { name: /groceries list/ }))
+			.not.toBeInTheDocument()
+		pantryState.items = []
+	})
+
+	test('marks what the kitchen has, and what it needs, a tap from had', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'2 cloves garlic, minced',
+			'1 cup milk',
+			'2 cups flour',
+			'2 lb short ribs',
+			'1 ripe avocado',
+			'1 cup water',
+		]
+		groceryWaiting.items = [{ text: '2 lb short ribs', checkedAt: null }]
+		pantryState.items = [
+			kept('garlic'),
+			kept('milk', 'low'),
+			kept('flour', 'plenty', true),
+		]
+		pantryState.marked.length = 0
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		const ingredients = screen.getByRole('table', { name: 'ingredients' })
+
+		await expect.element(ingredients.getByText('have it')).toBeVisible()
+		await expect.element(ingredients.getByText('running low')).toBeVisible()
+		await expect.element(ingredients.getByText('on list')).toBeVisible()
+		await expect
+			.element(
+				ingredients.getByRole('button', {
+					name: 'had it in march: mark as have it',
+				}),
+			)
+			.toBeVisible()
+
+		// Water is never counted, nor what the kitchen has: of the four to shop
+		// for, one is on the list, and the button adds the other three.
+		const count = screen.getByRole('heading', { name: 'ingredients' })
+
+		const shop = screen.getByRole('button', {
+			name: 'add 3 to groceries, 1 of 4 on your list',
+		})
+
+		await expect.element(shop).toHaveTextContent('1/4·add 3')
+
+		// Short enough that the groceries button stays beside it, even on a phone.
+		const middle = (element: Element) => {
+			const box = element.getBoundingClientRect()
+
+			return box.top + box.height / 2
+		}
+
+		expect(
+			Math.abs(middle(count.element()) - middle(shop.element())),
+		).toBeLessThan(8)
+		await expectPageScreenshot(screen.container, 'pantry-marks')
+
+		// Bought without the app knowing: one tap says so.
+		await ingredients
+			.getByRole('button', { name: 'need: mark as have it' })
+			.click()
+		await expect.poll(() => pantryState.marked).toEqual(['1 ripe avocado'])
+
+		const fewer = screen.getByRole('button', {
+			name: 'add 2 to groceries, 1 of 3 on your list',
+		})
+
+		await expect.element(fewer).toBeVisible()
+		await fewer.click()
+
+		const review = page.getByRole('dialog', { name: 'add groceries' })
+		const toBuy = review.getByRole('region', { name: 'to buy' })
+		const have = review.getByRole('region', { name: 'already have' })
+
+		// A line's name ends with what the kitchen says of it.
+		const line = (group: typeof toBuy, name: string) =>
+			group.getByRole('checkbox', { name: new RegExp(`^${name}`) })
+
+		await expect.element(line(toBuy, 'milk')).toBeChecked()
+		await expect.element(line(toBuy, 'flour')).toBeChecked()
+		await expectIsolatedScreenshot(review, 'add-to-groceries-grouped')
+
+		// What the kitchen has is a plus from buying anyway, ticked where it
+		// stands; unticked, it is a plus again.
+		for (const name of ['1 head garlic', '2 lb short ribs', '1 ripe avocado'])
+			await expect
+				.element(have.getByRole('button', { name: `buy ${name} anyway` }))
+				.toBeVisible()
+
+		await have.getByRole('button', { name: 'buy 1 head garlic anyway' }).click()
+		await expect.element(line(have, '1 head garlic')).toBeChecked()
+		await expect.element(line(have, '1 head garlic extra')).toBeVisible()
+		await expectIsolatedScreenshot(review, 'add-to-groceries-extra')
+		await expect
+			.element(review.getByRole('button', { name: 'add 3' }))
+			.toBeVisible()
+		await line(have, '1 head garlic').click()
+		await expect
+			.element(have.getByRole('button', { name: 'buy 1 head garlic anyway' }))
+			.toBeVisible()
+
+		// Bought anyway, it goes on the list with the rest.
+		await have.getByRole('button', { name: 'buy 1 head garlic anyway' }).click()
+		groceryCalls.length = 0
+		await review.getByRole('button', { name: 'add 3' }).click()
+		await expect
+			.poll(() => groceryCalls[0]?.map(({ text }) => text))
+			.toEqual(['1 head garlic', 'milk', 'flour'])
+		groceryWaiting.items = []
+		pantryState.items = []
 	})
 
 	test('scrolls a long grocery list inside the dialog, its button in reach', async () => {
@@ -419,11 +626,11 @@ describe('recipe detail', () => {
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		await screen.getByRole('button', { name: 'add to groceries' }).click()
+		await shopButton(screen).click()
 
 		const review = page.getByRole('dialog', { name: 'add groceries' })
-		const list = review.getByRole('list', { name: 'items to add' })
-		const add = review.getByRole('button', { name: 'add all 24' })
+		const list = review.getByRole('group', { name: 'items to add' })
+		const add = review.getByRole('button', { name: 'add 24' })
 
 		await expect.element(add).toBeVisible()
 
@@ -441,13 +648,10 @@ describe('recipe detail', () => {
 		)
 		await expectIsolatedScreenshot(review, 'add-to-groceries-long')
 
-		// None, then all, for a long list.
-		await review.getByRole('button', { name: 'none' }).click()
+		await review.getByText('ingredient number 1', { exact: true }).click()
 		await expect
-			.element(review.getByRole('button', { name: 'add 0 of 24' }))
-			.toBeDisabled()
-		await review.getByRole('button', { name: 'all' }).click()
-		await expect.element(add).toBeEnabled()
+			.element(review.getByRole('button', { name: 'add 23' }))
+			.toBeEnabled()
 	})
 
 	test('shows specific and family icons while leaving unknown ingredients empty', async () => {

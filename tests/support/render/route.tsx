@@ -22,6 +22,8 @@ type RouteTarget =
 export type RouteTestOptions = RouteTarget & {
 	session?: MockSession
 	setup?: () => Promise<void> | void
+	// What this browser remembers when the page opens; storage starts empty.
+	localStorage?: Record<string, string>
 }
 
 type RenderedRoute = {
@@ -63,6 +65,9 @@ export async function renderRoute(
 	await router.load()
 
 	localStorage.clear()
+
+	for (const [key, value] of Object.entries(options.localStorage ?? {}))
+		localStorage.setItem(key, value)
 	// The recipe last opened is remembered for the browser tab's session.
 	forgetRecipe()
 	// Toasts live in a module-level store, so one test's would show in the next.

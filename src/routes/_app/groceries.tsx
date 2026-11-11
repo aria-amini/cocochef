@@ -27,6 +27,7 @@ import { toast } from 'sonner'
 import { groceryCountKey } from '@/components/grocery-badge'
 import { GroceryField, useGroceryComposer } from '@/components/grocery-entry'
 import { PantrySprite } from '@/components/pantry-sprite'
+import { PutAway } from '@/components/put-away'
 import { buttonVariants } from '@/components/ui/button'
 import { sameItem, type GroceryInput } from '@/lib/groceries/model'
 import {
@@ -107,6 +108,7 @@ function Groceries() {
 	const client = useQueryClient()
 	const saved = Route.useLoaderData()
 	const [items, apply] = useOptimistic(saved, applyChange)
+	const [puttingAway, setPuttingAway] = useState(false)
 	// Select mode: tap rows to pick them, then act on them all at once.
 	const [selecting, setSelecting] = useState(false)
 	const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set())
@@ -324,6 +326,28 @@ function Groceries() {
 						</div>
 					)
 				) : null}
+				{!selecting && !waiting.length && inCart.length ? (
+					<section
+						aria-labelledby="all-in-cart"
+						className="border-border bg-card flex flex-wrap items-center gap-3 rounded-xl border p-4"
+					>
+						<div className="flex min-w-0 flex-1 flex-col">
+							<h2 id="all-in-cart" className="text-base font-bold">
+								all in the cart
+							</h2>
+							<p className="text-muted-foreground text-sm font-semibold">
+								put it away, and your ingredients keep up
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={() => setPuttingAway(true)}
+							className={buttonVariants({ className: 'min-h-11' })}
+						>
+							put away
+						</button>
+					</section>
+				) : null}
 				{selecting ? null : (
 					<>
 						<GroceryField onAdd={add} inputRef={field} />
@@ -373,21 +397,20 @@ function Groceries() {
 							<h2 className="text-muted-foreground text-sm font-bold">
 								in the cart · {inCart.length}
 							</h2>
-							<button
-								type="button"
-								onClick={() =>
-									change({ kind: 'clear' }, async () => {
-										await clearCheckedGroceries()
-									})
-								}
-								className={buttonVariants({
-									variant: 'ghost',
-									size: 'icon-sm',
-									className: 'w-auto px-2.5',
-								})}
-							>
-								clear
-							</button>
+							{/* Mid-trip, what is bought can go away early. */}
+							{waiting.length ? (
+								<button
+									type="button"
+									onClick={() => setPuttingAway(true)}
+									className={buttonVariants({
+										variant: 'ghost',
+										size: 'icon-sm',
+										className: 'w-auto px-2.5',
+									})}
+								>
+									put away
+								</button>
+							) : null}
 						</div>
 						<ul className="divide-border border-input divide-y rounded-xl border border-dashed">
 							<AnimatePresence initial={false}>
@@ -395,6 +418,17 @@ function Groceries() {
 							</AnimatePresence>
 						</ul>
 					</section>
+				) : null}
+				{puttingAway ? (
+					<PutAway
+						items={inCart}
+						onClear={() =>
+							change({ kind: 'clear' }, async () => {
+								await clearCheckedGroceries()
+							})
+						}
+						onClose={() => setPuttingAway(false)}
+					/>
 				) : null}
 			</div>
 		</main>

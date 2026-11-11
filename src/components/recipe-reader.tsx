@@ -10,12 +10,19 @@ import { Fragment, useState } from 'react'
 
 import { AddToGroceries } from '@/components/grocery-send'
 import { IngredientText } from '@/components/ingredient-text'
+import { KitchenTag } from '@/components/kitchen-tag'
 import { PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { compactCount, RecipeRating } from '@/components/recipe-rating'
+import {
+	useMarkHave,
+	usePantry,
+	useWaitingGroceries,
+} from '@/components/use-pantry'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
+import { lineStatus } from '@/lib/pantry/status'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import type { IngredientCategories } from '@/lib/recipes/model'
 import { formatMinutes } from '@/lib/recipes/model'
@@ -85,6 +92,17 @@ export function RecipeReader({
 	)
 
 	const RowBody = 'label'
+
+	// What the kitchen has of each line, for a reader who keeps a pantry or a
+	// list. A reader with neither sees no marks: "need" on every line would
+	// say nothing.
+	const pantry = usePantry(shop).data ?? []
+	const waiting = useWaitingGroceries(shop).data ?? []
+	const knows = pantry.length > 0 || waiting.length > 0
+	const markHave = useMarkHave()
+
+	const statusOf = (line: string) =>
+		knows ? lineStatus(line, pantry, waiting) : undefined
 
 	const stepBox = (
 		text: string,
@@ -264,6 +282,11 @@ export function RecipeReader({
 															) : null}
 														</span>
 														<IngredientText text={row.text} done={done} />
+														<KitchenTag
+															status={statusOf(row.text)}
+															onHave={() => void markHave(row.text)}
+															className="mt-1.5"
+														/>
 													</label>
 												</td>
 											</tr>

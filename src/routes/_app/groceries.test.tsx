@@ -34,6 +34,21 @@ const make = (text: string, extra: Partial<Item> = {}): Item => ({
 	...extra,
 })
 
+const restocked = vi.hoisted(() => {
+	const calls: { text: string; category: string }[][] = []
+
+	return { calls }
+})
+
+vi.mock('@/lib/pantry/server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
+	restockPantry: ({ data }: { data: { text: string; category: string }[] }) => {
+		restocked.calls.push(data)
+
+		return Promise.resolve({ restocked: 0, added: data.length })
+	},
+}))
+
 vi.mock('@/lib/groceries/server', () => ({
 	listGroceries: () => Promise.resolve(list.items),
 	countWaitingGroceries: () =>
@@ -94,6 +109,7 @@ const session = {
 describe('groceries', () => {
 	beforeEach(() => {
 		list.items = []
+		restocked.calls.length = 0
 	})
 
 	test('invites an empty list to add, not to go elsewhere', async () => {
@@ -171,7 +187,11 @@ describe('groceries', () => {
 					.getByRole('checkbox', { name: '1 onion' }),
 			)
 			.toBeChecked()
-		// The top says how the shop goes, and leads to the cart.
+		// Mid-trip there is no prompt yet, just the cart filling, and the top
+		// says how the shop goes and leads to the cart.
+		await expect
+			.element(screen.getByRole('heading', { name: 'all in the cart' }))
+			.not.toBeInTheDocument()
 		await expect
 			.element(
 				screen.getByRole('button', { name: '1 in the cart: go to the cart' }),
@@ -179,7 +199,11 @@ describe('groceries', () => {
 			.toBeVisible()
 		await expectPageScreenshot(screen.container, 'groceries-shopping')
 
-		await screen.getByRole('button', { name: 'clear' }).click()
+		await screen.getByRole('button', { name: 'put away' }).click()
+		await page
+			.getByRole('dialog', { name: 'put away' })
+			.getByRole('button', { name: 'put away 1 and clear' })
+			.click()
 		await expect
 			.element(screen.getByRole('region', { name: 'in the cart' }))
 			.not.toBeInTheDocument()
@@ -233,6 +257,67 @@ describe('groceries', () => {
 		await expect
 			.element(screen.getByRole('checkbox', { name: '2 onions' }))
 			.toBeVisible()
+	})
+
+	test('ends the trip once everything is in the cart', async () => {
+		list.items = [make('1 onion'), make('soy sauce', { checkedAt: new Date() })]
+		const { screen } = await renderRoute({ path: '/groceries', session })
+
+		await screen.getByRole('checkbox', { name: '1 onion' }).click()
+
+		const done = screen.getByRole('region', { name: 'all in the cart' })
+
+		await expect.element(done).toBeVisible()
+		await expectPageScreenshot(screen.container, 'groceries-done')
+		await done.getByRole('button', { name: 'put away' }).click()
+		await expect
+			.element(page.getByRole('dialog', { name: 'put away' }))
+			.toBeVisible()
+	})
+
+	test('puts everything bought away in the pantry, dated today', async () => {
+		list.items = [
+			make('2 lb short ribs', {
+				recipeTitle: 'braised short ribs',
+				checkedAt: new Date(),
+			}),
+			make('1 bag rice', { checkedAt: new Date() }),
+			make('soy sauce', { checkedAt: new Date() }),
+		]
+
+		const { screen } = await renderRoute({ path: '/groceries', session })
+
+		await screen.getByRole('button', { name: 'put away' }).click()
+
+		const sheet = page.getByRole('dialog', { name: 'put away' })
+
+		const line = (name: string) =>
+			sheet.getByRole('checkbox', { name: new RegExp(`^${name}`) })
+
+		await expect.element(line('1 bag rice')).toBeChecked()
+		await expect.element(line('soy sauce')).toBeChecked()
+		await expect.element(line('2 lb short ribs')).toBeChecked()
+		await expect
+			.element(sheet.getByText('for braised short ribs'))
+			.toBeVisible()
+
+		// Leaving one out keeps it out of the pantry.
+		await line('soy sauce').click()
+		await expect
+			.element(sheet.getByText('2 of 3 into your ingredients'))
+			.toBeVisible()
+
+		await sheet.getByRole('button', { name: 'put away 2 and clear' }).click()
+		await expect.element(sheet).not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('region', { name: 'in the cart' }))
+			.not.toBeInTheDocument()
+		expect(restocked.calls).toEqual([
+			[
+				{ text: '2 lb short ribs', category: 'other' },
+				{ text: '1 bag rice', category: 'grains' },
+			],
+		])
 	})
 
 	test('finishes a food from its first letters, and steps its amount', async () => {
@@ -335,12 +420,8 @@ describe('groceries', () => {
 			.poll(() => list.items.every((item) => item.checkedAt))
 			.toBe(true)
 		await expect
-			.element(
-				screen
-					.getByRole('region', { name: 'in the cart' })
-					.getByRole('checkbox', { name: 'paprika' }),
-			)
-			.toBeChecked()
+			.element(screen.getByRole('region', { name: 'all in the cart' }))
+			.toBeVisible()
 	})
 
 	test('steps an amount on a phone without closing the row', async () => {

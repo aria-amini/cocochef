@@ -165,7 +165,6 @@ function SectionPicker({
 			const created = await createPantryItems({
 				data: [...selected].map((name) => ({
 					name,
-					quantity: 1,
 					category: section.id,
 				})),
 			})
