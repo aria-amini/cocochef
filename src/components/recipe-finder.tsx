@@ -231,6 +231,13 @@ function FinderPanel({
 	const [error, setError] = useState<string>()
 	// Site pages brought in for a look, by link, so they keep their recipe.
 	const [resolved, setResolved] = useState<Record<string, string>>({})
+
+	// What those pages said of their readers, so the row and its preview show
+	// the stars once a page is read.
+	const [readRatings, setReadRatings] = useState<
+		Record<string, FoundRecipe['rating']>
+	>({})
+
 	const [looking, setLooking] = useState<string>()
 	const [lookErrors, setLookErrors] = useState<Record<string, string>>({})
 	const trimmed = value.trim()
@@ -265,8 +272,14 @@ function FinderPanel({
 		options.push(...added)
 	}
 
+	// A site page's row takes the rating its page gave, once it is read.
+	const rated = (recipe: FoundRecipe): FoundRecipe =>
+		recipe.rating || !recipe.url || !readRatings[recipe.url]
+			? recipe
+			: { ...recipe, rating: readRatings[recipe.url] }
+
 	const asOptions = (recipes: FoundRecipe[]) =>
-		recipes.map((recipe): Option => ({ kind: 'recipe', recipe }))
+		recipes.map((recipe): Option => ({ kind: 'recipe', recipe: rated(recipe) }))
 
 	if (url) {
 		section('', [{ kind: 'link', url }])
@@ -302,7 +315,9 @@ function FinderPanel({
 			: online.results.filter((recipe) => recipe.saved)
 
 		const ranked = (recipes: FoundRecipe[]) =>
-			loved ? byLoved(recipes, (recipe) => lovedScore(recipe.rating)) : recipes
+			loved
+				? byLoved(recipes, (recipe) => lovedScore(rated(recipe).rating))
+				: recipes
 
 		section('on your shelf', asOptions(ranked(fromServer).slice(0, shelfLimit)))
 		section(
@@ -325,7 +340,7 @@ function FinderPanel({
 
 	const current: Option | undefined =
 		previewing && selected
-			? { kind: 'recipe', recipe: selected }
+			? { kind: 'recipe', recipe: rated(selected) }
 			: options[active]
 
 	const lookUrl =
@@ -345,9 +360,10 @@ function FinderPanel({
 		const timer = setTimeout(() => {
 			setLooking(lookUrl)
 			importRecipe({ data: { url: lookUrl, keep: false } })
-				.then((recipe) =>
-					setResolved((known) => ({ ...known, [lookUrl]: recipe.id })),
-				)
+				.then((recipe) => {
+					setResolved((known) => ({ ...known, [lookUrl]: recipe.id }))
+					keepRating(lookUrl, recipe)
+				})
 				.catch((cause: unknown) => {
 					const message =
 						cause instanceof Error ? cause.message : "couldn't read that page"
@@ -373,6 +389,17 @@ function FinderPanel({
 			clearTimeout(timer)
 		}
 	}, [lookUrl, lookErrors])
+
+	function keepRating(
+		pageUrl: string,
+		recipe: { ratingValue: number | null; ratingCount: number | null },
+	) {
+		if (recipe.ratingValue === null || !recipe.ratingCount) return
+
+		const rating = { value: recipe.ratingValue, count: recipe.ratingCount }
+
+		setReadRatings((known) => ({ ...known, [pageUrl]: rating }))
+	}
 
 	const idOf = (recipe: FoundRecipe) =>
 		recipe.recipeId ?? (recipe.url ? resolved[recipe.url] : undefined)
@@ -410,6 +437,7 @@ function FinderPanel({
 		const pageUrl = recipe.url
 
 		setResolved((current) => ({ ...current, [pageUrl]: brought.id }))
+		keepRating(pageUrl, brought)
 
 		return brought.id
 	}

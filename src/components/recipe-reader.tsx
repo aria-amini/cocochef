@@ -374,7 +374,8 @@ function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
 				className="hover:text-foreground inline-flex items-center gap-1 underline"
 			>
 				<ChatCircleIcon size={14} aria-hidden />
-				{compactCount(recipe.commentCount)} comments
+				{compactCount(recipe.commentCount)}{' '}
+				{recipe.commentCount === 1 ? 'comment' : 'comments'}
 			</a>
 		) : null,
 		recipe.servings ? (

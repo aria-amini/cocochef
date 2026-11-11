@@ -471,6 +471,26 @@ describe('what readers said', () => {
 		expect(recipe?.rating).toEqual({ value: 4, count: 8 })
 	})
 
+	test('never takes the rating or comments of something else on the page', () => {
+		const recipe = page([
+			{ ...dal, commentCount: 3 },
+			{
+				'@type': 'Recipe',
+				name: 'Related soup',
+				aggregateRating: { ratingValue: 5, ratingCount: 900 },
+				commentCount: 400,
+			},
+			{
+				'@type': 'Organization',
+				aggregateRating: { ratingValue: 4.2, ratingCount: 50 },
+			},
+		])
+
+		expect(recipe?.title).toBe('Dal')
+		expect(recipe?.rating).toBeUndefined()
+		expect(recipe?.commentCount).toBe(3)
+	})
+
 	test('takes a review count when there is no rating count', () => {
 		expect(
 			page([

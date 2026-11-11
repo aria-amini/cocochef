@@ -489,9 +489,13 @@ const aggregateRating = z
 
 const commentCount = pageCount.optional().catch(undefined)
 
-// A rating the page gives on its own, outside the recipe, when it gives one.
+// A rating the page gives on its own, outside the recipe, when it gives one:
+// only an untyped block, never another thing's (a publisher, a product, or a
+// related recipe).
 function pageRating(nodes: z.infer<typeof jsonLdNode>[]) {
 	for (const node of nodes) {
+		if (node['@type']) continue
+
 		const rating = aggregateRating.parse(node['aggregateRating'])
 
 		if (rating) return rating
@@ -501,8 +505,14 @@ function pageRating(nodes: z.infer<typeof jsonLdNode>[]) {
 }
 
 // The comments a page counts, on the recipe or on the article around it.
-function pageCommentCount(nodes: z.infer<typeof jsonLdNode>[]) {
+function pageCommentCount(
+	nodes: z.infer<typeof jsonLdNode>[],
+	recipe: z.infer<typeof jsonLdNode>,
+) {
 	const counts = nodes.flatMap((node) => {
+		// Another recipe on the page counts its own comments.
+		if (node !== recipe && node['@type']?.includes('recipe')) return []
+
 		const count = commentCount.parse(node['commentCount'])
 
 		return count === undefined ? [] : [count]
@@ -562,7 +572,7 @@ function parseJsonLd(html: string): ImportedRecipe | null {
 					? (fields.prepTime ?? 0) + (fields.cookTime ?? 0)
 					: undefined),
 			rating: fields.aggregateRating ?? pageRating(nodes),
-			commentCount: pageCommentCount(nodes),
+			commentCount: pageCommentCount(nodes, node),
 		}
 	}
 

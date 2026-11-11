@@ -795,6 +795,41 @@ describe('the one box', () => {
 		})
 	})
 
+	test('shows the stars a site page gave once its preview reads it', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({ url: 'https://example.com/ramen', title: 'online ramen' }),
+			],
+		})
+		server.import.mockResolvedValue({
+			id: 'shared-ramen',
+			title: 'online ramen',
+			ratingValue: 4.7,
+			ratingCount: 312,
+		})
+		server.getRecipe.mockResolvedValue({
+			...shelfRecipe('shared-ramen', 'online ramen', { userId: null }),
+			ingredients: ['ramen noodles'],
+			steps: ['boil'],
+			saved: false,
+			owned: false,
+		})
+
+		const { screen, input } = await openBox()
+
+		await input.fill('ramen')
+
+		const row = screen.getByRole('option', { name: /online ramen/ })
+
+		// The index knows only its title, so there are no stars yet.
+		await expect.element(row).toHaveAttribute('aria-selected', 'true')
+		expect(row.getByLabelText(/^rated/).all()).toHaveLength(0)
+
+		await row.hover()
+		await expect.element(row.getByLabelText('rated 4.7 by 312')).toBeVisible()
+	})
+
 	test('keeps the highlighted option when results arrive after it', async () => {
 		let arrive: (value: SearchReply) => void = () => {}
 
