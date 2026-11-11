@@ -65,7 +65,17 @@ export type FoundRecipe = {
 	draft: boolean
 	// Search words only its ingredients held.
 	ingredientMatches: string[]
+	// How its readers rated it, once its page has been read.
+	rating?: { value: number; count: number } | undefined
 }
+
+const ratingOf = (recipe: {
+	ratingValue: number | null
+	ratingCount: number | null
+}) =>
+	recipe.ratingValue !== null && recipe.ratingCount
+		? { value: recipe.ratingValue, count: recipe.ratingCount }
+		: undefined
 
 const fromShared = (recipe: SharedRecipe): FoundRecipe => ({
 	recipeId: recipe.id,
@@ -76,6 +86,7 @@ const fromShared = (recipe: SharedRecipe): FoundRecipe => ({
 	saved: false,
 	draft: false,
 	ingredientMatches: [],
+	rating: ratingOf(recipe),
 })
 
 const fromLink = (link: RecipeLink): FoundRecipe => ({

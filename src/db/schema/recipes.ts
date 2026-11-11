@@ -3,6 +3,7 @@ import {
 	foreignKey,
 	index,
 	integer,
+	real,
 	snakeCase,
 	text,
 	timestamp,
@@ -43,6 +44,11 @@ export const recipes = snakeCase.table(
 		sourceNotes: text(),
 		servings: integer(),
 		totalMinutes: integer(),
+		// What the page's readers said of it, when it says: the average star
+		// rating, how many rated it, and how many comments it has.
+		ratingValue: real(),
+		ratingCount: integer(),
+		commentCount: integer(),
 		createdAt: timestamp({ withTimezone: true }).notNull(),
 		// Null while a written recipe is still a draft.
 		finalizedAt: timestamp({ withTimezone: true }),
