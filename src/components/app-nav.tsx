@@ -8,6 +8,7 @@ import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
+import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { useLastOpenedRecipe } from '@/lib/recipes/last-opened'
 import { cn } from '@/lib/utils/ui'
@@ -96,11 +97,7 @@ function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
 	for (const { label } of navItems) {
 		if (label === 'recipes') continue
 
-		if (
-			pathname === `/${label}` ||
-			pathname.startsWith(`/${label}/`) ||
-			pathname === `/coming-soon/${label}`
-		)
+		if (pathname === `/${label}` || pathname.startsWith(`/${label}/`))
 			return label
 	}
 
@@ -180,8 +177,7 @@ function Sidebar() {
 				return (
 					<Link
 						key={to}
-						to={to === '/recipes' ? '/recipes' : '/coming-soon/$feature'}
-						params={to === '/recipes' ? {} : { feature: label }}
+						to={to}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
 							navFeedbackClassName,
@@ -198,6 +194,12 @@ function Sidebar() {
 							className={navIconFeedbackClassName}
 						/>
 						{label}
+						{label === 'groceries' ? (
+							<>
+								<GroceryCount />
+								<GroceryBadge className="ml-auto" />
+							</>
+						) : null}
 					</Link>
 				)
 			})}
@@ -240,9 +242,11 @@ function MobileHeader() {
 	)
 }
 
-function tabTarget(to: string, label: string, lastRecipe: string | undefined) {
-	if (to !== '/recipes')
-		return { to: '/coming-soon/$feature', params: { feature: label } } as const
+function tabTarget(
+	to: (typeof navItems)[number]['to'],
+	lastRecipe: string | undefined,
+) {
+	if (to !== '/recipes') return { to } as const
 
 	return lastRecipe
 		? ({ to: '/recipes/$recipeId', params: { recipeId: lastRecipe } } as const)
@@ -276,7 +280,7 @@ function TabBar() {
 					return (
 						<Link
 							key={to}
-							{...tabTarget(to, label, !inRecipes ? lastRecipe : undefined)}
+							{...tabTarget(to, !inRecipes ? lastRecipe : undefined)}
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,
@@ -285,15 +289,22 @@ function TabBar() {
 							)}
 						>
 							<span
-								aria-hidden
 								className={cn(
-									'grid h-6 w-8 place-items-center',
+									'relative grid h-6 w-8 place-items-center',
 									navIconFeedbackClassName,
 								)}
 							>
-								<Icon size={22} weight={active ? 'fill' : 'regular'} />
+								<Icon
+									size={22}
+									weight={active ? 'fill' : 'regular'}
+									aria-hidden
+								/>
+								{label === 'groceries' ? (
+									<GroceryBadge className="absolute -top-1 -right-1.5" />
+								) : null}
 							</span>
 							{label}
+							{label === 'groceries' ? <GroceryCount /> : null}
 						</Link>
 					)
 				})}

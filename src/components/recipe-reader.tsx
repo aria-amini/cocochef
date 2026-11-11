@@ -7,6 +7,7 @@ import {
 } from '@phosphor-icons/react'
 import { Fragment, useState } from 'react'
 
+import { AddToGroceries } from '@/components/grocery-send'
 import { IngredientText } from '@/components/ingredient-text'
 import { Marked } from '@/components/marked'
 import { PageTitle } from '@/components/page'
@@ -48,6 +49,7 @@ export function RecipeReader({
 	authorship,
 	status,
 	heading = 'h1',
+	shop = false,
 }: {
 	recipe: ReadableRecipe
 	// What the reader can do with it, under the title: save, edit, share.
@@ -59,6 +61,8 @@ export function RecipeReader({
 		| undefined
 	terms?: string[]
 	heading?: 'h1' | 'h2'
+	// Whether the ingredients can go on the groceries list.
+	shop?: boolean
 }) {
 	const [checked, setChecked] = useState<Set<string>>(() => new Set())
 
@@ -201,6 +205,13 @@ export function RecipeReader({
 				<section>
 					<div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
 						<h2 className={sectionLabelClassName}>ingredients</h2>
+						{shop ? (
+							<AddToGroceries
+								recipeId={recipe.id}
+								title={recipe.title}
+								lines={recipe.ingredients}
+							/>
+						) : null}
 					</div>
 
 					<div className="mt-2">

@@ -117,6 +117,7 @@ export function PublicRecipePage({
 				</BackBar>
 				<RecipeReader
 					recipe={recipe}
+					shop
 					status={{
 						saved: !!saved.data?.saved && !saved.data?.owned,
 						visibility: saved.data?.owned

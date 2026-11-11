@@ -88,6 +88,30 @@ vi.mock('@/lib/recipes/server', () => ({
 	},
 }))
 
+type GroceryInput = { text: string; recipeId?: string; recipeTitle?: string }
+
+const groceryCalls = vi.hoisted(() => {
+	const calls: GroceryInput[][] = []
+
+	return calls
+})
+
+const groceryWaiting = vi.hoisted(() => ({ count: 0 }))
+
+vi.mock('@/lib/groceries/server', () => ({
+	listGroceries: () => Promise.resolve([]),
+	countWaitingGroceries: () => Promise.resolve(groceryWaiting.count),
+	addGroceries: ({ data }: { data: GroceryInput[] }) => {
+		groceryCalls.push(data)
+
+		return Promise.resolve(data)
+	},
+	setGroceryChecked: vi.fn(),
+	renameGrocery: vi.fn(),
+	deleteGrocery: vi.fn(),
+	clearCheckedGroceries: vi.fn(),
+}))
+
 vi.mock('@/lib/s3', () => ({
 	getRecipePhotoUploadUrl: () =>
 		Promise.resolve({
@@ -279,6 +303,80 @@ describe('recipe detail', () => {
 		await expectPageScreenshot(screen.container, 'recipe-reader', {
 			fullHeight: true,
 		})
+	})
+
+	test('opens what the recipe would add to groceries, to change before adding', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'## pasta',
+			'200 g pasta (any short shape)',
+			'2 cloves garlic, minced',
+			'## sauce',
+			'1 tbsp miso',
+		]
+
+		const writeText = vi
+			.spyOn(navigator.clipboard, 'writeText')
+			.mockResolvedValue(undefined)
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		groceryCalls.length = 0
+		await screen.getByRole('button', { name: 'add to groceries' }).click()
+
+		// Every line shows, without its preparation, to change before saving.
+		const review = page.getByRole('dialog', { name: 'add to groceries' })
+		await expect
+			.element(review.getByRole('textbox', { name: 'item 1' }))
+			.toHaveValue('200 g pasta')
+		await expect
+			.element(review.getByRole('textbox', { name: 'item 2' }))
+			.toHaveValue('2 cloves garlic')
+
+		// What the kitchen has is unticked, a line changed, another added.
+		await review.getByRole('checkbox', { name: 'add item 3' }).click()
+		await review
+			.getByRole('textbox', { name: 'item 2' })
+			.fill('3 cloves garlic')
+		await review
+			.getByRole('textbox', { name: 'add another item' })
+			.fill('parmesan')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.element(review.getByRole('textbox', { name: 'item 4' }))
+			.toHaveValue('parmesan')
+		await review.getByRole('button', { name: 'remove 200 g pasta' }).click()
+		expect(groceryCalls).toEqual([])
+		await expectIsolatedScreenshot(review, 'add-to-groceries')
+
+		// The list as it stands can be copied for a message instead.
+		await review.getByRole('button', { name: 'copy' }).click()
+		expect(writeText).toHaveBeenCalledWith('3 cloves garlic\nparmesan')
+
+		await review.getByRole('button', { name: 'add 2' }).click()
+		await expect.element(review).not.toBeInTheDocument()
+		await expect.element(page.getByText('2 added to groceries')).toBeVisible()
+		// The groceries tab says how many landed, without leaving the recipe.
+		await expect
+			.element(
+				screen.getByRole('navigation', { name: 'Primary' }).getByText('+2'),
+			)
+			.toBeVisible()
+		expect(groceryCalls).toEqual([
+			[
+				{
+					text: '3 cloves garlic',
+					recipeId: 'recipe-1',
+					recipeTitle: 'miso butter pasta',
+				},
+				{
+					text: 'parmesan',
+					recipeId: 'recipe-1',
+					recipeTitle: 'miso butter pasta',
+				},
+			],
+		])
+		writeText.mockRestore()
 	})
 
 	test('shows specific and family icons while leaving unknown ingredients empty', async () => {
@@ -1338,10 +1436,7 @@ describe('recipe detail', () => {
 		await step.click()
 		await expect.element(ingredient).toBeChecked()
 		await expect.element(step).toBeChecked()
-		await router.navigate({
-			to: '/coming-soon/$feature',
-			params: { feature: 'groceries' },
-		})
+		await router.navigate({ to: '/settings' })
 		await router.navigate({
 			to: '/recipes/$recipeId',
 			params: { recipeId: 'recipe-1' },

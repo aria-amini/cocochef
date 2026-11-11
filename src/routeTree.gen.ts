@@ -21,7 +21,6 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AppHandleSlugRouteImport } from './routes/_app/$handle.$slug'
-import { Route as AppComingSoonFeatureRouteImport } from './routes/_app/coming-soon.$feature'
 import { Route as AppIngredientsIndexRouteImport } from './routes/_app/ingredients.index'
 import { Route as AppIngredientsBulkRouteImport } from './routes/_app/ingredients.bulk'
 import { Route as AppIngredientsNewRouteImport } from './routes/_app/ingredients.new'
@@ -93,11 +92,6 @@ const AppHandleSlugRoute = AppHandleSlugRouteImport.update({
   path: '/$handle/$slug',
   getParentRoute: () => AppRoute,
 } as any)
-const AppComingSoonFeatureRoute = AppComingSoonFeatureRouteImport.update({
-  id: '/coming-soon/$feature',
-  path: '/coming-soon/$feature',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppIngredientsIndexRoute = AppIngredientsIndexRouteImport.update({
   id: '/ingredients/',
   path: '/ingredients/',
@@ -166,7 +160,6 @@ export interface FileRoutesByFullPath {
   '/auth/signup': typeof AuthSignupRoute
   '/$handle/': typeof HandleIndexRoute
   '/$handle/$slug': typeof AppHandleSlugRoute
-  '/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
   '/profile/$': typeof AppProfileSplatRoute
@@ -191,7 +184,6 @@ export interface FileRoutesByTo {
   '/auth/signup': typeof AuthSignupRoute
   '/$handle': typeof HandleIndexRoute
   '/$handle/$slug': typeof AppHandleSlugRoute
-  '/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
   '/profile/$': typeof AppProfileSplatRoute
@@ -218,7 +210,6 @@ export interface FileRoutesById {
   '/auth/signup': typeof AuthSignupRoute
   '/$handle/': typeof HandleIndexRoute
   '/_app/$handle/$slug': typeof AppHandleSlugRoute
-  '/_app/coming-soon/$feature': typeof AppComingSoonFeatureRoute
   '/_app/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/_app/ingredients/new': typeof AppIngredientsNewRoute
   '/_app/profile/$': typeof AppProfileSplatRoute
@@ -245,7 +236,6 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/$handle/'
     | '/$handle/$slug'
-    | '/coming-soon/$feature'
     | '/ingredients/bulk'
     | '/ingredients/new'
     | '/profile/$'
@@ -270,7 +260,6 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/$handle'
     | '/$handle/$slug'
-    | '/coming-soon/$feature'
     | '/ingredients/bulk'
     | '/ingredients/new'
     | '/profile/$'
@@ -296,7 +285,6 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/$handle/'
     | '/_app/$handle/$slug'
-    | '/_app/coming-soon/$feature'
     | '/_app/ingredients/bulk'
     | '/_app/ingredients/new'
     | '/_app/profile/$'
@@ -407,13 +395,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHandleSlugRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/coming-soon/$feature': {
-      id: '/_app/coming-soon/$feature'
-      path: '/coming-soon/$feature'
-      fullPath: '/coming-soon/$feature'
-      preLoaderRoute: typeof AppComingSoonFeatureRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/ingredients/': {
       id: '/_app/ingredients/'
       path: '/ingredients'
@@ -513,7 +494,6 @@ interface AppRouteChildren {
   AppProfileRoute: typeof AppProfileRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
   AppHandleSlugRoute: typeof AppHandleSlugRoute
-  AppComingSoonFeatureRoute: typeof AppComingSoonFeatureRoute
   AppIngredientsBulkRoute: typeof AppIngredientsBulkRoute
   AppIngredientsNewRoute: typeof AppIngredientsNewRoute
   AppRecipesRecipeIdRoute: typeof AppRecipesRecipeIdRoute
@@ -531,7 +511,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppProfileRoute: AppProfileRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
   AppHandleSlugRoute: AppHandleSlugRoute,
-  AppComingSoonFeatureRoute: AppComingSoonFeatureRoute,
   AppIngredientsBulkRoute: AppIngredientsBulkRoute,
   AppIngredientsNewRoute: AppIngredientsNewRoute,
   AppRecipesRecipeIdRoute: AppRecipesRecipeIdRoute,
