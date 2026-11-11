@@ -341,6 +341,8 @@ describe('recipe publication boundaries', () => {
 			{
 				title: 'Meatballs',
 				sourceUrl: 'https://www.seriouseats.com/meatballs',
+				rating: { value: 4.8, count: 210 },
+				commentCount: 37,
 				ingredients: ['1 onion'],
 				steps: ['Cook'],
 			},
@@ -353,6 +355,10 @@ describe('recipe publication boundaries', () => {
 		expect(await getWebRecipe('serious-eats', 'meatballs', db)).toMatchObject({
 			title: 'Meatballs',
 			sourceUrl: imported.sourceUrl,
+			// What its readers said shows on the page too.
+			ratingValue: 4.8,
+			ratingCount: 210,
+			commentCount: 37,
 		})
 		expect(await getPublicProfile(handle, db)).toBeNull()
 		await expect(
