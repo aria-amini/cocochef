@@ -1,15 +1,14 @@
 import {
 	CarrotIcon,
 	CookingPotIcon,
-	PlusIcon,
 	ShoppingCartIcon,
 } from '@phosphor-icons/react'
 import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
+import { AddRecipeMenu } from '@/components/add-recipe-menu'
 import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
-import { useRecipeActions } from '@/components/recipe-actions'
 import { useLastOpenedRecipe } from '@/lib/recipes/last-opened'
 import { cn } from '@/lib/utils/ui'
 
@@ -258,7 +257,6 @@ function tabTarget(
 function TabBar() {
 	const mode = useTabBar()
 	const visible = useTabBarVisible()
-	const { find } = useRecipeActions()
 	const lastRecipe = useLastOpenedRecipe()
 	const tab = useActiveTab()
 
@@ -310,14 +308,11 @@ function TabBar() {
 				})}
 			</nav>
 			{mode === 'bar-fab' ? (
-				<button
-					type="button"
-					aria-label="add recipe"
-					onClick={() => find()}
+				<AddRecipeMenu
+					side="top"
+					iconSize={26}
 					className="bg-kitchen-yolk bottom-fab fixed right-4 z-20 grid size-14 place-items-center rounded-full shadow-md transition-colors hover:brightness-95 md:hidden"
-				>
-					<PlusIcon size={26} weight="bold" aria-hidden />
-				</button>
+				/>
 			) : null}
 		</>
 	)

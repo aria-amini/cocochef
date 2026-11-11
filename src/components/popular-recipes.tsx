@@ -1,4 +1,8 @@
-import { ArrowRightIcon, CookingPotIcon } from '@phosphor-icons/react'
+import {
+	GlobeHemisphereWestIcon,
+	ArrowRightIcon,
+	CookingPotIcon,
+} from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -15,16 +19,21 @@ type Popular = Awaited<ReturnType<typeof popularRecipes>>['results'][number]
 
 const WARM_POLL_MS = 3000
 
-// The shelf shows four tiles at most; the finder holds the longer list.
+// One row of the shelf's columns: four recipes, or two on a phone. The finder
+// holds the longer list.
 const shownCount = 4
 
-const placeholderCount = 8
+// Four even columns from a tablet up, two on a phone, so the shelf and
+// discovery fill the page edge to edge in the same columns.
+const tileColumnsClassName = 'grid grid-cols-2 gap-4 md:grid-cols-4'
 
-export const shelfGridClassName =
-	'grid grid-cols-2 gap-4 md:auto-rows-[var(--spacing-tile)] md:grid-cols-[repeat(auto-fill,var(--spacing-tile))]'
+export const shelfGridClassName = cn(
+	tileColumnsClassName,
+	'md:auto-rows-[var(--spacing-tile)]',
+)
 
-export const shelfHeadingClassName =
-	'inline-block self-start border-b-3 pb-0.5 text-xs font-semibold'
+// Each of the shelf's sections opens the same way: its icon, then its name.
+export const shelfHeadingClassName = 'flex items-center gap-2 text-xl font-bold'
 
 const tileClassName =
 	'border-border bg-card relative flex h-28 min-w-0 flex-col overflow-hidden rounded-xl border text-left transition-colors hover:border-foreground/40 '
@@ -65,29 +74,30 @@ export function PopularRecipes() {
 			aria-busy={loading || undefined}
 			className="border-border mt-4 flex w-full max-w-3xl min-w-0 flex-col gap-3 border-t pt-8"
 		>
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div className="flex flex-col gap-2">
-					<h2
-						id="popular-recipes"
-						className="text-muted-foreground text-sm font-semibold"
-					>
-						discover recipes
-					</h2>
-				</div>
+			<div className="flex flex-col items-start gap-1">
+				<h2 id="popular-recipes" className={shelfHeadingClassName}>
+					<GlobeHemisphereWestIcon size={20} weight="bold" aria-hidden />
+					discover recipes
+				</h2>
 				<button
 					type="button"
 					onClick={() => find()}
-					className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center gap-2 rounded-md text-xs font-semibold underline underline-offset-4"
+					className="text-muted-foreground hover:text-foreground inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold"
 				>
 					browse more recipes
-					<ArrowRightIcon size={16} weight="bold" aria-hidden />
+					<ArrowRightIcon size={14} weight="bold" aria-hidden />
 				</button>
 			</div>
 
 			{imported.error ? <FieldError>{imported.error}</FieldError> : null}
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4 [&>*:nth-child(n+3)]:hidden sm:[&>*:nth-child(n+3)]:flex sm:[&>*:nth-child(n+5)]:hidden">
+			<div
+				className={cn(
+					tileColumnsClassName,
+					'[&>*:nth-child(n+3)]:hidden md:[&>*:nth-child(n+3)]:flex md:[&>*:nth-child(n+5)]:hidden',
+				)}
+			>
 				{loading
-					? Array.from({ length: placeholderCount }, (_, index) => (
+					? Array.from({ length: shownCount }, (_, index) => (
 							<Skeleton key={index} className="h-28" />
 						))
 					: null}

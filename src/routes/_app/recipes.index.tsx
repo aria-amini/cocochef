@@ -4,13 +4,13 @@ import {
 	BookmarkSimpleIcon,
 	PencilSimpleLineIcon,
 	UserIcon,
-	PlusIcon,
+	RobotIcon,
 } from '@phosphor-icons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useSyncExternalStore } from 'react'
 
-import { ImportLinkButton } from '@/components/import-link'
+import { AddRecipeMenu } from '@/components/add-recipe-menu'
 import {
 	PopularRecipes,
 	shelfGridClassName,
@@ -19,6 +19,7 @@ import {
 import { useRecipeActions } from '@/components/recipe-actions'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeSources } from '@/components/recipe-sources'
+import { Badge } from '@/components/ui/badge'
 import { authClient } from '@/lib/auth/client'
 import { listShelf } from '@/lib/recipes/server'
 import {
@@ -42,7 +43,7 @@ type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 function Shelf() {
 	const { recipes: shelfRecipes } = Route.useLoaderData()
 	const account = authClient.useSession().data?.user
-	const { find, importLink } = useRecipeActions()
+	const { find } = useRecipeActions()
 
 	const reduce = useReducedMotion()
 
@@ -79,21 +80,17 @@ function Shelf() {
 				<h1 className="sr-only">recipes</h1>
 				<div className="flex w-full max-w-3xl flex-wrap items-start gap-3">
 					<div className="flex min-w-0 flex-1 basis-64 flex-col gap-2">
-						<FinderBox onOpen={() => find()} />
-						<RecipeSources />
+						<div className="flex gap-2">
+							<FinderBox onOpen={() => find()} />
+							<AskForIdeas />
+						</div>
 					</div>
 					<div className="hidden items-center gap-3 md:flex">
-						{/* The empty shelf's tile already says it can import a link. */}
-						{isEmpty ? null : <ImportLinkButton onClick={() => importLink()} />}
-						{/* The page's one solid action: every way to add a recipe. */}
-						<button
-							type="button"
-							aria-label="add recipe"
-							onClick={() => find()}
+						{/* Every way to add a recipe of your own. */}
+						<AddRecipeMenu
+							iconSize={22}
 							className="bg-kitchen-yolk grid size-12 shrink-0 place-items-center rounded-full transition-colors hover:brightness-95"
-						>
-							<PlusIcon size={22} weight="bold" aria-hidden />
-						</button>
+						/>
 					</div>
 				</div>
 				{isEmpty ? (
@@ -132,21 +129,12 @@ function Shelf() {
 							aria-labelledby={id}
 							className="flex min-w-0 flex-col gap-3"
 						>
-							<h2
-								id={id}
-								className={cn(
-									shelfHeadingClassName,
-									'flex items-center gap-1.5',
-									id === 'your-recipes'
-										? 'border-kitchen-yolk'
-										: 'border-kitchen-eggplant/60',
-								)}
-							>
+							<h2 id={id} className={shelfHeadingClassName}>
 								{id === 'your-recipes' ? (
-									<UserIcon size={15} weight="bold" aria-hidden />
+									<UserIcon size={20} weight="bold" aria-hidden />
 								) : (
 									<BookmarkSimpleIcon
-										size={15}
+										size={20}
 										weight="fill"
 										aria-hidden
 										className="text-kitchen-eggplant"
@@ -172,6 +160,32 @@ function Shelf() {
 	)
 }
 
+// Where the recipe chat will open, beside the search it complements, with its
+// beta chip on the button's top edge. Until the chat lands it is shown but not
+// yet usable.
+function AskForIdeas() {
+	return (
+		<button
+			type="button"
+			disabled
+			title="coming soon"
+			aria-label="ai: ask for ideas (coming soon)"
+			className="border-input bg-card relative inline-flex shrink-0 cursor-default items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold"
+		>
+			<RobotIcon
+				size={20}
+				weight="duotone"
+				aria-hidden
+				className="text-kitchen-eggplant"
+			/>
+			ai
+			<Badge size="small" tone="beta" className="absolute -top-2 -right-1.5">
+				beta
+			</Badge>
+		</button>
+	)
+}
+
 // The one box's front door: it looks like the search it opens.
 function FinderBox({ onOpen }: { onOpen: () => void }) {
 	const isMac = useSyncExternalStore(
@@ -192,7 +206,8 @@ function FinderBox({ onOpen }: { onOpen: () => void }) {
 				aria-hidden
 				className="text-foreground shrink-0"
 			/>
-			<span className="min-w-0 flex-1 truncate">search any recipe</span>
+			<span className="min-w-0 truncate">search any recipe</span>
+			<RecipeSources className="mr-auto" />
 			<kbd
 				aria-hidden
 				className="border-border hidden shrink-0 rounded-md border px-1.5 text-xs font-semibold md:inline"
@@ -264,14 +279,8 @@ function progressOf(written: Recipe['written']) {
 function Drafts({ drafts }: { drafts: Recipe[] }) {
 	return (
 		<section aria-labelledby="drafts" className="flex min-w-0 flex-col gap-3">
-			<h2
-				id="drafts"
-				className={cn(
-					shelfHeadingClassName,
-					'border-foreground/30 flex items-center gap-1.5 border-dashed',
-				)}
-			>
-				<PencilSimpleLineIcon size={15} weight="bold" aria-hidden />
+			<h2 id="drafts" className={shelfHeadingClassName}>
+				<PencilSimpleLineIcon size={20} weight="bold" aria-hidden />
 				drafts
 			</h2>
 			<ul className="flex flex-col gap-2">

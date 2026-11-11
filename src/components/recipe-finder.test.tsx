@@ -150,7 +150,7 @@ describe('the one box', () => {
 		},
 	)
 
-	test('lays out every way to start before anything is typed', async () => {
+	test('shows drafts, the shelf and popular before anything is typed', async () => {
 		shelfState.recipes = [
 			shelfRecipe('draft-1', 'shakshuka', { finalizedAt: null }),
 			miso,
@@ -162,15 +162,11 @@ describe('the one box', () => {
 
 		const { screen } = await openBox()
 
-		await expect
-			.element(screen.getByRole('option', { name: /paste text/ }))
-			.not.toBeInTheDocument()
-		await screen.getByRole('button', { name: 'import' }).click()
-
-		for (const name of [/blank recipe/, /import link/, /paste text/])
-			await expect.element(screen.getByRole('option', { name })).toBeVisible()
-
+		// Adding a recipe of your own lives behind the plus, not here.
 		await expect.element(screen.getByText('still writing')).toBeVisible()
+		await expect
+			.element(screen.getByRole('option', { name: /blank recipe/ }))
+			.not.toBeInTheDocument()
 		await expect
 			.element(screen.getByRole('option', { name: /shakshuka/ }))
 			.toBeVisible()
@@ -185,34 +181,25 @@ describe('the one box', () => {
 			.toBeVisible()
 	})
 
-	test('keeps the search field focused when the import button is pressed', async () => {
-		const { screen, input } = await openBox()
+	test('pastes a recipe from the add menu, or closes on cancel', async () => {
+		const { screen, router } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
 
-		await screen.getByRole('button', { name: 'import' }).click()
-		await expect
-			.element(screen.getByRole('option', { name: /paste text/ }))
-			.toBeVisible()
-		await expect.element(input).toHaveFocus()
-	})
+		const paste = async () => {
+			await screen.getByRole('button', { name: 'add recipe' }).click()
+			await screen.getByRole('menuitem', { name: 'paste recipe text' }).click()
 
-	test('opens a paste dialog and returns to the finder on cancel', async () => {
-		const { screen } = await openBox()
-		await screen.getByRole('button', { name: 'import' }).click()
-		await screen.getByRole('option', { name: /paste text/ }).click()
-		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
-		await expect.element(dialog).toBeVisible()
-		await dialog.getByRole('textbox', { name: 'recipe text' }).fill('Pasta')
-		await dialog.getByRole('button', { name: 'cancel' }).click()
-		await expect
-			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
-			.toBeVisible()
-	})
+			return screen.getByRole('dialog', { name: 'paste a recipe' })
+		}
 
-	test('adds pasted text from the finder dialog', async () => {
-		const { screen, router } = await openBox()
-		await screen.getByRole('button', { name: 'import' }).click()
-		await screen.getByRole('option', { name: /paste text/ }).click()
-		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
+		const first = await paste()
+		await first.getByRole('textbox', { name: 'recipe text' }).fill('Pasta')
+		await first.getByRole('button', { name: 'cancel' }).click()
+		await expect.element(first).not.toBeInTheDocument()
+
+		const dialog = await paste()
 		await dialog
 			.getByRole('textbox', { name: 'recipe text' })
 			.fill('weeknight dal\ningredients\n1 cup lentils\nmethod\n1. simmer')
@@ -328,22 +315,29 @@ describe('the one box', () => {
 			session: testSession,
 		})
 
-		const logos = screen
-			.getByRole('list', { name: 'Recipe search sources' })
-			.first()
-			.getByRole('img')
+		const search = screen.getByRole('button', { name: /search any recipe/ })
 
-		await expect.poll(() => logos.elements().length).toBe(recipeSites.length)
+		// Every site is named to a screen reader, whatever fits on screen.
+		for (const site of recipeSites)
+			await expect
+				.element(search)
+				.toHaveAccessibleName(
+					new RegExp(site.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+				)
 
-		await expect
-			.poll(() =>
-				logos
-					.elements()
-					.every(
-						(logo) => logo instanceof HTMLImageElement && logo.naturalWidth > 0,
-					),
+		const logos = () =>
+			Array.from(
+				search.element().querySelectorAll<HTMLImageElement>('[data-site-logo]'),
 			)
+
+		// A few logos stand for the rest, and every one shown loads.
+		await expect.poll(() => logos().length).toBe(4)
+		await expect
+			.poll(() => logos().every((logo) => logo.naturalWidth > 0))
 			.toBe(true)
+		await expect
+			.element(search.getByText(`+${recipeSites.length - 4}`))
+			.toBeInTheDocument()
 	})
 
 	test('finds shelf recipes by name at once and opens one with enter', async () => {
@@ -825,25 +819,20 @@ describe('the one box', () => {
 			.toHaveValue('weeknight dal')
 	})
 
-	test('layers import over the finder and restores its search on close', async () => {
-		const { screen, input } = await openBox()
-		await screen.getByRole('button', { name: 'import' }).click()
-		await screen.getByRole('option', { name: /import link/ }).click()
+	test('imports a link from the add menu', async () => {
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await screen.getByRole('button', { name: 'add recipe' }).click()
+		await screen.getByRole('menuitem', { name: 'import a link' }).click()
 		await expect
 			.element(screen.getByRole('textbox', { name: 'recipe link' }))
 			.toHaveFocus()
+		await userEvent.keyboard('{Escape}')
 		await expect
 			.element(screen.getByRole('dialog', { name: 'import a recipe' }))
-			.toBeVisible()
-		await userEvent.keyboard('{Escape}')
-		await expect
-			.element(screen.getByRole('dialog', { name: 'find a recipe' }))
-			.toBeVisible()
-		await input.fill('lemon')
-		await expect.element(input).toHaveValue('lemon')
-		await userEvent.keyboard('{Escape}')
-		await expect
-			.element(screen.getByRole('dialog', { name: 'find a recipe' }))
 			.not.toBeInTheDocument()
 	})
 })
@@ -879,16 +868,6 @@ describe('the one box, captured', () => {
 			.element(screen.getByRole('option', { name: /marry me chicken/ }))
 			.toBeVisible()
 		await expectIsolatedScreenshot(popup, 'finder')
-	})
-
-	test('with every way to import open', async () => {
-		const { screen, popup } = await openBox()
-
-		await screen.getByRole('button', { name: 'import' }).click()
-		await expect
-			.element(screen.getByRole('option', { name: /paste text/ }))
-			.toBeVisible()
-		await expectIsolatedScreenshot(popup, 'finder-import')
 	})
 
 	test('with shelf and online results', async () => {

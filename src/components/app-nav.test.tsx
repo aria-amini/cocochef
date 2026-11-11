@@ -257,7 +257,7 @@ describe('app nav', () => {
 		async () => {
 			shelf.recipes = [misoButterPasta]
 
-			const { screen } = await renderRoute({
+			const { screen, router } = await renderRoute({
 				path: '/recipes',
 				session: member,
 			})
@@ -276,19 +276,24 @@ describe('app nav', () => {
 				)
 				.not.toBeInTheDocument()
 
-			// Every way to start lives in the finder.
+			// Every way to add a recipe of your own sits behind it.
 			await add.click()
-			const sheet = screen.getByRole('dialog', { name: 'find a recipe' })
+
+			for (const name of [
+				'write a blank recipe',
+				'import a link',
+				'paste recipe text',
+			])
+				await expect
+					.element(screen.getByRole('menuitem', { name }))
+					.toBeVisible()
+
+			await screen
+				.getByRole('menuitem', { name: 'write a blank recipe' })
+				.click()
 			await expect
-				.element(sheet.getByRole('combobox', { name: 'find a recipe' }))
-				.toHaveFocus()
-			await sheet.getByRole('button', { name: 'import' }).click()
-			await expect
-				.element(sheet.getByRole('option', { name: /blank recipe/ }))
-				.toBeVisible()
-			await expect
-				.element(sheet.getByRole('option', { name: /import link/ }))
-				.toBeVisible()
+				.poll(() => router.state.location.pathname)
+				.toBe('/recipes/new')
 		},
 	)
 
