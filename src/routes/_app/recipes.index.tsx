@@ -96,7 +96,7 @@ function Shelf() {
 				{isEmpty ? (
 					<button
 						type="button"
-						aria-label="save your first recipe: find one, import a link, or write your own"
+						aria-label="save your first recipe: find one, paste a link, or name your own"
 						onClick={() => find()}
 						className="border-foreground/50 bg-kitchen-yolk/25 text-foreground hover:bg-kitchen-yolk/40 relative block h-44 w-full max-w-md cursor-pointer rounded-xl border border-dashed text-left transition-colors md:h-[calc(var(--spacing-tile)*2+16px)] md:w-[calc(var(--spacing-tile)*2+16px)]"
 					>
@@ -109,7 +109,7 @@ function Shelf() {
 								save your first recipe
 							</span>
 							<span className="text-foreground/70 text-sm font-semibold">
-								find one, import a link, or write your own
+								find one, paste a link, or name your own
 							</span>
 						</span>
 					</button>

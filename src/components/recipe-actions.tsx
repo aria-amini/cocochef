@@ -1,10 +1,9 @@
 import { useNavigate } from '@tanstack/react-router'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
-import { ImportDialog } from '@/components/import-link'
+import { ImportDialog, linkFrom } from '@/components/import-link'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import { RecipeFinder } from '@/components/recipe-finder'
-import { asRecipeUrl } from '@/components/recipe-online'
 import type { StartingPoint } from '@/components/start-from'
 
 type RecipeActions = {
@@ -101,7 +100,7 @@ export function RecipeActionsProvider({
 				open={pasting}
 				onOpenChange={setPasting}
 				onAdd={(text) => {
-					const link = asRecipeUrl(text.trim())
+					const link = linkFrom(text)
 
 					if (link) actions.importLink(link)
 					else void navigate({ to: '/recipes/new', state: { pasted: text } })

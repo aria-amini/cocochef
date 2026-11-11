@@ -70,6 +70,19 @@ function applyChange(items: Item[], change: Change): Item[] {
 	}
 }
 
+// A typed item as it shows before the server has it, under the id the server
+// will keep for it.
+const draftItem = (text: string): Item => ({
+	id: crypto.randomUUID(),
+	userId: '',
+	text,
+	category: ingredientCategory(text),
+	recipeId: null,
+	recipeTitle: null,
+	checkedAt: null,
+	createdAt: new Date(),
+})
+
 // One list for the shop: what is left, shelved by aisle, and what is already
 // in the cart below it. Recipes add to it; anything else is typed in.
 function Groceries() {
@@ -81,12 +94,19 @@ function Groceries() {
 	const waiting = items.filter((item) => !item.checkedAt)
 	const inCart = items.filter((item) => item.checkedAt)
 
+	// Changes reach the server one after another, so a tick sent right after
+	// an add waits for the add to land.
+	const sending = useRef<Promise<void>>(undefined)
+
 	function change(next: Change, send: () => Promise<void>) {
 		startTransition(async () => {
 			apply(next)
 
+			const sent = (sending.current ?? Promise.resolve()).then(send)
+			sending.current = sent.catch(() => undefined)
+
 			try {
-				await send()
+				await sent
 			} catch {
 				toast.error('could not update the list. try again')
 			}
@@ -99,16 +119,7 @@ function Groceries() {
 	}
 
 	function add(text: string) {
-		const draft: Item = {
-			id: crypto.randomUUID(),
-			userId: '',
-			text,
-			category: ingredientCategory(text),
-			recipeId: null,
-			recipeTitle: null,
-			checkedAt: null,
-			createdAt: new Date(),
-		}
+		const draft = draftItem(text)
 
 		change({ kind: 'add', items: [draft] }, async () => {
 			await addGroceries({ data: [{ id: draft.id, text }] })

@@ -124,8 +124,9 @@ function GroceryReview({
 
 		try {
 			const added = await addGroceries({
-				data: chosen.map((item) => ({
-					text: item,
+				// The list holds a line of 200 characters and 100 lines at a time.
+				data: chosen.slice(0, 100).map((item) => ({
+					text: item.slice(0, 200),
 					recipeId,
 					recipeTitle: title,
 				})),
@@ -173,7 +174,11 @@ function GroceryReview({
 	}
 
 	return (
-		<Dialog open onOpenChange={(next) => !next && onClose()}>
+		<Dialog
+			open
+			// Held open while adding, so a late answer cannot close a new review.
+			onOpenChange={(next) => !next && !adding && onClose()}
+		>
 			<DialogContent className="flex max-h-[85dvh] flex-col">
 				<DialogHeader>
 					<DialogTitle>add to groceries</DialogTitle>

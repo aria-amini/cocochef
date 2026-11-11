@@ -911,7 +911,7 @@ export function IngredientListField({
 							onUse={(name) => update(row.id, { text: name })}
 						/>
 					) : null}
-					{row.heading && sections.length > 1 ? (
+					{row.heading && (sections.length > 1 || loose) ? (
 						<>
 							<RowAction
 								label={`Move section ${sectionName(row)} up`}

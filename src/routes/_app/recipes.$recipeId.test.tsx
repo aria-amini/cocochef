@@ -898,6 +898,32 @@ describe('recipe detail', () => {
 			})
 	})
 
+	test('steps the one section above the unnamed main card', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '## sauce', '1 tbsp miso']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen.getByRole('button', { name: 'edit' }).click()
+		// A section shows its arrows while it is being worked on.
+		await screen
+			.getByRole('textbox', { name: /^Section name/ })
+			.last()
+			.click()
+		await screen.getByRole('button', { name: 'Move section sauce up' }).click()
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.poll(() => updateCalls.calls.at(-1))
+			.toMatchObject({
+				ingredients: [
+					'## sauce',
+					'1 tbsp miso',
+					'## main ingredients',
+					'200 g pasta',
+				],
+			})
+	})
+
 	test('steps a section up and down with its arrows', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [

@@ -819,6 +819,26 @@ describe('the one box', () => {
 			.toHaveValue('weeknight dal')
 	})
 
+	test('imports a bare link pasted as recipe text', async () => {
+		const { screen, router } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await screen.getByRole('button', { name: 'add recipe' }).click()
+		await screen.getByRole('menuitem', { name: 'paste recipe text' }).click()
+
+		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
+		await dialog
+			.getByRole('textbox', { name: 'recipe text' })
+			.fill('example.com/dal')
+		await dialog.getByRole('button', { name: 'add recipe' }).click()
+		await expect
+			.element(screen.getByRole('textbox', { name: 'recipe link' }))
+			.toHaveValue('https://example.com/dal')
+		expect(router.state.location.pathname).toBe('/recipes')
+	})
+
 	test('imports a link from the add menu', async () => {
 		const { screen } = await renderRoute({
 			path: '/recipes',

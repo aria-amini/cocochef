@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 
+import { authClient } from '@/lib/auth/client'
 import { countWaitingGroceries } from '@/lib/groceries/server'
 import { cn } from '@/lib/utils/ui'
 
@@ -36,12 +37,16 @@ export function pulseGroceries(added: number) {
 	}, pulseMs)
 }
 
-const useWaiting = () =>
-	useQuery({
-		queryKey: groceryCountKey,
+// Kept per account, so signing in or out never shows another's count.
+const useWaiting = () => {
+	const userId = authClient.useSession().data?.user.id
+
+	return useQuery({
+		queryKey: [...groceryCountKey, userId],
 		queryFn: () => countWaitingGroceries(),
 		staleTime: 30_000,
 	}).data
+}
 
 // How many items are left to buy, on the groceries tab: nothing at none, and
 // "+3" for a moment when a recipe adds three. Seen, not read: `GroceryCount`

@@ -13,7 +13,8 @@ import { importSiteLogo, importSites } from '@/lib/import/sites'
 import { cn } from '@/lib/utils/ui'
 
 // A link as people copy it, with or without its https://.
-function linkFrom(value: string) {
+// A link as a cook types it, with or without its https://.
+export function linkFrom(value: string) {
 	const trimmed = value.trim()
 
 	return (
