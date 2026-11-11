@@ -24,6 +24,12 @@ describe('groceryLine', () => {
 		expect(groceryLine('1 cup salted, roasted peanuts')).toBe(
 			'1 cup salted, roasted peanuts',
 		)
+		expect(groceryLine('2 organic, dried apricots')).toBe(
+			'2 organic, dried apricots',
+		)
+		expect(groceryLine('1 carrot, peeled and cut into 1-inch pieces')).toBe(
+			'1 carrot',
+		)
 		expect(groceryLine('1,000 g potatoes, peeled')).toBe('1,000 g potatoes')
 		expect(groceryLine('salt, to taste')).toBe('salt')
 	})

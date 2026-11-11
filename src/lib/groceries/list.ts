@@ -1,13 +1,20 @@
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 
-// Words that describe the food rather than name it: a comma after one joins
-// two descriptions ("2 large, ripe tomatoes"), not a food and its note.
-const describing =
-	/(?:^|\s)(?:\w+ed|large|small|medium|big|ripe|fresh|whole|extra|good|firm|heaping|thick|thin|mild|hot|sweet|red|green|yellow|white|black)$/i
+// The words a preparation note is made of: "finely chopped", "to taste",
+// "cut into 1-inch pieces". A note with any other word in it ("dried
+// apricots") names the food, so the line stays whole.
+const preparationWord =
+	/^(?:\w+ly|\w{3,}ed|\w+en|[\d/.-]+(?:inch|cm|mm)?|to|taste|divided|plus|more|for|serving|garnish|at|room|temperature|optional|or|and|cut|into|pieces|piece|inch|cubes|chunks|slices|rings|rounds|strips|torn|left|whole|if|needed|about|the|a|of|in|half|halves|quarters|seeds|removed|stems|skin|on|off|thin|thick)$/i
 
-// Words that start a preparation note after a comma: "minced", "to taste".
-const preparation =
-	/^\s*(?:\w+ly\s+)?(?:\w{3,}ed\b|\w+en\b|to taste|divided|plus\b|for\b|at room|optional|or\b|and\b|cut\b|torn\b|left\b|room temperature|softened|melted|beaten|grated|thawed|drained|rinsed|trimmed|peeled|halved|quartered|seeded|zested|juiced)/i
+const isPreparation = (note: string) => {
+	const words = note
+		.replace(/\([^()]*\)/g, ' ')
+		.toLowerCase()
+		.split(/[^\p{L}\p{N}/.-]+/u)
+		.filter(Boolean)
+
+	return words.length > 0 && words.every((word) => preparationWord.test(word))
+}
 
 // A recipe line as it reads on a grocery list: what to buy and how much, with
 // a preparation note after a comma, and a bracketed note with no amount in it,
@@ -27,8 +34,7 @@ export function groceryLine(line: string) {
 			depth === 0 &&
 			// "1,000 g" is one number.
 			!/\d/.test(line[at - 1] ?? '') &&
-			!describing.test(line.slice(0, at).trim()) &&
-			preparation.test(line.slice(at + 1))
+			isPreparation(line.slice(at + 1))
 		) {
 			end = at
 			break
