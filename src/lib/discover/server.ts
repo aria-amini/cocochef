@@ -1,6 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
+import type { MealTags } from '@/lib/assistant/meal-parts'
+import { withMealTags } from '@/lib/assistant/meal-tags.server'
 import { getViewerId } from '@/lib/auth/session'
 import { canonicalRecipeUrl } from '@/lib/import/url'
 import {
@@ -43,6 +45,8 @@ export type FoundRecipe = {
 	ingredientMatches: string[]
 	// How its readers rated it, once its page has been read.
 	rating?: { value: number; count: number } | undefined
+	// The parts of a meal it was tagged with; null when it isn't a meal.
+	tags?: MealTags | null | undefined
 }
 
 const ratingOf = (recipe: {
@@ -109,7 +113,7 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 
 		return {
 			warming,
-			results: [
+			results: await withMealTags([
 				...found.map((recipe, index): FoundRecipe => ({
 					...fromShared(recipe),
 					imageUrl: images[index] ?? undefined,
@@ -125,7 +129,7 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 				...(await notYetShared(searchRecipeLinks(links, data.q, 120))).map(
 					fromLink,
 				),
-			],
+			]),
 		}
 	})
 
@@ -158,7 +162,10 @@ export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 
 		return {
 			warming,
-			results: [...shared.map(fromShared), ...featured.map(fromLink)],
+			results: await withMealTags([
+				...shared.map(fromShared),
+				...featured.map(fromLink),
+			]),
 		}
 	},
 )

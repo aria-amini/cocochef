@@ -1,4 +1,6 @@
 allowBuilds:
+  # Its postinstall only checks types (and ignores failure).
+  '@openrouter/sdk': false
   '@sentry/cli': true
   core-js: true
   # cpu-features is an optional pg dependency; its native build aborts the

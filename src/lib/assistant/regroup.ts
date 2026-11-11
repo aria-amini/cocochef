@@ -191,16 +191,80 @@ export function mockRegroup(request: RegroupRequest): RegroupResponse {
 		groups.set(stage.heading, group)
 	}
 
-	const ordered = [...groups.entries()]
-		.map(([heading, group]) => ({ heading, ...group }))
-		.sort(
-			(a, b) =>
-				Number(a.heading !== null) - Number(b.heading !== null) ||
-				a.step - b.step,
-		)
+	return settled(
+		[...groups.entries()].map(([heading, group]) => ({ heading, ...group })),
+	)
+}
 
-	// One group is no grouping, and lines alone are no better than before.
+// The groups in the order the editor shows them: lines with no heading first,
+// then by the step each goes into. One group is no grouping, and lines alone
+// are no better than before.
+function settled(groups: RegroupGroup[]): RegroupResponse {
+	const ordered = [...groups].sort(
+		(a, b) =>
+			Number(a.heading !== null) - Number(b.heading !== null) ||
+			a.step - b.step,
+	)
+
 	return ordered.length > 1 && ordered.some((group) => group.heading)
 		? { groups: ordered }
 		: { groups: [] }
+}
+
+// ===== From the model =====
+
+export const modelRegroup = z.object({
+	groups: z.array(
+		z.object({
+			heading: z.string().nullable(),
+			step: z.number().int(),
+			lines: z.array(z.number().int()),
+		}),
+	),
+})
+
+// The model's grouping, taken only whole: every ingredient line in exactly one
+// group, steps that exist, and one group per heading. Anything else offers no
+// grouping, since a half-right one would lose or repeat a line.
+export function regroupFromModel(
+	request: RegroupRequest,
+	answer: z.infer<typeof modelRegroup>,
+): RegroupResponse {
+	const ingredientLines = new Set(
+		request.ingredients.flatMap((line, index) =>
+			line.trim() && ingredientHeading(line) === undefined ? [index] : [],
+		),
+	)
+
+	const placed = new Set<number>()
+	const headings = new Set<string | null>()
+	const groups: RegroupGroup[] = []
+
+	for (const group of answer.groups) {
+		const heading =
+			group.heading
+				?.trim()
+				.replace(/^#+\s*/, '')
+				.replace(/:$/, '')
+				.trim() || null
+
+		if (
+			(heading && heading.length > 80) ||
+			headings.has(heading) ||
+			group.step < 0 ||
+			group.step >= Math.max(request.steps.length, 1) ||
+			group.lines.length === 0
+		)
+			return { groups: [] }
+
+		for (const line of group.lines) {
+			if (!ingredientLines.has(line) || placed.has(line)) return { groups: [] }
+			placed.add(line)
+		}
+
+		headings.add(heading)
+		groups.push({ heading, step: group.step, lines: group.lines })
+	}
+
+	return placed.size === ingredientLines.size ? settled(groups) : { groups: [] }
 }

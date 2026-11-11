@@ -835,6 +835,46 @@ describe('the one box', () => {
 		await expect.element(row.getByLabelText('rated 4.7 by 312')).toBeVisible()
 	})
 
+	test('narrows the results to one recipe site', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({
+					url: 'https://www.bbcgoodfood.com/recipes/lemon-chicken',
+					title: 'lemon chicken',
+					siteName: 'BBC Good Food',
+				}),
+				found({
+					url: 'https://www.seriouseats.com/lemon-tart',
+					title: 'lemon tart',
+					siteName: 'Serious Eats',
+				}),
+			],
+		})
+
+		const { screen, input } = await openBox()
+
+		await input.fill('lemon')
+		await expect
+			.element(screen.getByRole('option', { name: /lemon tart/ }))
+			.toBeVisible()
+		await screen.getByRole('button', { name: 'site', exact: true }).click()
+		await screen.getByRole('menuitem', { name: 'BBC Good Food' }).click()
+
+		await expect
+			.element(screen.getByRole('option', { name: /lemon chicken/ }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('option', { name: /lemon tart/ }))
+			.not.toBeInTheDocument()
+
+		// Taken off, every site is back.
+		await screen.getByRole('button', { name: 'remove BBC Good Food' }).click()
+		await expect
+			.element(screen.getByRole('option', { name: /lemon tart/ }))
+			.toBeVisible()
+	})
+
 	test('keeps the highlighted option when results arrive after it', async () => {
 		let arrive: (value: SearchReply) => void = () => {}
 
