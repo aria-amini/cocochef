@@ -1,11 +1,12 @@
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 
 // The words a preparation note is made of: "finely chopped", "to taste",
-// "cut into 1-inch pieces". The list is closed on purpose: a note with any
-// other word in it ("dried apricots", "seaweed") may name the food, so the
-// line stays whole rather than lose it.
+// "cut into 1-inch pieces". The list is closed on purpose and holds no word
+// that could be a food ("seeds", "skin"): a note with any other word in it
+// ("dried apricots", "seaweed") may name the food, so the line stays whole
+// rather than lose it.
 const preparationWord =
-	/^(?:finely|roughly|coarsely|thinly|thickly|lightly|freshly|very|well|chopped|minced|diced|sliced|grated|shredded|peeled|crushed|cubed|halved|quartered|trimmed|rinsed|drained|softened|melted|beaten|cooked|toasted|roasted|seeded|pitted|cored|mashed|packed|sifted|divided|thawed|frozen|warmed|chilled|zested|juiced|deveined|skinned|scrubbed|torn|cut|smashed|crumbled|squeezed|whisked|stemmed|washed|dried|[\d/.-]+(?:inch|cm|mm)?|to|taste|plus|more|for|serving|garnish|at|room|temperature|optional|or|and|into|pieces|piece|inch|cubes|chunks|slices|rings|rounds|strips|left|whole|if|needed|about|the|a|of|in|half|halves|quarters|seeds|removed|stems|skin|on|off|thin|thick)$/i
+	/^(?:finely|roughly|coarsely|thinly|thickly|lightly|freshly|very|well|chopped|minced|diced|sliced|grated|shredded|peeled|crushed|cubed|halved|quartered|trimmed|rinsed|drained|softened|melted|beaten|cooked|toasted|roasted|seeded|pitted|cored|mashed|packed|sifted|divided|thawed|frozen|warmed|chilled|zested|juiced|deveined|skinned|scrubbed|torn|cut|smashed|crumbled|squeezed|whisked|stemmed|washed|dried|[\d/.-]+(?:inch|cm|mm)?|to|taste|plus|more|for|serving|garnish|at|room|temperature|optional|or|and|into|pieces|piece|inch|cubes|chunks|slices|strips|left|if|needed|about|the|a|of|in|removed|on|off|thin|thick)$/i
 
 const isPreparation = (note: string) => {
 	const words = note
