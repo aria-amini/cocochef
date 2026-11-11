@@ -17,8 +17,12 @@ to start. `OAUTH_PROXY_SECRET` must hold the same value at
 from a preview fails when production handles the callback; `createAuth()` can
 only check that it is set. Local dev reads `secret/shared/development` with the
 per-machine token in `~/.config/openbao/.env.dev`, from `mise run dev-token` in
-infra; bootstrap stops if it is missing. Tests and CI never load the development
-env, so they never use OpenBao.
+infra; bootstrap stops if it is missing. That token cannot read
+`secret/cocochef/development`. `mise run dev-token cocochef` in infra writes a
+second token to `~/.config/openbao/cocochef/.env.dev` that can, and Varlock
+prefers it when present; without it, cocochef-only development secrets such as
+`OPENROUTER_API_KEY` stay unset. Both tokens last 30 days. Tests and CI never
+load the development env, so they never use OpenBao.
 
 `railway.toml` freezes the env in the build, before devDependencies are pruned,
 and runs the deploy and migrations with `varlock run --frozen`, not `vp run`:

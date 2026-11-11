@@ -5,6 +5,9 @@ import {
 	mockSectionLines,
 	mockSectionName,
 	mockSuggestions,
+	sectionLinesFromModel,
+	sectionNameFromModel,
+	sectionsFromModel,
 	suggestionResponse,
 } from './suggestions'
 
@@ -159,5 +162,81 @@ describe('mockSectionName', () => {
 		expect(
 			mockSectionName({ title: 'toast', lines: ['bread', 'jam', 'tea'] }),
 		).toBe(null)
+	})
+})
+
+describe('sectionsFromModel', () => {
+	test('drops what the cook already wrote and tidies the rest', () => {
+		const sections = sectionsFromModel(
+			{
+				title: 'chicken tikka masala',
+				ingredients: ['## marinade', '1 cup plain yogurt', '1 tsp cumin'],
+			},
+			{
+				sections: [
+					{ heading: 'Marinade', lines: ['1 tbsp lemon juice'] },
+					{
+						heading: '## sauce:',
+						lines: [
+							'- 2 tbsp butter',
+							'2 tbsp butter',
+							'2 tsp ground cumin',
+							'1 can crushed tomatoes',
+						],
+					},
+					{ heading: 'garnish', lines: ['', '## extra'] },
+				],
+			},
+		)
+
+		expect(sections).toEqual([
+			{
+				heading: 'sauce',
+				ingredients: [
+					{ line: '2 tbsp butter', inPantry: false },
+					{ line: '1 can crushed tomatoes', inPantry: false },
+				],
+			},
+		])
+		expect(suggestionResponse.safeParse({ sections }).success).toBe(true)
+	})
+
+	test('keeps at most three sections', () => {
+		expect(
+			sectionsFromModel(
+				{ title: 'feast', ingredients: [] },
+				{
+					sections: ['a', 'b', 'c', 'd'].map((heading) => ({
+						heading,
+						lines: [`1 ${heading}`],
+					})),
+				},
+			),
+		).toHaveLength(3)
+	})
+})
+
+describe('sectionLinesFromModel', () => {
+	test('drops foods already written', () => {
+		expect(
+			sectionLinesFromModel(
+				{
+					title: 'chili',
+					section: 'spice blend',
+					ingredients: ['2 tsp ground cumin'],
+				},
+				{ lines: ['1 tsp cumin', '1 tbsp chili powder'] },
+			),
+		).toEqual(['1 tbsp chili powder'])
+	})
+})
+
+describe('sectionNameFromModel', () => {
+	test('writes the name the way the editor does', () => {
+		expect(sectionNameFromModel({ name: '## For the dressing:' })).toBe(
+			'For the dressing',
+		)
+		expect(sectionNameFromModel({ name: '  ' })).toBeNull()
+		expect(sectionNameFromModel({ name: null })).toBeNull()
 	})
 })

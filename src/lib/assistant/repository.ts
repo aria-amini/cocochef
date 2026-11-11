@@ -1,31 +1,21 @@
 import { type Database, getDb } from '@/db/connection'
 import { listPantryForUser } from '@/lib/pantry/repository'
 
-import {
-	markPantry,
-	mockSuggestions,
-	type SuggestionRequest,
-	type SuggestionResponse,
-} from './suggestions'
+import { markPantry, type SuggestedSection } from './suggestions'
 
-// Sections for the recipe being written, with the foods the cook's pantry holds
-// marked. The mock stands in for a model until the suggestions are settled. A
-// visitor, with no user, gets the sections unmarked.
-export async function suggestSectionsForUser(
+// Suggested sections with the foods the cook's pantry holds marked. A visitor,
+// with no user, gets them unmarked.
+export async function markPantryForUser(
 	userId: string | undefined,
-	request: SuggestionRequest,
+	sections: SuggestedSection[],
 	database: Database = getDb(),
-): Promise<SuggestionResponse> {
-	const sections = mockSuggestions(request)
-
-	if (!sections.length || !userId) return { sections }
+): Promise<SuggestedSection[]> {
+	if (!sections.length || !userId) return sections
 
 	const pantry = await listPantryForUser(userId, database)
 
-	return {
-		sections: markPantry(
-			sections,
-			pantry.map((item) => item.name),
-		),
-	}
+	return markPantry(
+		sections,
+		pantry.map((item) => item.name),
+	)
 }
