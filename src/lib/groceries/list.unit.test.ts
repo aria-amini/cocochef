@@ -30,6 +30,7 @@ describe('groceryLine', () => {
 		expect(groceryLine('1 cup fresh, curly parsley')).toBe(
 			'1 cup fresh, curly parsley',
 		)
+		expect(groceryLine('1 cup fresh, seaweed')).toBe('1 cup fresh, seaweed')
 		expect(groceryLine('1 onion, very finely chopped')).toBe('1 onion')
 		expect(groceryLine('1 carrot, peeled and cut into 1-inch pieces')).toBe(
 			'1 carrot',
