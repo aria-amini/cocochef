@@ -86,6 +86,11 @@ TLS edge.
 - `vp run db:migrate` — run migrations
 - `vp run dead-code` — find unused exports with fallow
 
+Each push runs `.vite-hooks/pre-push`: `vp check` (format, lint and types, about
+five seconds). No hook runs tests; CI runs the full suite. `vp i` installs the
+hook through `prepare`; in a worktree whose packages are already installed,
+`vp i` skips that, so run `vp config`. Without it, git skips the hook silently.
+
 Use `pnpm` through Vite+ (`vp i`, `vp run <script>`). Secrets resolve through
 Varlock; never commit generated or local secret files.
 
