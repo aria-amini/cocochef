@@ -4,7 +4,7 @@ import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 // "cut into 1-inch pieces". A note with any other word in it ("dried
 // apricots") names the food, so the line stays whole.
 const preparationWord =
-	/^(?:\w+ly|\w{3,}ed|\w+en|[\d/.-]+(?:inch|cm|mm)?|to|taste|divided|plus|more|for|serving|garnish|at|room|temperature|optional|or|and|cut|into|pieces|piece|inch|cubes|chunks|slices|rings|rounds|strips|torn|left|whole|if|needed|about|the|a|of|in|half|halves|quarters|seeds|removed|stems|skin|on|off|thin|thick)$/i
+	/^(?:finely|roughly|coarsely|thinly|thickly|lightly|freshly|very|well|\w{3,}ed|beaten|frozen|broken|[\d/.-]+(?:inch|cm|mm)?|to|taste|divided|plus|more|for|serving|garnish|at|room|temperature|optional|or|and|cut|into|pieces|piece|inch|cubes|chunks|slices|rings|rounds|strips|torn|left|whole|if|needed|about|the|a|of|in|half|halves|quarters|seeds|removed|stems|skin|on|off|thin|thick)$/i
 
 const isPreparation = (note: string) => {
 	const words = note
