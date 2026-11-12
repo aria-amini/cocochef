@@ -433,6 +433,7 @@ export const modelSectionName = z.object({ name: z.string().nullable() })
 // A section name as the editor writes it: no `## ` and no trailing colon.
 function cleanHeading(text: string) {
 	const heading = text
+		.replace(/\s+/g, ' ')
 		.trim()
 		.replace(/^#+\s*/, '')
 		.replace(/:$/, '')

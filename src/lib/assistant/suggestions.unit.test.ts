@@ -238,5 +238,7 @@ describe('sectionNameFromModel', () => {
 		)
 		expect(sectionNameFromModel({ name: '  ' })).toBeNull()
 		expect(sectionNameFromModel({ name: null })).toBeNull()
+		// A name on two lines would not read back as a heading.
+		expect(sectionNameFromModel({ name: 'sauce\nnotes' })).toBe('sauce notes')
 	})
 })

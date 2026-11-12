@@ -123,6 +123,14 @@ export const modelAmounts = z.object({
 	),
 })
 
+// An amount and nothing else: a number, fraction or range, then at most one
+// unit word ("2 tbsp", ".5 cup", "1-2 cloves"), so no food name slips in.
+const isAmount = (text: string) =>
+	text.length <= 24 &&
+	/^(?:\d+(?:[.,/]\d+)?|\.\d+|[¼½¾⅓⅔⅛]|\d+\s*[¼½¾⅓⅔⅛])(?:\s*(?:-|–|to)\s*(?:\d+(?:[.,/]\d+)?|[¼½¾⅓⅔⅛]))?(?:\s*[a-z]+\.?)?$/i.test(
+		text,
+	)
+
 // One amount per requested line, only where the line wants one and the answer
 // reads like an amount ("2 tbsp", "3 cloves"), not a sentence.
 export function amountsFromModel(
@@ -137,12 +145,7 @@ export function amountsFromModel(
 		amounts: request.lines.map((line, index) => {
 			const amount = byLine.get(index)
 
-			return wantsAmount(line) &&
-				amount &&
-				amount.length <= 24 &&
-				/^[\d¼½¾⅓⅔⅛]/.test(amount)
-				? amount
-				: null
+			return wantsAmount(line) && amount && isAmount(amount) ? amount : null
 		}),
 	}
 }

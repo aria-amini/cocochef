@@ -367,7 +367,6 @@ export const proteinParts = [
 			'brisket',
 			'short rib',
 			'meatball',
-			'burger',
 			'bulgogi',
 			'bolognese',
 			'birria',

@@ -53,4 +53,17 @@ describe('amountsFromModel', () => {
 			).amounts,
 		).toEqual(['3 cloves', null, '2 tbsp', null])
 	})
+
+	test('takes an amount alone, never one with the food in it', () => {
+		const amountFor = (amount: string) =>
+			amountsFromModel(
+				{ title: 'dressing', lines: ['olive oil'] },
+				{ amounts: [{ line: 0, amount }] },
+			).amounts[0]
+
+		expect(amountFor('2 tbsp olive oil')).toBeNull()
+		expect(amountFor('.5 cup')).toBe('.5 cup')
+		expect(amountFor('1-2 tbsp')).toBe('1-2 tbsp')
+		expect(amountFor('½ cup')).toBe('½ cup')
+	})
 })

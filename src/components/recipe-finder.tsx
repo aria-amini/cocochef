@@ -314,6 +314,10 @@ function FinderPanel({
 		return tags !== undefined && fitsPicks(tags, picks)
 	}
 
+	// How many recipes the main list could show once filtered, so "show more"
+	// appears only while another click reveals one.
+	let listable = 0
+
 	const narrowed = (recipes: FoundRecipe[]) => {
 		pool.push(...recipes)
 
@@ -331,7 +335,14 @@ function FinderPanel({
 		// browses what others cook.
 		section(
 			'popular',
-			asOptions(narrowed(popular.data?.results ?? []).slice(0, visibleRecipes)),
+			asOptions(
+				(() => {
+					const shown = narrowed(popular.data?.results ?? [])
+					listable = shown.length
+
+					return shown.slice(0, visibleRecipes)
+				})(),
+			),
 		)
 	} else {
 		// Names on the shelf match at once; the server adds ingredients.
@@ -353,24 +364,40 @@ function FinderPanel({
 		section(
 			'more recipes',
 			asOptions(
-				ranked(
-					narrowed(online.results.filter((recipe) => !recipe.saved)),
-				).slice(0, visibleRecipes),
+				(() => {
+					const shown = ranked(
+						narrowed(online.results.filter((recipe) => !recipe.saved)),
+					)
+
+					listable = shown.length
+
+					return shown.slice(0, visibleRecipes)
+				})(),
 			),
 		)
 
-		// Nothing exists by that name: writing it is the way on.
-		if (!onUse && options.length === 0 && !online.loading && !online.failed)
+		// Nothing exists by that name: writing it is the way on. Recipes hidden
+		// by a bubble do exist, so they don't count as nothing.
+		if (
+			!onUse &&
+			options.length === 0 &&
+			pool.length === 0 &&
+			!online.loading &&
+			!online.failed
+		)
 			section('', [{ kind: 'write', title: trimmed }])
 	}
 
+	// Within the picked site, so a part is offered only if picking it leaves
+	// something on that site.
 	const partCounts = countParts(
 		[
 			...new Map(
-				pool.map((recipe) => [
-					recipe.recipeId ?? recipe.url ?? recipe.title,
-					recipe,
-				]),
+				pool.flatMap((recipe): [string, FoundRecipe][] =>
+					!site || recipe.siteName === site
+						? [[recipe.recipeId ?? recipe.url ?? recipe.title, recipe]]
+						: [],
+				),
 			).values(),
 		].flatMap((recipe) => tagsOf(recipe) ?? []),
 		picks,
@@ -904,6 +931,9 @@ function FinderPanel({
 												: 'no other recipes called that yet'}
 							</Status>
 						) : null}
+						{options.length === 0 && pool.length > 0 ? (
+							<Status>nothing here matches these filters</Status>
+						) : null}
 						{sections.map(({ label, from, to }) => (
 							<SectionRows
 								key={label || options[from]?.kind}
@@ -916,9 +946,7 @@ function FinderPanel({
 							/>
 						))}
 					</ul>
-					{(trimmed
-						? online.results.filter((recipe) => !recipe.saved).length
-						: (popular.data?.results.length ?? 0)) > visibleRecipes ? (
+					{listable > visibleRecipes ? (
 						<button
 							type="button"
 							onClick={() => setVisibleRecipes((count) => count + foundLimit)}

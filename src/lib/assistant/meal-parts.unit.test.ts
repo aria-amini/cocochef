@@ -30,6 +30,13 @@ describe('meal parts', () => {
 		expect(mealTags('Hamburger buns')?.proteins).not.toContain('pork')
 	})
 
+	test('reads a burger as a sandwich, not as beef', () => {
+		expect(mealTags('Chicken Burger')).toMatchObject({
+			proteins: ['chicken'],
+			forms: ['sandwich'],
+		})
+	})
+
 	test('leaves sweets out', () => {
 		expect(mealTags('Chocolate Chip Cookies')).toBeUndefined()
 		expect(mealTags('Thai coconut cake')).toBeUndefined()

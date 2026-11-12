@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 // Tags a sample of recipes with TypeSafe's Jev classifier and compares them
@@ -18,6 +18,9 @@ import {
 import catalog from '../src/lib/discover/catalog.json'
 
 const [outDir = '.', sampleArg = '74'] = process.argv.slice(2)
+
+// Made before any paid call, so a bad path fails at once, not after tagging.
+await mkdir(outDir, { recursive: true })
 
 const model = 'jev-1.13.0'
 
@@ -91,12 +94,19 @@ async function samples(): Promise<Sample[]> {
 	// A fixed spread through the catalog, so reruns compare the same pages.
 	const links: { url: string; title: string }[] = catalog
 	const count = Number(sampleArg)
-	const step = Math.floor(links.length / count)
 
+	if (!Number.isSafeInteger(count) || count < 1)
+		throw new Error('The catalog sample must be a whole number above 0.')
+
+	// Evenly spread by each sample's share of the catalog, so every index is
+	// in range whatever the count.
 	const picked =
 		links.length <= count
 			? links
-			: Array.from({ length: count }, (_, i) => links[i * step + 7]!)
+			: Array.from(
+					{ length: count },
+					(_, i) => links[Math.floor((i * links.length) / count)]!,
+				)
 
 	return [
 		...rows.map((row) => ({ ...row, from: 'read page' })),

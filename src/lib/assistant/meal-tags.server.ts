@@ -50,7 +50,18 @@ export async function withMealTags<
 		title: string
 	},
 >(found: T[], database: Database = getDb()) {
-	const tags = await savedTags(database)
+	// A failed read leaves search working on title words, and the next search
+	// tries the table again.
+	let tags: Saved
+
+	try {
+		tags = await savedTags(database)
+	} catch (error) {
+		console.error(
+			`meal tags unavailable: ${error instanceof Error ? error.message : 'unknown error'}`,
+		)
+		tags = new Map()
+	}
 
 	return found.map((recipe) => ({
 		...recipe,
