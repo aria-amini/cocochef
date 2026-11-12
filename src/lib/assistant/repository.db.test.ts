@@ -3,7 +3,8 @@ import { describe, expect, test } from '@tests/support/fixtures/db'
 import { user } from '@/db/schema'
 import { createPantryItemsForUser } from '@/lib/pantry/repository'
 
-import { suggestSectionsForUser } from './repository'
+import { markPantryForUser } from './repository'
+import { mockSuggestions } from './suggestions'
 
 describe('suggested sections', () => {
 	test('marks the foods in the cook’s own pantry', async ({ db }) => {
@@ -29,9 +30,9 @@ describe('suggested sections', () => {
 			db,
 		)
 
-		const { sections } = await suggestSectionsForUser(
+		const sections = await markPantryForUser(
 			cook,
-			{ title: 'chili', ingredients: [] },
+			mockSuggestions({ title: 'chili', ingredients: [] }),
 			db,
 		)
 
@@ -44,9 +45,9 @@ describe('suggested sections', () => {
 	})
 
 	test('leaves a visitor’s suggestions unmarked', async ({ db }) => {
-		const { sections } = await suggestSectionsForUser(
+		const sections = await markPantryForUser(
 			undefined,
-			{ title: 'chili', ingredients: [] },
+			mockSuggestions({ title: 'chili', ingredients: [] }),
 			db,
 		)
 

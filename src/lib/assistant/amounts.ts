@@ -112,3 +112,44 @@ export function mockAmounts(request: AmountRequest): AmountResponse {
 		}),
 	}
 }
+
+// ===== From the model =====
+
+// The model answers by line number, so a skipped or reordered line cannot
+// shift an amount onto the wrong food.
+export const modelAmounts = z.object({
+	amounts: z.array(
+		z.object({ line: z.number().int(), amount: z.string().nullable() }),
+	),
+})
+
+// An amount and nothing else: a number, fraction or range, then at most one
+// unit word ("2 tbsp", ".5 cup", "1 1/2 cups", "1-2 cloves"), so no food name
+// slips in.
+const quantity = String.raw`(?:\d+\s+\d+/\d+|\d+(?:[.,/]\d+)?|\.\d+|\d*\s*[¼½¾⅓⅔⅛])`
+
+const amountPattern = new RegExp(
+	String.raw`^${quantity}(?:\s*(?:-|–|to)\s*${quantity})?(?:\s*[a-z]+\.?)?$`,
+	'i',
+)
+
+const isAmount = (text: string) => text.length <= 24 && amountPattern.test(text)
+
+// One amount per requested line, only where the line wants one and the answer
+// reads like an amount ("2 tbsp", "3 cloves"), not a sentence.
+export function amountsFromModel(
+	request: AmountRequest,
+	answer: z.infer<typeof modelAmounts>,
+): AmountResponse {
+	const byLine = new Map(
+		answer.amounts.map(({ line, amount }) => [line, amount?.trim()]),
+	)
+
+	return {
+		amounts: request.lines.map((line, index) => {
+			const amount = byLine.get(index)
+
+			return wantsAmount(line) && amount && isAmount(amount) ? amount : null
+		}),
+	}
+}

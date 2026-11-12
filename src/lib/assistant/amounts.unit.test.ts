@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import { mockAmounts, wantsAmount } from './amounts'
+import { amountsFromModel, mockAmounts, wantsAmount } from './amounts'
 
 describe('wantsAmount', () => {
 	test('takes a food written without an amount', () => {
@@ -30,5 +30,43 @@ describe('mockAmounts', () => {
 				],
 			}).amounts,
 		).toEqual(['3 cloves', '1 lb', null, null, '2 tbsp'])
+	})
+})
+
+describe('amountsFromModel', () => {
+	test('places each amount by line number, only where one is wanted', () => {
+		expect(
+			amountsFromModel(
+				{
+					title: 'tikka masala',
+					lines: ['garlic', 'salt to taste', 'olive oil', 'saffron'],
+				},
+				{
+					amounts: [
+						{ line: 2, amount: ' 2 tbsp ' },
+						{ line: 0, amount: '3 cloves' },
+						{ line: 1, amount: '1 tsp' },
+						{ line: 3, amount: 'a generous pinch of threads' },
+						{ line: 9, amount: '1 cup' },
+					],
+				},
+			).amounts,
+		).toEqual(['3 cloves', null, '2 tbsp', null])
+	})
+
+	test('takes an amount alone, never one with the food in it', () => {
+		const amountFor = (amount: string) =>
+			amountsFromModel(
+				{ title: 'dressing', lines: ['olive oil'] },
+				{ amounts: [{ line: 0, amount }] },
+			).amounts[0]
+
+		expect(amountFor('2 tbsp olive oil')).toBeNull()
+		expect(amountFor('.5 cup')).toBe('.5 cup')
+		expect(amountFor('1-2 tbsp')).toBe('1-2 tbsp')
+		expect(amountFor('½ cup')).toBe('½ cup')
+		expect(amountFor('1 1/2 cups')).toBe('1 1/2 cups')
+		expect(amountFor('1 1/2')).toBe('1 1/2')
+		expect(amountFor('1 ½ cups')).toBe('1 ½ cups')
 	})
 })

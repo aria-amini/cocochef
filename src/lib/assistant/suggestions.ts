@@ -100,6 +100,28 @@ function alreadyWritten(line: string, written: string[][]) {
 	)
 }
 
+// The foods the cook has written, as words, headings left out.
+function writtenFoods(ingredients: string[]) {
+	return ingredients.flatMap((line) => {
+		if (!line.trim() || ingredientHeading(line) !== undefined) return []
+
+		const words = foodWords(line)
+
+		return words.length ? [words] : []
+	})
+}
+
+// The section names the cook has written, normalized.
+function writtenHeadings(ingredients: string[]) {
+	return new Set(
+		ingredients.flatMap((line) => {
+			const heading = ingredientHeading(line)
+
+			return heading ? [normalizeIngredientName(heading)] : []
+		}),
+	)
+}
+
 // Marks each suggested food the pantry holds. A pantry item is the general
 // food, so "cumin" in the pantry covers a suggested "ground cumin".
 export function markPantry(
@@ -254,18 +276,9 @@ export function mockSuggestions(
 
 	if (!dish) return []
 
-	const headings = new Set(
-		request.ingredients.flatMap((line) => {
-			const heading = ingredientHeading(line)
+	const headings = writtenHeadings(request.ingredients)
 
-			return heading ? [normalizeIngredientName(heading)] : []
-		}),
-	)
-
-	const written = request.ingredients
-		.filter((line) => line.trim() && ingredientHeading(line) === undefined)
-		.map(foodWords)
-		.filter((words) => words.length > 0)
+	const written = writtenFoods(request.ingredients)
 
 	return dish.sections.flatMap(([heading, lines]) => {
 		if (headings.has(heading)) return []
@@ -349,10 +362,7 @@ export function mockSectionLines(request: SectionLinesRequest): string[] {
 
 	if (!found) return []
 
-	const written = request.ingredients
-		.filter((line) => line.trim() && ingredientHeading(line) === undefined)
-		.map(foodWords)
-		.filter((words) => words.length > 0)
+	const written = writtenFoods(request.ingredients)
 
 	return found[1].filter((line) => !alreadyWritten(line, written))
 }
@@ -370,10 +380,7 @@ export type SectionNameRequest = z.infer<typeof sectionNameRequest>
 // The known section most of these lines belong to, the recipe's own dish
 // first; nothing unless at least two of them, and most of them, fit.
 export function mockSectionName(request: SectionNameRequest): string | null {
-	const written = request.lines
-		.filter((line) => line.trim() && ingredientHeading(line) === undefined)
-		.map(foodWords)
-		.filter((words) => words.length > 0)
+	const written = writtenFoods(request.lines)
 
 	if (written.length < 2) return null
 
@@ -407,4 +414,98 @@ export function mockSectionName(request: SectionNameRequest): string | null {
 	return best && best.fits >= 2 && best.fits * 2 > written.length
 		? best.heading
 		: null
+}
+
+// ===== From the model =====
+
+// What the model is asked to answer. Kept loose so any model can follow it;
+// the editor's contracts above are filled in from it, never trusted as is.
+export const modelSections = z.object({
+	sections: z.array(
+		z.object({ heading: z.string(), lines: z.array(z.string()) }),
+	),
+})
+
+export const modelLines = z.object({ lines: z.array(z.string()) })
+
+export const modelSectionName = z.object({ name: z.string().nullable() })
+
+// A section name as the editor writes it: no `## ` and no trailing colon.
+function cleanHeading(text: string) {
+	const heading = text
+		.replace(/\s+/g, ' ')
+		.trim()
+		.replace(/^#+\s*/, '')
+		.replace(/:$/, '')
+		.trim()
+
+	return heading && heading.length <= 80 ? heading : undefined
+}
+
+// Ingredient lines, one food each, without list markers or repeats.
+function cleanLines(lines: string[]) {
+	const seen = new Set<string>()
+
+	return lines.flatMap((text) => {
+		const line = text
+			.trim()
+			.replace(/^[-*•]\s+/, '')
+			.trim()
+
+		const key = line.toLowerCase()
+
+		if (
+			!line ||
+			line.length > 500 ||
+			ingredientHeading(line) !== undefined ||
+			seen.has(key)
+		)
+			return []
+
+		seen.add(key)
+
+		return [line]
+	})
+}
+
+// The model's sections, less the sections and foods the cook already wrote.
+export function sectionsFromModel(
+	request: SuggestionRequest,
+	answer: z.infer<typeof modelSections>,
+): SuggestedSection[] {
+	const headings = writtenHeadings(request.ingredients)
+	const written = writtenFoods(request.ingredients)
+
+	return answer.sections
+		.flatMap(({ heading, lines }) => {
+			const name = cleanHeading(heading)
+
+			if (!name || headings.has(normalizeIngredientName(name))) return []
+
+			headings.add(normalizeIngredientName(name))
+
+			const ingredients = cleanLines(lines)
+				.filter((line) => !alreadyWritten(line, written))
+				.slice(0, 20)
+				.map((line) => ({ line, inPantry: false }))
+
+			return ingredients.length ? [{ heading: name, ingredients }] : []
+		})
+		.slice(0, 3)
+}
+
+// The model's lines for a section, less the foods the cook already wrote.
+export function sectionLinesFromModel(
+	request: SectionLinesRequest,
+	answer: z.infer<typeof modelLines>,
+) {
+	const written = writtenFoods(request.ingredients)
+
+	return cleanLines(answer.lines)
+		.filter((line) => !alreadyWritten(line, written))
+		.slice(0, 20)
+}
+
+export function sectionNameFromModel(answer: z.infer<typeof modelSectionName>) {
+	return (answer.name ? cleanHeading(answer.name) : undefined) || null
 }

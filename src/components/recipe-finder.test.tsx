@@ -901,6 +901,92 @@ describe('the one box', () => {
 		await expect.element(row.getByLabelText('rated 4.7 by 312')).toBeVisible()
 	})
 
+	test('narrows the results to one recipe site', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({
+					url: 'https://www.bbcgoodfood.com/recipes/lemon-chicken',
+					title: 'lemon chicken',
+					siteName: 'BBC Good Food',
+				}),
+				found({
+					url: 'https://www.seriouseats.com/lemon-tart',
+					title: 'lemon tart',
+					siteName: 'Serious Eats',
+				}),
+			],
+		})
+
+		const { screen, input } = await openBox()
+
+		await input.fill('lemon')
+		await expect
+			.element(screen.getByRole('option', { name: /lemon tart/ }))
+			.toBeVisible()
+		await screen.getByRole('button', { name: 'site', exact: true }).click()
+		await screen.getByRole('menuitem', { name: 'BBC Good Food' }).click()
+
+		await expect
+			.element(screen.getByRole('option', { name: /lemon chicken/ }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('option', { name: /lemon tart/ }))
+			.not.toBeInTheDocument()
+
+		// Taken off, every site is back.
+		await screen.getByRole('button', { name: 'remove BBC Good Food' }).click()
+		await expect
+			.element(screen.getByRole('option', { name: /lemon tart/ }))
+			.toBeVisible()
+	})
+
+	test('counts the bubbles within the picked site, and says when filters hide everything', async () => {
+		const curry = found({
+			url: 'https://www.seriouseats.com/thai-green-curry',
+			title: 'thai green curry',
+			siteName: 'Serious Eats',
+		})
+
+		const chicken = found({
+			url: 'https://www.bbcgoodfood.com/recipes/lemon-chicken',
+			title: 'lemon chicken',
+			siteName: 'BBC Good Food',
+		})
+
+		server.search.mockImplementation(
+			async ({ data }: { data: { q: string } }) => ({
+				warming: false,
+				results: data.q === 'curry' ? [curry, chicken] : [chicken],
+			}),
+		)
+
+		const { screen, input } = await openBox()
+
+		await input.fill('curry')
+		await expect
+			.element(screen.getByRole('option', { name: /thai green curry/ }))
+			.toBeVisible()
+
+		// On BBC Good Food alone, nothing is Thai, so Thai isn't offered.
+		await screen.getByRole('button', { name: 'site', exact: true }).click()
+		await screen.getByRole('menuitem', { name: 'BBC Good Food' }).click()
+		await screen.getByRole('button', { name: 'cuisine', exact: true }).click()
+		expect(screen.getByRole('menuitem', { name: /thai/ }).all()).toHaveLength(0)
+		await userEvent.keyboard('{Escape}')
+		await screen.getByRole('button', { name: 'remove BBC Good Food' }).click()
+
+		await screen.getByRole('button', { name: 'cuisine', exact: true }).click()
+		await screen.getByRole('menuitem', { name: /thai/ }).click()
+
+		// A search the Thai bubble hides entirely isn't a name to write.
+		await input.fill('lemon')
+		await expect
+			.element(screen.getByText('nothing here matches these filters'))
+			.toBeVisible()
+		expect(screen.getByRole('option', { name: /write/ }).all()).toHaveLength(0)
+	})
+
 	test('keeps the highlighted option when results arrive after it', async () => {
 		let arrive: (value: SearchReply) => void = () => {}
 

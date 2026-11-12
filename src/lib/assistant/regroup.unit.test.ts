@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { mockRegroup } from './regroup'
+import { mockRegroup, regroupFromModel } from './regroup'
 
 const tikka = {
 	ingredients: [
@@ -79,5 +79,73 @@ describe('mockRegroup', () => {
 
 	test('offers nothing without steps', () => {
 		expect(mockRegroup({ ...tikka, steps: [] }).groups).toEqual([])
+	})
+})
+
+describe('regroupFromModel', () => {
+	const recipe = {
+		ingredients: [
+			'## marinade',
+			'1 lb chicken thighs',
+			'1 cup plain yogurt',
+			'2 tbsp butter',
+			'1 can crushed tomatoes',
+		],
+		steps: ['Marinate the chicken in the yogurt.', 'Make the sauce.'],
+	}
+
+	test('takes a whole grouping, basics first', () => {
+		expect(
+			regroupFromModel(recipe, {
+				groups: [
+					{ heading: '## for the sauce:', step: 1, lines: [3, 4] },
+					{ heading: null, step: 0, lines: [1, 2] },
+				],
+			}),
+		).toEqual({
+			groups: [
+				{ heading: null, step: 0, lines: [1, 2] },
+				{ heading: 'for the sauce', step: 1, lines: [3, 4] },
+			],
+		})
+	})
+
+	test('offers nothing when a line is lost, repeated, or a heading', () => {
+		const answers = [
+			[
+				{ heading: 'marinade', step: 0, lines: [1, 2] },
+				{ heading: 'sauce', step: 1, lines: [3] },
+			],
+			[
+				{ heading: 'marinade', step: 0, lines: [1, 2, 3] },
+				{ heading: 'sauce', step: 1, lines: [3, 4] },
+			],
+			[
+				{ heading: 'marinade', step: 0, lines: [0, 1, 2] },
+				{ heading: 'sauce', step: 1, lines: [3, 4] },
+			],
+		]
+
+		for (const groups of answers)
+			expect(regroupFromModel(recipe, { groups })).toEqual({ groups: [] })
+	})
+
+	test('offers nothing for a step that does not exist or a repeated heading', () => {
+		expect(
+			regroupFromModel(recipe, {
+				groups: [
+					{ heading: 'marinade', step: 0, lines: [1, 2] },
+					{ heading: 'sauce', step: 5, lines: [3, 4] },
+				],
+			}),
+		).toEqual({ groups: [] })
+		expect(
+			regroupFromModel(recipe, {
+				groups: [
+					{ heading: 'sauce', step: 0, lines: [1, 2] },
+					{ heading: 'sauce', step: 1, lines: [3, 4] },
+				],
+			}),
+		).toEqual({ groups: [] })
 	})
 })

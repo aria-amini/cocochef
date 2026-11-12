@@ -11,3 +11,5 @@ export * from './cooking'
 export * from './sharing'
 
 export * from './groceries'
+
+export * from './meal-tags'

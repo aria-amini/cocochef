@@ -19,6 +19,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
+import { PartBubble, partBubbles } from '@/components/meal-bubbles'
 import { FieldError } from '@/components/recipe-form'
 import {
 	asRecipeUrl,
@@ -30,6 +31,14 @@ import { RecipeReader } from '@/components/recipe-reader'
 import { SiteIcon } from '@/components/site-icon'
 import type { StartingPoint } from '@/components/start-from'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+	countParts,
+	fitsPicks,
+	hasPicks,
+	mealTags,
+	type MealPicks,
+	type MealTags,
+} from '@/lib/assistant/meal-parts'
 import { authClient } from '@/lib/auth/client'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
@@ -103,7 +112,14 @@ function fromShelf(recipe: ShelfRecipe): FoundRecipe {
 	}
 }
 
-// Marks every search word in `text`.
+// The parts of a meal a recipe was tagged with, or what its title names when
+// the search sent none (a shelf glance); undefined when it isn't a meal.
+function tagsOf(recipe: FoundRecipe): MealTags | undefined {
+	return recipe.tags === undefined
+		? mealTags(recipe.title)
+		: (recipe.tags ?? undefined)
+}
+
 // Why a recipe is in the list, in a few words.
 function recipeNote(recipe: FoundRecipe) {
 	const parts = [
@@ -230,6 +246,10 @@ function FinderPanel({
 
 	// Results most loved first, rather than best match first.
 	const [loved, setLoved] = useState(false)
+	// Parts of a meal picked in the bubbles, which narrow every list.
+	const [picks, setPicks] = useState<MealPicks>({})
+	// The recipe site picked in its bubble, by name.
+	const [site, setSite] = useState<string>()
 	const [error, setError] = useState<string>()
 	// Site pages brought in for a look, by link, so they keep their recipe.
 	const [resolved, setResolved] = useState<Record<string, string>>({})
@@ -283,6 +303,31 @@ function FinderPanel({
 	const asOptions = (recipes: FoundRecipe[]) =>
 		recipes.map((recipe): Option => ({ kind: 'recipe', recipe: rated(recipe) }))
 
+	// Every recipe the lists draw from, before the bubbles narrow them, so
+	// each bubble counts what picking it would leave.
+	const pool: FoundRecipe[] = []
+
+	const fitsMeal = (recipe: FoundRecipe) => {
+		if (!hasPicks(picks)) return true
+		const tags = tagsOf(recipe)
+
+		return tags !== undefined && fitsPicks(tags, picks)
+	}
+
+	// How many recipes the main list could show once filtered, so "show more"
+	// appears only while another click reveals one.
+	let listable = 0
+
+	const narrowed = (recipes: FoundRecipe[]) => {
+		pool.push(...recipes)
+
+		if (!hasPicks(picks) && !site) return recipes
+
+		return recipes.filter(
+			(recipe) => fitsMeal(recipe) && (!site || recipe.siteName === site),
+		)
+	}
+
 	if (url) {
 		section('', [{ kind: 'link', url }])
 	} else if (!trimmed) {
@@ -290,7 +335,14 @@ function FinderPanel({
 		// browses what others cook.
 		section(
 			'popular',
-			asOptions((popular.data?.results ?? []).slice(0, visibleRecipes)),
+			asOptions(
+				(() => {
+					const shown = narrowed(popular.data?.results ?? [])
+					listable = shown.length
+
+					return shown.slice(0, visibleRecipes)
+				})(),
+			),
 		)
 	} else {
 		// Names on the shelf match at once; the server adds ingredients.
@@ -305,21 +357,78 @@ function FinderPanel({
 				? byLoved(recipes, (recipe) => lovedScore(rated(recipe).rating))
 				: recipes
 
-		section('on your shelf', asOptions(ranked(fromServer).slice(0, shelfLimit)))
+		section(
+			'on your shelf',
+			asOptions(ranked(narrowed(fromServer)).slice(0, shelfLimit)),
+		)
 		section(
 			'more recipes',
 			asOptions(
-				ranked(online.results.filter((recipe) => !recipe.saved)).slice(
-					0,
-					visibleRecipes,
-				),
+				(() => {
+					const shown = ranked(
+						narrowed(online.results.filter((recipe) => !recipe.saved)),
+					)
+
+					listable = shown.length
+
+					return shown.slice(0, visibleRecipes)
+				})(),
 			),
 		)
 
-		// Nothing exists by that name: writing it is the way on.
-		if (!onUse && options.length === 0 && !online.loading && !online.failed)
+		// Nothing exists by that name: writing it is the way on. Recipes hidden
+		// by a bubble do exist, so they don't count as nothing.
+		if (
+			!onUse &&
+			options.length === 0 &&
+			pool.length === 0 &&
+			!online.loading &&
+			!online.failed
+		)
 			section('', [{ kind: 'write', title: trimmed }])
 	}
+
+	// Within the picked site, so a part is offered only if picking it leaves
+	// something on that site.
+	const partCounts = countParts(
+		[
+			...new Map(
+				pool.flatMap((recipe): [string, FoundRecipe][] =>
+					!site || recipe.siteName === site
+						? [[recipe.recipeId ?? recipe.url ?? recipe.title, recipe]]
+						: [],
+				),
+			).values(),
+		].flatMap((recipe) => tagsOf(recipe) ?? []),
+		picks,
+	)
+
+	// The sites the list holds, with the other picks, most recipes first; the
+	// one picked stays offered so it can be taken off.
+	const siteLinks = new Map<string, string | undefined>()
+	const siteTally = new Map<string, number>()
+
+	for (const recipe of pool)
+		if (recipe.siteName && fitsMeal(recipe)) {
+			siteLinks.set(recipe.siteName, recipe.url)
+			siteTally.set(recipe.siteName, (siteTally.get(recipe.siteName) ?? 0) + 1)
+		}
+
+	if (site && !siteTally.has(site)) siteTally.set(site, 0)
+
+	const siteOptions = [...siteTally]
+		.sort((a, b) => b[1] - a[1])
+		.map(([name, count]) => ({ name, sprite: '', count }))
+
+	// A flavor belongs to its cuisine and goes with it.
+	const pick = (key: keyof MealPicks, name: string | undefined) =>
+		setPicks((now) => {
+			const next = { ...now, [key]: name }
+
+			if (key === 'cuisine') next.flavor = undefined
+
+			return next
+		})
 
 	const pickedAt = options.findIndex((option) => optionKey(option) === picked)
 
@@ -765,6 +874,37 @@ function FinderPanel({
 					<XIcon size={20} weight="bold" aria-hidden />
 				</Dialog.Close>
 			</div>
+			{!url && !previewing ? (
+				<ul
+					aria-label="narrow by"
+					className="border-border flex shrink-0 gap-2 overflow-x-auto border-b px-4 py-2 md:flex-wrap"
+				>
+					{partBubbles.flatMap((bubble) =>
+						// A flavor is picked within a cuisine.
+						bubble.key === 'flavor' && !picks.cuisine
+							? []
+							: [
+									<li key={bubble.key} className="shrink-0">
+										<PartBubble
+											label={bubble.label}
+											value={picks[bubble.key]}
+											options={partCounts[bubble.counts]}
+											onPick={(name) => pick(bubble.key, name)}
+										/>
+									</li>,
+								],
+					)}
+					<li className="shrink-0">
+						<PartBubble
+							label="site"
+							value={site}
+							options={siteOptions}
+							onPick={setSite}
+							icon={(name) => <SiteIcon url={siteLinks.get(name)} />}
+						/>
+					</li>
+				</ul>
+			) : null}
 			<div
 				className={cn(
 					'grid min-h-0 flex-1',
@@ -791,6 +931,9 @@ function FinderPanel({
 												: 'no other recipes called that yet'}
 							</Status>
 						) : null}
+						{options.length === 0 && pool.length > 0 ? (
+							<Status>nothing here matches these filters</Status>
+						) : null}
 						{sections.map(({ label, from, to }) => (
 							<SectionRows
 								key={label || options[from]?.kind}
@@ -803,9 +946,7 @@ function FinderPanel({
 							/>
 						))}
 					</ul>
-					{(trimmed
-						? online.results.filter((recipe) => !recipe.saved).length
-						: (popular.data?.results.length ?? 0)) > visibleRecipes ? (
+					{listable > visibleRecipes ? (
 						<button
 							type="button"
 							onClick={() => setVisibleRecipes((count) => count + foundLimit)}
