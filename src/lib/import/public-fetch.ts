@@ -1,5 +1,5 @@
 import { lookup } from 'node:dns/promises'
-import { isIP } from 'node:net'
+import { isIP, type LookupFunction } from 'node:net'
 import type { ReadableStream } from 'node:stream/web'
 
 import { Agent, fetch } from 'undici'
@@ -140,7 +140,7 @@ export function isPrivateIp(ip: string) {
 	return true
 }
 
-type PinnedTarget = {
+export type PinnedTarget = {
 	url: URL
 	hostname: string
 	address: string
@@ -177,22 +177,29 @@ export async function assertPublicHttpUrl(raw: string): Promise<PinnedTarget> {
 // Pins the connection to the address validated above; without this, a second
 // DNS resolution at connect time could race back to a private address (DNS
 // rebinding). The hostname stays in the URL so Host/SNI are untouched.
+// Answers the connection's address lookup with the address checked above,
+// and nothing else.
+export function pinnedLookup(target: PinnedTarget): LookupFunction {
+	return (hostname, options, callback) => {
+		const address = hostname === target.hostname ? target.address : ''
+
+		if (!address || isPrivateIp(address)) {
+			callback(new Error(`refusing connection to ${hostname}`), '', 4)
+
+			return
+		}
+
+		const family = isIP(address)
+
+		// Node asks for every address when it races IPv4 and IPv6, which it does
+		// by default; it then expects a list, not one address.
+		if (options.all) callback(null, [{ address, family }])
+		else callback(null, address, family)
+	}
+}
+
 function pinnedDispatcher(target: PinnedTarget) {
-	return new Agent({
-		connect: {
-			lookup(hostname, _options, callback) {
-				const address = hostname === target.hostname ? target.address : ''
-
-				if (!address || isPrivateIp(address)) {
-					callback(new Error(`refusing connection to ${hostname}`), '', 4)
-
-					return
-				}
-
-				callback(null, address, isIP(address))
-			},
-		},
-	})
+	return new Agent({ connect: { lookup: pinnedLookup(target) } })
 }
 
 async function readHtmlBody(response: { body: ReadableStream | null }) {

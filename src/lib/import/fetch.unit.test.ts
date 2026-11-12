@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import { isPrivateIp } from './public-fetch'
+import { isPrivateIp, pinnedLookup } from './public-fetch'
 import { isWalled } from './wall'
 
 describe('isPrivateIp', () => {
@@ -73,5 +73,36 @@ describe('isWalled', () => {
 				'<html><body><h1>Grandma’s tomato soup</h1><p>A cozy recipe.</p></body></html>',
 			),
 		).toBe(false)
+	})
+})
+
+describe('pinnedLookup', () => {
+	const target = {
+		url: new URL('https://example.com/dal'),
+		hostname: 'example.com',
+		address: '93.184.215.14',
+	}
+
+	test('answers with the checked address, as a list when every one is asked', () => {
+		const answers: unknown[][] = []
+		const lookup = pinnedLookup(target)
+
+		lookup('example.com', { all: true }, (...answer) => answers.push(answer))
+		lookup('example.com', {}, (...answer) => answers.push(answer))
+
+		expect(answers).toEqual([
+			[null, [{ address: '93.184.215.14', family: 4 }]],
+			[null, '93.184.215.14', 4],
+		])
+	})
+
+	test('refuses any other host', () => {
+		let refused: Error | null = null
+
+		pinnedLookup(target)('other.example', { all: true }, (error) => {
+			refused = error
+		})
+
+		expect(refused).toBeInstanceOf(Error)
 	})
 })
