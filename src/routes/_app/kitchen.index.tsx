@@ -1246,7 +1246,16 @@ function DetailPanel({
 	onRemove: () => void
 }) {
 	const router = useRouter()
+	const client = useQueryClient()
 	const [pending, setPending] = useState(false)
+
+	// Running low or out put it on the list too; the tab says so.
+	function onListed(listed: boolean) {
+		if (!listed) return
+		pulseGroceries(1)
+		void client.invalidateQueries({ queryKey: groceryCountKey })
+		toast(`${item.name} is on your list`)
+	}
 
 	async function save(send: () => Promise<void>) {
 		setPending(true)
@@ -1286,7 +1295,11 @@ function DetailPanel({
 						onClick={() => {
 							if (item.level !== level)
 								void save(async () => {
-									await setPantryItemLevel({ data: { id: item.id, level } })
+									const { listed } = await setPantryItemLevel({
+										data: { id: item.id, level },
+									})
+
+									onListed(listed)
 								})
 						}}
 						className={cn(
@@ -1307,14 +1320,17 @@ function DetailPanel({
 					count={item.quantity}
 					onCount={(count) =>
 						void save(async () => {
-							await setPantryItemCount({ data: { id: item.id, count } })
+							const { listed } = await setPantryItemCount({
+								data: { id: item.id, count },
+							})
+
+							onListed(listed)
 						})
 					}
 				/>
 			) : null}
 			{/* Bought more: a pack's worth onto the count, or just plenty. */}
 			<div className="flex flex-wrap gap-2">
-				{item.level === 'plenty' ? null : <BuyButton names={[item.name]} />}
 				{(packs.length ? packs : [undefined]).map((pack) => (
 					<button
 						key={pack ?? 'more'}
