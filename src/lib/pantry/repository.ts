@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
 
-import { type Database, getDb } from '@/db/connection'
+import { type Database, getDb, type Queryable } from '@/db/connection'
 import { pantryItems } from '@/db/schema'
 import { pantryNameOf } from '@/lib/groceries/list'
 
@@ -16,7 +16,7 @@ import { insertPantryItem, insertPantryItems } from './schema'
 
 export async function listPantryForUser(
 	userId: string,
-	database: Database = getDb(),
+	database: Queryable = getDb(),
 ) {
 	return database
 		.select()
@@ -51,7 +51,7 @@ export async function createPantryItemForUser(
 export async function createPantryItemsForUser(
 	userId: string,
 	inputs: PantryItemInput[],
-	database: Database = getDb(),
+	database: Queryable = getDb(),
 ) {
 	const rows = insertPantryItems.parse(inputs)
 	const now = Date.now()
