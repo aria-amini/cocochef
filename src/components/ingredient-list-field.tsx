@@ -1,5 +1,7 @@
 import { arrayMove } from '@dnd-kit/sortable'
 import {
+	ArrowDownIcon,
+	ArrowUpIcon,
 	ArrowUUpLeftIcon,
 	CheckIcon,
 	MinusIcon,
@@ -41,6 +43,7 @@ import {
 	type Block,
 	blocksOf,
 	gatherBlock,
+	moveBlock,
 	moveBlockTo,
 } from '@/lib/recipes/blocks'
 import {
@@ -174,6 +177,18 @@ function proposalFrom(rows: Row[], groups: RegroupGroup[]) {
 	return same ? undefined : { rows: next }
 }
 
+// The box a row scrolls in: the nearest one that scrolls, or the page.
+function scrollerOf(node: HTMLElement): Element {
+	for (let at = node.parentElement; at; at = at.parentElement) {
+		const { overflowY } = getComputedStyle(at)
+
+		if (/auto|scroll/.test(overflowY) && at.scrollHeight > at.clientHeight)
+			return at
+	}
+
+	return document.scrollingElement ?? document.documentElement
+}
+
 // What the card with no name is called until it is named.
 const mainSection = 'main ingredients'
 
@@ -181,7 +196,14 @@ const ease = 'cubic-bezier(0.2, 0, 0, 1)'
 
 // Lets each row glide from where it stood, kept in `from`, to where it stands.
 // Rows new to the list drop in; moved rows glow for a moment when `glow`.
-function glide(list: HTMLElement, from: Map<string, number>, glow: boolean) {
+// `quick` is for the cards folding and opening around a drag: short, and
+// all at once, since the cook is mid-gesture.
+function glide(
+	list: HTMLElement,
+	from: Map<string, number>,
+	glow: boolean,
+	quick = false,
+) {
 	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
 	const eggplant = getComputedStyle(list).getPropertyValue('--kitchen-eggplant')
@@ -199,8 +221,8 @@ function glide(list: HTMLElement, from: Map<string, number>, glow: boolean) {
 					{ opacity: 1, transform: 'none' },
 				],
 				{
-					duration: 450,
-					delay: 120 + at * 12,
+					duration: quick ? 220 : 450,
+					delay: quick ? 60 : 120 + at * 12,
 					easing: ease,
 					fill: 'backwards',
 				},
@@ -212,8 +234,8 @@ function glide(list: HTMLElement, from: Map<string, number>, glow: boolean) {
 
 		if (Math.abs(by) < 2) continue
 		row.animate([{ transform: `translateY(${by}px)` }, { transform: 'none' }], {
-			duration: 500,
-			delay: at * 14,
+			duration: quick ? 260 : 500,
+			delay: quick ? 0 : at * 14,
 			easing: ease,
 			fill: 'backwards',
 		})
@@ -273,6 +295,15 @@ export function IngredientListField({
 
 	const [declined, setDeclined] = useState(false)
 	const [folded, setFolded] = useState(false)
+	// A section picked up by its name. While it is carried the cards fold to
+	// their names, so they move as whole cards and drop only between cards.
+	const [carrying, setCarrying] = useState<string>()
+	// The card with no name moves and renames like any other: it takes this
+	// id as its name's when it gets one, so a drag that names it keeps hold.
+	const [looseId, setLooseId] = useState(() => crypto.randomUUID())
+	// Where the carried section's name stood before the cards folded or
+	// unfolded, to keep it under the finger.
+	const anchor = useRef<{ id: string; top: number }>(undefined)
 	// The line being worked on, whose amount bar shows under it.
 	const [inUse, setInUse] = useState<string>()
 	// Lines picked by their pictures, to gather into a section or remove.
@@ -282,9 +313,11 @@ export function IngredientListField({
 	const sheet = useRef<HTMLDivElement>(null)
 
 	// Where each row stood before the list was swapped, to glide from.
-	const glideFrom = useRef<{ tops: Map<string, number>; glow: boolean }>(
-		undefined,
-	)
+	const glideFrom = useRef<{
+		tops: Map<string, number>
+		glow: boolean
+		quick?: boolean
+	}>(undefined)
 
 	const fields = useRef(
 		new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
@@ -292,6 +325,11 @@ export function IngredientListField({
 
 	// Where the caret goes once the rows have changed.
 	const caret = useRef<{ id: string; at: number }>(undefined)
+
+	// The lines, and the first card's id, as they were before the card took a
+	// name to be carried, put back if it is set down without moving, so its
+	// handle keeps the focus.
+	const beforeNaming = useRef<{ rows: Row[]; id: typeof looseId }>(undefined)
 
 	useLayoutEffect(() => {
 		const target = caret.current
@@ -303,13 +341,43 @@ export function IngredientListField({
 		field?.setSelectionRange(target.at, target.at)
 	}, [rows])
 
+	// After the list changes or the cards fold or open: first the page scrolls
+	// by as much as a carried name moved, so it stays under the finger, then
+	// the rows glide from where they stood, so the change is seen, not jumped.
 	useLayoutEffect(() => {
+		const held = anchor.current
+		anchor.current = undefined
+
+		const band = held
+			? sheet.current?.querySelector<HTMLElement>(`[data-row-id="${held.id}"]`)
+			: undefined
+
+		if (held && band) {
+			const shift = band.getBoundingClientRect().top - held.top
+
+			if (shift) {
+				scrollerOf(band).scrollBy({ top: shift, behavior: 'instant' })
+
+				// The places noted before were measured before the scroll.
+				for (const [id, top] of glideFrom.current?.tops ?? [])
+					glideFrom.current?.tops.set(id, top - shift)
+			}
+		}
+
 		const from = glideFrom.current
 
 		if (!from || !sheet.current) return
 		glideFrom.current = undefined
-		glide(sheet.current, from.tops, from.glow)
-	}, [rows])
+		glide(sheet.current, from.tops, from.glow, from.quick)
+	}, [rows, carrying])
+
+	function hold(id: string) {
+		const band = sheet.current?.querySelector<HTMLElement>(
+			`[data-row-id="${id}"]`,
+		)
+
+		if (band) anchor.current = { id, top: band.getBoundingClientRect().top }
+	}
 
 	useEffect(() => {
 		onCountChange?.(
@@ -569,6 +637,8 @@ export function IngredientListField({
 	}
 
 	function describe(id: string) {
+		if (id === looseId) return mainSection
+
 		const index = rows.findIndex((row) => row.id === id)
 		const row = rows[index]
 		const what = row?.heading ? 'group' : 'ingredient'
@@ -647,7 +717,7 @@ export function IngredientListField({
 	// Notes where each row stands, then swaps the list for `next`.
 	// Rows move to their new places from where they stood; taking a grouping
 	// also lights the rows that moved.
-	function glideNext(glow: boolean) {
+	function glideNext(glow: boolean, quick = false) {
 		const tops = new Map<string, number>()
 
 		for (const row of sheet.current?.querySelectorAll<HTMLElement>(
@@ -655,7 +725,7 @@ export function IngredientListField({
 		) ?? [])
 			tops.set(row.dataset.rowId ?? '', row.getBoundingClientRect().top)
 
-		glideFrom.current = { tops, glow }
+		glideFrom.current = { tops, glow, quick }
 	}
 
 	// Taking the offer regroups the list at once; undo puts it back as it was,
@@ -833,12 +903,31 @@ export function IngredientListField({
 							needs a name
 						</span>
 					) : null}
+					{row.heading ? holding(row) : null}
 					{row.heading && !row.text.trim() ? (
 						<NameGuess
 							title={title ?? ''}
 							lines={linesUnder(row)}
 							onUse={(name) => update(row.id, { text: name })}
 						/>
+					) : null}
+					{row.heading && (sections.length > 1 || loose) ? (
+						<>
+							<RowAction
+								label={`Move section ${sectionName(row)} up`}
+								disabled={sections[0] === row && !loose}
+								onClick={() => step(row, -1)}
+							>
+								<ArrowUpIcon size={14} weight="bold" aria-hidden />
+							</RowAction>
+							<RowAction
+								label={`Move section ${sectionName(row)} down`}
+								disabled={sections.at(-1) === row}
+								onClick={() => step(row, 1)}
+							>
+								<ArrowDownIcon size={14} weight="bold" aria-hidden />
+							</RowAction>
+						</>
 					) : null}
 					{row.heading ? (
 						<RowAction
@@ -865,6 +954,60 @@ export function IngredientListField({
 
 	const blocks = blocksOf(rows, isHeading)
 
+	// What can be moved: every row, or the sections alone while one is carried.
+	const sortable = carrying ? rows.filter(isHeading) : rows
+
+	// The first card has no name while its lines come before any section's.
+	const loose = blocks[0]?.head === undefined && blocks.length > 1
+
+	// Its band moves too, as a stand-in until it is named.
+	const sortableIds = [
+		...(loose ? [looseId] : []),
+		...sortable.map((row) => row.id),
+	]
+
+	// Gives the first card its default name, so it can stand anywhere.
+	function nameFirst(): [Row[], Row] {
+		const head: Row = { id: looseId, text: mainSection, heading: true }
+
+		setLooseId(crypto.randomUUID())
+
+		return [[head, ...rows], head]
+	}
+
+	// While the cards are folded, each name says what it holds.
+	const holding = (head: Row | undefined) => {
+		const count =
+			blocks
+				.find((block) => block.head === head)
+				?.rows.filter((line) => !isBlank(line)).length ?? 0
+
+		return carrying ? (
+			<span className="text-muted-foreground animate-in fade-in mr-2 shrink-0 self-center text-xs font-semibold whitespace-nowrap duration-200">
+				{count} {count === 1 ? 'ingredient' : 'ingredients'}
+			</span>
+		) : null
+	}
+
+	// The sections in order, which a section's arrows step it among.
+	const sections = rows.filter(isHeading)
+
+	function step(head: Row, by: -1 | 1) {
+		const next = sections[sections.indexOf(head) + by]
+
+		if (next) {
+			change((current) => moveBlock(current, isHeading, head, next))
+
+			return
+		}
+
+		// Above the unnamed first card, which takes its default name.
+		if (by === -1 && loose) {
+			const [named, own] = nameFirst()
+			change(() => moveBlock(named, isHeading, head, own))
+		}
+	}
+
 	// The written lines of a section, to name it from.
 	const linesUnder = (head: Row) =>
 		(blocks.find((block) => block.head === head)?.rows ?? [])
@@ -873,7 +1016,8 @@ export function IngredientListField({
 
 	// Naming the first card, which has no name row yet, gives it one.
 	function nameLoose(block: Block<Row>, text: string) {
-		const head: Row = { id: crypto.randomUUID(), text, heading: true }
+		const head: Row = { id: looseId, text, heading: true }
+		setLooseId(crypto.randomUUID())
 		caret.current = { id: head.id, at: text.length }
 		change((current) => {
 			const first = block.rows[0]
@@ -951,27 +1095,67 @@ export function IngredientListField({
 					</Fragment>
 				))}
 				<SortableList
-					items={rows.map((row) => row.id)}
+					items={sortableIds}
 					describe={describe}
-					onMove={(from, to) =>
-						change((current) => {
-							const moving = rows[from]
-							const target = rows[to]
+					onPickUp={(id) => {
+						if (id === looseId && loose) {
+							// Picked up, the first card takes its default name.
+							glideNext(false, true)
+							hold(id)
+							beforeNaming.current = { rows, id: looseId }
+							const [named] = nameFirst()
+							change(() => named)
+							setCarrying(id)
 
-							if (!moving || !target) return current
+							return
+						}
 
+						if (!rows.find((row) => row.id === id)?.heading) return
+						glideNext(false, true)
+						hold(id)
+						setCarrying(id)
+					}}
+					onPutDown={() => {
+						glideNext(false, true)
+
+						const unmoved = beforeNaming.current
+						beforeNaming.current = undefined
+
+						if (unmoved) {
+							setLooseId(unmoved.id)
+							change(() => unmoved.rows)
+						}
+
+						if (carrying) hold(carrying)
+						setCarrying(undefined)
+					}}
+					onMove={(from, to) => {
+						beforeNaming.current = undefined
+						let list = rows
+						let target = rows.find((row) => row.id === sortableIds[to])
+						const moving = rows.find((row) => row.id === sortableIds[from])
+
+						if (!moving) return
+
+						// Onto the first card's band: a line goes to the top of that
+						// card, and a section goes above it, which names the card.
+						if (!target && sortableIds[to] === looseId) {
+							if (moving.heading) [list, target] = nameFirst()
+							else target = blocks[0]?.rows[0]
+						}
+
+						if (!target) return
+						const next = list
+						const onto = target
+
+						change(() =>
 							// A section's name carries its whole card, to wherever the
 							// card it is dropped in stands.
-							if (moving.heading)
-								return moveBlockTo(current, isHeading, moving, target)
-
-							return arrayMove(
-								current,
-								current.indexOf(moving),
-								current.indexOf(target),
-							)
-						})
-					}
+							moving.heading
+								? moveBlockTo(next, isHeading, moving, onto)
+								: arrayMove(next, next.indexOf(moving), next.indexOf(onto)),
+						)
+					}}
 					overlay={(id) => {
 						const row = rows.find((candidate) => candidate.id === id)
 
@@ -985,9 +1169,9 @@ export function IngredientListField({
 						return row ? (
 							<div className="flex pl-7">
 								<RowFace row={row}>
-									{under ? (
+									{row.heading ? (
 										<span className="text-muted-foreground text-sm font-semibold">
-											+{under}
+											{under} {under === 1 ? 'ingredient' : 'ingredients'}
 										</span>
 									) : null}
 								</RowFace>
@@ -997,7 +1181,17 @@ export function IngredientListField({
 				>
 					{/* Each section is a card of its own, ending in a row that adds
 					    to it; a section not yet named or filled waits dashed. */}
-					<div ref={sheet} className="flex flex-col gap-3">
+					{/* While a section is carried, the cards close up into one list of
+					    names that touch, which is what the drag sorts by. */}
+					<div
+						ref={sheet}
+						className={cn(
+							'flex flex-col',
+							carrying
+								? 'divide-border border-input bg-card divide-y overflow-hidden rounded-xl border'
+								: 'gap-3',
+						)}
+					>
 						{blocks.map((block) => {
 							const head = block.head
 							const empty = !block.rows.some((row) => !isBlank(row))
@@ -1007,19 +1201,97 @@ export function IngredientListField({
 								.filter(Boolean)
 
 							return (
-								<div key={head?.id ?? 'loose'} className="relative">
+								<div key={head?.id ?? looseId} className="relative">
 									<ul
 										aria-label={head ? sectionName(head) : 'ingredient lines'}
 										className={cn(
-											'divide-border flex flex-col divide-y rounded-xl border',
-											head && empty && !head.text.trim()
-												? 'border-foreground/30 border-dashed'
-												: 'bg-card border-input',
+											'divide-border flex flex-col divide-y',
+											carrying
+												? ''
+												: head && empty && !head.text.trim()
+													? 'border-foreground/30 rounded-xl border border-dashed'
+													: 'bg-card border-input rounded-xl border',
 										)}
 									>
 										{/* A card with no name is the main one: its band reads so,
 										    faintly, until the cook names it or takes a guess. */}
-										{head ? null : (
+										{head ? null : loose ? (
+											// With other sections, the main card moves like them;
+											// moving it gives it its default name.
+											<SortableRow
+												key={looseId}
+												id={looseId}
+												label={`Move ${mainSection}`}
+												className={cn(
+													listRowClassName,
+													'group/row bg-secondary flex items-center',
+												)}
+												handleClassName="absolute inset-0 size-auto opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-45"
+											>
+												{(handle) => (
+													<div
+														data-row-id={looseId}
+														className="flex min-w-0 flex-1 items-center"
+													>
+														<span className="relative w-7 shrink-0 self-stretch pointer-coarse:w-9">
+															{handle}
+														</span>
+														<>
+															<input
+																aria-label="Section name"
+																placeholder={mainSection}
+																maxLength={500}
+																value=""
+																onChange={(event) =>
+																	nameLoose(block, event.target.value)
+																}
+																className={cn(
+																	'w-full min-w-0 flex-1 bg-transparent px-3 py-2.5 text-base font-bold outline-none',
+																	'placeholder:text-muted-foreground',
+																)}
+															/>
+															{written.length ? (
+																<NameGuess
+																	title={title ?? ''}
+																	lines={written}
+																	onUse={(name) => nameLoose(block, name)}
+																/>
+															) : null}
+														</>
+														{holding(undefined)}
+														<RowAction
+															label={`Move section ${mainSection} up`}
+															disabled
+															onClick={() => {}}
+														>
+															<ArrowUpIcon
+																size={14}
+																weight="bold"
+																aria-hidden
+															/>
+														</RowAction>
+														<RowAction
+															label={`Move section ${mainSection} down`}
+															onClick={() => {
+																const next = sections[0]
+
+																if (!next) return
+																const [named, own] = nameFirst()
+																change(() =>
+																	moveBlock(named, isHeading, own, next),
+																)
+															}}
+														>
+															<ArrowDownIcon
+																size={14}
+																weight="bold"
+																aria-hidden
+															/>
+														</RowAction>
+													</div>
+												)}
+											</SortableRow>
+										) : (
 											<li
 												className={cn(
 													listRowClassName,
@@ -1054,7 +1326,10 @@ export function IngredientListField({
 												</>
 											</li>
 										)}
-										{[...(head ? [head] : []), ...block.rows].map((row) => (
+										{[
+											...(head ? [head] : []),
+											...(carrying ? [] : block.rows),
+										].map((row) => (
 											<SortableRow
 												key={row.id}
 												id={row.id}
@@ -1075,7 +1350,7 @@ export function IngredientListField({
 												{(handle) => sheetRow(row, handle)}
 											</SortableRow>
 										))}
-										{head ? (
+										{head && !carrying ? (
 											<SectionLines
 												title={title ?? ''}
 												section={head.text}
@@ -1095,38 +1370,42 @@ export function IngredientListField({
 												}
 											/>
 										) : null}
-										<ListAddRow
-											what="ingredient"
-											label={
-												head
-													? `add ingredient to ${sectionName(head)}`
-													: undefined
-											}
-											onAdd={() => addTo(block)}
-										/>
+										{carrying ? null : (
+											<ListAddRow
+												what="ingredient"
+												label={
+													head
+														? `add ingredient to ${sectionName(head)}`
+														: undefined
+												}
+												onAdd={() => addTo(block)}
+											/>
+										)}
 									</ul>
 								</div>
 							)
 						})}
 						{/* A new section is a new card, so the way to one is shaped
 						    like the card it makes, below the rest. */}
-						<button
-							type="button"
-							onClick={addSection}
-							// One empty card at a time: it fills, or goes, before another.
-							disabled={blocks.some(
-								(block) => !block.rows.some((row) => !isBlank(row)),
-							)}
-							className="border-foreground/30 text-muted-foreground enabled:hover:text-foreground enabled:hover:border-foreground/50 flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-sm font-semibold transition-colors disabled:opacity-50"
-						>
-							<span aria-hidden className="grid size-6 place-items-center">
-								<Plus size={14} weight="bold" />
-							</span>
-							add section
-						</button>
+						{carrying ? null : (
+							<button
+								type="button"
+								onClick={addSection}
+								// One empty card at a time: it fills, or goes, before another.
+								disabled={blocks.some(
+									(block) => !block.rows.some((row) => !isBlank(row)),
+								)}
+								className="border-foreground/30 text-muted-foreground enabled:hover:text-foreground enabled:hover:border-foreground/50 flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-sm font-semibold transition-colors disabled:opacity-50"
+							>
+								<span aria-hidden className="grid size-6 place-items-center">
+									<Plus size={14} weight="bold" />
+								</span>
+								add section
+							</button>
+						)}
 					</div>
 				</SortableList>
-				{title === undefined ? null : (
+				{title === undefined || carrying ? null : (
 					<IngredientSuggestions
 						title={title}
 						lines={lines}

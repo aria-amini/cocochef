@@ -60,10 +60,12 @@ export function ListAddRow({
 // until the press lands; Tab still reaches them in order.
 export function RowAction({
 	label,
+	disabled = false,
 	onClick,
 	children,
 }: {
 	label: string
+	disabled?: boolean
 	onClick: () => void
 	children: React.ReactNode
 }) {
@@ -71,9 +73,10 @@ export function RowAction({
 		<button
 			type="button"
 			aria-label={label}
+			disabled={disabled}
 			onPointerDown={(event) => event.preventDefault()}
 			onClick={onClick}
-			className="text-muted-foreground hover:text-foreground pointer-events-none grid size-11 shrink-0 place-items-center opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:opacity-100"
+			className="text-muted-foreground hover:text-foreground disabled:text-muted-foreground/30 pointer-events-none grid size-11 shrink-0 place-items-center opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:opacity-100"
 		>
 			{children}
 		</button>

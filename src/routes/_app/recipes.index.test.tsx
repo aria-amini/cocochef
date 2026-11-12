@@ -3,7 +3,7 @@ import {
 	expectIsolatedScreenshot,
 	expectPageScreenshot,
 } from '@tests/support/screenshot'
-import { desktopOnly, isPhone } from '@tests/support/viewport'
+import { isPhone } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -152,7 +152,7 @@ describe('recipes shelf', () => {
 			.toHaveFocus()
 	})
 
-	test('holds back the import link on an empty shelf, but not the add button', async () => {
+	test('keeps the add button on an empty shelf and a full one', async () => {
 		const { screen, router, queryClient } = await renderRoute({
 			path: '/recipes',
 			session: testSession,
@@ -161,13 +161,10 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.toBeVisible()
-		// The tile already says it imports links; adding stays where it always is.
+		// Adding stays where it always is.
 		await expect
 			.element(screen.getByRole('button', { name: 'add recipe' }))
 			.toBeVisible()
-		await expect
-			.element(screen.getByRole('button', { name: 'import link' }))
-			.not.toBeInTheDocument()
 
 		shelfState.recipes = [dal]
 		await queryClient.invalidateQueries()
@@ -182,11 +179,6 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.not.toBeInTheDocument()
-
-		if (!isPhone())
-			await expect
-				.element(screen.getByRole('button', { name: 'import link' }))
-				.toBeVisible()
 	})
 
 	test('puts pictured discovery recipes first, keeping each group in order', async () => {
@@ -297,7 +289,7 @@ describe('recipes shelf', () => {
 		expect(getComputedStyle(key).display === 'none').toBe(isPhone())
 	})
 
-	test('colours the saved section with the eggplant accent, apart from your own', async () => {
+	test('marks the saved section with the eggplant bookmark, apart from your own', async () => {
 		shelfState.recipes = [
 			misoButterPasta,
 			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
@@ -318,18 +310,11 @@ describe('recipes shelf', () => {
 
 		if (!bookmark) throw new Error('saved heading is missing its bookmark')
 		expect(getComputedStyle(bookmark).color).toBe(eggplant)
-		// A tint of the accent, not the yolk of the owned section.
-		const tint = document.createElement('div')
+		// Your own section keeps a plain icon.
+		const person = heading('your recipes').querySelector('svg')
 
-		tint.style.color = 'color-mix(in oklab, rgb(91 61 245) 60%, transparent)'
-		document.body.append(tint)
-		expect(getComputedStyle(heading('saved recipes')).borderBottomColor).toBe(
-			getComputedStyle(tint).color,
-		)
-		tint.remove()
-		expect(
-			getComputedStyle(heading('saved recipes')).borderBottomColor,
-		).not.toBe(getComputedStyle(heading('your recipes')).borderBottomColor)
+		if (!person) throw new Error('your heading is missing its icon')
+		expect(getComputedStyle(person).color).not.toBe(eggplant)
 	})
 
 	test('shows search and the ways to add a recipe', async () => {
@@ -343,19 +328,10 @@ describe('recipes shelf', () => {
 		await expect.element(screen.getByText('miso butter pasta')).toBeVisible()
 		await expect.element(screen.getByText('dal')).toBeVisible()
 
-		// The add action opens the finder on desktop and phones.
-		if (isPhone())
-			await expect
-				.element(screen.getByRole('button', { name: 'add recipe' }))
-				.toBeVisible()
-		else {
-			await expect
-				.element(screen.getByRole('button', { name: 'add recipe' }))
-				.toBeVisible()
-			await expect
-				.element(screen.getByRole('button', { name: 'import link' }))
-				.toBeVisible()
-		}
+		// Every way to add a recipe sits behind one button, desktop and phone.
+		await expect
+			.element(screen.getByRole('button', { name: 'add recipe' }))
+			.toBeVisible()
 
 		await expect
 			.element(screen.getByRole('button', { name: /search any recipe/ }))
@@ -501,7 +477,7 @@ describe('recipes shelf', () => {
 			.not.toBeInTheDocument()
 	})
 
-	desktopOnly('imports a link from the button beside the search', async () => {
+	test('imports a link from the add menu', async () => {
 		discovery.import.mockResolvedValue({ id: dal.id, title: 'dal' })
 		shelfState.recipes = [dal]
 
@@ -510,7 +486,8 @@ describe('recipes shelf', () => {
 			session: testSession,
 		})
 
-		await screen.getByRole('button', { name: 'import link' }).click()
+		await screen.getByRole('button', { name: 'add recipe' }).click()
+		await screen.getByRole('menuitem', { name: 'import a link' }).click()
 		const field = screen.getByRole('textbox', { name: 'recipe link' })
 
 		await expect.element(field).toHaveFocus()

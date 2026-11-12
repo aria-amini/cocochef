@@ -7,8 +7,8 @@ import {
 } from '@phosphor-icons/react'
 import { Fragment, useState } from 'react'
 
+import { AddToGroceries } from '@/components/grocery-send'
 import { IngredientText } from '@/components/ingredient-text'
-import { Marked } from '@/components/marked'
 import { PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { RecipeGlyph } from '@/components/recipe-glyph'
@@ -44,21 +44,21 @@ const sectionLabelClassName = 'text-lg font-semibold'
 export function RecipeReader({
 	recipe,
 	actions,
-	terms = [],
 	authorship,
 	status,
 	heading = 'h1',
+	shop = false,
 }: {
 	recipe: ReadableRecipe
 	// What the reader can do with it, under the title: save, edit, share.
 	actions?: React.ReactNode
-	// Search words to mark wherever they appear.
 	authorship?: string | undefined
 	status?:
 		| { saved: boolean; visibility?: 'public' | 'private' | undefined }
 		| undefined
-	terms?: string[]
 	heading?: 'h1' | 'h2'
+	// Whether the ingredients can go on the groceries list.
+	shop?: boolean
 }) {
 	const [checked, setChecked] = useState<Set<string>>(() => new Set())
 
@@ -112,7 +112,7 @@ export function RecipeReader({
 						done && 'text-muted-foreground line-through',
 					)}
 				>
-					<Marked text={text} terms={terms} />
+					{text}
 				</span>
 			</RowBody>
 		)
@@ -188,7 +188,7 @@ export function RecipeReader({
 				</div>
 				<div className="min-w-0">
 					<PageTitle as={heading} className="text-2xl md:text-4xl">
-						<Marked text={recipe.title} terms={terms} />
+						{recipe.title}
 					</PageTitle>
 					{authorship ? (
 						<p className="text-muted-foreground mt-2 text-sm">{authorship}</p>
@@ -201,6 +201,13 @@ export function RecipeReader({
 				<section>
 					<div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
 						<h2 className={sectionLabelClassName}>ingredients</h2>
+						{shop ? (
+							<AddToGroceries
+								recipeId={recipe.id}
+								title={recipe.title}
+								lines={recipe.ingredients}
+							/>
+						) : null}
 					</div>
 
 					<div className="mt-2">
@@ -216,7 +223,7 @@ export function RecipeReader({
 														scope="colgroup"
 														className="pt-3 pb-2 text-left text-sm font-semibold"
 													>
-														<Marked text={row.text} terms={terms} />
+														{row.text}
 													</th>
 												</tr>
 											)
@@ -250,11 +257,7 @@ export function RecipeReader({
 																<PantrySprite look={look} className="size-6" />
 															) : null}
 														</span>
-														<IngredientText
-															text={row.text}
-															done={done}
-															terms={terms}
-														/>
+														<IngredientText text={row.text} done={done} />
 													</label>
 												</td>
 											</tr>
@@ -291,7 +294,7 @@ export function RecipeReader({
 												{row.label}
 											</span>
 											<span className="text-base leading-relaxed font-bold">
-												<Marked text={row.text} terms={terms} />
+												{row.text}
 											</span>
 										</p>
 										<ol className="border-border mb-2 ml-3 border-l pl-3">

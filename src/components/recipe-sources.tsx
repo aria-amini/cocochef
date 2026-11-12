@@ -1,24 +1,54 @@
 import { recipeSites } from '@/lib/discover/sites'
 import { importSiteLogo } from '@/lib/import/sites'
+import { cn } from '@/lib/utils/ui'
 
-export function RecipeSources() {
+// A few logos stand for the rest: four on a wide screen, three on a phone,
+// then how many more.
+const shown = 4
+
+const phoneShown = 3
+
+// The recipe sites a search reaches, as a quiet, overlapping row of round
+// logos after the search box's words, named in full for screen readers. The
+// row is muted as one, so the rings between logos read as cut-outs in the
+// box rather than outlines.
+export function RecipeSources({ className }: { className?: string }) {
 	return (
-		<div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-			<span>across recipe sites</span>
-			<ul
-				aria-label="Recipe search sources"
-				className="flex flex-wrap items-center gap-2"
+		<span className={cn('flex shrink-0 items-center', className)}>
+			<span className="sr-only">
+				across {recipeSites.map((site) => site.name).join(', ')}
+			</span>
+			<span
+				aria-hidden
+				className="flex items-center -space-x-1 opacity-60 grayscale"
 			>
-				{recipeSites.map((site) => (
-					<li key={site.id} title={site.name}>
-						<img
-							src={importSiteLogo(site.id)}
-							alt={site.name}
-							className="size-4 object-contain"
-						/>
-					</li>
+				{recipeSites.slice(0, shown).map((site, at) => (
+					<img
+						key={site.id}
+						data-site-logo={site.id}
+						src={importSiteLogo(site.id)}
+						alt=""
+						className={cn(
+							'bg-card ring-card size-4 rounded-full object-cover ring-2',
+							at >= phoneShown && 'max-sm:hidden',
+						)}
+					/>
 				))}
-			</ul>
-		</div>
+			</span>
+			<span
+				aria-hidden
+				className="text-muted-foreground ml-1 text-xs font-semibold sm:hidden"
+			>
+				+{recipeSites.length - phoneShown}
+			</span>
+			{recipeSites.length > shown ? (
+				<span
+					aria-hidden
+					className="text-muted-foreground ml-1 text-xs font-semibold max-sm:hidden"
+				>
+					+{recipeSites.length - shown}
+				</span>
+			) : null}
+		</span>
 	)
 }

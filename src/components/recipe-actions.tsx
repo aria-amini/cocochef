@@ -1,6 +1,8 @@
+import { useNavigate } from '@tanstack/react-router'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
-import { ImportDialog } from '@/components/import-link'
+import { ImportDialog, linkFrom } from '@/components/import-link'
+import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import { RecipeFinder } from '@/components/recipe-finder'
 import type { StartingPoint } from '@/components/start-from'
 
@@ -10,6 +12,8 @@ type RecipeActions = {
 	find: (query?: string, onUse?: (start: StartingPoint) => void) => void
 	// Opens the import dialog, optionally holding a link.
 	importLink: (url?: string) => void
+	// Opens a box to paste a whole recipe's text into.
+	pasteText: () => void
 }
 
 const RecipeActionsContext = createContext<RecipeActions | null>(null)
@@ -43,12 +47,16 @@ export function RecipeActionsProvider({
 		open: false,
 	})
 
+	const [pasting, setPasting] = useState(false)
+	const navigate = useNavigate()
+
 	const actions = useMemo<RecipeActions>(
 		() => ({
 			find: (query = '', onUse) => setFinder({ open: true, query, onUse }),
 			importLink: (url) => {
 				setImporting({ open: true, url })
 			},
+			pasteText: () => setPasting(true),
 		}),
 		[],
 	)
@@ -83,11 +91,21 @@ export function RecipeActionsProvider({
 				defaultQuery={finder.query}
 				onUse={finder.onUse}
 				onOpenChange={(open) => setFinder((current) => ({ ...current, open }))}
-				onImportLink={actions.importLink}
 			>
 				{finder.open ? importDialog : null}
 			</RecipeFinder>
 			{finder.open ? null : importDialog}
+			{/* A pasted link is imported; pasted text becomes a new recipe. */}
+			<PasteRecipeDialog
+				open={pasting}
+				onOpenChange={setPasting}
+				onAdd={(text) => {
+					const link = linkFrom(text)
+
+					if (link) actions.importLink(link)
+					else void navigate({ to: '/recipes/new', state: { pasted: text } })
+				}}
+			/>
 		</RecipeActionsContext.Provider>
 	)
 }

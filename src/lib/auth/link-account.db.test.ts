@@ -3,6 +3,10 @@ import { eq } from 'drizzle-orm'
 
 import { user, mealLogs } from '@/db/schema'
 import {
+	addGroceriesForUser,
+	listGroceriesForUser,
+} from '@/lib/groceries/repository'
+import {
 	createPantryItemForUser,
 	listPantryForUser,
 } from '@/lib/pantry/repository'
@@ -55,6 +59,8 @@ describe('guest account transfer', () => {
 			db,
 		)
 
+		await addGroceriesForUser(fromId, [{ text: 'milk' }], db)
+
 		await moveGuestDataToNewUser(
 			{
 				anonymousUser: { user: { id: fromId } },
@@ -71,6 +77,9 @@ describe('guest account transfer', () => {
 		expect(
 			(await listPantryForUser(otherId, db)).map((item) => item.name),
 		).toEqual(['rice'])
+		expect(
+			(await listGroceriesForUser(toId, db)).map((item) => item.text),
+		).toEqual(['milk'])
 		const shelf = await listShelfForUser(toId, db)
 		expect(shelf.recipes.map((item) => item.id)).toEqual([recipe.id])
 		expect(

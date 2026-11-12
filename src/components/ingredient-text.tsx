@@ -1,4 +1,3 @@
-import { Marked } from '@/components/marked'
 import {
 	abbreviateUnits,
 	splitIngredientDetails,
@@ -8,11 +7,9 @@ import { cn } from '@/lib/utils/ui'
 export function IngredientText({
 	text,
 	done = false,
-	terms = [],
 }: {
 	text: string
 	done?: boolean
-	terms?: string[]
 }) {
 	const display = abbreviateUnits(text)
 		.replace(/\(\s*,\s*/g, '(')
@@ -27,11 +24,11 @@ export function IngredientText({
 				done && 'text-muted-foreground line-through',
 			)}
 		>
-			<Marked text={main} terms={terms} />
+			{main}
 			{detail ? (
 				<span className="text-muted-foreground block text-sm leading-normal">
 					{' '}
-					<Marked text={detail} terms={terms} />
+					{detail}
 				</span>
 			) : null}
 		</span>

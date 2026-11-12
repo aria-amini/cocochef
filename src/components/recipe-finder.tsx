@@ -8,11 +8,9 @@ import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
 	BookmarkSimpleIcon,
-	ClipboardTextIcon,
 	LinkSimpleIcon,
-	PencilSimpleIcon,
+	PlusIcon,
 	XIcon,
-	CaretDownIcon,
 } from '@phosphor-icons/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
@@ -20,8 +18,6 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
-import { Marked } from '@/components/marked'
-import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import { FieldError } from '@/components/recipe-form'
 import {
 	asRecipeUrl,
@@ -44,37 +40,12 @@ import { useVisualViewportVars } from '@/lib/utils/viewport'
 
 type ShelfRecipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 
-type Start = 'write' | 'import' | 'paste'
-
 type Option =
-	| { kind: 'start'; start: Start }
 	| { kind: 'recipe'; recipe: FoundRecipe }
 	// Bring in this link and open it.
 	| { kind: 'link'; url: string }
 	// Start a recipe of your own with this name.
 	| { kind: 'write'; title: string }
-
-const starts: {
-	start: Start
-	label: string
-	icon: typeof PencilSimpleIcon
-}[] = [
-	{
-		start: 'write',
-		label: 'blank recipe',
-		icon: PencilSimpleIcon,
-	},
-	{
-		start: 'import',
-		label: 'import link',
-		icon: LinkSimpleIcon,
-	},
-	{
-		start: 'paste',
-		label: 'paste text',
-		icon: ClipboardTextIcon,
-	},
-]
 
 const shelfLimit = 5
 
@@ -90,8 +61,6 @@ const lookDelayMs = 350
 // move it down the list.
 function optionKey(option: Option) {
 	switch (option.kind) {
-		case 'start':
-			return `start:${option.start}`
 		case 'recipe':
 			return `recipe:${option.recipe.recipeId ?? option.recipe.url}`
 		case 'link':
@@ -107,18 +76,6 @@ function hostOf(url: string) {
 	} catch {
 		return url
 	}
-}
-
-// The words a recipe matched on, the same way the server splits them.
-function termsOf(query: string) {
-	return [
-		...new Set(
-			query
-				.toLowerCase()
-				.split(/[^\p{L}\p{N}]+/u)
-				.filter((term) => term.length > 1),
-		),
-	]
 }
 
 function fromShelf(recipe: ShelfRecipe): FoundRecipe {
@@ -181,13 +138,11 @@ export function RecipeFinder({
 	open,
 	onOpenChange,
 	defaultQuery,
-	onImportLink,
 	onUse,
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	defaultQuery: string
-	onImportLink: (url?: string) => void
 	// Given, a recipe picked here starts the one being written.
 	onUse?: ((start: StartingPoint) => void) | undefined
 	children?: React.ReactNode
@@ -209,7 +164,6 @@ export function RecipeFinder({
 						inputRef={input}
 						defaultQuery={defaultQuery}
 						close={() => onOpenChange(false)}
-						onImportLink={onImportLink}
 						onUse={onUse}
 					/>
 				</Dialog.Popup>
@@ -223,13 +177,11 @@ function FinderPanel({
 	inputRef,
 	defaultQuery,
 	close,
-	onImportLink,
 	onUse,
 }: {
 	inputRef: React.RefObject<HTMLInputElement | null>
 	defaultQuery: string
 	close: () => void
-	onImportLink: (url?: string) => void
 	onUse?: ((start: StartingPoint) => void) | undefined
 }) {
 	const navigate = useNavigate()
@@ -250,9 +202,7 @@ function FinderPanel({
 	)
 
 	const listboxId = useId()
-	const [pasteOpen, setPasteOpen] = useState(false)
-	// The ways to start stay tucked behind one button until asked for.
-	const [startsOpen, setStartsOpen] = useState(false)
+
 	const [value, setValue] = useState(defaultQuery)
 	const [picked, setPicked] = useState<string>()
 	// Picking a recipe fills the box; results stay mounted for the way back.
@@ -268,6 +218,7 @@ function FinderPanel({
 	}, [previewing, inputRef])
 	// The option an action is running for, so it can say so.
 	const [busy, setBusy] = useState<string>()
+
 	const [error, setError] = useState<string>()
 	// Site pages brought in for a look, by link, so they keep their recipe.
 	const [resolved, setResolved] = useState<Record<string, string>>({})
@@ -275,7 +226,6 @@ function FinderPanel({
 	const [lookErrors, setLookErrors] = useState<Record<string, string>>({})
 	const trimmed = value.trim()
 	const url = asRecipeUrl(trimmed)
-	const terms = termsOf(trimmed)
 
 	const shelf = useQuery({
 		queryKey: ['shelf'],
@@ -312,15 +262,6 @@ function FinderPanel({
 	if (url) {
 		section('', [{ kind: 'link', url }])
 	} else if (!trimmed) {
-		// Starting from a recipe happens inside one already being written.
-		if (!onUse)
-			section(
-				'',
-				starts.flatMap(({ start }): Option[] =>
-					start === 'write' || startsOpen ? [{ kind: 'start', start }] : [],
-				),
-			)
-
 		const drafts = shelfRecipes.filter(
 			(recipe) => recipe.userId !== null && !recipe.finalizedAt,
 		)
@@ -365,11 +306,9 @@ function FinderPanel({
 	}
 
 	const pickedAt = options.findIndex((option) => optionKey(option) === picked)
-	// The first recipe leads when typing; the first way to start when not.
-	const firstRecipe = options.findIndex((option) => option.kind !== 'start')
 
-	const active =
-		pickedAt >= 0 ? pickedAt : url ? 0 : trimmed ? Math.max(firstRecipe, 0) : -1
+	// The first option leads when typing.
+	const active = pickedAt >= 0 ? pickedAt : url || trimmed ? 0 : -1
 
 	const current: Option | undefined =
 		previewing && selected
@@ -543,12 +482,6 @@ function FinderPanel({
 		if (busy) return
 
 		switch (option.kind) {
-			case 'start':
-				if (option.start === 'write') return write()
-
-				if (option.start === 'import') return onImportLink()
-
-				return setPasteOpen(true)
 			case 'recipe':
 				setSelected(option.recipe)
 				setPicked(optionKey(option))
@@ -651,16 +584,6 @@ function FinderPanel({
 
 	return (
 		<>
-			<PasteRecipeDialog
-				open={pasteOpen}
-				onOpenChange={setPasteOpen}
-				onAdd={(text) => {
-					const link = asRecipeUrl(text.trim())
-
-					if (link) onImportLink(link)
-					else writePasted(text)
-				}}
-			/>
 			{/* Always on screen, so a recipe can be left for another search. */}
 			<div className="border-border flex shrink-0 items-center gap-2.5 border-b px-4 py-3">
 				{url ? (
@@ -724,13 +647,10 @@ function FinderPanel({
 								label={label}
 								options={options.slice(from, to)}
 								from={from}
-								terms={terms}
 								busy={busy}
 								optionProps={optionProps}
 								rowClassName={rowClassName}
 								recipeRowClassName={recipeRowClassName}
-								startsOpen={startsOpen}
-								onToggleStarts={() => setStartsOpen((open) => !open)}
 							/>
 						))}
 						{searching && online.results.length === 0 ? (
@@ -796,7 +716,6 @@ function FinderPanel({
 					>
 						<Preview
 							option={current}
-							terms={terms}
 							idOf={idOf}
 							looking={
 								current?.kind === 'recipe' && looking === current.recipe.url
@@ -877,198 +796,129 @@ function SectionRows({
 	label,
 	options,
 	from,
-	terms,
 	busy,
 	optionProps,
 	rowClassName,
 	recipeRowClassName,
-	startsOpen,
-	onToggleStarts,
 }: {
 	label: string
 	options: Option[]
 	from: number
-	terms: string[]
 	busy: string | undefined
 	optionProps: (index: number, option: Option) => object
 	rowClassName: (index: number) => string
 	recipeRowClassName: (index: number) => string
-	startsOpen: boolean
-	onToggleStarts: () => void
 }) {
-	const startRow = options.every((option) => option.kind === 'start')
-
 	return (
 		<>
 			{label ? <SectionLabel>{label}</SectionLabel> : null}
-			{startRow ? (
-				<li role="presentation" className="flex flex-wrap gap-2 px-4 pt-1 pb-2">
-					<ul role="group" aria-label="start" className="contents">
-						{options.map((option, offset) => {
-							if (option.kind !== 'start') return null
-							const index = from + offset
+			{options.map((option, offset) => {
+				const index = from + offset
 
-							const { label: name, icon: Icon } = starts.find(
-								(start) => start.start === option.start,
-							) ?? {
-								label: '',
-								icon: PencilSimpleIcon,
-							}
+				if (option.kind === 'recipe') {
+					const { recipe } = option
+					const key = optionKey(option)
 
-							return (
-								<li
-									key={option.start}
-									{...optionProps(index, option)}
-									className={cn(
-										rowClassName(index),
-										'border-border w-auto rounded-md border px-2.5 py-1.5',
-										option.start === 'write' ? 'order-1' : 'order-3',
-									)}
-								>
-									<span className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap">
-										<Icon size={14} weight="bold" aria-hidden />
-										{name}
-									</span>
-								</li>
-							)
-						})}
-					</ul>
-					{/* Not an option: it only reveals the import ways below. */}
-					<button
-						type="button"
-						aria-expanded={startsOpen}
-						// Keep the search field focused, so the arrow keys and Enter still work.
-						onMouseDown={(event) => event.preventDefault()}
-						onClick={onToggleStarts}
-						className="text-muted-foreground hover:text-foreground order-2 flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold whitespace-nowrap"
-					>
-						import
-						<CaretDownIcon
-							size={12}
-							weight="bold"
-							aria-hidden
-							className={cn(startsOpen && 'rotate-180')}
-						/>
-					</button>
-				</li>
-			) : (
-				options.map((option, offset) => {
-					const index = from + offset
-
-					if (option.kind === 'recipe') {
-						const { recipe } = option
-						const key = optionKey(option)
-
-						return (
-							<li
-								key={key}
-								{...optionProps(index, option)}
-								className={recipeRowClassName(index)}
-							>
-								<RecipeThumb
-									imageUrl={recipe.imageUrl}
-									title={recipe.title}
-									className={
-										recipe.recipeId
-											? tileColors[tileColorFor(recipe.recipeId)]
-											: undefined
-									}
-								/>
-								<span className="min-w-0 flex-1">
-									<span className="block truncate text-sm font-semibold">
-										<Marked text={recipe.title} terms={terms} />
-									</span>
-									{busy === key || recipeNote(recipe) ? (
-										<span className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold">
-											{recipe.siteName ? <SiteIcon url={recipe.url} /> : null}
-											<span className="truncate">
-												{busy === key ? 'one moment…' : recipeNote(recipe)}
-											</span>
+					return (
+						<li
+							key={key}
+							{...optionProps(index, option)}
+							className={recipeRowClassName(index)}
+						>
+							<RecipeThumb
+								imageUrl={recipe.imageUrl}
+								title={recipe.title}
+								className={
+									recipe.recipeId
+										? tileColors[tileColorFor(recipe.recipeId)]
+										: undefined
+								}
+							/>
+							<span className="min-w-0 flex-1">
+								<span className="block truncate text-sm font-semibold">
+									{recipe.title}
+								</span>
+								{busy === key || recipeNote(recipe) ? (
+									<span className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold">
+										{recipe.siteName ? <SiteIcon url={recipe.url} /> : null}
+										<span className="truncate">
+											{busy === key ? 'one moment…' : recipeNote(recipe)}
 										</span>
-									) : null}
-								</span>
-							</li>
-						)
-					}
+									</span>
+								) : null}
+							</span>
+						</li>
+					)
+				}
 
-					if (option.kind === 'link')
-						return (
-							<li
-								key="link"
-								{...optionProps(index, option)}
-								className={rowClassName(index)}
+				if (option.kind === 'link')
+					return (
+						<li
+							key="link"
+							{...optionProps(index, option)}
+							className={rowClassName(index)}
+						>
+							<span
+								aria-hidden
+								className="border-border bg-kitchen-basil/25 grid size-10 shrink-0 place-items-center rounded-md border"
 							>
-								<span
-									aria-hidden
-									className="border-border bg-kitchen-basil/25 grid size-10 shrink-0 place-items-center rounded-md border"
-								>
-									<LinkSimpleIcon size={18} weight="bold" />
+								<LinkSimpleIcon size={18} weight="bold" />
+							</span>
+							<span className="min-w-0 flex-1">
+								<span className="block text-sm font-semibold">
+									import this recipe
 								</span>
-								<span className="min-w-0 flex-1">
-									<span className="block text-sm font-semibold">
-										import this recipe
-									</span>
-									<span className="text-muted-foreground block truncate text-xs font-semibold">
-										{busy
-											? 'grabbing the page — some sites make us knock twice'
-											: hostOf(option.url)}
-									</span>
+								<span className="text-muted-foreground block truncate text-xs font-semibold">
+									{busy
+										? 'grabbing the page — some sites make us knock twice'
+										: hostOf(option.url)}
 								</span>
-							</li>
-						)
+							</span>
+						</li>
+					)
 
-					if (option.kind === 'write')
-						return (
-							<li
-								key="write"
-								{...optionProps(index, option)}
-								className={cn(
-									rowClassName(index),
-									'border-border mt-1 border-t pt-2.5',
-								)}
+				if (option.kind === 'write')
+					return (
+						<li
+							key="write"
+							{...optionProps(index, option)}
+							className={cn(
+								rowClassName(index),
+								'border-border mt-1 border-t pt-2.5',
+							)}
+						>
+							<span
+								aria-hidden
+								className="border-border bg-kitchen-eggplant/15 grid size-10 shrink-0 place-items-center rounded-md border"
 							>
-								<span
-									aria-hidden
-									className="border-border bg-kitchen-eggplant/15 grid size-10 shrink-0 place-items-center rounded-md border"
-								>
-									<PencilSimpleIcon size={18} weight="bold" />
+								<PlusIcon size={18} weight="bold" />
+							</span>
+							<span className="min-w-0 flex-1">
+								<span className="block truncate text-sm font-semibold">
+									write “{option.title}”
 								</span>
-								<span className="min-w-0 flex-1">
-									<span className="block truncate text-sm font-semibold">
-										write “{option.title}”
-									</span>
-									<span className="text-muted-foreground block text-xs font-semibold">
-										start blank
-									</span>
+								<span className="text-muted-foreground block text-xs font-semibold">
+									start blank
 								</span>
-							</li>
-						)
+							</span>
+						</li>
+					)
 
-					return null
-				})
-			)}
+				return null
+			})}
 		</>
 	)
 }
 
-// The highlighted option, up close: a recipe's ingredients with the search
-// words marked, and what to do with it.
-const startHints: Record<Start, string> = {
-	write: 'a blank page: name it, then add ingredients and steps.',
-	import: 'paste a link from a recipe site. it lands on your shelf.',
-	paste:
-		'copied a whole recipe? we sort it into its name, ingredients and steps.',
-}
-
+// The highlighted option, up close: a recipe's ingredients, and what to do
+// with it.
 function Preview({
 	option,
-	terms,
 	idOf,
 	looking,
 	lookError,
 }: {
 	option: Option | undefined
-	terms: string[]
 	idOf: (recipe: FoundRecipe) => string | undefined
 	looking: boolean
 	lookError: string | undefined
@@ -1076,9 +926,7 @@ function Preview({
 	if (!option || option.kind !== 'recipe')
 		return (
 			<div className="text-muted-foreground flex flex-col gap-2 p-6 text-sm font-semibold">
-				{option?.kind === 'start' ? (
-					<p>{startHints[option.start]}</p>
-				) : option?.kind === 'write' ? (
+				{option?.kind === 'write' ? (
 					<p>start a blank recipe called “{option.title}”.</p>
 				) : option?.kind === 'link' ? (
 					<p>import the recipe on {hostOf(option.url)} to your shelf.</p>
@@ -1099,7 +947,6 @@ function Preview({
 			key={id ?? recipe.url}
 			recipe={recipe}
 			recipeId={id}
-			terms={terms}
 			looking={looking}
 			lookError={lookError}
 		/>
@@ -1125,13 +972,11 @@ function IngredientsLoading({ label }: { label: string }) {
 function RecipePreview({
 	recipe,
 	recipeId,
-	terms,
 	looking,
 	lookError,
 }: {
 	recipe: FoundRecipe
 	recipeId: string | undefined
-	terms: string[]
 	looking: boolean
 	lookError: string | undefined
 }) {
@@ -1144,7 +989,7 @@ function RecipePreview({
 	if (full.data)
 		return (
 			<div className="p-4 md:p-6">
-				<RecipeReader recipe={full.data} terms={terms} heading="h2" />
+				<RecipeReader recipe={full.data} heading="h2" />
 			</div>
 		)
 
@@ -1160,9 +1005,7 @@ function RecipePreview({
 					/>
 				) : null}
 				<div className="flex min-w-0 flex-1 flex-col gap-2">
-					<h2 className="text-xl leading-tight font-bold">
-						<Marked text={recipe.title} terms={terms} />
-					</h2>
+					<h2 className="text-xl leading-tight font-bold">{recipe.title}</h2>
 					{recipe.siteName ? (
 						<p className="text-muted-foreground flex items-center gap-1.5 text-sm font-semibold">
 							<SiteIcon url={recipe.url} />

@@ -13,6 +13,7 @@ import {
 	type DragStartEvent,
 	type DropAnimation,
 	type UniqueIdentifier,
+	useDndContext,
 } from '@dnd-kit/core'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import {
@@ -23,7 +24,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DotsSixVertical } from '@phosphor-icons/react'
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 
 import { cn } from '@/lib/utils/ui'
 
@@ -139,6 +140,7 @@ export function SortableList({
 			<SortableContext items={items} strategy={verticalListSortingStrategy}>
 				{children}
 			</SortableContext>
+			<MeasureAgain items={items} />
 			<DragOverlay dropAnimation={reducedMotion() ? null : dropAnimation}>
 				{carried ? (
 					<div className="bg-card border-input scale-[1.02] rounded-xl border shadow-md">
@@ -248,4 +250,21 @@ function DragHandle({
 			{grip ?? <DotsSixVertical size={18} weight="bold" aria-hidden />}
 		</button>
 	)
+}
+
+// A list that changes what it shows as a row is picked up, such as sections
+// folding to their names, has its places measured again once the change is on
+// screen: dnd-kit measures while rendering, before the change lands.
+function MeasureAgain({ items }: { items: string[] }) {
+	// A plain function from dnd-kit's context, not a method of it.
+	// oxlint-disable-next-line typescript/unbound-method
+	const { active, measureDroppableContainers } = useDndContext()
+	const shown = items.join('\n')
+	const carrying = active !== null
+
+	useEffect(() => {
+		if (carrying) measureDroppableContainers(shown.split('\n'))
+	}, [shown, carrying, measureDroppableContainers])
+
+	return null
 }

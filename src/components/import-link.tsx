@@ -1,5 +1,5 @@
 import { Dialog } from '@base-ui/react/dialog'
-import { LinkSimpleIcon, XIcon } from '@phosphor-icons/react'
+import { XIcon } from '@phosphor-icons/react'
 import { useNavigate } from '@tanstack/react-router'
 import { useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -13,7 +13,8 @@ import { importSiteLogo, importSites } from '@/lib/import/sites'
 import { cn } from '@/lib/utils/ui'
 
 // A link as people copy it, with or without its https://.
-function linkFrom(value: string) {
+// A link as a cook types it, with or without its https://.
+export function linkFrom(value: string) {
 	const trimmed = value.trim()
 
 	return (
@@ -23,11 +24,6 @@ function linkFrom(value: string) {
 			: undefined)
 	)
 }
-
-// Secondary to the search: paper with a field line that fills with card cream
-// on hover, like the sidebar rows. As tall as the search.
-const secondaryActionClassName =
-	'border-input hover:bg-card inline-flex items-center justify-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm leading-6 font-semibold transition-colors '
 
 // The sites the importer is checked against, and most others.
 function ImportSites() {
@@ -203,19 +199,5 @@ export function ImportDialog({
 				</Dialog.Popup>
 			</Dialog.Portal>
 		</Dialog.Root>
-	)
-}
-
-// Beside the search on wider screens.
-export function ImportLinkButton({ onClick }: { onClick: () => void }) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className={secondaryActionClassName}
-		>
-			<LinkSimpleIcon size={16} weight="bold" aria-hidden />
-			import link
-		</button>
 	)
 }
