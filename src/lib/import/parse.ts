@@ -461,15 +461,20 @@ const duration = z
 	.optional()
 	.catch(undefined)
 
-// A number a page may write as text ("4.94", "1,204").
+// A number a page may write as text ("4.94", "1,204"). A blank is no number.
 const pageNumber = z
 	.union([
 		z.number(),
-		z.string().transform((value) => Number(value.replace(/,/g, ''))),
+		z
+			.string()
+			.transform((value) =>
+				value.trim() ? Number(value.replace(/,/g, '')) : Number.NaN,
+			),
 	])
 	.pipe(z.number().finite().nonnegative())
 
-const pageCount = pageNumber.pipe(z.number().int())
+// A count that fits the database's integer column.
+const pageCount = pageNumber.pipe(z.number().int().max(2_147_483_647))
 
 // The stars a recipe's readers gave it. Publishers name the count either way,
 // and a rating nobody gave is no rating.
@@ -478,11 +483,15 @@ const aggregateRating = z
 		ratingValue: pageNumber.pipe(z.number().max(5)),
 		ratingCount: pageCount.optional().catch(undefined),
 		reviewCount: pageCount.optional().catch(undefined),
+		// Ratings out of anything but five stars are not stars.
+		bestRating: pageNumber.optional().catch(undefined),
 	})
-	.transform(({ ratingValue, ratingCount, reviewCount }) => {
+	.transform(({ ratingValue, ratingCount, reviewCount, bestRating }) => {
 		const count = Math.max(ratingCount ?? 0, reviewCount ?? 0)
 
-		return count > 0 ? { value: ratingValue, count } : undefined
+		return count > 0 && (bestRating === undefined || bestRating === 5)
+			? { value: ratingValue, count }
+			: undefined
 	})
 	.optional()
 	.catch(undefined)

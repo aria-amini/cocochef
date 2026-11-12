@@ -502,6 +502,22 @@ describe('what readers said', () => {
 		).toEqual({ value: 4.6, count: 1204 })
 	})
 
+	test('ignores a blank rating, one out of ten, and an impossible count', () => {
+		type PageRating = Record<string, string | number>
+
+		const rated = (aggregateRating: PageRating) =>
+			page([{ ...dal, aggregateRating }])?.rating
+
+		expect(rated({ ratingValue: '', ratingCount: '12' })).toBeUndefined()
+		expect(
+			rated({ ratingValue: 4, ratingCount: 12, bestRating: 10 }),
+		).toBeUndefined()
+		expect(rated({ ratingValue: 4, ratingCount: 12, bestRating: '5' })).toEqual(
+			{ value: 4, count: 12 },
+		)
+		expect(rated({ ratingValue: 4.5, ratingCount: 3e9 })).toBeUndefined()
+	})
+
 	test('ignores a rating nobody gave, or one out of range', () => {
 		expect(
 			page([{ ...dal, aggregateRating: { ratingValue: 5, ratingCount: 0 } }])
