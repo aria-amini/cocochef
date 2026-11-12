@@ -15,7 +15,7 @@ import {
 } from '@phosphor-icons/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
@@ -1066,9 +1066,34 @@ function RecipePreview({
 		enabled: recipeId !== undefined,
 	})
 
+	// The action a keyboard user was on while the recipe loaded. Loading swaps
+	// the preview for the full reader, which draws the same actions anew, so
+	// focus goes back to the one with the same name.
+	const root = useRef<HTMLDivElement>(null)
+	const focusedAction = useRef<string>(undefined)
+
+	const loaded = !!full.data
+
+	useLayoutEffect(() => {
+		const name = focusedAction.current
+
+		if (!loaded || !name || root.current?.contains(document.activeElement))
+			return
+
+		const again = [...(root.current?.querySelectorAll('button, a') ?? [])].find(
+			(action) => action.textContent?.trim() === name,
+		)
+
+		if (again instanceof HTMLElement) again.focus()
+	}, [loaded])
+
+	const remember = (event: React.FocusEvent) => {
+		focusedAction.current = event.target.textContent?.trim() || undefined
+	}
+
 	if (full.data)
 		return (
-			<div className="p-4 md:p-6">
+			<div ref={root} onFocus={remember} className="p-4 md:p-6">
 				<RecipeReader
 					recipe={full.data}
 					heading="h2"
@@ -1078,7 +1103,7 @@ function RecipePreview({
 		)
 
 	return (
-		<div className="flex flex-col gap-3 p-4">
+		<div ref={root} onFocus={remember} className="flex flex-col gap-3 p-4">
 			<div className="flex items-start gap-3">
 				{recipe.imageUrl ? (
 					<img

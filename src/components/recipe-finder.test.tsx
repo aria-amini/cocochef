@@ -556,6 +556,41 @@ describe('the one box', () => {
 			.not.toBeInTheDocument()
 	})
 
+	test('keeps the focused action when the previewed recipe finishes loading', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
+		})
+
+		type Loaded = Recipe & {
+			ingredients: string[]
+			steps: string[]
+			saved: boolean
+			owned: boolean
+		}
+
+		let load: (recipe: Loaded) => void = () => {}
+
+		server.getRecipe.mockReturnValue(new Promise((resolve) => (load = resolve)))
+		const { screen, input } = await openBox()
+		await input.fill('lemon')
+		await screen.getByRole('option', { name: /lemon chicken/ }).click()
+
+		const save = () => screen.getByRole('button', { name: 'save', exact: true })
+
+		await expect.element(save()).toBeVisible()
+		save().element().focus()
+		load({
+			...shelfRecipe('shared-1', 'lemon chicken', { userId: null }),
+			ingredients: ['6 chicken thighs', '1 lemon'],
+			steps: ['roast'],
+			saved: false,
+			owned: false,
+		})
+		await expect.element(screen.getByText('6 chicken thighs')).toBeVisible()
+		await expect.element(save()).toHaveFocus()
+	})
+
 	test('says so when a previewed recipe can no longer be read', async () => {
 		server.search.mockResolvedValue({
 			warming: false,
