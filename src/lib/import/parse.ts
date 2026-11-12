@@ -440,16 +440,19 @@ const instructions = z
 // also write zero ("PT0M") for a time they do not know.
 export function durationMinutes(text: string | undefined) {
 	const match =
-		/^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:\d+(?:\.\d+)?S)?)?$/i.exec(
+		/^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/i.exec(
 			text?.trim() ?? '',
 		)
 
 	if (!match) return undefined
 
-	const [, days = '0', hours = '0', minutes = '0'] = match
+	const [, days = '0', hours = '0', minutes = '0', seconds = '0'] = match
 
 	const total = Math.round(
-		Number(days) * 24 * 60 + Number(hours) * 60 + Number(minutes),
+		Number(days) * 24 * 60 +
+			Number(hours) * 60 +
+			Number(minutes) +
+			Number(seconds) / 60,
 	)
 
 	return total > 0 ? total : undefined
@@ -513,14 +516,30 @@ function pageRating(nodes: z.infer<typeof jsonLdNode>[]) {
 	return undefined
 }
 
+const commentPages = new Set([
+	'article',
+	'blogposting',
+	'newsarticle',
+	'webpage',
+	'itempage',
+])
+
 // The comments a page counts, on the recipe or on the article around it.
 function pageCommentCount(
 	nodes: z.infer<typeof jsonLdNode>[],
 	recipe: z.infer<typeof jsonLdNode>,
 ) {
 	const counts = nodes.flatMap((node) => {
-		// Another recipe on the page counts its own comments.
-		if (node !== recipe && node['@type']?.includes('recipe')) return []
+		// The recipe's own count, or the page or article it sits on; never a
+		// publisher's, a product's, or another recipe's.
+		const types = node['@type'] ?? []
+
+		if (
+			node !== recipe &&
+			types.length > 0 &&
+			!types.some((type) => commentPages.has(type))
+		)
+			return []
 
 		const count = commentCount.parse(node['commentCount'])
 

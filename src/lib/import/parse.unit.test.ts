@@ -413,6 +413,12 @@ describe('recipe times', () => {
 		)
 	})
 
+	test('counts the seconds in a time', () => {
+		expect(timed({ totalTime: 'PT90S' })?.totalMinutes).toBe(2)
+		expect(timed({ totalTime: 'PT1M30S' })?.totalMinutes).toBe(2)
+		expect(timed({ totalTime: 'PT20M10S' })?.totalMinutes).toBe(20)
+	})
+
 	test('adds prep and cook time when there is no total', () => {
 		expect(timed({ prepTime: 'PT10M', cookTime: 'PT25M' })?.totalMinutes).toBe(
 			35,
@@ -483,7 +489,9 @@ describe('what readers said', () => {
 			{
 				'@type': 'Organization',
 				aggregateRating: { ratingValue: 4.2, ratingCount: 50 },
+				commentCount: 900,
 			},
+			{ '@type': 'Product', commentCount: 700 },
 		])
 
 		expect(recipe?.title).toBe('Dal')

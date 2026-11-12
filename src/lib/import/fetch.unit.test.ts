@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import { isPrivateIp } from './fetch'
+import { isPrivateIp } from './public-fetch'
 import { isWalled } from './wall'
 
 describe('isPrivateIp', () => {

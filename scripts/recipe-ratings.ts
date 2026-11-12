@@ -1,5 +1,5 @@
 // Reads the ratings of shared recipes brought in before imports kept them:
-// each one's page is fetched again, plainly, one at a time with a pause
+// each one's page is fetched again, as the importer fetches it, one at a time with a pause
 // between, and its stars, rating count and comment count are stored. A page
 // that refuses a plain fetch, or gives no rating, is left as it is.
 //
@@ -17,6 +17,7 @@ import { and, asc, eq, gt, isNotNull, isNull } from 'drizzle-orm'
 import { getDb } from '../src/db/connection'
 import { recipes } from '../src/db/schema'
 import { parseRecipe } from '../src/lib/import/parse'
+import { fetchPlain } from '../src/lib/import/public-fetch'
 
 // `vp run` passes its own `--` along.
 const [count, after] = process.argv.slice(2).filter((arg) => arg !== '--')
@@ -49,19 +50,12 @@ for (const [at, recipe] of unrated.entries()) {
 	if (!recipe.sourceUrl) continue
 
 	try {
-		const response = await fetch(recipe.sourceUrl, {
-			headers: {
-				'user-agent':
-					'CocochefBot/0.1 (recipe search; +https://cocochef.ariaamini.com)',
-			},
-			signal: AbortSignal.timeout(20_000),
-		})
+		// The importer's own fetch: every hop must be a public address.
+		const page = await fetchPlain(recipe.sourceUrl)
 
-		if (!response.ok) console.log(`  refused: HTTP ${response.status}`)
+		if (!page) console.log('  refused, or not a recipe page')
 
-		const found = response.ok
-			? parseRecipe(await response.text(), recipe.sourceUrl)
-			: undefined
+		const found = page ? parseRecipe(page.html, page.url) : undefined
 
 		if (found?.rating || found?.commentCount !== undefined) {
 			await db
