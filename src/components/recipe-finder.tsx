@@ -1021,7 +1021,9 @@ function Preview({
 
 	return (
 		<RecipePreview
-			key={id ?? recipe.url}
+			// A site page keeps its address once it is brought in, so the preview
+			// isn't drawn anew (and focus isn't lost) when it gets an id.
+			key={recipe.url ?? id}
 			recipe={recipe}
 			recipeId={id}
 			actions={actions}

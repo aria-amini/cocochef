@@ -591,6 +591,37 @@ describe('the one box', () => {
 		await expect.element(save()).toHaveFocus()
 	})
 
+	test('keeps the focused action while a site page is brought in', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({ url: 'https://example.com/ramen', title: 'online ramen' }),
+			],
+		})
+
+		let bring: (recipe: { id: string; title: string }) => void = () => {}
+
+		server.import.mockReturnValue(new Promise((resolve) => (bring = resolve)))
+		server.getRecipe.mockResolvedValue({
+			...shelfRecipe('shared-ramen', 'online ramen', { userId: null }),
+			ingredients: ['200 g ramen noodles'],
+			steps: ['boil'],
+			saved: false,
+			owned: false,
+		})
+		const { screen, input } = await openBox()
+		await input.fill('ramen')
+		await screen.getByRole('option', { name: /online ramen/ }).click()
+
+		const save = () => screen.getByRole('button', { name: 'save', exact: true })
+
+		await expect.element(save()).toBeVisible()
+		save().element().focus()
+		bring({ id: 'shared-ramen', title: 'online ramen' })
+		await expect.element(screen.getByText('200 g ramen noodles')).toBeVisible()
+		await expect.element(save()).toHaveFocus()
+	})
+
 	test('says so when a previewed recipe can no longer be read', async () => {
 		server.search.mockResolvedValue({
 			warming: false,
