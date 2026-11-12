@@ -108,6 +108,10 @@ if (command === 'index') {
 		sourceUrl: recipeInput.shape.sourceUrl.unwrap(),
 		// Publisher notes, kept the way the link import keeps them.
 		sourceNotes: z.string().optional(),
+		// What the page says of time and its readers, as an import keeps it.
+		totalMinutes: z.number().int().positive().optional(),
+		rating: z.object({ value: z.number(), count: z.number() }).optional(),
+		commentCount: z.number().int().nonnegative().optional(),
 	})
 
 	const pageEntry = z.union([
@@ -221,6 +225,9 @@ if (command === 'index') {
 							ingredients: recipe.ingredients.map((line) => line.raw),
 							steps: recipe.steps,
 							sourceNotes: recipe.sourceNotes,
+							totalMinutes: recipe.totalMinutes,
+							rating: recipe.rating,
+							commentCount: recipe.commentCount,
 						},
 					)
 

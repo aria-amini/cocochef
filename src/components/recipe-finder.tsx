@@ -10,6 +10,7 @@ import {
 	BookmarkSimpleIcon,
 	LinkSimpleIcon,
 	PlusIcon,
+	StarIcon,
 	XIcon,
 } from '@phosphor-icons/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -24,6 +25,7 @@ import {
 	RecipeThumb,
 	useOnlineRecipes,
 } from '@/components/recipe-online'
+import { RecipeRating } from '@/components/recipe-rating'
 import { RecipeReader } from '@/components/recipe-reader'
 import { SiteIcon } from '@/components/site-icon'
 import type { StartingPoint } from '@/components/start-from'
@@ -31,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { authClient } from '@/lib/auth/client'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
+import { byLoved, lovedScore } from '@/lib/recipes/loved'
 import { matchesRecipeQuery } from '@/lib/recipes/model'
 import { isPastedRecipe } from '@/lib/recipes/paste'
 import { getRecipe, listShelf, saveRecipe } from '@/lib/recipes/server'
@@ -91,6 +94,10 @@ function fromShelf(recipe: ShelfRecipe): FoundRecipe {
 		saved: true,
 		draft: owned && !recipe.finalizedAt,
 		ingredientMatches: [],
+		rating:
+			recipe.ratingValue !== null && recipe.ratingCount
+				? { value: recipe.ratingValue, count: recipe.ratingCount }
+				: undefined,
 	}
 }
 
@@ -219,9 +226,18 @@ function FinderPanel({
 	// The option an action is running for, so it can say so.
 	const [busy, setBusy] = useState<string>()
 
+	// Results most loved first, rather than best match first.
+	const [loved, setLoved] = useState(false)
 	const [error, setError] = useState<string>()
 	// Site pages brought in for a look, by link, so they keep their recipe.
 	const [resolved, setResolved] = useState<Record<string, string>>({})
+
+	// What those pages said of their readers, so the row and its preview show
+	// the stars once a page is read.
+	const [readRatings, setReadRatings] = useState<
+		Record<string, FoundRecipe['rating']>
+	>({})
+
 	const [looking, setLooking] = useState<string>()
 	const [lookErrors, setLookErrors] = useState<Record<string, string>>({})
 	const trimmed = value.trim()
@@ -256,8 +272,14 @@ function FinderPanel({
 		options.push(...added)
 	}
 
+	// A site page's row takes the rating its page gave, once it is read.
+	const rated = (recipe: FoundRecipe): FoundRecipe =>
+		recipe.rating || !recipe.url || !readRatings[recipe.url]
+			? recipe
+			: { ...recipe, rating: readRatings[recipe.url] }
+
 	const asOptions = (recipes: FoundRecipe[]) =>
-		recipes.map((recipe): Option => ({ kind: 'recipe', recipe }))
+		recipes.map((recipe): Option => ({ kind: 'recipe', recipe: rated(recipe) }))
 
 	if (url) {
 		section('', [{ kind: 'link', url }])
@@ -292,13 +314,19 @@ function FinderPanel({
 					.map(fromShelf)
 			: online.results.filter((recipe) => recipe.saved)
 
-		section('on your shelf', asOptions(fromServer.slice(0, shelfLimit)))
+		const ranked = (recipes: FoundRecipe[]) =>
+			loved
+				? byLoved(recipes, (recipe) => lovedScore(rated(recipe).rating))
+				: recipes
+
+		section('on your shelf', asOptions(ranked(fromServer).slice(0, shelfLimit)))
 		section(
 			'more recipes',
 			asOptions(
-				online.results
-					.filter((recipe) => !recipe.saved)
-					.slice(0, visibleRecipes),
+				ranked(online.results.filter((recipe) => !recipe.saved)).slice(
+					0,
+					visibleRecipes,
+				),
 			),
 		)
 
@@ -312,7 +340,7 @@ function FinderPanel({
 
 	const current: Option | undefined =
 		previewing && selected
-			? { kind: 'recipe', recipe: selected }
+			? { kind: 'recipe', recipe: rated(selected) }
 			: options[active]
 
 	const lookUrl =
@@ -332,9 +360,10 @@ function FinderPanel({
 		const timer = setTimeout(() => {
 			setLooking(lookUrl)
 			importRecipe({ data: { url: lookUrl, keep: false } })
-				.then((recipe) =>
-					setResolved((known) => ({ ...known, [lookUrl]: recipe.id })),
-				)
+				.then((recipe) => {
+					setResolved((known) => ({ ...known, [lookUrl]: recipe.id }))
+					keepRating(lookUrl, recipe)
+				})
 				.catch((cause: unknown) => {
 					const message =
 						cause instanceof Error ? cause.message : "couldn't read that page"
@@ -360,6 +389,17 @@ function FinderPanel({
 			clearTimeout(timer)
 		}
 	}, [lookUrl, lookErrors])
+
+	function keepRating(
+		pageUrl: string,
+		recipe: { ratingValue: number | null; ratingCount: number | null },
+	) {
+		if (recipe.ratingValue === null || !recipe.ratingCount) return
+
+		const rating = { value: recipe.ratingValue, count: recipe.ratingCount }
+
+		setReadRatings((known) => ({ ...known, [pageUrl]: rating }))
+	}
 
 	const idOf = (recipe: FoundRecipe) =>
 		recipe.recipeId ?? (recipe.url ? resolved[recipe.url] : undefined)
@@ -397,6 +437,7 @@ function FinderPanel({
 		const pageUrl = recipe.url
 
 		setResolved((current) => ({ ...current, [pageUrl]: brought.id }))
+		keepRating(pageUrl, brought)
 
 		return brought.id
 	}
@@ -618,6 +659,27 @@ function FinderPanel({
 					}}
 					className="placeholder:text-muted-foreground w-full min-w-0 bg-transparent text-lg font-semibold outline-none placeholder:font-normal"
 				/>
+				{trimmed && !url && !previewing ? (
+					<button
+						type="button"
+						aria-pressed={loved}
+						onClick={() => setLoved((on) => !on)}
+						className={cn(
+							'inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-semibold transition-colors',
+							loved
+								? 'border-kitchen-yolk bg-kitchen-yolk/30'
+								: 'border-input text-muted-foreground hover:text-foreground border-dashed',
+						)}
+					>
+						<StarIcon
+							size={12}
+							weight={loved ? 'fill' : 'bold'}
+							aria-hidden
+							className={loved ? 'text-kitchen-yolk' : undefined}
+						/>
+						most loved
+					</button>
+				) : null}
 				<Dialog.Close
 					aria-label="cancel"
 					className="text-muted-foreground hover:text-foreground shrink-0 rounded-md px-2 py-1 text-sm font-semibold"
@@ -847,6 +909,15 @@ function SectionRows({
 									</span>
 								) : null}
 							</span>
+							{/* The stars keep a column of their own at the row's end, so
+							    they line up down the list. */}
+							{recipe.rating ? (
+								<RecipeRating
+									rating={recipe.rating}
+									column
+									className="shrink-0 text-xs font-semibold"
+								/>
+							) : null}
 						</li>
 					)
 				}
@@ -1006,10 +1077,15 @@ function RecipePreview({
 				) : null}
 				<div className="flex min-w-0 flex-1 flex-col gap-2">
 					<h2 className="text-xl leading-tight font-bold">{recipe.title}</h2>
-					{recipe.siteName ? (
+					{recipe.siteName || recipe.rating ? (
 						<p className="text-muted-foreground flex items-center gap-1.5 text-sm font-semibold">
-							<SiteIcon url={recipe.url} />
-							{recipe.siteName}
+							{recipe.siteName ? (
+								<>
+									<SiteIcon url={recipe.url} />
+									{recipe.siteName}
+								</>
+							) : null}
+							{recipe.rating ? <RecipeRating rating={recipe.rating} /> : null}
 						</p>
 					) : null}
 				</div>

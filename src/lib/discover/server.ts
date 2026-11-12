@@ -16,33 +16,9 @@ import {
 	searchRecipeLinks,
 	type RecipeLink,
 } from './recipe-index'
-import { recipeSites } from './sites'
+import { recipeSites, siteNameFor } from './sites'
 
 const siteNames = new Map(recipeSites.map((site) => [site.id, site.name]))
-
-const bareHost = (url: string) => new URL(url).hostname.replace(/^www\./, '')
-
-// Sites are matched by the hostname of their sitemap, not by their id.
-const siteHosts = recipeSites.map((site) => ({
-	host: bareHost(site.sitemap),
-	name: site.name,
-}))
-
-function siteNameFor(url: string | null) {
-	if (!url) return undefined
-
-	try {
-		const host = bareHost(url)
-
-		return (
-			siteHosts.find(
-				(site) => host === site.host || host.endsWith(`.${site.host}`),
-			)?.name ?? host
-		)
-	} catch {
-		return undefined
-	}
-}
 
 function canonical(url: string) {
 	try {
@@ -65,7 +41,17 @@ export type FoundRecipe = {
 	draft: boolean
 	// Search words only its ingredients held.
 	ingredientMatches: string[]
+	// How its readers rated it, once its page has been read.
+	rating?: { value: number; count: number } | undefined
 }
+
+const ratingOf = (recipe: {
+	ratingValue: number | null
+	ratingCount: number | null
+}) =>
+	recipe.ratingValue !== null && recipe.ratingCount
+		? { value: recipe.ratingValue, count: recipe.ratingCount }
+		: undefined
 
 const fromShared = (recipe: SharedRecipe): FoundRecipe => ({
 	recipeId: recipe.id,
@@ -76,6 +62,7 @@ const fromShared = (recipe: SharedRecipe): FoundRecipe => ({
 	saved: false,
 	draft: false,
 	ingredientMatches: [],
+	rating: ratingOf(recipe),
 })
 
 const fromLink = (link: RecipeLink): FoundRecipe => ({

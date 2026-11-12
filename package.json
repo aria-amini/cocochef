@@ -33,7 +33,8 @@
 		"dead-code": "fallow dead-code",
 		"import:fetch": "uv run --locked scripts/import-fetch.py",
 		"recipes:index": "vpx scripts/recipe-data.ts index",
-		"recipes:seed": "varlock run -- vpx scripts/recipe-data.ts seed"
+		"recipes:seed": "varlock run -- vpx scripts/recipe-data.ts seed",
+		"recipes:ratings": "varlock run -- vpx scripts/recipe-ratings.ts"
 	},
 	"dependencies": {
 		"@varlock/hashicorp-vault-plugin": "^2.1.2",

@@ -131,6 +131,9 @@ function fillRecipe() {
 		sourceUrl: 'https://example.com/pasta',
 		servings: 4,
 		totalMinutes: 25,
+		ratingValue: 4.86,
+		ratingCount: 1204,
+		commentCount: 337,
 		ingredients: ['200g pasta', '2 tbsp miso', '3 tbsp butter', '1 lemon'],
 		steps: [
 			'Prep',
@@ -162,6 +165,9 @@ describe('recipe detail', () => {
 			sourceNotes: null,
 			servings: null,
 			totalMinutes: null,
+			ratingValue: null,
+			ratingCount: null,
+			commentCount: null,
 			notes: null,
 			createdAt: new Date(),
 			finalizedAt: new Date(),
@@ -300,6 +306,13 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('checkbox', { name: /Simmer/ }))
 			.toBeVisible()
+		// What the page it came from says its readers thought of it.
+		await expect
+			.element(screen.getByLabelText('rated 4.9 by 1204'))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('link', { name: '337 comments' }))
+			.toHaveAttribute('href', 'https://example.com/pasta')
 		await expectPageScreenshot(screen.container, 'recipe-reader', {
 			fullHeight: true,
 		})

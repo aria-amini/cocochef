@@ -1,5 +1,6 @@
 import {
 	BookmarkSimpleIcon,
+	ChatCircleIcon,
 	GlobeHemisphereWestIcon,
 	LinkSimpleIcon,
 	LockSimpleIcon,
@@ -12,6 +13,7 @@ import { IngredientText } from '@/components/ingredient-text'
 import { PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { RecipeGlyph } from '@/components/recipe-glyph'
+import { compactCount, RecipeRating } from '@/components/recipe-rating'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
@@ -34,6 +36,10 @@ export type ReadableRecipe = {
 	notes?: string | null | undefined
 	servings: number | null
 	totalMinutes: number | null
+	// What the page it came from says its readers thought of it.
+	ratingValue?: number | null | undefined
+	ratingCount?: number | null | undefined
+	commentCount?: number | null | undefined
 	ingredients: string[]
 	ingredientCategories?: IngredientCategories | undefined
 	steps: string[]
@@ -351,6 +357,27 @@ function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
 	const video = recipe.sourceUrl ? isYouTube(recipe.sourceUrl) : false
 
 	const items = [
+		recipe.ratingValue !== null &&
+		recipe.ratingValue !== undefined &&
+		recipe.ratingCount ? (
+			<RecipeRating
+				key="rating"
+				rating={{ value: recipe.ratingValue, count: recipe.ratingCount }}
+			/>
+		) : null,
+		recipe.commentCount && recipe.sourceUrl ? (
+			<a
+				key="comments"
+				href={recipe.sourceUrl}
+				target="_blank"
+				rel="noreferrer"
+				className="hover:text-foreground inline-flex items-center gap-1 underline"
+			>
+				<ChatCircleIcon size={14} aria-hidden />
+				{compactCount(recipe.commentCount)}{' '}
+				{recipe.commentCount === 1 ? 'comment' : 'comments'}
+			</a>
+		) : null,
 		recipe.servings ? (
 			<span key="servings">serves {recipe.servings}</span>
 		) : null,

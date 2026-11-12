@@ -318,6 +318,10 @@ const publicFields = {
 	sourceNotes: recipes.sourceNotes,
 	servings: recipes.servings,
 	totalMinutes: recipes.totalMinutes,
+	// What the page it came from says its readers thought of it.
+	ratingValue: recipes.ratingValue,
+	ratingCount: recipes.ratingCount,
+	commentCount: recipes.commentCount,
 }
 
 async function publicContent(

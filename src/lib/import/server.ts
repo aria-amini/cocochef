@@ -49,6 +49,9 @@ async function findOrFetch(url: string, sourceUrl: string) {
 		...input.data,
 		sourceUrl,
 		sourceNotes: page.recipe.sourceNotes,
+		totalMinutes: page.recipe.totalMinutes,
+		rating: page.recipe.rating,
+		commentCount: page.recipe.commentCount,
 	})
 
 	if (!recipe) throw new Error("couldn't save that — try again")
