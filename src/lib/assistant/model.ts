@@ -44,7 +44,10 @@ export async function askModel<TSchema extends z.ZodType>(
 
 		return schema.parse(answer)
 	} catch (error) {
-		console.error(`assistant: ${task} failed`, error)
+		// The message only: an adapter's error object could carry request details.
+		console.error(
+			`assistant: ${task} failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+		)
 
 		return undefined
 	} finally {

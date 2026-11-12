@@ -112,7 +112,6 @@ function fromShelf(recipe: ShelfRecipe): FoundRecipe {
 	}
 }
 
-// Marks every search word in `text`.
 // The parts of a meal a recipe was tagged with, or what its title names when
 // the search sent none (a shelf glance); undefined when it isn't a meal.
 function tagsOf(recipe: FoundRecipe): MealTags | undefined {

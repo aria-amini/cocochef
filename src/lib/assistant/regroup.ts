@@ -266,5 +266,8 @@ export function regroupFromModel(
 		groups.push({ heading, step: group.step, lines: group.lines })
 	}
 
-	return placed.size === ingredientLines.size ? settled(groups) : { groups: [] }
+	// Taken whole or not at all, within the twenty groups an offer can hold.
+	return placed.size === ingredientLines.size && groups.length <= 20
+		? settled(groups)
+		: { groups: [] }
 }

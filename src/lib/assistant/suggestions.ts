@@ -506,5 +506,5 @@ export function sectionLinesFromModel(
 }
 
 export function sectionNameFromModel(answer: z.infer<typeof modelSectionName>) {
-	return (answer.name && cleanHeading(answer.name)) ?? null
+	return (answer.name ? cleanHeading(answer.name) : undefined) || null
 }

@@ -10,9 +10,9 @@ import {
 	modelAmounts,
 	wantsAmount,
 } from './amounts'
+import { ask } from './ask.server'
 import {
 	amountsInstructions,
-	askModel,
 	regroupInstructions,
 	sectionLinesInstructions,
 	sectionNameInstructions,
@@ -49,6 +49,9 @@ const foodLines = (lines: string[]) =>
 // fails, the mock source answers instead, so the editor never waits on an
 // error.
 
+// A step as long as a page says no more about its foods than its first part.
+const stepForModel = (step: string) => step.slice(0, 1500)
+
 // Sections the editor offers under the ingredients. Suggesting never creates a
 // guest session: a visitor gets them unmarked.
 export const suggestIngredientSections = createServerFn({ method: 'POST' })
@@ -58,7 +61,7 @@ export const suggestIngredientSections = createServerFn({ method: 'POST' })
 
 		const [session, answer] = await Promise.all([
 			getCurrentSession(),
-			askModel(
+			ask(
 				'sections',
 				sectionsInstructions,
 				JSON.stringify(data),
@@ -81,12 +84,15 @@ export const regroupIngredients = createServerFn({ method: 'POST' })
 		if (foodLines(data.ingredients).length < 2 || !data.steps.length)
 			return { groups: [] }
 
-		const answer = await askModel(
+		const answer = await ask(
 			'regroup',
 			regroupInstructions,
 			JSON.stringify({
 				ingredients: data.ingredients.map((line, index) => ({ index, line })),
-				steps: data.steps.map((step, index) => ({ index, step })),
+				steps: data.steps.map((step, index) => ({
+					index,
+					step: stepForModel(step),
+				})),
 			}),
 			modelRegroup,
 		)
@@ -98,7 +104,7 @@ export const regroupIngredients = createServerFn({ method: 'POST' })
 export const suggestSectionLines = createServerFn({ method: 'POST' })
 	.validator(sectionLinesRequest)
 	.handler(async ({ data }) => {
-		const answer = await askModel(
+		const answer = await ask(
 			'section-lines',
 			sectionLinesInstructions,
 			JSON.stringify(data),
@@ -119,7 +125,7 @@ export const suggestAmounts = createServerFn({ method: 'POST' })
 		if (!data.lines.some(wantsAmount))
 			return { amounts: data.lines.map(() => null) }
 
-		const answer = await askModel(
+		const answer = await ask(
 			'amounts',
 			amountsInstructions,
 			JSON.stringify({
@@ -139,7 +145,7 @@ export const suggestSectionName = createServerFn({ method: 'POST' })
 		// One food says nothing about what a section is for.
 		if (foodLines(data.lines).length < 2) return { name: null }
 
-		const answer = await askModel(
+		const answer = await ask(
 			'section-name',
 			sectionNameInstructions,
 			JSON.stringify(data),
