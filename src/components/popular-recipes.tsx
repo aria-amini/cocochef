@@ -1,13 +1,8 @@
-import {
-	GlobeHemisphereWestIcon,
-	ArrowRightIcon,
-	CookingPotIcon,
-} from '@phosphor-icons/react'
+import { GlobeHemisphereWestIcon, CookingPotIcon } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 
-import { useRecipeActions } from '@/components/recipe-actions'
 import { FieldError } from '@/components/recipe-form'
 import { useRecipeImport } from '@/components/recipe-online'
 import { SiteIcon } from '@/components/site-icon'
@@ -43,7 +38,6 @@ const tileClassName =
 // going on the shelf.
 export function PopularRecipes() {
 	const navigate = useNavigate()
-	const { find } = useRecipeActions()
 
 	const { data, isError } = useQuery({
 		queryKey: ['popular-recipes'],
@@ -74,20 +68,10 @@ export function PopularRecipes() {
 			aria-busy={loading || undefined}
 			className="border-border mt-4 flex w-full max-w-3xl min-w-0 flex-col gap-3 border-t pt-8"
 		>
-			<div className="flex flex-col items-start gap-1">
-				<h2 id="popular-recipes" className={shelfHeadingClassName}>
-					<GlobeHemisphereWestIcon size={20} weight="bold" aria-hidden />
-					discover recipes
-				</h2>
-				<button
-					type="button"
-					onClick={() => find()}
-					className="text-muted-foreground hover:text-foreground inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold"
-				>
-					browse more recipes
-					<ArrowRightIcon size={14} weight="bold" aria-hidden />
-				</button>
-			</div>
+			<h2 id="popular-recipes" className={shelfHeadingClassName}>
+				<GlobeHemisphereWestIcon size={20} weight="bold" aria-hidden />
+				discover recipes
+			</h2>
 
 			{imported.error ? <FieldError>{imported.error}</FieldError> : null}
 			<div

@@ -15,7 +15,7 @@ import {
 } from '@phosphor-icons/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
@@ -55,7 +55,9 @@ const shelfLimit = 5
 // Enough to choose from, and few enough that writing your own stays in view.
 const foundLimit = 12
 
-const glanceLimit = 3
+// The open recipe's actions: small pills, as under a recipe page's title.
+const actionClassName =
+	'inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold transition-colors disabled:opacity-50'
 
 // Long enough to pass over a row without fetching its page.
 const lookDelayMs = 350
@@ -130,7 +132,7 @@ function Status({ children }: { children: React.ReactNode }) {
 	return (
 		<li
 			role="presentation"
-			className="text-muted-foreground px-3 py-2 text-sm font-semibold"
+			className="text-muted-foreground px-5 pt-4 pb-1.5 text-sm font-semibold"
 		>
 			{children}
 		</li>
@@ -164,7 +166,7 @@ export function RecipeFinder({
 				<Dialog.Backdrop className="bg-foreground/40 fixed inset-0 z-50" />
 				<Dialog.Popup
 					initialFocus={input}
-					className="floating bg-background fixed inset-x-2 top-[calc(var(--vv-top)+var(--vv-gap))] z-50 flex h-[min(28rem,calc(var(--vv-height)-var(--vv-gap)-0.5rem))] flex-col overflow-hidden outline-none has-[[data-previewing]]:h-[calc(var(--vv-height)-var(--vv-gap)-0.5rem)] md:inset-auto md:top-[calc(var(--vv-top)+2rem)] md:left-1/2 md:h-[calc(var(--vv-height)-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-xl md:has-[[data-previewing]]:h-[calc(var(--vv-height)-4rem)]"
+					className="bg-background md:floating fixed inset-x-0 top-[var(--vv-top)] z-50 flex h-[var(--vv-height)] flex-col overflow-hidden outline-none md:inset-auto md:top-[calc(var(--vv-top)+2rem)] md:left-1/2 md:h-[calc(var(--vv-height)-4rem)] md:w-[min(58rem,calc(100vw-4rem))] md:-translate-x-1/2"
 				>
 					<Dialog.Title className="sr-only">find a recipe</Dialog.Title>
 					<FinderPanel
@@ -284,24 +286,8 @@ function FinderPanel({
 	if (url) {
 		section('', [{ kind: 'link', url }])
 	} else if (!trimmed) {
-		const drafts = shelfRecipes.filter(
-			(recipe) => recipe.userId !== null && !recipe.finalizedAt,
-		)
-
-		section(
-			'still writing',
-			asOptions(drafts.slice(0, glanceLimit).map(fromShelf)),
-		)
-
-		section(
-			'on your shelf',
-			asOptions(
-				shelfRecipes
-					.filter((recipe) => recipe.finalizedAt)
-					.slice(0, glanceLimit)
-					.map(fromShelf),
-			),
-		)
+		// The shelf is already on screen behind the box, so an empty search
+		// browses what others cook.
 		section(
 			'popular',
 			asOptions((popular.data?.results ?? []).slice(0, visibleRecipes)),
@@ -330,12 +316,13 @@ function FinderPanel({
 			),
 		)
 
-		if (!onUse) section('', [{ kind: 'write', title: trimmed }])
+		// Nothing exists by that name: writing it is the way on.
+		if (!onUse && options.length === 0 && !online.loading && !online.failed)
+			section('', [{ kind: 'write', title: trimmed }])
 	}
 
 	const pickedAt = options.findIndex((option) => optionKey(option) === picked)
 
-	// The first option leads when typing.
 	const active = pickedAt >= 0 ? pickedAt : url || trimmed ? 0 : -1
 
 	const current: Option | undefined =
@@ -503,7 +490,10 @@ function FinderPanel({
 				router.invalidate(),
 				client.invalidateQueries({ queryKey: ['shelf'] }),
 			])
+			// At the bottom: on phones a toast at the top would cover the bar's
+			// way back while the search stays open.
 			toast.success('saved to your recipes', {
+				position: 'bottom-center',
 				action: id ? { label: 'open', onClick: () => void go(id) } : undefined,
 			})
 		})
@@ -623,14 +613,102 @@ function FinderPanel({
 
 	const searching = trimmed !== '' && !url
 
+	// What to do with the open recipe, small, under its title as on its own
+	// page: save it (or use it, when writing one) and open it. A page that
+	// couldn't be read offers neither.
+	const actions =
+		current?.kind === 'recipe' &&
+		!(
+			current.recipe.url &&
+			lookErrors[current.recipe.url] &&
+			!idOf(current.recipe)
+		) ? (
+			<div className="flex flex-wrap items-center gap-2">
+				{onUse ? (
+					<button
+						type="button"
+						disabled={busy !== undefined}
+						onClick={() => void useFound(current.recipe)}
+						className={cn(
+							actionClassName,
+							'bg-kitchen-basil hover:brightness-95',
+						)}
+					>
+						<ArrowRightIcon size={16} weight="bold" aria-hidden />
+						{busy ? 'one moment…' : 'use this recipe'}
+					</button>
+				) : (
+					<>
+						{isSaved(current.recipe) ? (
+							<span
+								className={cn(
+									actionClassName,
+									'bg-kitchen-eggplant/10 text-kitchen-eggplant',
+								)}
+							>
+								<BookmarkSimpleIcon size={16} weight="fill" aria-hidden />
+								saved
+							</span>
+						) : (
+							<button
+								type="button"
+								disabled={busy !== undefined}
+								onClick={() => saveFound(current.recipe)}
+								className={cn(
+									actionClassName,
+									'bg-kitchen-basil hover:brightness-95',
+								)}
+							>
+								<BookmarkSimpleIcon size={16} weight="bold" aria-hidden />
+								{busy?.endsWith(':save') ? 'saving…' : 'save'}
+							</button>
+						)}
+						<button
+							type="button"
+							disabled={busy !== undefined}
+							onClick={() => void openRecipe(current.recipe)}
+							className={cn(
+								actionClassName,
+								'border-input hover:bg-muted/60 border',
+							)}
+						>
+							{busy && !busy.endsWith(':save') ? 'one moment…' : 'open recipe'}
+							<ArrowRightIcon size={16} weight="bold" aria-hidden />
+						</button>
+					</>
+				)}
+			</div>
+		) : null
+
 	return (
 		<>
 			{/* Always on screen, so a recipe can be left for another search. */}
 			<div className="border-border flex shrink-0 items-center gap-2.5 border-b px-4 py-3">
-				{url ? (
-					<LinkSimpleIcon size={20} weight="bold" aria-hidden />
+				{/* While a recipe is open, the bar's icon is the way back to it. */}
+				{previewing ? (
+					<button
+						type="button"
+						ref={backRef}
+						aria-label="back to results"
+						onClick={() => setPreviewing(false)}
+						className="hover:bg-muted -m-1.5 grid size-8 shrink-0 place-items-center rounded-md"
+					>
+						<ArrowLeftIcon size={20} weight="bold" aria-hidden />
+					</button>
+				) : url ? (
+					<LinkSimpleIcon
+						size={20}
+						weight="bold"
+						aria-hidden
+						className="shrink-0"
+					/>
 				) : (
-					<MagnifyingGlassIcon size={20} weight="bold" aria-hidden />
+					<MagnifyingGlassIcon
+						size={20}
+						weight="bold"
+						aria-hidden
+						className="shrink-0"
+					/>
 				)}
 				<input
 					ref={inputRef}
@@ -682,18 +760,15 @@ function FinderPanel({
 				) : null}
 				<Dialog.Close
 					aria-label="cancel"
-					className="text-muted-foreground hover:text-foreground shrink-0 rounded-md px-2 py-1 text-sm font-semibold"
+					className="text-muted-foreground hover:text-foreground hover:bg-muted -m-1.5 grid size-8 shrink-0 place-items-center rounded-md"
 				>
-					<XIcon size={20} weight="bold" aria-hidden className="md:hidden" />
-					<kbd className="border-border hidden rounded-md border px-1.5 text-xs md:inline">
-						esc
-					</kbd>
+					<XIcon size={20} weight="bold" aria-hidden />
 				</Dialog.Close>
 			</div>
 			<div
 				className={cn(
 					'grid min-h-0 flex-1',
-					!previewing && 'md:grid-cols-[1.1fr_1fr]',
+					!previewing && 'md:grid-cols-[minmax(18rem,2fr)_3fr]',
 				)}
 			>
 				<div className={cn('min-h-0 overflow-y-auto', previewing && 'hidden')}>
@@ -703,18 +778,6 @@ function FinderPanel({
 						aria-label="Ways to start and recipes"
 						className="pb-3"
 					>
-						{sections.map(({ label, from, to }) => (
-							<SectionRows
-								key={label || options[from]?.kind}
-								label={label}
-								options={options.slice(from, to)}
-								from={from}
-								busy={busy}
-								optionProps={optionProps}
-								rowClassName={rowClassName}
-								recipeRowClassName={recipeRowClassName}
-							/>
-						))}
 						{searching && online.results.length === 0 ? (
 							<Status>
 								{online.loading
@@ -723,9 +786,22 @@ function FinderPanel({
 										? 'finding recipes — more appear as sites load'
 										: online.failed
 											? "couldn't search recipes — try again"
-											: 'no other recipes called that yet'}
+											: options.length === 0 || options[0]?.kind === 'write'
+												? 'no recipes called that yet'
+												: 'no other recipes called that yet'}
 							</Status>
 						) : null}
+						{sections.map(({ label, from, to }) => (
+							<SectionRows
+								key={label || options[from]?.kind}
+								label={label}
+								options={options.slice(from, to)}
+								from={from}
+								busy={busy}
+								optionProps={optionProps}
+								recipeRowClassName={recipeRowClassName}
+							/>
+						))}
 					</ul>
 					{(trimmed
 						? online.results.filter((recipe) => !recipe.saved).length
@@ -751,21 +827,6 @@ function FinderPanel({
 						previewing ? 'flex' : 'hidden',
 					)}
 				>
-					{previewing ? (
-						<div className="border-border flex items-center justify-between border-b pr-2">
-							<button
-								type="button"
-								ref={backRef}
-								onClick={() => {
-									setPreviewing(false)
-								}}
-								className="text-muted-foreground hover:text-foreground flex min-h-11 items-center gap-1.5 px-4 text-sm font-semibold"
-							>
-								<ArrowLeftIcon size={14} weight="bold" aria-hidden />
-								back to results
-							</button>
-						</div>
-					) : null}
 					{previewing && error ? (
 						<div className="px-4 py-2">
 							<FieldError>{error}</FieldError>
@@ -779,6 +840,7 @@ function FinderPanel({
 						<Preview
 							option={current}
 							idOf={idOf}
+							actions={previewing ? actions : undefined}
 							looking={
 								current?.kind === 'recipe' && looking === current.recipe.url
 							}
@@ -789,59 +851,6 @@ function FinderPanel({
 							}
 						/>
 					</div>
-					{previewing &&
-					current?.kind === 'recipe' &&
-					!(
-						current.recipe.url &&
-						lookErrors[current.recipe.url] &&
-						!idOf(current.recipe)
-					) ? (
-						<div className="border-border bg-background flex shrink-0 gap-2 border-t p-4">
-							{onUse ? (
-								<button
-									type="button"
-									disabled={busy !== undefined}
-									onClick={() => void useFound(current.recipe)}
-									className="bg-kitchen-basil flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold hover:brightness-95 disabled:opacity-50"
-								>
-									<ArrowRightIcon size={18} weight="bold" aria-hidden />
-									{busy ? 'one moment…' : 'use this recipe'}
-								</button>
-							) : (
-								<>
-									{/* Saving keeps the cook in the search; opening goes to the
-							    recipe. */}
-									{isSaved(current.recipe) ? (
-										<span className="text-kitchen-eggplant bg-kitchen-eggplant/10 flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold">
-											<BookmarkSimpleIcon size={18} weight="fill" aria-hidden />
-											saved
-										</span>
-									) : (
-										<button
-											type="button"
-											disabled={busy !== undefined}
-											onClick={() => saveFound(current.recipe)}
-											className="bg-kitchen-basil flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold hover:brightness-95 disabled:opacity-50"
-										>
-											<BookmarkSimpleIcon size={18} weight="bold" aria-hidden />
-											{busy?.endsWith(':save') ? 'saving…' : 'save'}
-										</button>
-									)}
-									<button
-										type="button"
-										disabled={busy !== undefined}
-										onClick={() => void openRecipe(current.recipe)}
-										className="border-foreground/40 hover:bg-card flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-base font-semibold transition-colors disabled:opacity-50"
-									>
-										<ArrowRightIcon size={18} weight="bold" aria-hidden />
-										{busy && !busy.endsWith(':save')
-											? 'one moment…'
-											: 'open recipe'}
-									</button>
-								</>
-							)}
-						</div>
-					) : null}
 				</div>
 			</div>
 			<AuthDialog
@@ -860,7 +869,6 @@ function SectionRows({
 	from,
 	busy,
 	optionProps,
-	rowClassName,
 	recipeRowClassName,
 }: {
 	label: string
@@ -868,7 +876,6 @@ function SectionRows({
 	from: number
 	busy: string | undefined
 	optionProps: (index: number, option: Option) => object
-	rowClassName: (index: number) => string
 	recipeRowClassName: (index: number) => string
 }) {
 	return (
@@ -927,7 +934,7 @@ function SectionRows({
 						<li
 							key="link"
 							{...optionProps(index, option)}
-							className={rowClassName(index)}
+							className={recipeRowClassName(index)}
 						>
 							<span
 								aria-hidden
@@ -953,10 +960,7 @@ function SectionRows({
 						<li
 							key="write"
 							{...optionProps(index, option)}
-							className={cn(
-								rowClassName(index),
-								'border-border mt-1 border-t pt-2.5',
-							)}
+							className={recipeRowClassName(index)}
 						>
 							<span
 								aria-hidden
@@ -986,11 +990,13 @@ function SectionRows({
 function Preview({
 	option,
 	idOf,
+	actions,
 	looking,
 	lookError,
 }: {
 	option: Option | undefined
 	idOf: (recipe: FoundRecipe) => string | undefined
+	actions: React.ReactNode
 	looking: boolean
 	lookError: string | undefined
 }) {
@@ -1015,9 +1021,12 @@ function Preview({
 
 	return (
 		<RecipePreview
-			key={id ?? recipe.url}
+			// A site page keeps its address once it is brought in, so the preview
+			// isn't drawn anew (and focus isn't lost) when it gets an id.
+			key={recipe.url ?? id}
 			recipe={recipe}
 			recipeId={id}
+			actions={actions}
 			looking={looking}
 			lookError={lookError}
 		/>
@@ -1043,11 +1052,13 @@ function IngredientsLoading({ label }: { label: string }) {
 function RecipePreview({
 	recipe,
 	recipeId,
+	actions,
 	looking,
 	lookError,
 }: {
 	recipe: FoundRecipe
 	recipeId: string | undefined
+	actions: React.ReactNode
 	looking: boolean
 	lookError: string | undefined
 }) {
@@ -1057,15 +1068,44 @@ function RecipePreview({
 		enabled: recipeId !== undefined,
 	})
 
+	// The action a keyboard user was on while the recipe loaded. Loading swaps
+	// the preview for the full reader, which draws the same actions anew, so
+	// focus goes back to the one with the same name.
+	const root = useRef<HTMLDivElement>(null)
+	const focusedAction = useRef<string>(undefined)
+
+	const loaded = !!full.data
+
+	useLayoutEffect(() => {
+		const name = focusedAction.current
+
+		if (!loaded || !name || root.current?.contains(document.activeElement))
+			return
+
+		const again = [...(root.current?.querySelectorAll('button, a') ?? [])].find(
+			(action) => action.textContent?.trim() === name,
+		)
+
+		if (again instanceof HTMLElement) again.focus()
+	}, [loaded])
+
+	const remember = (event: React.FocusEvent) => {
+		focusedAction.current = event.target.textContent?.trim() || undefined
+	}
+
 	if (full.data)
 		return (
-			<div className="p-4 md:p-6">
-				<RecipeReader recipe={full.data} heading="h2" />
+			<div ref={root} onFocus={remember} className="p-4 md:p-6">
+				<RecipeReader
+					recipe={full.data}
+					heading="h2"
+					actions={actions ? <div className="mt-5">{actions}</div> : null}
+				/>
 			</div>
 		)
 
 	return (
-		<div className="flex flex-col gap-3 p-4">
+		<div ref={root} onFocus={remember} className="flex flex-col gap-3 p-4">
 			<div className="flex items-start gap-3">
 				{recipe.imageUrl ? (
 					<img
@@ -1088,6 +1128,7 @@ function RecipePreview({
 							{recipe.rating ? <RecipeRating rating={recipe.rating} /> : null}
 						</p>
 					) : null}
+					{actions}
 				</div>
 			</div>
 			{recipeId === undefined && lookError ? (

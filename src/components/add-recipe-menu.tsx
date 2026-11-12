@@ -44,15 +44,15 @@ export function AddRecipeMenu({
 							render={<Link to="/recipes/new" />}
 						>
 							<PencilSimpleIcon size={18} weight="bold" aria-hidden />
-							write a blank recipe
+							blank recipe
 						</Menu.LinkItem>
 						<Menu.Item className={itemClassName} onClick={() => importLink()}>
 							<LinkSimpleIcon size={18} weight="bold" aria-hidden />
-							import a link
+							import url
 						</Menu.Item>
 						<Menu.Item className={itemClassName} onClick={pasteText}>
 							<ClipboardTextIcon size={18} weight="bold" aria-hidden />
-							paste recipe text
+							paste text
 						</Menu.Item>
 					</Menu.Popup>
 				</Menu.Positioner>

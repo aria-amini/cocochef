@@ -153,7 +153,7 @@ describe('the one box', () => {
 		},
 	)
 
-	test('shows drafts, the shelf and popular before anything is typed', async () => {
+	test('shows only popular recipes before anything is typed', async () => {
 		shelfState.recipes = [
 			shelfRecipe('draft-1', 'shakshuka', { finalizedAt: null }),
 			miso,
@@ -165,23 +165,22 @@ describe('the one box', () => {
 
 		const { screen } = await openBox()
 
-		// Adding a recipe of your own lives behind the plus, not here.
-		await expect.element(screen.getByText('still writing')).toBeVisible()
-		await expect
-			.element(screen.getByRole('option', { name: /blank recipe/ }))
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByRole('option', { name: /shakshuka/ }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByText('on your shelf').first())
-			.toBeVisible()
-		await expect
-			.element(screen.getByRole('option', { name: /miso butter pasta/ }))
-			.toBeVisible()
+		// The shelf is behind the box already; an empty search browses others'.
 		await expect
 			.element(screen.getByRole('option', { name: /marry me chicken/ }))
 			.toBeVisible()
+		await expect
+			.element(screen.getByText('still writing'))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('option', { name: /shakshuka/ }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('option', { name: /miso butter pasta/ }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('option', { name: /blank recipe/ }))
+			.not.toBeInTheDocument()
 	})
 
 	test('pastes a recipe from the add menu, or closes on cancel', async () => {
@@ -192,7 +191,7 @@ describe('the one box', () => {
 
 		const paste = async () => {
 			await screen.getByRole('button', { name: 'add recipe' }).click()
-			await screen.getByRole('menuitem', { name: 'paste recipe text' }).click()
+			await screen.getByRole('menuitem', { name: 'paste text' }).click()
 
 			return screen.getByRole('dialog', { name: 'paste a recipe' })
 		}
@@ -292,11 +291,14 @@ describe('the one box', () => {
 			}),
 			dal,
 		]
+		// Shelf names match while the server is still searching.
+		server.search.mockReturnValue(new Promise(() => {}))
 
-		const { screen } = await openBox()
+		const { screen, input } = await openBox()
 
 		const row = (name: RegExp) => screen.getByRole('option', { name })
 
+		await input.fill('kimchi')
 		await expect.element(row(/quick kimchi/)).toBeVisible()
 		expect(
 			row(/quick kimchi/)
@@ -308,6 +310,8 @@ describe('the one box', () => {
 		)
 
 		// Made your own: no site, no logo, and no text in its place.
+		await input.fill('dal')
+		await expect.element(row(/^dal/)).toBeVisible()
 		expect(row(/^dal/).element().querySelector('img')).toBeNull()
 		expect(row(/^dal/).element().textContent).toBe('dal')
 	})
@@ -388,13 +392,17 @@ describe('the one box', () => {
 	})
 
 	phoneOnly(
-		'opens compact on phones so the keyboard has nothing to shrink',
+		'opens full screen on phones, square, with the bar at the top',
 		async () => {
 			const { input } = await openBox()
 			const dialog = document.querySelector('[role="dialog"]')
 
 			if (!dialog) throw new Error('missing finder dialog')
-			expect(dialog.getBoundingClientRect().height).toBeLessThanOrEqual(448)
+			const box = dialog.getBoundingClientRect()
+
+			expect(box.top).toBe(0)
+			expect(box.height).toBe(window.innerHeight)
+			expect(getComputedStyle(dialog).borderTopLeftRadius).toBe('0px')
 			await expect.element(input).toBeVisible()
 			expect(
 				input.element().getBoundingClientRect().top,
@@ -548,6 +556,72 @@ describe('the one box', () => {
 			.not.toBeInTheDocument()
 	})
 
+	test('keeps the focused action when the previewed recipe finishes loading', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
+		})
+
+		type Loaded = Recipe & {
+			ingredients: string[]
+			steps: string[]
+			saved: boolean
+			owned: boolean
+		}
+
+		let load: (recipe: Loaded) => void = () => {}
+
+		server.getRecipe.mockReturnValue(new Promise((resolve) => (load = resolve)))
+		const { screen, input } = await openBox()
+		await input.fill('lemon')
+		await screen.getByRole('option', { name: /lemon chicken/ }).click()
+
+		const save = () => screen.getByRole('button', { name: 'save', exact: true })
+
+		await expect.element(save()).toBeVisible()
+		save().element().focus()
+		load({
+			...shelfRecipe('shared-1', 'lemon chicken', { userId: null }),
+			ingredients: ['6 chicken thighs', '1 lemon'],
+			steps: ['roast'],
+			saved: false,
+			owned: false,
+		})
+		await expect.element(screen.getByText('6 chicken thighs')).toBeVisible()
+		await expect.element(save()).toHaveFocus()
+	})
+
+	test('keeps the focused action while a site page is brought in', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [
+				found({ url: 'https://example.com/ramen', title: 'online ramen' }),
+			],
+		})
+
+		let bring: (recipe: { id: string; title: string }) => void = () => {}
+
+		server.import.mockReturnValue(new Promise((resolve) => (bring = resolve)))
+		server.getRecipe.mockResolvedValue({
+			...shelfRecipe('shared-ramen', 'online ramen', { userId: null }),
+			ingredients: ['200 g ramen noodles'],
+			steps: ['boil'],
+			saved: false,
+			owned: false,
+		})
+		const { screen, input } = await openBox()
+		await input.fill('ramen')
+		await screen.getByRole('option', { name: /online ramen/ }).click()
+
+		const save = () => screen.getByRole('button', { name: 'save', exact: true })
+
+		await expect.element(save()).toBeVisible()
+		save().element().focus()
+		bring({ id: 'shared-ramen', title: 'online ramen' })
+		await expect.element(screen.getByText('200 g ramen noodles')).toBeVisible()
+		await expect.element(save()).toHaveFocus()
+	})
+
 	test('says so when a previewed recipe can no longer be read', async () => {
 		server.search.mockResolvedValue({
 			warming: false,
@@ -582,12 +656,9 @@ describe('the one box', () => {
 		await expect.element(screen.getByText('6 chicken thighs')).toBeVisible()
 		expect(router.state.location.pathname).toBe('/recipes')
 		expect(server.save).not.toHaveBeenCalled()
+		// Its actions sit under the title, as on the recipe's own page.
 		const add = screen.getByRole('button', { name: 'open recipe' })
 		await expect.element(add).toBeVisible()
-		const bar = add.element().parentElement
-
-		if (!bar) throw new Error('missing preview actions')
-		expect(getComputedStyle(bar).flexShrink).toBe('0')
 		expect(add.element().getBoundingClientRect().top).toBeGreaterThan(
 			screen
 				.getByRole('heading', { name: /lemon chicken/ })
@@ -599,7 +670,7 @@ describe('the one box', () => {
 
 		if (!dialog) throw new Error('missing finder dialog')
 		expect(dialog.getBoundingClientRect().height).toBe(
-			window.innerHeight - (isPhone() ? 24 : 64),
+			window.innerHeight - (isPhone() ? 0 : 64),
 		)
 		expect(router.state.location.pathname).toBe('/recipes')
 		await expect.element(screen.getByRole('listbox')).not.toBeInTheDocument()
@@ -833,16 +904,22 @@ describe('the one box', () => {
 	test('keeps the highlighted option when results arrive after it', async () => {
 		let arrive: (value: SearchReply) => void = () => {}
 
+		shelfState.recipes = [shelfRecipe('recipe-ramen', 'shoyu ramen')]
 		server.search.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
 
-		const { screen, router, input } = await openBox()
+		const { screen, input } = await openBox()
 
 		await input.fill('ramen')
-		await screen.getByRole('option', { name: /write/ }).hover()
+
+		const mine = screen.getByRole('option', { name: /shoyu ramen/ })
+
+		await mine.hover()
+		await expect.element(mine).toHaveAttribute('aria-selected', 'true')
 
 		arrive({
 			warming: false,
 			results: [
+				found({ recipeId: 'recipe-ramen', title: 'shoyu ramen', saved: true }),
 				found({ url: 'https://example.com/ramen', title: 'online ramen' }),
 			],
 		})
@@ -850,9 +927,9 @@ describe('the one box', () => {
 		await expect
 			.element(screen.getByRole('option', { name: /online ramen/ }))
 			.toBeVisible()
-		await userEvent.keyboard('{Enter}')
-		await expect.poll(() => router.state.location.pathname).toBe('/recipes/new')
-		expect(server.import).not.toHaveBeenCalled()
+		await expect
+			.element(screen.getByRole('option', { name: /shoyu ramen/ }))
+			.toHaveAttribute('aria-selected', 'true')
 	})
 
 	test('ignores other picks while one is under way', async () => {
@@ -908,7 +985,7 @@ describe('the one box', () => {
 		})
 
 		await screen.getByRole('button', { name: 'add recipe' }).click()
-		await screen.getByRole('menuitem', { name: 'paste recipe text' }).click()
+		await screen.getByRole('menuitem', { name: 'paste text' }).click()
 
 		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		await dialog
@@ -928,7 +1005,7 @@ describe('the one box', () => {
 		})
 
 		await screen.getByRole('button', { name: 'add recipe' }).click()
-		await screen.getByRole('menuitem', { name: 'import a link' }).click()
+		await screen.getByRole('menuitem', { name: 'import url' }).click()
 		await expect
 			.element(screen.getByRole('textbox', { name: 'recipe link' }))
 			.toHaveFocus()
@@ -1027,7 +1104,7 @@ describe('the one box, captured', () => {
 
 		await input.fill('ramen')
 		await expect
-			.element(screen.getByText('no other recipes called that yet'))
+			.element(screen.getByText('no recipes called that yet'))
 			.toBeVisible()
 		await expectIsolatedScreenshot(popup, 'finder-nothing-found')
 	})
