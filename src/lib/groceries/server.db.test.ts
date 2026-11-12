@@ -122,7 +122,8 @@ describe('groceries', () => {
 			await setGroceryCheckedForUser(otherId, first.id, true, db),
 		).toBeNull()
 		expect(
-			(await setGroceryCheckedForUser(userId, first.id, true, db))?.checkedAt,
+			(await setGroceryCheckedForUser(userId, first.id, true, db))?.item
+				.checkedAt,
 		).toBeInstanceOf(Date)
 
 		const renamed = await renameGroceryForUser(userId, second.id, 'paprika', db)

@@ -1,9 +1,4 @@
-import {
-	CarrotIcon,
-	CookingPotIcon,
-	HouseIcon,
-	ShoppingCartIcon,
-} from '@phosphor-icons/react'
+import { CarrotIcon, CookingPotIcon, HouseIcon } from '@phosphor-icons/react'
 import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
@@ -16,8 +11,7 @@ import { cn } from '@/lib/utils/ui'
 const navItems = [
 	{ label: 'home', icon: HouseIcon, to: '/' },
 	{ label: 'recipes', icon: CookingPotIcon, to: '/recipes' },
-	{ label: 'ingredients', icon: CarrotIcon, to: '/ingredients' },
-	{ label: 'groceries', icon: ShoppingCartIcon, to: '/groceries' },
+	{ label: 'kitchen', icon: CarrotIcon, to: '/kitchen' },
 ] as const
 
 type TabBarMode = 'none' | 'bar' | 'bar-fab' | 'bar-own-fab'
@@ -199,7 +193,7 @@ function Sidebar() {
 							className={navIconFeedbackClassName}
 						/>
 						{label}
-						{label === 'groceries' ? (
+						{label === 'kitchen' ? (
 							<>
 								<GroceryCount />
 								<GroceryBadge className="ml-auto" />
@@ -303,12 +297,12 @@ function TabBar() {
 									weight={active ? 'fill' : 'regular'}
 									aria-hidden
 								/>
-								{label === 'groceries' ? (
+								{label === 'kitchen' ? (
 									<GroceryBadge className="bg-background absolute -top-1.5 -right-3" />
 								) : null}
 							</span>
 							{label}
-							{label === 'groceries' ? <GroceryCount /> : null}
+							{label === 'kitchen' ? <GroceryCount /> : null}
 						</Link>
 					)
 				})}

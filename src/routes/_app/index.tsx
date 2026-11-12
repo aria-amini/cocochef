@@ -143,7 +143,7 @@ function StillCooking({
 			</div>
 			{waiting ? (
 				<Link
-					to="/groceries"
+					to="/kitchen/shop"
 					className="border-border hover:border-foreground/30 flex min-h-12 items-center justify-between gap-3 rounded-xl border px-4 text-sm font-bold transition-colors"
 				>
 					{waiting} on your list
@@ -158,7 +158,7 @@ function StillCooking({
 function Shopping({ shopping }: { shopping: NonNullable<Now['shopping']> }) {
 	return (
 		<Link
-			to="/groceries"
+			to="/kitchen/shop"
 			aria-label={`groceries: ${shopping.inCart} of ${shopping.total} in the cart`}
 			className="bg-kitchen-yolk/15 border-kitchen-yolk/60 hover:border-kitchen-yolk flex min-h-14 items-center gap-3 rounded-xl border px-4 transition-colors"
 		>
