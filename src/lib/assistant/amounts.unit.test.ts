@@ -65,5 +65,8 @@ describe('amountsFromModel', () => {
 		expect(amountFor('.5 cup')).toBe('.5 cup')
 		expect(amountFor('1-2 tbsp')).toBe('1-2 tbsp')
 		expect(amountFor('½ cup')).toBe('½ cup')
+		expect(amountFor('1 1/2 cups')).toBe('1 1/2 cups')
+		expect(amountFor('1 1/2')).toBe('1 1/2')
+		expect(amountFor('1 ½ cups')).toBe('1 ½ cups')
 	})
 })

@@ -124,12 +124,16 @@ export const modelAmounts = z.object({
 })
 
 // An amount and nothing else: a number, fraction or range, then at most one
-// unit word ("2 tbsp", ".5 cup", "1-2 cloves"), so no food name slips in.
-const isAmount = (text: string) =>
-	text.length <= 24 &&
-	/^(?:\d+(?:[.,/]\d+)?|\.\d+|[¼½¾⅓⅔⅛]|\d+\s*[¼½¾⅓⅔⅛])(?:\s*(?:-|–|to)\s*(?:\d+(?:[.,/]\d+)?|[¼½¾⅓⅔⅛]))?(?:\s*[a-z]+\.?)?$/i.test(
-		text,
-	)
+// unit word ("2 tbsp", ".5 cup", "1 1/2 cups", "1-2 cloves"), so no food name
+// slips in.
+const quantity = String.raw`(?:\d+\s+\d+/\d+|\d+(?:[.,/]\d+)?|\.\d+|\d*\s*[¼½¾⅓⅔⅛])`
+
+const amountPattern = new RegExp(
+	String.raw`^${quantity}(?:\s*(?:-|–|to)\s*${quantity})?(?:\s*[a-z]+\.?)?$`,
+	'i',
+)
+
+const isAmount = (text: string) => text.length <= 24 && amountPattern.test(text)
 
 // One amount per requested line, only where the line wants one and the answer
 // reads like an amount ("2 tbsp", "3 cloves"), not a sentence.
