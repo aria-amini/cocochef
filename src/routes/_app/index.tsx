@@ -125,7 +125,10 @@ function StillCooking({
 						</span>
 					</span>
 				</div>
-				<Progress done={cooking.on - 1} of={cooking.steps} />
+				<Progress
+					done={cooking.step === null ? cooking.steps : cooking.on - 1}
+					of={cooking.steps}
+				/>
 				{cooking.step ? (
 					<div className="flex flex-col gap-1.5">
 						<p className="flex gap-2.5 text-base">

@@ -14,6 +14,13 @@ import {
 } from './meal-parts'
 
 describe('meal parts', () => {
+	test('lets a meat outweigh a vegetable word, so the vegetarian pick skips it', () => {
+		expect(mealTags('Chicken and Vegetable Stew')?.proteins).toEqual([
+			'chicken',
+		])
+		expect(mealTags('Roasted Vegetable Stew')?.proteins).toContain('vegetarian')
+	})
+
 	test('reads a title for its cuisine, flavor, protein and dish', () => {
 		expect(mealTags('Cajun Chicken Tacos')).toEqual({
 			cuisines: ['north american', 'american'],
@@ -60,6 +67,10 @@ describe('meal parts', () => {
 	test('says how a dish is eaten, from its words, then its kind', () => {
 		expect(temperatureOf('Vanilla Ice Cream')).toBe('frozen')
 		expect(temperatureOf('Greek Salad')).toBe('cool')
+		// Said outright, it beats what the dish usually is.
+		expect(temperatureOf('Warm Potato Salad')).toBe('warm')
+		expect(temperatureOf('Hot Crab Dip')).toBe('warm')
+		expect(temperatureOf('Iced Tea')).toBe('cool')
 		expect(temperatureOf('Grilled Ribeye Steak')).toBe('warm')
 		expect(temperatureOf('Classic Margarita')).toBe('cool')
 		expect(temperatureOf('Mulled Wine')).toBe('warm')

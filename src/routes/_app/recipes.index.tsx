@@ -56,7 +56,7 @@ function Shelf() {
 	const { recipes: shelfRecipes } = Route.useLoaderData()
 	const account = authClient.useSession().data?.user
 	const { find } = useRecipeActions()
-	const [filter, setFilter] = useState<ShelfFilter>('all')
+	const [picked, setFilter] = useState<ShelfFilter>('all')
 
 	const reduce = useReducedMotion()
 
@@ -93,6 +93,9 @@ function Shelf() {
 		drafts: drafts.length,
 		shared: shared.length,
 	}
+
+	// A filter whose last recipe goes (an unsave) falls back to everything.
+	const filter = picked === 'all' || counts[picked] ? picked : 'all'
 
 	const isEmpty = shelfRecipes.length === 0
 
@@ -298,7 +301,7 @@ function RecipeTile({
 				to="/recipes/$recipeId"
 				params={{ recipeId: recipe.id }}
 				className={cn(
-					'border-border relative flex aspect-square flex-col overflow-hidden border transition-shadow hover:shadow-md md:aspect-auto rounded-xl',
+					'border-border relative flex aspect-square flex-col overflow-hidden border transition-shadow hover:shadow-md md:aspect-auto md:h-full rounded-xl',
 					recipe.imageUrl ? 'bg-card text-foreground' : tileColors[color],
 				)}
 			>

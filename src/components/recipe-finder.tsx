@@ -327,6 +327,14 @@ export function FinderPanel({
 		() => new Map(),
 	)
 
+	// What a saved or unsaved result is known by, and whether it is saved now:
+	// what was done here counts before the search is read again.
+	const savedKey = (recipe: FoundRecipe) =>
+		recipe.url ?? recipe.recipeId ?? recipe.title
+
+	const isSaved = (recipe: FoundRecipe) =>
+		savedHere.get(savedKey(recipe)) ?? recipe.saved
+
 	const listboxId = useId()
 
 	const [value, setValue] = useState(defaultQuery)
@@ -541,7 +549,7 @@ export function FinderPanel({
 						.filter((recipe) => matchesRecipeQuery(recipe.title, trimmed))
 						.map(fromShelf)
 				: []
-			: online.results.filter((recipe) => recipe.saved)
+			: online.results.filter(isSaved)
 
 		section(
 			'on your shelf',
@@ -552,7 +560,7 @@ export function FinderPanel({
 			asOptions(
 				(() => {
 					const shown = narrowed(
-						online.results.filter((recipe) => !recipe.saved),
+						online.results.filter((recipe) => !isSaved(recipe)),
 					)
 
 					listable = shown.length
@@ -874,6 +882,21 @@ export function FinderPanel({
 	// returns to it rather than to the shelf.
 	const go = async (recipeId: string) => {
 		close()
+
+		// Home keeps the search's words in its address, so the way back finds
+		// them again.
+		if (
+			inline &&
+			!url &&
+			router.state.location.pathname === '/' &&
+			(router.state.location.search.q ?? '') !== trimmed
+		)
+			await navigate({
+				to: '/',
+				search: trimmed ? { q: trimmed } : {},
+				replace: true,
+			})
+
 		await navigate({
 			to: '/recipes/$recipeId',
 			params: { recipeId },
@@ -900,15 +923,16 @@ export function FinderPanel({
 	// The page's loading bar shows while a site's page is read in, as it does
 	// for the page it opens.
 	const openRecipe = (recipe: FoundRecipe) =>
-		run(optionKey({ kind: 'recipe', recipe }), () =>
-			whileLoading(async () => go(await recipeIdFor(recipe))),
-		)
+		run(optionKey({ kind: 'recipe', recipe }), () => {
+			const at = router.state.location.pathname
 
-	const savedKey = (recipe: FoundRecipe) =>
-		recipe.url ?? recipe.recipeId ?? recipe.title
+			return whileLoading(async () => {
+				const id = await recipeIdFor(recipe)
 
-	const isSaved = (recipe: FoundRecipe) =>
-		savedHere.get(savedKey(recipe)) ?? recipe.saved
+				// Left for another page while it was read: it stays left.
+				if (router.state.location.pathname === at) await go(id)
+			})
+		})
 
 	// Puts a found recipe on the shelf without leaving the search: a site page
 	// is brought in and kept in one go.
@@ -930,6 +954,15 @@ export function FinderPanel({
 			else throw new Error("couldn't find that recipe")
 
 			setSavedHere((current) => new Map(current).set(savedKey(recipe), true))
+
+			// A page brought in to be kept is known by its id from here on, so it
+			// can be taken off again even if no background read found it.
+			if (id && recipe.url) {
+				const { url } = recipe
+
+				setResolved((current) => ({ ...current, [url]: id }))
+			}
+
 			await Promise.all([
 				router.invalidate(),
 				client.invalidateQueries({ queryKey: ['shelf'] }),

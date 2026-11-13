@@ -374,8 +374,12 @@ describe('the search on home', () => {
 		// The recipe's way back is to the search it came from.
 		await screen.getByRole('button', { name: 'back to results' }).click()
 		await expect.poll(() => router.state.location.pathname).toBe('/')
+		// The search comes back with its words.
 		await expect
 			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
+			.toHaveValue('mis')
+		await expect
+			.element(screen.getByRole('option', { name: /miso butter pasta/ }))
 			.toBeVisible()
 	})
 
@@ -689,6 +693,13 @@ describe('the search on home', () => {
 		expect(server.import).toHaveBeenCalledWith({
 			data: { url: 'https://example.com/dal', keep: true },
 		})
+
+		// Kept, it is known by its id, so it can be taken off again.
+		await unsave('tadka dal').click()
+		await expect
+			.element(save('tadka dal'))
+			.toHaveAttribute('aria-pressed', 'false')
+		expect(server.remove).toHaveBeenLastCalledWith({ data: { id: 'shared-2' } })
 	})
 
 	test('asks a visitor to sign in before saving', async () => {

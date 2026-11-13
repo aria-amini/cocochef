@@ -1145,6 +1145,9 @@ export function temperatureOf(title: string) {
 
 	if (mentions(text, frozenWords)) return 'frozen'
 
+	// Said outright, it beats what the dish usually is: a warm potato salad.
+	if (mentions(text, ['hot', 'warm', 'mulled'])) return 'warm'
+
 	if (mentions(text, coolWords)) return 'cool'
 
 	if (mentions(text, warmWords)) return 'warm'
@@ -1680,6 +1683,8 @@ const mentions = (title: string, words: Words) =>
 	})
 
 // The parts a recipe's title names. A flavor names its cuisine too.
+const meatProteins = new Set(['fish', 'beef', 'chicken', 'pork'])
+
 export function mealTags(title: string): MealTags | undefined {
 	const text = normalize(title)
 
@@ -1703,10 +1708,21 @@ export function mealTags(title: string): MealTags | undefined {
 	const named = (parts: readonly Part[]) =>
 		parts.flatMap((part) => (mentions(text, part.words) ? [part.name] : []))
 
+	const proteins = groupProteins(named(proteinParts))
+
+	// "Chicken and vegetable stew" is chicken: a meat protein outweighs a
+	// vegetable word, so the vegetarian pick never finds it.
+	const meaty = proteins.some((name) => meatProteins.has(name))
+
 	return {
 		cuisines,
 		flavors,
-		proteins: groupProteins(named(proteinParts)),
+		proteins: meaty
+			? proteins.filter(
+					(name) =>
+						name !== 'vegetarian' && proteinGroupOf(name) !== 'vegetarian',
+				)
+			: proteins,
 		forms: named(formParts),
 	}
 }

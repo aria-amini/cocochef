@@ -105,6 +105,27 @@ describe('home', () => {
 		await expectPageScreenshot(screen.container, 'home-cooking')
 	})
 
+	test('fills the progress bar once every step is done', async () => {
+		home.now.mockResolvedValue({
+			...idle,
+			cooking: {
+				recipeId: 'pasta',
+				title: 'miso butter pasta',
+				minutesIn: 30,
+				steps: 6,
+				on: 6,
+				step: null,
+				next: null,
+			},
+		})
+
+		const { screen } = await renderRoute({ path: '/', session })
+
+		await expect
+			.element(screen.getByRole('progressbar'))
+			.toHaveAttribute('value', '6')
+	})
+
 	test('leads with the shop under way', async () => {
 		home.now.mockResolvedValue({
 			...idle,
