@@ -25,10 +25,6 @@ vi.mock('@/lib/sharing/server', async (importOriginal) => ({
 	getMySharingProfile: async () => null,
 }))
 
-vi.mock('@/lib/shelf/server', () => ({
-	getShelfStats: async () => ({ recipes: 0, pantryItems: 0 }),
-}))
-
 describe('settings account states', () => {
 	test('offers sign-in instead of upload controls without a session', async () => {
 		const { screen } = await renderRoute({ path: '/settings' })
@@ -63,28 +59,6 @@ describe('settings account states', () => {
 
 		await screen.getByRole('button', { name: 'try again' }).click()
 		expect(refetchSession).toHaveBeenCalledTimes(1)
-	})
-
-	test('offers account creation instead of upload controls for guests', async () => {
-		const { screen } = await renderRoute({
-			path: '/settings',
-			session: {
-				user: {
-					id: 'guest',
-					name: 'guest cook',
-					email: 'guest@example.com',
-					isAnonymous: true,
-				},
-				session: { id: 'guest-session', token: 'token' },
-			},
-		})
-
-		await expect
-			.element(screen.getByRole('link', { name: 'keep my shelf', exact: true }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByLabelText('Profile photo'))
-			.not.toBeInTheDocument()
 	})
 
 	test('loads the existing avatar for a registered account', async () => {
@@ -177,7 +151,7 @@ describe('settings account states', () => {
 				.toHaveTextContent("that isn't a cocochef recipe file")
 		})
 
-		test('exports the whole shelf as a file, for guests too', async () => {
+		test('exports the whole shelf as a file', async () => {
 			transfer.exported.mockResolvedValue({
 				format: 'cocochef/recipes',
 				version: 1,
@@ -189,18 +163,7 @@ describe('settings account states', () => {
 				.spyOn(HTMLAnchorElement.prototype, 'click')
 				.mockImplementation(() => undefined)
 
-			const { screen } = await renderRoute({
-				path: '/settings',
-				session: {
-					user: {
-						id: 'guest',
-						name: 'guest cook',
-						email: 'guest@example.com',
-						isAnonymous: true,
-					},
-					session: { id: 'guest-session', token: 'token' },
-				},
-			})
+			const { screen } = await renderRoute({ path: '/settings', session: cook })
 
 			await screen.getByRole('button', { name: 'export all recipes' }).click()
 			await expect.element(screen.getByText('exported 1 recipe')).toBeVisible()

@@ -16,20 +16,17 @@ export function SharingProfileSettings() {
 	const profile = useQuery({
 		queryKey: ['sharing-profile', account?.id],
 		queryFn: () => getMySharingProfile(),
-		enabled: !!account && !account.isAnonymous,
+		enabled: !!account,
 	})
 
-	if (
-		session.isPending ||
-		(profile.isPending && !!account && !account.isAnonymous)
-	)
+	if (session.isPending || (profile.isPending && !!account))
 		return (
 			<output className="text-muted-foreground">
 				loading sharing settings…
 			</output>
 		)
 
-	if (!account || account.isAnonymous)
+	if (!account)
 		return (
 			<p>
 				create an account to share recipes.{' '}

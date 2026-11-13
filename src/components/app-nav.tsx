@@ -1,6 +1,7 @@
 import {
 	CarrotIcon,
 	CookingPotIcon,
+	HouseIcon,
 	ShoppingCartIcon,
 } from '@phosphor-icons/react'
 import { Link, useMatches, useRouterState } from '@tanstack/react-router'
@@ -13,6 +14,7 @@ import { useLastOpenedRecipe } from '@/lib/recipes/last-opened'
 import { cn } from '@/lib/utils/ui'
 
 const navItems = [
+	{ label: 'home', icon: HouseIcon, to: '/' },
 	{ label: 'recipes', icon: CookingPotIcon, to: '/recipes' },
 	{ label: 'ingredients', icon: CarrotIcon, to: '/ingredients' },
 	{ label: 'groceries', icon: ShoppingCartIcon, to: '/groceries' },
@@ -81,9 +83,9 @@ export function useTabBar(): TabBarMode {
 	return mode === 'fab' ? 'bar-fab' : 'bar'
 }
 
-// The tab a page belongs to. Recipes is the app's home, so every shell page that
-// is not another tab's (or settings) counts as one: a recipe from a site, a
-// shared link or a published address lights it up like one on the shelf.
+// The tab a page belongs to. Every shell page that is not another tab's (or
+// settings) is a recipe's: a recipe from a site, a shared link or a published
+// address lights up recipes like one on the shelf.
 function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
 	const matches = useMatches()
 
@@ -95,8 +97,10 @@ function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
 
 	if (pathname === '/settings') return undefined
 
+	if (pathname === '/') return 'home'
+
 	for (const { label } of navItems) {
-		if (label === 'recipes') continue
+		if (label === 'recipes' || label === 'home') continue
 
 		if (pathname === `/${label}` || pathname.startsWith(`/${label}/`))
 			return label
@@ -161,7 +165,7 @@ function Sidebar() {
 			className="border-foreground/20 bg-background sticky top-0 hidden h-dvh w-48 shrink-0 flex-col items-stretch gap-1.5 border-r px-3 py-6 md:flex"
 		>
 			<Link
-				to="/recipes"
+				to="/"
 				aria-label="cocochef"
 				className="mb-6 flex w-full shrink-0 items-center gap-2 rounded-md border border-transparent py-2 text-sm font-bold whitespace-nowrap"
 			>
@@ -227,7 +231,7 @@ function MobileHeader() {
 	return (
 		<header className="flex items-center justify-between px-6 pt-3 md:hidden">
 			<Link
-				to="/recipes"
+				to="/"
 				aria-label="cocochef"
 				className="flex min-h-11 items-center gap-2 rounded-md text-sm font-bold"
 			>
@@ -300,7 +304,7 @@ function TabBar() {
 									aria-hidden
 								/>
 								{label === 'groceries' ? (
-									<GroceryBadge className="absolute -top-1 -right-1.5" />
+									<GroceryBadge className="bg-background absolute -top-1.5 -right-3" />
 								) : null}
 							</span>
 							{label}

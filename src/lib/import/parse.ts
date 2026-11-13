@@ -13,8 +13,12 @@ export type ImportedRecipe = {
 	ingredients: RecipeIngredient[]
 	steps: string[]
 	sourceNotes?: string | undefined
-	// How long the whole recipe takes, when the page says.
+	// How long the whole recipe takes, and how much of it is preparing, when
+	// the page says.
 	totalMinutes?: number | undefined
+	prepMinutes?: number | undefined
+	// How many it serves, when the page says.
+	servings?: number | undefined
 	// What its readers said of it, when the page says.
 	rating?: { value: number; count: number } | undefined
 	commentCount?: number | undefined
@@ -549,6 +553,22 @@ function pageCommentCount(
 	return counts.length ? Math.max(...counts) : undefined
 }
 
+// How many a recipe serves, from what a page writes: 4, "4", "4 servings",
+// "Serves 4-6", or a list of those. The first whole number, within reason.
+const yieldText = z.union([z.number().transform(String), z.string()])
+
+const recipeYield = z
+	.union([yieldText, z.array(yieldText).transform((all) => all[0] ?? '')])
+	.transform((text) => {
+		const count = Number(/\d+/.exec(text)?.[0])
+
+		return Number.isInteger(count) && count > 0 && count <= 100
+			? count
+			: undefined
+	})
+	.optional()
+	.catch(undefined)
+
 const recipeFields = z.object({
 	name: z
 		.string()
@@ -560,6 +580,7 @@ const recipeFields = z.object({
 	totalTime: duration,
 	prepTime: duration,
 	cookTime: duration,
+	recipeYield,
 	aggregateRating,
 })
 
@@ -599,6 +620,8 @@ function parseJsonLd(html: string): ImportedRecipe | null {
 				(fields.prepTime || fields.cookTime
 					? (fields.prepTime ?? 0) + (fields.cookTime ?? 0)
 					: undefined),
+			prepMinutes: fields.prepTime,
+			servings: fields.recipeYield,
 			rating: fields.aggregateRating ?? pageRating(nodes),
 			commentCount: pageCommentCount(nodes, node),
 		}

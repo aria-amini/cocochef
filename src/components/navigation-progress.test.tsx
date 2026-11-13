@@ -17,9 +17,6 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	listPantry: () =>
 		new Promise((resolve) => setTimeout(() => resolve([]), 900)),
-	createPantryItems: vi.fn(),
-	setPantryItemQuantity: vi.fn(),
-	deletePantryItem: vi.fn(),
 }))
 
 const session = {
@@ -35,7 +32,9 @@ describe('page loading', () => {
 		})
 
 		await expect
-			.element(screen.getByRole('heading', { name: 'recipes', exact: true }))
+			.element(
+				screen.getByRole('heading', { name: 'your recipes', exact: true }),
+			)
 			.toBeInTheDocument()
 
 		void router.navigate({ to: '/ingredients' })
@@ -60,7 +59,9 @@ describe('page loading', () => {
 		await expect.element(screen.getByText('nothing here yet')).toBeVisible()
 		await router.navigate({ to: '/recipes' })
 		await expect
-			.element(screen.getByRole('heading', { name: 'recipes', exact: true }))
+			.element(
+				screen.getByRole('heading', { name: 'your recipes', exact: true }),
+			)
 			.toBeInTheDocument()
 		await expect
 			.element(page.getByRole('progressbar', { name: 'loading page' }))

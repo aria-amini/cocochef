@@ -1,5 +1,4 @@
 import { setMockSessionPending } from '@tests/support/mocks/browser'
-import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { desktopOnly, isPhone, phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
@@ -21,12 +20,18 @@ vi.mock('@/lib/recipes/server', () => ({
 	deleteRecipe: vi.fn(),
 }))
 
+vi.mock('@/lib/home/server', () => ({
+	homeNow: async () => ({
+		signedIn: true,
+		cooking: null,
+		shopping: null,
+		waiting: 0,
+	}),
+}))
+
 vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	listPantry: async () => [],
-	createPantryItems: vi.fn(),
-	setPantryItemQuantity: vi.fn(),
-	deletePantryItem: vi.fn(),
 }))
 
 const groceryWaiting = vi.hoisted(() => ({ count: 0 }))
@@ -41,18 +46,9 @@ vi.mock('@/lib/groceries/server', () => ({
 	clearCheckedGroceries: vi.fn(),
 }))
 
-vi.mock('@/lib/shelf/server', () => ({
-	getShelfStats: async () => ({ recipes: 2, pantryItems: 3 }),
-}))
-
 const member = {
 	user: { id: 'user-1', name: 'Ada Lovelace', email: 'ada@example.com' },
 	session: { id: 'session-1', token: 'token' },
-}
-
-const guest = {
-	user: { ...member.user, name: 'Guest', isAnonymous: true },
-	session: member.session,
 }
 
 const misoButterPasta: Recipe = {
@@ -86,12 +82,12 @@ describe('app nav', () => {
 		groceryWaiting.count = 0
 	})
 
-	test('links every destination and opens the shelf from the root', async () => {
+	test('links every destination and opens home from the root', async () => {
 		const { screen, router } = await renderRoute({ path: '/', session: member })
 
 		const nav = screen.getByRole('navigation', { name: 'Primary' })
 		await expect
-			.element(nav.getByRole('link', { name: 'recipes' }))
+			.element(nav.getByRole('link', { name: 'home' }))
 			.toHaveAttribute('aria-current', 'page')
 		await expect
 			.element(nav.getByRole('link', { name: 'ingredients' }))
@@ -99,14 +95,14 @@ describe('app nav', () => {
 		await expect
 			.element(nav.getByRole('link', { name: 'groceries' }))
 			.toHaveAttribute('href', '/groceries')
-		expect(router.state.location.pathname).toBe('/recipes')
+		expect(router.state.location.pathname).toBe('/')
 		expect(
 			nav
 				.getByRole('link')
 				.elements()
 				.map((link) => link.textContent)
 				.filter((label) => label !== 'cocochef' && label !== 'add'),
-		).toEqual(['recipes', 'ingredients', 'groceries'])
+		).toEqual(['home', 'recipes', 'ingredients', 'groceries'])
 	})
 
 	test('opens the ingredients from navigation', async () => {
@@ -176,39 +172,6 @@ describe('app nav', () => {
 		await expect
 			.element(page.getByRole('menuitem', { name: 'sign out' }))
 			.toBeVisible()
-	})
-
-	test('invites guests to save their recipes', async () => {
-		const { screen } = await renderRoute({ path: '/recipes', session: guest })
-
-		await screen.getByRole('button', { name: 'Guest account' }).click()
-
-		await expect
-			.element(page.getByText('create an account to save your recipes'))
-			.toBeVisible()
-		await expect
-			.element(
-				page
-					.getByRole('menuitem', { name: /create an account/ })
-					.getByText('free', { exact: true }),
-			)
-			.toBeVisible()
-		await page.getByRole('menuitem', { name: /create an account/ }).click()
-		await expect
-			.element(page.getByRole('dialog', { name: 'create an account' }))
-			.toBeVisible()
-		const dialog = page.getByRole('dialog', { name: 'create an account' })
-		await dialog.getByLabelText('name').fill('Cook')
-		await dialog.getByLabelText('email').fill('cook@example.com')
-		await dialog.getByLabelText('password').fill('password123')
-		await dialog.getByRole('button', { name: 'create account' }).click()
-		await vi.waitFor(() =>
-			expect(getAuthMocks().signUpEmail).toHaveBeenCalledWith({
-				name: 'Cook',
-				email: 'cook@example.com',
-				password: 'password123',
-			}),
-		)
 	})
 
 	test('puts navigation in the thumb zone on phones and a sidebar on desktop', async () => {

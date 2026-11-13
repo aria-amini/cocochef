@@ -5,7 +5,12 @@ import type { MealTags } from '@/lib/assistant/meal-parts'
 import { withMealTags } from '@/lib/assistant/meal-tags.server'
 import { getViewerId } from '@/lib/auth/session'
 import { canonicalRecipeUrl } from '@/lib/import/url'
+import { kitchenStock } from '@/lib/pantry/stock.server'
+import type { RecipeEffort } from '@/lib/recipes/effort'
+import { effortFor } from '@/lib/recipes/effort.server'
+import { recipeSorts } from '@/lib/recipes/loved'
 import {
+	findLovedRecipesForUser,
 	findRecipesForUser,
 	popularSharedRecipes,
 	sharedRecipeUrls,
@@ -47,6 +52,20 @@ export type FoundRecipe = {
 	rating?: { value: number; count: number } | undefined
 	// The parts of a meal it was tagged with; null when it isn't a meal.
 	tags?: MealTags | null | undefined
+	// How long it takes, when its page says.
+	totalMinutes?: number | undefined
+	// How much of it the cook's kitchen has, and what of it it would use up.
+	stock?:
+		| {
+				have: number
+				total: number
+				uses: string[]
+				need: string[]
+				lines: { text: string; have: boolean }[]
+		  }
+		| undefined
+	// What it asks of the cook: hands-on and waiting time, servings, keeping.
+	effort?: RecipeEffort | undefined
 }
 
 const ratingOf = (recipe: {
@@ -67,6 +86,7 @@ const fromShared = (recipe: SharedRecipe): FoundRecipe => ({
 	draft: false,
 	ingredientMatches: [],
 	rating: ratingOf(recipe),
+	totalMinutes: recipe.totalMinutes ?? undefined,
 })
 
 const fromLink = (link: RecipeLink): FoundRecipe => ({
@@ -93,12 +113,26 @@ async function notYetShared(links: RecipeLink[]) {
 // first, matched by name or ingredient: the user's own shelf (`saved`), then
 // shared ones. Pages on the recipe sites that nobody has brought in yet follow,
 // matched by name only, since the index knows nothing else about them.
+//
+// Sorted by rating, it is every rated recipe instead, with or without words,
+// most loved or most rated first. Site pages nobody has brought in have no
+// rating yet, so they are left out.
 export const searchRecipes = createServerFn({ method: 'GET' })
-	.validator(z.object({ q: z.string().trim().max(80) }))
+	.validator(
+		z.object({
+			q: z.string().trim().max(80),
+			sort: z.enum(recipeSorts).optional(),
+		}),
+	)
 	.handler(async ({ data }) => {
 		const userId = await getViewerId()
 
-		const found = data.q ? await findRecipesForUser(userId, data.q, 80) : []
+		const found =
+			data.sort !== undefined
+				? await findLovedRecipesForUser(userId, data.q, data.sort, 120)
+				: data.q
+					? await findRecipesForUser(userId, data.q, 80)
+					: []
 
 		// Uploaded photos are stored as bucket keys; clients need a fetchable URL.
 		const images = await Promise.all(
@@ -113,23 +147,26 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 
 		return {
 			warming,
-			results: await withMealTags([
-				...found.map((recipe, index): FoundRecipe => ({
-					...fromShared(recipe),
-					imageUrl: images[index] ?? undefined,
-					// On your shelf, the site shows only while the source link is
-					// still set; a recipe made your own names no site.
-					siteName:
-						siteNameFor(recipe.sourceUrl) ??
-						(recipe.owned || recipe.saved ? '' : 'cocochef'),
-					saved: recipe.saved,
-					draft: recipe.owned && !recipe.finalizedAt,
-					ingredientMatches: recipe.ingredientMatches,
-				})),
-				...(await notYetShared(searchRecipeLinks(links, data.q, 120))).map(
-					fromLink,
-				),
-			]),
+			results: await withStock(
+				await withMealTags([
+					...found.map((recipe, index): FoundRecipe => ({
+						...fromShared(recipe),
+						imageUrl: images[index] ?? undefined,
+						// On your shelf, the site shows only while the source link is
+						// still set; a recipe made your own names no site.
+						siteName:
+							siteNameFor(recipe.sourceUrl) ??
+							(recipe.owned || recipe.saved ? '' : 'cocochef'),
+						saved: recipe.saved,
+						draft: recipe.owned && !recipe.finalizedAt,
+						ingredientMatches: recipe.ingredientMatches,
+					})),
+					...(data.sort === undefined
+						? await notYetShared(searchRecipeLinks(links, data.q, 120))
+						: []
+					).map(fromLink),
+				]),
+			),
 		}
 	})
 
@@ -162,10 +199,28 @@ export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 
 		return {
 			warming,
-			results: await withMealTags([
-				...shared.map(fromShared),
-				...featured.map(fromLink),
-			]),
+			results: await withStock(
+				await withMealTags([
+					...shared.map(fromShared),
+					...featured.map(fromLink),
+				]),
+			),
 		}
 	},
 )
+
+// Each recipe in cocochef with how much of it the kitchen has, and what it
+// asks of the cook.
+async function withStock<T extends FoundRecipe>(found: T[]) {
+	const ids = found.flatMap((recipe) => recipe.recipeId ?? [])
+	const [stock, effort] = await Promise.all([kitchenStock(ids), effortFor(ids)])
+
+	return found.map((recipe) => {
+		if (!recipe.recipeId) return recipe
+
+		const held = stock.get(recipe.recipeId)
+		const asks = effort.get(recipe.recipeId)
+
+		return { ...recipe, stock: held ?? recipe.stock, effort: asks }
+	})
+}

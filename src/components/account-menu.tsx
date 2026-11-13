@@ -2,22 +2,17 @@ import { Menu } from '@base-ui/react/menu'
 import {
 	CaretUpDownIcon,
 	GearIcon,
-	SignInIcon,
 	SignOutIcon,
 	UserIcon,
-	UserPlusIcon,
 } from '@phosphor-icons/react'
 import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
-import { AuthDialog } from '@/components/auth-dialog'
 import { Avatar } from '@/components/avatar'
-import { Badge } from '@/components/ui/badge'
 import { authClient } from '@/lib/auth/client'
 import { forgetRecipe } from '@/lib/recipes/last-opened'
 import { useAvatarUrl } from '@/lib/use-avatar-url'
-import { useShelfStats } from '@/lib/use-shelf-stats'
 import { cn } from '@/lib/utils/ui'
 
 type Variant = 'rail' | 'avatar'
@@ -40,7 +35,6 @@ const itemClassName =
 	'flex w-full cursor-default items-center gap-2.5 px-3 py-2.5 text-xs font-semibold outline-none select-none data-highlighted:bg-kitchen-yolk/40'
 
 export function AccountMenu({ variant }: { variant: Variant }) {
-	const [authOpen, setAuthOpen] = useState(false)
 	const session = authClient.useSession()
 	const router = useRouter()
 	const refetchSession = session.refetch
@@ -55,7 +49,6 @@ export function AccountMenu({ variant }: { variant: Variant }) {
 
 	const user = session.data?.user
 	const avatarUrl = useAvatarUrl(user?.image)
-	const stats = useShelfStats(user?.isAnonymous ? user.id : undefined)
 
 	if (session.isPending) {
 		return (
@@ -89,74 +82,6 @@ export function AccountMenu({ variant }: { variant: Variant }) {
 				{variant === 'rail' ? <UserIcon size={18} aria-hidden /> : null}
 				sign in
 			</Link>
-		)
-	}
-
-	if (user.isAnonymous) {
-		const itemCount = stats ? stats.recipes + stats.pantryItems : 0
-
-		return (
-			<>
-				<AccountMenuShell
-					variant={variant}
-					label="Guest account"
-					trigger={
-						<>
-							<Avatar
-								guest
-								name="guest"
-								size={variant === 'avatar' ? 'md' : 'sm'}
-							/>
-							{variant === 'rail' ? (
-								<span className="min-w-0 flex-1 truncate text-left">guest</span>
-							) : null}
-							{itemCount > 0 ? (
-								<span
-									className={cn(
-										'bg-foreground text-background rounded-md px-1 font-mono text-xs leading-4 font-semibold',
-										variant === 'avatar' && 'absolute -top-0.5 -right-0.5',
-									)}
-								>
-									{itemCount}
-								</span>
-							) : null}
-						</>
-					}
-					triggerClassName="border-border border-dashed"
-					header={
-						<div className="flex items-center gap-3">
-							<Avatar guest name="guest" size="lg" />
-							<div className="min-w-0">
-								<p className="text-sm font-bold">guest account</p>
-								<p className="text-muted-foreground mt-1 text-xs font-semibold">
-									create an account to save your recipes
-								</p>
-							</div>
-						</div>
-					}
-				>
-					<Menu.Item
-						className={cn(itemClassName, 'bg-kitchen-basil/30')}
-						onClick={() => setAuthOpen(true)}
-					>
-						<UserPlusIcon size={16} weight="bold" aria-hidden />
-						create an account
-						<Badge className="ml-auto">free</Badge>
-					</Menu.Item>
-					<Menu.LinkItem
-						className={itemClassName}
-						render={<Link to="/auth/login" />}
-					>
-						<SignInIcon size={16} weight="bold" aria-hidden />
-						sign in
-					</Menu.LinkItem>
-				</AccountMenuShell>
-				<AuthDialog
-					open={authOpen}
-					onOpenChange={setAuthOpen}
-					redirect="/recipes"
-				/>
-			</>
 		)
 	}
 

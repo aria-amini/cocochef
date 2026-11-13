@@ -52,8 +52,8 @@ const foodLines = (lines: string[]) =>
 // A step as long as a page says no more about its foods than its first part.
 const stepForModel = (step: string) => step.slice(0, 1500)
 
-// Sections the editor offers under the ingredients. Suggesting never creates a
-// guest session: a visitor gets them unmarked.
+// Sections the editor offers under the ingredients. A visitor gets them
+// unmarked.
 export const suggestIngredientSections = createServerFn({ method: 'POST' })
 	.validator(suggestionRequest)
 	.handler(async ({ data }) => {

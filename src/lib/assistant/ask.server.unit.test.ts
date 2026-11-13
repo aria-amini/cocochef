@@ -1,18 +1,16 @@
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { z } from 'zod'
 
-type Session = { user: { id: string; isAnonymous: boolean } }
-
-type Auth = { session: Session | null }
+type Auth = { accountId: string | null }
 
 const auth = vi.hoisted(() => {
-	const state: Auth = { session: null }
+	const state: Auth = { accountId: null }
 
 	return state
 })
 
 vi.mock('@/lib/auth/session', () => ({
-	getCurrentSession: async () => auth.session,
+	getAccountId: async () => auth.accountId,
 }))
 
 const model = vi.hoisted(() => ({ askModel: vi.fn(async () => 'answer') }))
@@ -28,18 +26,15 @@ describe('who reaches the model', () => {
 		model.askModel.mockClear()
 	})
 
-	test('a visitor and a guest get the mock answers, never the model', async () => {
-		auth.session = null
-		expect(await mayAskModel()).toBe(false)
-
-		auth.session = { user: { id: 'guest', isAnonymous: true } }
+	test('a visitor gets the mock answers, never the model', async () => {
+		auth.accountId = null
 		expect(await mayAskModel()).toBe(false)
 		expect(await ask('sections', '', '', schema)).toBeUndefined()
 		expect(model.askModel).not.toHaveBeenCalled()
 	})
 
 	test('a signed-in cook reaches it, thirty times a minute', async () => {
-		auth.session = { user: { id: crypto.randomUUID(), isAnonymous: false } }
+		auth.accountId = crypto.randomUUID()
 
 		const answers = []
 

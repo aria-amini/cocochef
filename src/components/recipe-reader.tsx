@@ -1,22 +1,37 @@
+import { Dialog } from '@base-ui/react/dialog'
 import {
+	ArrowsOutSimpleIcon,
 	BookmarkSimpleIcon,
 	ChatCircleIcon,
 	GlobeHemisphereWestIcon,
 	LinkSimpleIcon,
 	LockSimpleIcon,
+	XIcon,
 	YoutubeLogoIcon,
 } from '@phosphor-icons/react'
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 
+import { EffortCard } from '@/components/effort-card'
 import { AddToGroceries } from '@/components/grocery-send'
 import { IngredientText } from '@/components/ingredient-text'
+import { KitchenTag } from '@/components/kitchen-tag'
 import { PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { compactCount, RecipeRating } from '@/components/recipe-rating'
+import { RecipeTags } from '@/components/recipe-tags'
+import {
+	useMarkHave,
+	usePantry,
+	useWaitingGroceries,
+} from '@/components/use-pantry'
+import { mealTags } from '@/lib/assistant/meal-parts'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
+import { lineStatus } from '@/lib/pantry/status'
+import { effortLevel, recipeEffort } from '@/lib/recipes/effort'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
+import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import type { IngredientCategories } from '@/lib/recipes/model'
 import { formatMinutes } from '@/lib/recipes/model'
 import { hostOf, isYouTube } from '@/lib/recipes/source'
@@ -36,6 +51,7 @@ export type ReadableRecipe = {
 	notes?: string | null | undefined
 	servings: number | null
 	totalMinutes: number | null
+	prepMinutes?: number | null | undefined
 	// What the page it came from says its readers thought of it.
 	ratingValue?: number | null | undefined
 	ratingCount?: number | null | undefined
@@ -54,6 +70,8 @@ export function RecipeReader({
 	status,
 	heading = 'h1',
 	shop = false,
+	ingredientsView,
+	ingredientsAction,
 }: {
 	recipe: ReadableRecipe
 	// What the reader can do with it, under the title: save, edit, share.
@@ -65,6 +83,10 @@ export function RecipeReader({
 	heading?: 'h1' | 'h2'
 	// Whether the ingredients can go on the groceries list.
 	shop?: boolean
+	// Another way to show the ingredients, in place of the list as written,
+	// and a control beside their heading.
+	ingredientsView?: React.ReactNode
+	ingredientsAction?: React.ReactNode
 }) {
 	const [checked, setChecked] = useState<Set<string>>(() => new Set())
 
@@ -85,6 +107,35 @@ export function RecipeReader({
 	)
 
 	const RowBody = 'label'
+
+	// What the kitchen has of each line, for a reader who keeps a pantry or a
+	// list. A reader with neither sees no marks: "need" on every line would
+	// say nothing.
+	const pantry = usePantry(shop).data ?? []
+	const waiting = useWaitingGroceries(shop).data ?? []
+	const knows = pantry.length > 0 || waiting.length > 0
+	const markHave = useMarkHave()
+
+	const statusOf = (line: string) =>
+		knows ? lineStatus(line, pantry, waiting) : undefined
+
+	// The foods it takes, without its section names.
+	const foods = recipe.ingredients.filter(
+		(line) => line.trim() && ingredientHeading(line) === undefined,
+	)
+
+	// What it asks of the cook, and what the kitchen lacks of it, when known.
+	const effort = recipeEffort({ ...recipe, foods })
+
+	const toBuy = knows
+		? foods.filter((line) => {
+				const kind = statusOf(line)?.kind
+
+				return kind === 'need' || kind === 'stale'
+			})
+		: undefined
+
+	const carded = effortLevel(effort, toBuy?.length) !== undefined
 
 	const stepBox = (
 		text: string,
@@ -136,11 +187,7 @@ export function RecipeReader({
 			>
 				<div className={cn('relative shrink-0', recipe.imageUrl && '@xl:w-72')}>
 					{recipe.imageUrl ? (
-						<img
-							src={recipe.imageUrl}
-							alt={recipe.title}
-							className="border-border aspect-[4/3] w-full rounded-xl border object-cover"
-						/>
+						<PhotoFullScreen src={recipe.imageUrl} title={recipe.title} />
 					) : (
 						<span
 							aria-hidden
@@ -199,7 +246,23 @@ export function RecipeReader({
 					{authorship ? (
 						<p className="text-muted-foreground mt-2 text-sm">{authorship}</p>
 					) : null}
-					<RecipeMeta recipe={recipe} />
+					{/* With the card to say them, its time and servings aren't said
+					    twice. */}
+					<RecipeMeta recipe={recipe} brief={carded} />
+					<EffortCard
+						effort={effort}
+						toBuy={toBuy}
+						tags={
+							<RecipeTags
+								title={recipe.title}
+								// Read from its name, as a list does before it is tagged.
+								tags={mealTags(recipe.title)}
+								vegetarian={effort.vegetarian}
+								vegan={effort.vegan}
+								withTemperature
+							/>
+						}
+					/>
 				</div>
 			</div>
 			{actions}
@@ -214,74 +277,87 @@ export function RecipeReader({
 								lines={recipe.ingredients}
 							/>
 						) : null}
+						{ingredientsAction}
 					</div>
 
-					<div className="mt-2">
-						<table aria-label="ingredients" className="w-full">
-							<tbody>
-								{recipe.ingredients.length ? (
-									rows.map((row) => {
-										if (row.kind === 'heading')
+					{ingredientsView ? (
+						<div className="mt-2">{ingredientsView}</div>
+					) : (
+						<div className="mt-2">
+							<table aria-label="ingredients" className="w-full">
+								<tbody>
+									{recipe.ingredients.length ? (
+										rows.map((row) => {
+											if (row.kind === 'heading')
+												return (
+													<tr key={row.key} className="border-border border-b">
+														<th
+															colSpan={1}
+															scope="colgroup"
+															className="pt-3 pb-2 text-left text-sm font-semibold"
+														>
+															{row.text}
+														</th>
+													</tr>
+												)
+
+											if (row.kind !== 'ingredient') return null
+											const item = `i${row.index}`
+											const id = `ingredient-${row.index}`
+											const done = checked.has(item)
+											const look = ingredientItemLook(row.text)
+
 											return (
-												<tr key={row.key} className="border-border border-b">
-													<th
-														colSpan={1}
-														scope="colgroup"
-														className="pt-3 pb-2 text-left text-sm font-semibold"
-													>
-														{row.text}
-													</th>
+												<tr
+													key={row.key}
+													className="border-border border-b align-top"
+												>
+													<td>
+														<label className="flex min-h-11 cursor-pointer items-start gap-3 py-2.5">
+															<input
+																type="checkbox"
+																id={id}
+																aria-label={row.text}
+																checked={done}
+																onChange={() => toggle(item)}
+																className="accent-kitchen-basil mt-1 size-6 shrink-0"
+															/>
+															<span
+																className="mt-1 flex size-6 shrink-0 items-center justify-center"
+																aria-hidden
+															>
+																{look ? (
+																	<PantrySprite
+																		look={look}
+																		className="size-6"
+																	/>
+																) : null}
+															</span>
+															<IngredientText text={row.text} done={done} />
+															<KitchenTag
+																status={statusOf(row.text)}
+																onHave={() => void markHave(row.text)}
+																className="mt-1.5"
+															/>
+														</label>
+													</td>
 												</tr>
 											)
-
-										if (row.kind !== 'ingredient') return null
-										const item = `i${row.index}`
-										const id = `ingredient-${row.index}`
-										const done = checked.has(item)
-										const look = ingredientItemLook(row.text)
-
-										return (
-											<tr
-												key={row.key}
-												className="border-border border-b align-top"
+										})
+									) : (
+										<tr>
+											<td
+												colSpan={1}
+												className="border-foreground/40 border-dashed p-4 text-sm font-semibold"
 											>
-												<td>
-													<label className="flex min-h-11 cursor-pointer items-start gap-3 py-2.5">
-														<input
-															type="checkbox"
-															id={id}
-															aria-label={row.text}
-															checked={done}
-															onChange={() => toggle(item)}
-															className="accent-kitchen-basil mt-1 size-6 shrink-0"
-														/>
-														<span
-															className="mt-1 flex size-6 shrink-0 items-center justify-center"
-															aria-hidden
-														>
-															{look ? (
-																<PantrySprite look={look} className="size-6" />
-															) : null}
-														</span>
-														<IngredientText text={row.text} done={done} />
-													</label>
-												</td>
-											</tr>
-										)
-									})
-								) : (
-									<tr>
-										<td
-											colSpan={1}
-											className="border-foreground/40 border-dashed p-4 text-sm font-semibold"
-										>
-											no ingredients yet
-										</td>
-									</tr>
-								)}
-							</tbody>
-						</table>
-					</div>
+												no ingredients yet
+											</td>
+										</tr>
+									)}
+								</tbody>
+							</table>
+						</div>
+					)}
 				</section>
 				<section>
 					<div className="flex min-h-11 items-center">
@@ -349,7 +425,14 @@ export function RecipeReader({
 }
 
 // Servings, time, and the page or video the recipe came from, if it has one.
-function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
+function RecipeMeta({
+	recipe,
+	brief = false,
+}: {
+	recipe: ReadableRecipe
+	// Without its time and servings, which a card beside it says.
+	brief?: boolean
+}) {
 	const source = recipe.sourceUrl
 		? importSiteForUrl(recipe.sourceUrl)
 		: undefined
@@ -378,10 +461,10 @@ function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
 				{recipe.commentCount === 1 ? 'comment' : 'comments'}
 			</a>
 		) : null,
-		recipe.servings ? (
+		recipe.servings && !brief ? (
 			<span key="servings">serves {recipe.servings}</span>
 		) : null,
-		recipe.totalMinutes ? (
+		recipe.totalMinutes && !brief ? (
 			<span key="minutes">{formatMinutes(recipe.totalMinutes)}</span>
 		) : null,
 		recipe.sourceUrl ? (
@@ -427,13 +510,66 @@ function RecipeMeta({ recipe }: { recipe: ReadableRecipe }) {
 	if (!items.length) return null
 
 	return (
-		<p className="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
-			{items.map((item, index) => (
-				<Fragment key={item.key}>
-					{index > 0 ? <span aria-hidden>·</span> : null}
-					{item}
-				</Fragment>
-			))}
-		</p>
+		// Every item leads with a dot; the one that starts a line hangs past the
+		// left edge and is cut off, so no line starts or ends on a dot.
+		<div className="text-muted-foreground mt-3 overflow-hidden text-sm font-semibold">
+			<p className="-ml-6 flex flex-wrap items-center gap-y-1">
+				{items.map((item) => (
+					<span
+						key={item.key}
+						className="inline-flex items-center pl-2 before:mr-2 before:w-2 before:text-center before:content-['·']"
+					>
+						{item}
+					</span>
+				))}
+			</p>
+		</div>
+	)
+}
+
+// The recipe's photo, which opens to the whole screen on a tap, uncropped,
+// and closes on a tap, the cross, or escape.
+function PhotoFullScreen({ src, title }: { src: string; title: string }) {
+	return (
+		<Dialog.Root>
+			<Dialog.Trigger
+				aria-label={`see the photo of ${title} full screen`}
+				className="group relative block w-full cursor-zoom-in"
+			>
+				<img
+					src={src}
+					alt={title}
+					className="border-border aspect-[4/3] w-full rounded-xl border object-cover"
+				/>
+				<span
+					aria-hidden
+					className="bg-card/90 border-border absolute right-2 bottom-2 grid size-8 place-items-center rounded-full border shadow-md transition-transform group-hover:scale-110"
+				>
+					<ArrowsOutSimpleIcon size={16} weight="bold" />
+				</span>
+			</Dialog.Trigger>
+			<Dialog.Portal>
+				<Dialog.Backdrop className="bg-foreground fixed inset-0 z-50" />
+				<Dialog.Popup className="fixed inset-0 z-50 grid place-items-center p-4 outline-none md:p-10">
+					<Dialog.Title className="sr-only">{title}</Dialog.Title>
+					<Dialog.Close
+						aria-label="close the photo"
+						className="grid size-full cursor-zoom-out place-items-center"
+					>
+						<img
+							src={src}
+							alt={title}
+							className="max-h-full max-w-full rounded-xl object-contain"
+						/>
+					</Dialog.Close>
+					<Dialog.Close
+						aria-label="close"
+						className="bg-card text-foreground absolute top-4 right-4 grid size-11 place-items-center rounded-full shadow-md"
+					>
+						<XIcon size={20} weight="bold" aria-hidden />
+					</Dialog.Close>
+				</Dialog.Popup>
+			</Dialog.Portal>
+		</Dialog.Root>
 	)
 }

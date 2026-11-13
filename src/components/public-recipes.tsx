@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { EditSharedButton } from '@/components/edit-shared-button'
-import { BackBar, BackLink, PageTitle } from '@/components/page'
+import { BackBar, BackLink, BackToSearch, PageTitle } from '@/components/page'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeReader } from '@/components/recipe-reader'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
@@ -87,6 +87,11 @@ export function PublicRecipePage({
 	const [, refreshSession] = useState(0)
 	const account = authClient.useSession().data?.user
 
+	// Opened from home's search, the way back is to it.
+	const foundBy = useRouterState({
+		select: (state) => state.location.state.foundBy,
+	})
+
 	// The recipes tab on a phone reopens a public recipe like any other: its
 	// address by id redirects to this page. An unlisted recipe has no such
 	// address, so it is left out.
@@ -97,14 +102,16 @@ export function PublicRecipePage({
 	const saved = useQuery({
 		queryKey: ['recipe', recipe.id, account?.id],
 		queryFn: () => getRecipe({ data: { id: recipe.id } }),
-		enabled: !!account && !account.isAnonymous,
+		enabled: !!account,
 	})
 
 	return (
 		<main className="bg-background text-foreground min-h-dvh min-w-0 flex-1 p-6 md:p-10">
 			<div className="max-w-5xl">
 				<BackBar>
-					{'publisher' in recipe ? (
+					{foundBy !== undefined ? (
+						<BackToSearch query={foundBy} />
+					) : 'publisher' in recipe ? (
 						<BackLink
 							to="/$handle"
 							params={{ handle: recipe.publisher.handle }}

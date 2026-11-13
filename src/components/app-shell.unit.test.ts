@@ -10,7 +10,7 @@ import { expect, test } from 'vite-plus/test'
 const outsideShell = [
 	'__root.tsx',
 	'_app.tsx',
-	'index.tsx', // sends visitors on to the shelf
+	'intro.tsx', // the pitch for a first visit, with its own layout
 	'$handle.index.tsx', // a public profile has its own plain header
 	'auth/login.tsx',
 	'auth/signup.tsx',
