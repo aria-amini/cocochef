@@ -1,12 +1,13 @@
-import { toast } from 'sonner'
+import { type ExternalToast, toast } from 'sonner'
 
 // A change that can be taken back: said near the thumb, at the bottom, and
 // held long enough to reach for. The change itself is already made; undo
-// makes it again the other way.
-export function undoToast(message: string, onUndo: () => void) {
+// makes it again the other way. Toasts that share an id replace one another,
+// so a run of changes says only the last.
+export function undoToast(message: string, onUndo: () => void, id?: string) {
 	let undone = false
 
-	toast(message, {
+	const options: ExternalToast = {
 		position: 'bottom-center',
 		duration: 8000,
 		action: {
@@ -17,5 +18,9 @@ export function undoToast(message: string, onUndo: () => void) {
 				onUndo()
 			},
 		},
-	})
+	}
+
+	if (id) options.id = id
+
+	toast(message, options)
 }

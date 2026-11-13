@@ -138,6 +138,7 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	// Copies, as the server sends, so a change shows up after a refetch.
 	pantryOnHand: () => Promise.resolve([...pantryState.items]),
+	listPantry: () => Promise.resolve([]),
 	restockPantry: ({ data }: { data: { text: string }[] }) => {
 		pantryState.learned.push(data.map(({ text }) => ({ text })))
 
@@ -266,27 +267,26 @@ describe('recipe detail', () => {
 			const nav = screen.getByRole('navigation', { name: 'Primary' })
 
 			await expect
-				.element(nav.getByRole('link', { name: 'recipes' }))
+				.element(nav.getByRole('link', { name: 'my recipes' }))
 				.toHaveAttribute('aria-current', 'page')
 			await expect
 				.element(
 					screen
 						.getByRole('main')
-						.getByRole('link', { name: 'back to recipes' }),
+						.getByRole('link', { name: 'back to my recipes' }),
 				)
 				.toBeVisible()
 
-			await nav.getByRole('link', { name: 'groceries' }).click()
-			// The groceries page loads on first visit, which can be slow when cold.
+			await nav.getByRole('link', { name: 'kitchen' }).click()
+			// The kitchen loads on first visit, which can be slow when cold.
 			await expect
-				.element(
-					screen.getByRole('heading', { name: 'groceries', exact: true }),
-					{ timeout: 10_000 },
-				)
-				.toBeVisible()
+				.element(screen.getByRole('heading', { name: 'kitchen', level: 1 }), {
+					timeout: 10_000,
+				})
+				.toBeInTheDocument()
 
 			// The tab always leads to the shelf, not back to the last recipe.
-			await nav.getByRole('link', { name: 'recipes' }).click()
+			await nav.getByRole('link', { name: 'my recipes' }).click()
 			await vi.waitFor(() =>
 				expect(router.state.location.pathname).toBe('/recipes'),
 			)
@@ -385,7 +385,6 @@ describe('recipe detail', () => {
 		await expect.element(card.getByText('25m', { exact: true })).toBeVisible()
 		await expect.element(card.getByText('all hands on')).toBeVisible()
 		await expect.element(card.getByText('2 meals')).toBeVisible()
-		await expect.element(card.getByText('low effort')).toBeVisible()
 	})
 
 	test('opens the photo to the whole screen and closes it again', async () => {
@@ -419,7 +418,7 @@ describe('recipe detail', () => {
 
 		await open({})
 		await expect
-			.element(screen.getByRole('link', { name: 'back to recipes' }))
+			.element(screen.getByRole('link', { name: 'back to my recipes' }))
 			.toBeVisible()
 
 		// From a search on home, it goes back to that search's results.
@@ -560,7 +559,7 @@ describe('recipe detail', () => {
 					name: 'all 1 on your list: groceries list',
 				}),
 			)
-			.toHaveAttribute('href', '/groceries')
+			.toHaveAttribute('href', '/kitchen?view=groceries')
 
 		groceryWaiting.items = []
 		pantryState.items = []

@@ -9,6 +9,11 @@ function connect(connectionString: string) {
 
 export type Database = ReturnType<typeof connect>
 
+// What a query runs on: the database, or a transaction open on it.
+export type Queryable =
+	| Database
+	| Parameters<Parameters<Database['transaction']>[0]>[0]
+
 let database: Database | undefined
 
 // Connects on first use, so pages without queries need no DATABASE_URL.

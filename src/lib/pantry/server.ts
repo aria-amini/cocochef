@@ -2,14 +2,18 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { getAccountId, requireAccountId } from '@/lib/auth/session'
-import { shelfRecipeUsing } from '@/lib/recipes/repository'
+import {
+	addGroceriesForUser,
+	listGroceriesForUser,
+} from '@/lib/groceries/repository'
 
-import { shelfState } from './foods'
+import { findInPantry, shelfState } from './foods'
 import {
 	pantryCategories,
 	pantryCount,
 	pantryItemInput,
 	pantryLevels,
+	type PantryLevel,
 } from './model'
 import {
 	createPantryItemsForUser,
@@ -20,6 +24,7 @@ import {
 	restockPantryForUser,
 	restockPantryItemForUser,
 	restorePantryItemForUser,
+	setPantryItemFrozenForUser,
 	setPantryItemCountForUser,
 	setPantryItemLevelForUser,
 } from './repository'
@@ -75,25 +80,53 @@ export const createPantryItems = createServerFn({ method: 'POST' })
 		createPantryItemsForUser(await requireAccountId('keep ingredients'), data),
 	)
 
-export const setPantryItemLevel = createServerFn({ method: 'POST' })
-	.validator(z.object({ id: z.string().min(1), level: z.enum(pantryLevels) }))
-	.handler(async ({ data }) =>
-		setPantryItemLevelForUser(
-			await requireAccountId('keep ingredients'),
-			data.id,
-			data.level,
-		),
+// Food that runs low or out goes on the list in the same tap, unless a line
+// for it is already waiting there. Says whether it went on.
+async function listIfWanting(
+	userId: string,
+	item: { name: string; level: PantryLevel } | null,
+) {
+	if (!item || item.level === 'plenty') return false
+
+	const waiting = (await listGroceriesForUser(userId)).filter(
+		(line) => !line.checkedAt,
 	)
+
+	if (waiting.some((line) => findInPantry(line.text, [item]))) return false
+
+	return (await addGroceriesForUser(userId, [{ text: item.name }])).length > 0
+}
+
+export const setPantryItemLevel = createServerFn({ method: 'POST' })
+	.validator(
+		z.object({
+			id: z.string().min(1),
+			level: z.enum(pantryLevels),
+			// False when an undo puts a level back: that is no ask to buy it.
+			list: z.boolean().optional(),
+		}),
+	)
+	.handler(async ({ data }) => {
+		const accountId = await requireAccountId('keep ingredients')
+
+		const item = await setPantryItemLevelForUser(accountId, data.id, data.level)
+
+		return {
+			item,
+			listed:
+				data.list === false ? false : await listIfWanting(accountId, item),
+		}
+	})
 
 export const setPantryItemCount = createServerFn({ method: 'POST' })
 	.validator(z.object({ id: z.string().min(1), count: pantryCount }))
-	.handler(async ({ data }) =>
-		setPantryItemCountForUser(
-			await requireAccountId('keep ingredients'),
-			data.id,
-			data.count,
-		),
-	)
+	.handler(async ({ data }) => {
+		const accountId = await requireAccountId('keep ingredients')
+
+		const item = await setPantryItemCountForUser(accountId, data.id, data.count)
+
+		return { item, listed: await listIfWanting(accountId, item) }
+	})
 
 // Bought more: back to plenty, dated today, with how many if counted.
 export const restockPantryItem = createServerFn({ method: 'POST' })
@@ -113,6 +146,17 @@ export const keepPantryItem = createServerFn({ method: 'POST' })
 		keepPantryItemForUser(await requireAccountId('keep ingredients'), data.id),
 	)
 
+// Put in the freezer, or taken out of it.
+export const setPantryItemFrozen = createServerFn({ method: 'POST' })
+	.validator(z.object({ id: z.string().min(1), frozen: z.boolean() }))
+	.handler(async ({ data }) =>
+		setPantryItemFrozenForUser(
+			await requireAccountId('keep ingredients'),
+			data.id,
+			data.frozen,
+		),
+	)
+
 export const restorePantryItem = createServerFn({ method: 'POST' })
 	.validator(
 		pantryItemInput.extend({
@@ -120,6 +164,7 @@ export const restorePantryItem = createServerFn({ method: 'POST' })
 			createdAt: z.coerce.date(),
 			confirmedAt: z.coerce.date(),
 			boughtAt: z.coerce.date(),
+			frozenAt: z.coerce.date().nullable().optional(),
 		}),
 	)
 	.handler(async ({ data }) =>
@@ -161,14 +206,3 @@ export const restockPantry = createServerFn({ method: 'POST' })
 	.handler(async ({ data }) =>
 		restockPantryForUser(await requireAccountId('keep ingredients'), data),
 	)
-
-// A recipe on the cook's shelf that uses up what is going off.
-export const recipeUsingUp = createServerFn({ method: 'GET' })
-	.validator(
-		z.object({ foods: z.array(z.string().trim().min(1).max(80)).max(8) }),
-	)
-	.handler(async ({ data }) => {
-		const accountId = await getAccountId()
-
-		return accountId ? shelfRecipeUsing(accountId, data.foods) : null
-	})

@@ -25,6 +25,9 @@ import { Route as AppHandleSlugRouteImport } from './routes/_app/$handle.$slug'
 import { Route as AppIngredientsIndexRouteImport } from './routes/_app/ingredients.index'
 import { Route as AppIngredientsBulkRouteImport } from './routes/_app/ingredients.bulk'
 import { Route as AppIngredientsNewRouteImport } from './routes/_app/ingredients.new'
+import { Route as AppKitchenIndexRouteImport } from './routes/_app/kitchen.index'
+import { Route as AppKitchenBulkRouteImport } from './routes/_app/kitchen.bulk'
+import { Route as AppKitchenShopRouteImport } from './routes/_app/kitchen.shop'
 import { Route as AppProfileSplatRouteImport } from './routes/_app/profile.$'
 import { Route as AppRecipesIndexRouteImport } from './routes/_app/recipes.index'
 import { Route as AppRecipesRecipeIdRouteImport } from './routes/_app/recipes.$recipeId'
@@ -113,6 +116,21 @@ const AppIngredientsNewRoute = AppIngredientsNewRouteImport.update({
   path: '/ingredients/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppKitchenIndexRoute = AppKitchenIndexRouteImport.update({
+  id: '/kitchen/',
+  path: '/kitchen/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppKitchenBulkRoute = AppKitchenBulkRouteImport.update({
+  id: '/kitchen/bulk',
+  path: '/kitchen/bulk',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppKitchenShopRoute = AppKitchenShopRouteImport.update({
+  id: '/kitchen/shop',
+  path: '/kitchen/shop',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProfileSplatRoute = AppProfileSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -169,6 +187,8 @@ export interface FileRoutesByFullPath {
   '/$handle/$slug': typeof AppHandleSlugRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
+  '/kitchen/bulk': typeof AppKitchenBulkRoute
+  '/kitchen/shop': typeof AppKitchenShopRoute
   '/profile/$': typeof AppProfileSplatRoute
   '/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/recipes/new': typeof AppRecipesNewRoute
@@ -176,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/photos/$': typeof ApiPhotosSplatRoute
   '/ingredients/': typeof AppIngredientsIndexRoute
+  '/kitchen/': typeof AppKitchenIndexRoute
   '/recipes/': typeof AppRecipesIndexRoute
   '/sites/$site/$slug': typeof AppSitesSiteSlugRoute
 }
@@ -194,6 +215,8 @@ export interface FileRoutesByTo {
   '/$handle/$slug': typeof AppHandleSlugRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
+  '/kitchen/bulk': typeof AppKitchenBulkRoute
+  '/kitchen/shop': typeof AppKitchenShopRoute
   '/profile/$': typeof AppProfileSplatRoute
   '/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/recipes/new': typeof AppRecipesNewRoute
@@ -201,6 +224,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/photos/$': typeof ApiPhotosSplatRoute
   '/ingredients': typeof AppIngredientsIndexRoute
+  '/kitchen': typeof AppKitchenIndexRoute
   '/recipes': typeof AppRecipesIndexRoute
   '/sites/$site/$slug': typeof AppSitesSiteSlugRoute
 }
@@ -221,6 +245,8 @@ export interface FileRoutesById {
   '/_app/$handle/$slug': typeof AppHandleSlugRoute
   '/_app/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/_app/ingredients/new': typeof AppIngredientsNewRoute
+  '/_app/kitchen/bulk': typeof AppKitchenBulkRoute
+  '/_app/kitchen/shop': typeof AppKitchenShopRoute
   '/_app/profile/$': typeof AppProfileSplatRoute
   '/_app/recipes/$recipeId': typeof AppRecipesRecipeIdRoute
   '/_app/recipes/new': typeof AppRecipesNewRoute
@@ -228,6 +254,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/photos/$': typeof ApiPhotosSplatRoute
   '/_app/ingredients/': typeof AppIngredientsIndexRoute
+  '/_app/kitchen/': typeof AppKitchenIndexRoute
   '/_app/recipes/': typeof AppRecipesIndexRoute
   '/_app/sites/$site/$slug': typeof AppSitesSiteSlugRoute
 }
@@ -248,6 +275,8 @@ export interface FileRouteTypes {
     | '/$handle/$slug'
     | '/ingredients/bulk'
     | '/ingredients/new'
+    | '/kitchen/bulk'
+    | '/kitchen/shop'
     | '/profile/$'
     | '/recipes/$recipeId'
     | '/recipes/new'
@@ -255,6 +284,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/photos/$'
     | '/ingredients/'
+    | '/kitchen/'
     | '/recipes/'
     | '/sites/$site/$slug'
   fileRoutesByTo: FileRoutesByTo
@@ -273,6 +303,8 @@ export interface FileRouteTypes {
     | '/$handle/$slug'
     | '/ingredients/bulk'
     | '/ingredients/new'
+    | '/kitchen/bulk'
+    | '/kitchen/shop'
     | '/profile/$'
     | '/recipes/$recipeId'
     | '/recipes/new'
@@ -280,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/photos/$'
     | '/ingredients'
+    | '/kitchen'
     | '/recipes'
     | '/sites/$site/$slug'
   id:
@@ -299,6 +332,8 @@ export interface FileRouteTypes {
     | '/_app/$handle/$slug'
     | '/_app/ingredients/bulk'
     | '/_app/ingredients/new'
+    | '/_app/kitchen/bulk'
+    | '/_app/kitchen/shop'
     | '/_app/profile/$'
     | '/_app/recipes/$recipeId'
     | '/_app/recipes/new'
@@ -306,6 +341,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/photos/$'
     | '/_app/ingredients/'
+    | '/_app/kitchen/'
     | '/_app/recipes/'
     | '/_app/sites/$site/$slug'
   fileRoutesById: FileRoutesById
@@ -435,6 +471,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIngredientsNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/kitchen/': {
+      id: '/_app/kitchen/'
+      path: '/kitchen'
+      fullPath: '/kitchen/'
+      preLoaderRoute: typeof AppKitchenIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/kitchen/bulk': {
+      id: '/_app/kitchen/bulk'
+      path: '/kitchen/bulk'
+      fullPath: '/kitchen/bulk'
+      preLoaderRoute: typeof AppKitchenBulkRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/kitchen/shop': {
+      id: '/_app/kitchen/shop'
+      path: '/kitchen/shop'
+      fullPath: '/kitchen/shop'
+      preLoaderRoute: typeof AppKitchenShopRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/profile/$': {
       id: '/_app/profile/$'
       path: '/$'
@@ -516,10 +573,13 @@ interface AppRouteChildren {
   AppHandleSlugRoute: typeof AppHandleSlugRoute
   AppIngredientsBulkRoute: typeof AppIngredientsBulkRoute
   AppIngredientsNewRoute: typeof AppIngredientsNewRoute
+  AppKitchenBulkRoute: typeof AppKitchenBulkRoute
+  AppKitchenShopRoute: typeof AppKitchenShopRoute
   AppRecipesRecipeIdRoute: typeof AppRecipesRecipeIdRoute
   AppRecipesNewRoute: typeof AppRecipesNewRoute
   AppSTokenRoute: typeof AppSTokenRoute
   AppIngredientsIndexRoute: typeof AppIngredientsIndexRoute
+  AppKitchenIndexRoute: typeof AppKitchenIndexRoute
   AppRecipesIndexRoute: typeof AppRecipesIndexRoute
   AppSitesSiteSlugRoute: typeof AppSitesSiteSlugRoute
 }
@@ -534,10 +594,13 @@ const AppRouteChildren: AppRouteChildren = {
   AppHandleSlugRoute: AppHandleSlugRoute,
   AppIngredientsBulkRoute: AppIngredientsBulkRoute,
   AppIngredientsNewRoute: AppIngredientsNewRoute,
+  AppKitchenBulkRoute: AppKitchenBulkRoute,
+  AppKitchenShopRoute: AppKitchenShopRoute,
   AppRecipesRecipeIdRoute: AppRecipesRecipeIdRoute,
   AppRecipesNewRoute: AppRecipesNewRoute,
   AppSTokenRoute: AppSTokenRoute,
   AppIngredientsIndexRoute: AppIngredientsIndexRoute,
+  AppKitchenIndexRoute: AppKitchenIndexRoute,
   AppRecipesIndexRoute: AppRecipesIndexRoute,
   AppSitesSiteSlugRoute: AppSitesSiteSlugRoute,
 }

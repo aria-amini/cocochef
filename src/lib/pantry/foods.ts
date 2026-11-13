@@ -90,9 +90,17 @@ const byLength = [...foods].sort((a, b) => b.key.length - a.key.length)
 // The food a line names, if the catalog knows it. Matches whole words after
 // the same plural and accent folding the catalog uses, and treats "a can of"
 // as canned: "1 (15-ounce) can chickpeas" is chickpeas, "2 cans tomatoes" is
-// canned tomatoes.
+// canned tomatoes. A food named only to say how little of it there is
+// ("low-salt", "reduced-sodium", "sugar-free") is not the food, and stock is
+// broth: "½ low-salt vegetable stock cube" is vegetable broth, never salt.
 export function foodOf(line: string): Food | undefined {
-	const text = ` ${categoryKey(line.replace(/\bcans?\b/gi, 'canned'))} `
+	const text = ` ${categoryKey(
+		line
+			.replace(/\b(?:low|lower|reduced|less|no)[-\s]+\p{L}+/giu, ' ')
+			.replace(/\b\p{L}+-free\b/giu, ' ')
+			.replace(/\b(?:stock|bouillon)\b/gi, 'broth')
+			.replace(/\bcans?\b/gi, 'canned'),
+	)} `
 
 	return byLength.find(({ key }) => text.includes(` ${key} `))
 }
@@ -318,14 +326,21 @@ export function shelfState(
 		category: PantryCategory
 		confirmedAt: Date
 		boughtAt: Date
+		frozenAt?: Date | null | undefined
 	},
 	now: Date,
 ) {
-	const keeps = shelfLife(item.name, item.category)
+	// Put in the freezer, it keeps as frozen food does, from the day it went in.
+	const frozen = item.frozenAt ?? undefined
+
+	const keeps = frozen
+		? shelfLife(item.name, 'frozen')
+		: shelfLife(item.name, item.category)
+
 	const spoils = keeps <= spoilsWithin
 	const food = foodOf(item.name)
 	const staple = food ? food.staple : !freshCategories.has(item.category)
-	const bought = (now.getTime() - item.boughtAt.getTime()) / day
+	const bought = (now.getTime() - (frozen ?? item.boughtAt).getTime()) / day
 	const confirmed = (now.getTime() - item.confirmedAt.getTime()) / day
 
 	const state = spoils
@@ -342,7 +357,11 @@ export function shelfState(
 		state,
 		spoils,
 		daysLeft: Math.max(0, Math.ceil(keeps - bought)),
-		boughtDaysAgo: Math.max(0, Math.floor(bought)),
+		// Freezing keeps food longer, not bought more recently.
+		boughtDaysAgo: Math.max(
+			0,
+			Math.floor((now.getTime() - item.boughtAt.getTime()) / day),
+		),
 	} as const
 }
 

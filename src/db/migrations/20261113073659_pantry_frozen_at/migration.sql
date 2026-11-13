@@ -1,0 +1,1 @@
+ALTER TABLE "pantry_items" ADD COLUMN "frozen_at" timestamp with time zone;

@@ -49,7 +49,7 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 			<div className={cn(editing ? 'max-w-2xl' : 'max-w-5xl')}>
 				<BackBar>
 					{foundBy === undefined ? (
-						<BackLink to="/recipes">back to recipes</BackLink>
+						<BackLink to="/recipes">back to my recipes</BackLink>
 					) : (
 						<BackToSearch query={foundBy} />
 					)}

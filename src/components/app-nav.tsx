@@ -1,22 +1,24 @@
-import {
-	CarrotIcon,
-	CookingPotIcon,
-	HouseIcon,
-	ShoppingCartIcon,
-} from '@phosphor-icons/react'
+import { CarrotIcon, CookingPotIcon, HouseIcon } from '@phosphor-icons/react'
 import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
 import { AddRecipeMenu } from '@/components/add-recipe-menu'
 import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
+import { type KitchenView, useKitchenView } from '@/lib/kitchen-view'
 import { cn } from '@/lib/utils/ui'
 
+// Each tab's key is its path's name; the name on it says whose recipes the
+// shelf holds, since home finds new ones.
 const navItems = [
-	{ label: 'home', icon: HouseIcon, to: '/' },
-	{ label: 'recipes', icon: CookingPotIcon, to: '/recipes' },
-	{ label: 'ingredients', icon: CarrotIcon, to: '/ingredients' },
-	{ label: 'groceries', icon: ShoppingCartIcon, to: '/groceries' },
+	{ label: 'home', name: 'home', icon: HouseIcon, to: '/' },
+	{
+		label: 'recipes',
+		name: 'my recipes',
+		icon: CookingPotIcon,
+		to: '/recipes',
+	},
+	{ label: 'kitchen', name: 'kitchen', icon: CarrotIcon, to: '/kitchen' },
 ] as const
 
 type TabBarMode = 'none' | 'bar' | 'bar-fab' | 'bar-own-fab'
@@ -156,6 +158,7 @@ export function AppNav() {
 }
 
 function Sidebar() {
+	const kitchenView = useKitchenView()
 	const tab = useActiveTab()
 
 	return (
@@ -175,13 +178,13 @@ function Sidebar() {
 				/>
 				cocochef
 			</Link>
-			{navItems.map(({ label, icon: Icon, to }) => {
+			{navItems.map(({ label, name, icon: Icon, to }) => {
 				const active = tab === label
 
 				return (
 					<Link
 						key={to}
-						to={to}
+						{...tabTarget(to, kitchenView)}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
 							navFeedbackClassName,
@@ -197,8 +200,8 @@ function Sidebar() {
 							aria-hidden
 							className={navIconFeedbackClassName}
 						/>
-						{label}
-						{label === 'groceries' ? (
+						{name}
+						{label === 'kitchen' ? (
 							<>
 								<GroceryCount />
 								<GroceryBadge className="ml-auto" />
@@ -246,11 +249,24 @@ function MobileHeader() {
 	)
 }
 
+// The kitchen reopens the side that was open last; every other tab opens
+// its page.
+function tabTarget(
+	to: (typeof navItems)[number]['to'],
+	kitchenView: KitchenView | undefined,
+) {
+	if (to === '/kitchen' && kitchenView)
+		return { to, search: { view: kitchenView } } as const
+
+	return { to } as const
+}
+
 // Thumb-reach navigation on phones: the two places you go. The recipes shelf
 // adds one round action for its one job.
 function TabBar() {
 	const mode = useTabBar()
 	const visible = useTabBarVisible()
+	const kitchenView = useKitchenView()
 	const tab = useActiveTab()
 
 	if (!visible) return null
@@ -261,13 +277,13 @@ function TabBar() {
 				aria-label="Primary"
 				className="border-border bg-background pb-safe fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t md:hidden"
 			>
-				{navItems.map(({ label, icon: Icon, to }) => {
+				{navItems.map(({ label, name, icon: Icon, to }) => {
 					const active = tab === label
 
 					return (
 						<Link
 							key={to}
-							to={to}
+							{...tabTarget(to, kitchenView)}
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,
@@ -286,12 +302,12 @@ function TabBar() {
 									weight={active ? 'fill' : 'regular'}
 									aria-hidden
 								/>
-								{label === 'groceries' ? (
+								{label === 'kitchen' ? (
 									<GroceryBadge className="bg-background absolute -top-1.5 -right-3" />
 								) : null}
 							</span>
-							{label}
-							{label === 'groceries' ? <GroceryCount /> : null}
+							{name}
+							{label === 'kitchen' ? <GroceryCount /> : null}
 						</Link>
 					)
 				})}

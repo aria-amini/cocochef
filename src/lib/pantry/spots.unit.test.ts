@@ -5,7 +5,7 @@ import { shelvesOf, spotOf } from './spots'
 
 describe('spotOf', () => {
 	test.each([
-		['cumin', 'spices', 'spices'],
+		['cumin', 'spices', 'pantry'],
 		['frozen peas', 'frozen', 'freezer'],
 		['chicken thighs', 'meat', 'fridge'],
 		['eggs', 'dairy', 'fridge'],
@@ -33,25 +33,16 @@ describe('shelvesOf', () => {
 			foods.map(([name, category]) => ({ name, category })),
 		).map((shelf) => [shelf.label, shelf.items.map((item) => item.name)])
 
-	test('lays the spice rack out as a cook reaches for it', () => {
+	test('keeps the spices on a shelf of the pantry', () => {
 		expect(
-			shelves('spices', [
+			shelves('pantry', [
 				['cumin', 'spices'],
-				['salt', 'spices'],
-				['black pepper', 'spices'],
 				['oregano', 'spices'],
-				['bay leaves', 'spices'],
-				['star anise', 'spices'],
-				['fennel seeds', 'spices'],
-				['garam masala', 'spices'],
-				['red pepper flakes', 'spices'],
+				['olive oil', 'sauces'],
 			]),
 		).toEqual([
-			['salt & pepper', ['salt', 'black pepper']],
-			['blends', ['garam masala']],
-			['dried herbs', ['oregano', 'bay leaves']],
-			['whole spices & seeds', ['star anise', 'fennel seeds']],
-			['ground spices', ['cumin', 'red pepper flakes']],
+			['oils & vinegars', ['olive oil']],
+			['spices & dried herbs', ['cumin', 'oregano']],
 		])
 	})
 

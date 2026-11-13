@@ -31,6 +31,10 @@ export const pantryItems = snakeCase.table(
 		// When it came into the kitchen: added, put away, or said to be had.
 		// Fresh food spoils from here; a change of level does not move it.
 		boughtAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+		// When the cook put it in the freezer, whatever kind of food it is: it
+		// lives there and keeps a frozen food's months from this day. Taken
+		// out, it is cleared and the food is fresh from that day.
+		frozenAt: timestamp({ withTimezone: true }),
 	},
 	(table) => [
 		index('pantry_items_user_id_index').on(table.userId),

@@ -70,7 +70,7 @@ function NewRecipe() {
 	return (
 		<main className="flex-1">
 			<div className="flex max-w-2xl flex-col gap-6 p-6 md:p-10">
-				<BackLink to="/recipes">recipes</BackLink>
+				<BackLink to="/recipes">my recipes</BackLink>
 				<h1 className="sr-only">write a recipe</h1>
 				{session.isPending ? null : !session.data?.user ? (
 					<>

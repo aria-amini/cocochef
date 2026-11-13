@@ -23,8 +23,6 @@ type KnownItem = typeof pantryItems.$inferSelect & {
 const state = vi.hoisted<{
 	items: KnownItem[]
 	signedOut?: boolean
-	// The shelf recipe that would use up what is going off.
-	usingUp?: { id: string; title: string; uses: string[] } | null
 }>(() => ({ items: [] }))
 
 // What was deleted, so undo can put it back.
@@ -38,6 +36,7 @@ const bought = vi.hoisted(() => {
 
 vi.mock('@/lib/groceries/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/groceries/server')>()),
+	listGroceries: () => Promise.resolve(state.signedOut ? null : []),
 	countWaitingGroceries: () => Promise.resolve(0),
 	addGroceries: ({ data }: { data: { text: string }[] }) => {
 		bought.calls.push(data)
@@ -51,7 +50,6 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	// Copies, as the server sends, so a change shows up after a reload.
 	listPantry: async () =>
 		state.signedOut ? null : state.items.map((entry) => ({ ...entry })),
-	recipeUsingUp: async () => state.usingUp ?? null,
 	createPantryItems: async ({ data }: { data: PantryItemInput[] }) =>
 		data.map((input, index) => {
 			const item = {
@@ -69,6 +67,7 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 				createdAt: new Date('2026-10-19T12:00:00Z'),
 				confirmedAt: new Date('2026-10-19T12:00:00Z'),
 				boughtAt: new Date('2026-10-19T12:00:00Z'),
+				frozenAt: null,
 			}
 
 			state.items.push(item)
@@ -84,7 +83,12 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 
 		if (item) Object.assign(item, { level: data.level, quantity: null })
 
-		return item
+		// Running low or out goes on the list in the same tap.
+		const listed = !!item && data.level !== 'plenty'
+
+		if (listed) bought.calls.push([{ text: item.name }])
+
+		return { item, listed }
 	},
 	setPantryItemCount: async ({
 		data,
@@ -95,7 +99,7 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 
 		if (item) item.quantity = data.count
 
-		return item
+		return { item, listed: false }
 	},
 	restockPantryItem: async ({
 		data,
@@ -152,6 +156,7 @@ const item = (
 	createdAt: new Date('2026-10-19T12:00:00Z'),
 	confirmedAt: new Date('2026-10-19T12:00:00Z'),
 	boughtAt: new Date('2026-10-19T12:00:00Z'),
+	frozenAt: null,
 	spoils: false,
 	stale: false,
 	expired: false,
@@ -159,17 +164,16 @@ const item = (
 	boughtDaysAgo: 30,
 })
 
-describe('ingredients', () => {
+describe('kitchen', () => {
 	beforeEach(() => {
 		state.items = [item('carrots', 'vegetables'), item('eggs', 'dairy')]
 		state.signedOut = false
-		state.usingUp = null
 		bought.calls.length = 0
 	})
 
 	test('asks a signed-out visitor to sign up before keeping a pantry', async () => {
 		state.signedOut = true
-		const { screen } = await renderRoute({ path: '/ingredients' })
+		const { screen } = await renderRoute({ path: '/kitchen' })
 
 		await expect
 			.element(
@@ -177,7 +181,7 @@ describe('ingredients', () => {
 			)
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('link', { name: 'add ingredients' }))
+			.element(screen.getByRole('link', { name: 'stock up' }))
 			.not.toBeInTheDocument()
 		await screen.getByRole('button', { name: 'sign in' }).click()
 		await expect
@@ -185,198 +189,197 @@ describe('ingredients', () => {
 			.toBeVisible()
 	})
 
-	test('sends a signed-out visitor from adding ingredients to the pantry page', async () => {
+	test('sends a signed-out visitor from stocking up to the kitchen', async () => {
 		state.signedOut = true
-		const { router } = await renderRoute({ path: '/ingredients/bulk' })
+		const { router } = await renderRoute({ path: '/kitchen/bulk' })
 
-		await expect.poll(() => router.state.location.pathname).toBe('/ingredients')
+		await expect.poll(() => router.state.location.pathname).toBe('/kitchen')
 	})
 
-	test('offers a low item to the groceries from its details', async () => {
-		state.items = [{ ...item('carrots', 'vegetables'), level: 'low' }]
-
-		const { screen } = await renderRoute({
-			path: '/ingredients',
-			session,
-		})
-
-		await screen.getByRole('link', { name: 'carrots, running low' }).click()
-		await page
-			.getByRole('complementary', { name: 'Item details' })
-			.or(page.getByRole('dialog'))
-			.getByRole('button', { name: 'add to groceries' })
-			.click()
-		await expect.poll(() => bought.calls).toEqual([[{ text: 'carrots' }]])
-	})
-
-	test('leads with only what asks for something', async () => {
+	test('opens on what to use first, soonest first, with how long each has', async () => {
 		state.items = [
 			{ ...item('salmon', 'meat'), spoils: true, daysLeft: 2 },
 			{ ...item('spinach', 'vegetables'), spoils: true, daysLeft: 1 },
 			{ ...item('eggs', 'dairy'), level: 'out' },
 			{ ...item('garlic', 'vegetables'), level: 'low' },
 			item('rice', 'grains'),
-			item('cumin', 'spices'),
-			item('paprika', 'spices'),
 		]
-		state.usingUp = {
-			id: 'recipe-1',
-			title: 'salmon with greens',
-			uses: ['spinach', 'salmon'],
-		}
 
-		const { screen } = await renderRoute({ path: '/ingredients', session })
+		const { screen } = await renderRoute({ path: '/kitchen', session })
 
-		// What is going off, soonest first, and a shelf recipe that uses it.
-		const soon = screen.getByRole('region', { name: 'use soon' })
+		const first = screen.getByRole('list', { name: 'use first' })
 
 		const left = (name: string) =>
-			soon.getByRole('link', { name }).element().getBoundingClientRect().left
+			first.getByRole('link', { name }).element().getBoundingClientRect().left
 
 		await expect
-			.element(soon.getByRole('link', { name: 'spinach, tomorrow' }))
+			.element(first.getByRole('link', { name: 'spinach, enough, tomorrow' }))
 			.toBeVisible()
-		expect(left('spinach, tomorrow')).toBeLessThan(left('salmon, 2 days'))
+		expect(left('spinach, enough, tomorrow')).toBeLessThan(
+			left('salmon, enough, 2 days'),
+		)
+		// Food that keeps for weeks, and food that ran out, wait in their spots.
 		await expect
-			.element(soon.getByRole('link', { name: /cook with them/ }))
-			.toHaveAttribute('href', '/recipes/recipe-1')
-
-		// What ran out, then what runs low; the rest is on hand, by spot.
-		await expect
-			.element(screen.getByRole('link', { name: 'eggs, out' }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByRole('link', { name: 'rice, enough' }))
+			.element(screen.getByRole('link', { name: /^rice/ }))
 			.not.toBeInTheDocument()
 		await expect
-			.element(screen.getByRole('link', { name: 'spice rack, 2' }))
-			.toBeVisible()
-		await expectPageScreenshot(screen.container, 'ingredients-home')
-
-		// One tap puts everything out and low on the list.
-		await screen.getByRole('button', { name: 'add 2 to groceries' }).click()
-		await expect
-			.poll(() => bought.calls)
-			.toEqual([[{ text: 'eggs' }, { text: 'garlic' }]])
+			.element(screen.getByRole('link', { name: /^eggs/ }))
+			.not.toBeInTheDocument()
+		await expectPageScreenshot(screen.container, 'kitchen-first')
 	})
 
-	test('opens a spot as a wall of jars', async () => {
+	test('says when nothing needs using first', async () => {
+		const { screen } = await renderRoute({ path: '/kitchen', session })
+
+		await expect.element(screen.getByText('nothing to use first')).toBeVisible()
+	})
+
+	test('shows what came in last, newest first', async () => {
+		state.items = [
+			{ ...item('rice', 'grains'), boughtAt: new Date('2026-10-01') },
+			{ ...item('milk', 'dairy'), boughtAt: new Date('2026-10-20') },
+		]
+
+		const { screen } = await renderRoute({
+			path: '/kitchen?list=recent',
+			session,
+		})
+
+		const recent = screen.getByRole('list', { name: 'recently added' })
+
+		await expect.element(recent).toBeVisible()
+		expect(
+			recent
+				.getByRole('link')
+				.elements()
+				.map((link) => link.getAttribute('aria-label')?.split(',')[0]),
+		).toEqual(['milk', 'rice'])
+	})
+
+	test('opens a spot from the picker, as one grid in shelf order', async () => {
 		state.items = [
 			item('cumin', 'spices'),
 			{ ...item('paprika', 'spices'), level: 'out' },
 			{ ...item('oregano', 'spices'), level: 'low' },
 			item('cinnamon', 'spices'),
 			item('rice', 'grains'),
+			item('carrots', 'vegetables'),
 		]
 
 		const { screen, router } = await renderRoute({
-			path: '/ingredients',
+			path: '/kitchen',
 			session,
 		})
 
-		await screen.getByRole('link', { name: 'spice rack, 4' }).click()
+		await screen.getByRole('button', { name: /use first/ }).click()
+		await page.getByRole('menuitem', { name: 'pantry' }).click()
+		await expect
+			.poll(() => router.state.location.search)
+			.toEqual({ spot: 'pantry' })
 
-		const rack = screen.getByRole('region', { name: 'spice rack' })
+		const pantry = screen.getByRole('list', { name: 'pantry' })
 
 		await expect
-			.element(rack.getByRole('link', { name: 'paprika, out' }))
+			.element(pantry.getByRole('link', { name: 'paprika, out' }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('link', { name: 'rice, enough' }))
+			.element(pantry.getByRole('link', { name: /^rice/ }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('link', { name: /^carrots/ }))
 			.not.toBeInTheDocument()
-		await expectPageScreenshot(screen.container, 'ingredients-spot')
+		await expectPageScreenshot(screen.container, 'kitchen-spot')
 
-		// A jar opens its details; back goes home.
-		await rack.getByRole('link', { name: 'cumin, enough' }).click()
+		// A card opens its details.
+		await pantry.getByRole('link', { name: /^cumin, enough/ }).click()
 		await expect
 			.element(page.getByRole('button', { name: 'low', exact: true }))
 			.toBeVisible()
-		await page.getByRole('button', { name: 'done' }).click()
-		await screen
-			.getByRole('main')
-			.getByRole('link', { name: 'ingredients', exact: true })
-			.click()
-		await expect.poll(() => router.state.location.search).toEqual({})
 	})
 
-	test('finds an ingredient by name, and says when it is not there', async () => {
-		const { screen } = await renderRoute({ path: '/ingredients', session })
+	test('says when a spot holds nothing, and offers to stock up', async () => {
+		const { screen } = await renderRoute({
+			path: '/kitchen?spot=freezer',
+			session,
+		})
 
-		const find = screen.getByRole('searchbox', { name: 'find an ingredient' })
-
-		await find.fill('eg')
 		await expect
-			.element(screen.getByRole('link', { name: 'eggs, enough' }))
+			.element(screen.getByText('nothing in the freezer yet'))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('link', { name: 'carrots, enough' }))
-			.not.toBeInTheDocument()
-		await find.fill('saffron')
+			.element(
+				screen
+					.getByRole('main')
+					.getByRole('link', { name: 'stock up' })
+					.first(),
+			)
+			.toHaveAttribute('href', '/kitchen/bulk')
+	})
+
+	test('puts food that runs low on the list in the same tap', async () => {
+		const { screen } = await renderRoute({
+			path: '/kitchen?list=recent',
+			session,
+		})
+
+		await screen.getByRole('link', { name: /^carrots, enough/ }).click()
+		await page.getByRole('button', { name: 'low', exact: true }).click()
+		await expect.poll(() => bought.calls).toEqual([[{ text: 'carrots' }]])
 		await expect
-			.element(screen.getByText('no saffron in your ingredients'))
-			.toBeVisible()
-		await find.fill('')
-		await expect
-			.element(screen.getByRole('region', { name: 'on hand' }))
+			.element(page.getByText('carrots is on your list'))
 			.toBeVisible()
 	})
 
 	test('leaves where you are to the nav, with no title or back link', async () => {
-		const { screen } = await renderRoute({
-			path: '/ingredients',
-			session,
-		})
+		const { screen } = await renderRoute({ path: '/kitchen', session })
 
 		await expect
-			.element(screen.getByRole('heading', { level: 1, name: 'ingredients' }))
+			.element(screen.getByRole('heading', { level: 1, name: 'kitchen' }))
 			.toHaveClass('sr-only')
 		await expect
-			.element(screen.getByRole('main').getByRole('link', { name: 'recipes' }))
+			.element(
+				screen.getByRole('main').getByRole('link', { name: 'my recipes' }),
+			)
 			.not.toBeInTheDocument()
 		await expect
 			.element(
 				screen
 					.getByRole('navigation', { name: 'Primary' })
-					.getByRole('link', { name: 'recipes' }),
+					.getByRole('link', { name: 'my recipes' }),
 			)
 			.toHaveAttribute('href', '/recipes')
 	})
 
-	test('invites an empty kitchen to add ingredients', async () => {
+	test('invites an empty kitchen to stock up', async () => {
 		state.items = []
 
-		const { screen } = await renderRoute({
-			path: '/ingredients',
-			session,
-		})
+		const { screen } = await renderRoute({ path: '/kitchen', session })
 
 		await expect.element(screen.getByText('nothing here yet')).toBeVisible()
-		await expect
-			.element(screen.getByRole('link', { name: 'add ingredients' }))
-			.not.toBeInTheDocument()
-		await screen.getByRole('link', { name: 'stock up' }).click()
+		await screen
+			.getByRole('main')
+			.getByRole('link', { name: 'stock up' })
+			.last()
+			.click()
 		await expect
 			.element(screen.getByRole('heading', { name: 'add ingredients' }))
 			.toBeVisible()
 	})
 
 	test('says how much is left, and removes an item', async () => {
-		const { screen } = await renderRoute({ path: '/ingredients', session })
+		const { screen } = await renderRoute({
+			path: '/kitchen?list=recent',
+			session,
+		})
 
-		await screen
-			.getByRole('searchbox', { name: 'find an ingredient' })
-			.fill('carrots')
-		await screen.getByRole('link', { name: 'carrots, enough' }).click()
+		await screen.getByRole('link', { name: /^carrots, enough/ }).click()
 		await page.getByRole('button', { name: 'low', exact: true }).click()
 		await expect.poll(() => state.items[0]?.level).toBe('low')
 		await expect
 			.element(page.getByRole('button', { name: 'low', exact: true }))
 			.toHaveAttribute('aria-pressed', 'true')
 		// How much is left reads as a gauge: bars, tinted for the level.
-		await expectIsolatedScreenshot(
-			page.getByRole('dialog'),
-			'ingredients-details',
-		)
+		await expectIsolatedScreenshot(page.getByRole('dialog'), 'kitchen-details')
 		await expect
 			.element(page.getByRole('button', { name: 'one more' }))
 			.not.toBeInTheDocument()
@@ -399,14 +402,11 @@ describe('ingredients', () => {
 
 	test('counts eggs, a pack at a time', async () => {
 		const { screen } = await renderRoute({
-			path: '/ingredients',
+			path: '/kitchen?list=recent',
 			session,
 		})
 
-		await screen
-			.getByRole('searchbox', { name: 'find an ingredient' })
-			.fill('eggs')
-		await screen.getByRole('link', { name: 'eggs, enough' }).click()
+		await screen.getByRole('link', { name: /^eggs, enough/ }).click()
 		await page.getByRole('button', { name: 'bought 18' }).click()
 		await expect.poll(() => state.items[1]?.quantity).toBe(18)
 		await page.getByRole('button', { name: 'one fewer' }).click()
@@ -417,12 +417,9 @@ describe('ingredients', () => {
 	})
 
 	test('bulk adds picked and typed items from a section', async () => {
-		const { screen } = await renderRoute({
-			path: '/ingredients',
-			session,
-		})
+		const { screen } = await renderRoute({ path: '/kitchen', session })
 
-		await screen.getByRole('link', { name: 'add ingredients' }).click()
+		await screen.getByRole('link', { name: 'stock up' }).first().click()
 		await screen.getByRole('link', { name: /spices/ }).click()
 
 		await screen.getByRole('button', { name: 'cumin', exact: true }).click()
@@ -436,9 +433,9 @@ describe('ingredients', () => {
 			.toHaveAttribute('aria-pressed', 'true')
 
 		await screen.getByRole('button', { name: 'add 3' }).click()
-		// Back on the pantry, to see what was added.
+		// Back in the kitchen, to see what was added.
 		await expect
-			.element(screen.getByRole('searchbox', { name: 'find an ingredient' }))
+			.element(screen.getByRole('region', { name: 'on hand' }))
 			.toBeVisible()
 		expect(state.items.slice(2)).toHaveLength(3)
 		expect(state.items.slice(2)).toEqual(
@@ -451,12 +448,9 @@ describe('ingredients', () => {
 	})
 
 	test('does not offer to add a typed name the pantry already has', async () => {
-		const { screen } = await renderRoute({
-			path: '/ingredients',
-			session,
-		})
+		const { screen } = await renderRoute({ path: '/kitchen', session })
 
-		await screen.getByRole('link', { name: 'add ingredients' }).click()
+		await screen.getByRole('link', { name: 'stock up' }).first().click()
 		await screen.getByRole('link', { name: /spices/ }).click()
 
 		await screen.getByRole('searchbox', { name: /^find in/ }).fill('carrots')
@@ -468,6 +462,29 @@ describe('ingredients', () => {
 		await expect
 			.element(screen.getByRole('button', { name: /add .carrots./ }))
 			.not.toBeInTheDocument()
+	})
+
+	test('keeps what old ingredient links asked for when they redirect', async () => {
+		const pantry = await renderRoute({
+			path: '/ingredients?spot=fridge&item=pantry-1',
+			session,
+		})
+
+		await expect
+			.poll(() => pantry.router.state.location.search)
+			.toMatchObject({ spot: 'fridge', item: 'pantry-1' })
+		expect(pantry.router.state.location.pathname).toBe('/kitchen')
+		await pantry.screen.unmount()
+
+		const bulk = await renderRoute({
+			path: '/ingredients/bulk?cat=fruit',
+			session,
+		})
+
+		await expect
+			.poll(() => bulk.router.state.location.pathname)
+			.toBe('/kitchen/bulk')
+		expect(bulk.router.state.location.search).toMatchObject({ cat: 'fruit' })
 	})
 
 	test('redirects the old add page to the section picker', async () => {
@@ -484,36 +501,15 @@ describe('ingredients', () => {
 			item('rice', 'grains'),
 		]
 
-		const { screen } = await renderRoute({
-			path: '/ingredients',
-			session,
-		})
+		const { screen } = await renderRoute({ path: '/kitchen', session })
 
 		const check = screen.getByRole('region', { name: /still there/ })
 
 		await expect.element(check.getByText(/^spinach/)).toBeVisible()
-		await expectPageScreenshot(screen.container, 'ingredients-check')
+		await expectPageScreenshot(screen.container, 'kitchen-check')
 		await check.getByRole('button', { name: 'still have it' }).click()
 		await expect
 			.element(screen.getByRole('region', { name: /still there/ }))
 			.not.toBeInTheDocument()
-	})
-
-	test('offers to add what a search does not find', async () => {
-		const { screen } = await renderRoute({
-			path: '/ingredients',
-			session,
-		})
-
-		await screen
-			.getByRole('searchbox', { name: 'find an ingredient' })
-			.fill('parsley')
-		await expect
-			.element(screen.getByText('no parsley in your ingredients'))
-			.toBeVisible()
-		await screen.getByRole('button', { name: 'i have parsley' }).click()
-		await expect
-			.poll(() => state.items.map((entry) => entry.name))
-			.toContain('parsley')
 	})
 })

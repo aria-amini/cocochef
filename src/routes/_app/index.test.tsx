@@ -151,7 +151,7 @@ describe('home', () => {
 			.element(
 				screen.getByRole('link', { name: 'groceries: 4 of 9 in the cart' }),
 			)
-			.toHaveAttribute('href', '/groceries')
+			.toHaveAttribute('href', '/kitchen?view=groceries')
 		await expectPageScreenshot(screen.container, 'home-shopping')
 	})
 

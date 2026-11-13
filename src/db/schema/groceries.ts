@@ -1,18 +1,30 @@
 import {
 	foreignKey,
 	index,
+	jsonb,
 	snakeCase,
 	text,
 	timestamp,
 } from 'drizzle-orm/pg-core'
 
-import { pantryCategories } from '@/lib/pantry/model'
+import { pantryCategories, type PantryLevel } from '@/lib/pantry/model'
 
 import { user } from './auth'
+import { pantryItems } from './pantry'
 import { recipes } from './recipes'
 
 // One line of a cook's grocery list: what to buy, the aisle it is shelved
 // under, the recipe that asked for it, and when it went in the cart.
+// Into the cart is into the kitchen: the tick tops up the pantry item for its
+// food or makes one, and keeps what that item was so an untick puts it back.
+// A pantry item as it stood before a tick filled it, dates as ISO strings.
+export type StockedWas = {
+	level: PantryLevel
+	quantity: number | null
+	confirmedAt: string
+	boughtAt: string
+}
+
 export const groceryItems = snakeCase.table(
 	'grocery_items',
 	{
@@ -24,6 +36,10 @@ export const groceryItems = snakeCase.table(
 		recipeId: text(),
 		recipeTitle: text(),
 		checkedAt: timestamp({ withTimezone: true }),
+		// The pantry item the tick filled, and how it stood before: null when
+		// the tick made it, so an untick takes it away again.
+		stockedId: text(),
+		stockedWas: jsonb().$type<StockedWas>(),
 		createdAt: timestamp({ withTimezone: true }).notNull(),
 	},
 	(table) => [
@@ -37,6 +53,11 @@ export const groceryItems = snakeCase.table(
 			columns: [table.recipeId],
 			foreignColumns: [recipes.id],
 			name: 'grocery_items_recipe_id_fk',
+		}).onDelete('set null'),
+		foreignKey({
+			columns: [table.stockedId],
+			foreignColumns: [pantryItems.id],
+			name: 'grocery_items_stocked_id_fk',
 		}).onDelete('set null'),
 	],
 )

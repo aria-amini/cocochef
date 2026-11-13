@@ -11,7 +11,7 @@ export function RecipeAccessDenied() {
 				belongs to you, sign in to the account that created it.
 			</p>
 			<Link to="/recipes" className="font-semibold underline">
-				back to recipes
+				back to my recipes
 			</Link>
 		</main>
 	)

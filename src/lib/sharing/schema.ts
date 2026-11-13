@@ -15,6 +15,7 @@ const reservedHandles = new Set([
 	'ingredients',
 	'groceries',
 	'pantry',
+	'kitchen',
 	'coming-soon',
 	'admin',
 	'login',
