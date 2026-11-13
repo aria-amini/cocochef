@@ -18,10 +18,12 @@ export function PagePending() {
 	)
 }
 
-// Quick loads never show it (150ms), and once it shows it stays long enough
-// (400ms) not to flash.
+// Quick loads never show it (300ms), and once it shows it stays long enough
+// (400ms) not to flash. Pages start loading at the touch, so most are ready
+// within 300ms, and until then the progress bar and the pulsing tab say the
+// tap was heard; a skeleton any sooner flashed on pages waiting only on code.
 export const pendingOptions = {
 	defaultPendingComponent: PagePending,
-	defaultPendingMs: 150,
+	defaultPendingMs: 300,
 	defaultPendingMinMs: 400,
 }
