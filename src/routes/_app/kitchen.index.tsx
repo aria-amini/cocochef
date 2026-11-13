@@ -4,7 +4,6 @@ import {
 	CaretDownIcon,
 	ClockIcon,
 	JarLabelIcon,
-	ToteSimpleIcon,
 	Minus,
 	Plus,
 	ShoppingCartIcon,
@@ -361,7 +360,7 @@ function KitchenSwitch({
 		{
 			key: 'buy',
 			label: 'groceries',
-			mark: ToteSimpleIcon,
+			mark: ShoppingCartIcon,
 			count: buy,
 			picked: view === 'groceries',
 		},
