@@ -314,10 +314,9 @@ function Pantry({
 						{toCheck.length ? (
 							<CheckThese items={toCheck} onRemove={remove} />
 						) : null}
-						{soon.length ? <GoingOff items={soon} /> : null}
-						<Need list={list} wanting={wanting} shopping={false} />
-						<Have
+						<OnHand
 							items={kept}
+							soon={soon}
 							spot={spot}
 							inSpot={inSpot}
 							query={query}
@@ -325,6 +324,7 @@ function Pantry({
 							matches={matches}
 							selectedId={selectedId}
 						/>
+						<Need list={list} wanting={wanting} shopping={false} />
 					</>
 				)}
 			</div>
@@ -409,15 +409,11 @@ function GoingOff({ items }: { items: PantryItem[] }) {
 	})
 
 	return (
-		<section aria-labelledby="going-off" className="flex flex-col gap-3">
-			<SectionHeading
-				id="going-off"
-				icon={HourglassMediumIcon}
-				count={items.length}
+		<div className="flex flex-col gap-3">
+			<ul
+				aria-label="going off"
+				className="grid grid-cols-3 gap-2 md:grid-cols-5"
 			>
-				going off
-			</SectionHeading>
-			<ul className="grid grid-cols-3 gap-2 md:grid-cols-5">
 				{items.map((item) => (
 					<li key={item.id}>
 						<Link
@@ -465,7 +461,7 @@ function GoingOff({ items }: { items: PantryItem[] }) {
 					<CaretRight size={16} weight="bold" aria-hidden />
 				</Link>
 			) : null}
-		</section>
+		</div>
 	)
 }
 
@@ -559,12 +555,14 @@ function NeedNote({
 	return null
 }
 
-// Everything else, by where it lives: each spot with how much it holds and
-// the one thing worth knowing about it. The freezer is always there, dashed
-// while nothing is in it. "Do I have it?" is asked here, of everything in
-// the kitchen, and stocking up starts here too.
-function Have({
+// What the kitchen holds, under one heading. A row of chips picks what to
+// look at: what is going off (the default, so the page leads with what to
+// use first), or one spot's jars. The freezer is always there, dashed while
+// nothing is in it. "Do I have it?" is asked here, of everything in the
+// kitchen, and stocking up starts here too.
+function OnHand({
 	items,
+	soon,
 	spot,
 	inSpot,
 	query,
@@ -573,7 +571,9 @@ function Have({
 	selectedId,
 }: {
 	items: PantryItem[]
-	// The spot opened under the tiles, and what it holds.
+	// Food going off in the next two weeks, soonest first.
+	soon: PantryItem[]
+	// The spot picked, and what it holds; none picked shows what is going off.
 	spot: PantrySpot | undefined
 	inSpot: PantryItem[]
 	query: string
@@ -584,10 +584,10 @@ function Have({
 	const [finding, setFinding] = useState(false)
 	const searching = query.trim().length > 0
 
-	const spots = pantrySpots.flatMap((spot) => {
-		const held = items.filter((item) => spotOf(item) === spot)
+	const spots = pantrySpots.flatMap((each) => {
+		const held = items.filter((item) => spotOf(item) === each)
 
-		return held.length || spot === 'freezer' ? [{ spot, held }] : []
+		return held.length || each === 'freezer' ? [{ spot: each, held }] : []
 	})
 
 	function stopFinding() {
@@ -679,78 +679,92 @@ function Have({
 				)
 			) : (
 				<>
-					<ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+					{/* On a phone the chips run off the edge to scroll; on a wide
+					    screen they wrap. */}
+					<ul
+						aria-label="what to show"
+						className="-mx-6 flex gap-2 overflow-x-auto px-6 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0"
+					>
+						<li className="shrink-0">
+							<SpotChip
+								label="going off"
+								count={soon.length}
+								picked={!spot}
+								search={{}}
+								mark={
+									<HourglassMediumIcon size={16} weight="bold" aria-hidden />
+								}
+							/>
+						</li>
 						{spots.map(({ spot: each, held }) => (
-							<li key={each}>
-								<Link
-									to="/kitchen"
-									// A spot opens its jars under the tiles; tapped again, it
-									// closes. The back button closes it too.
-									search={each === spot ? {} : { spot: each }}
-									resetScroll={false}
-									aria-current={each === spot ? 'true' : undefined}
-									aria-label={`${pantrySpotLabels[each]}, ${held.length}`}
-									className={cn(
-										'hover:border-foreground/30 flex h-full items-center gap-3 rounded-xl border p-3 transition-colors',
-										each === spot
-											? 'bg-kitchen-yolk/30 border-kitchen-yolk'
-											: held.length
-												? 'bg-card border-border'
-												: 'border-foreground/30 border-dashed',
-									)}
-								>
-									<PantrySprite
-										look={standardLook({ key: pantrySpotSprites[each] })}
-										className={cn(
-											'size-8 shrink-0',
-											!held.length && 'opacity-50',
-										)}
-									/>
-									<span className="flex min-w-0 flex-col">
-										<span className="truncate text-base font-bold">
-											{pantrySpotLabels[each]}
-										</span>
-										<span className="text-muted-foreground truncate text-xs font-semibold">
-											{held.length ? (
-												<>
-													<span className="tabular-nums">{held.length}</span> ·{' '}
-													{spotNote(held)}
-												</>
-											) : (
-												'empty'
-											)}
-										</span>
-									</span>
-								</Link>
+							<li key={each} className="shrink-0">
+								<SpotChip
+									label={pantrySpotLabels[each]}
+									count={held.length}
+									picked={each === spot}
+									search={{ spot: each }}
+									mark={
+										<PantrySprite
+											look={standardLook({ key: pantrySpotSprites[each] })}
+											className={cn('size-5', !held.length && 'opacity-50')}
+										/>
+									}
+								/>
 							</li>
 						))}
 					</ul>
 					{spot ? (
 						<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
-					) : null}
+					) : soon.length ? (
+						<GoingOff items={soon} />
+					) : (
+						<p className="text-muted-foreground text-sm font-semibold">
+							nothing going off in the next two weeks
+						</p>
+					)}
 				</>
 			)}
 		</section>
 	)
 }
 
-// The one thing worth knowing about a spot, most pressing first.
-function spotNote(items: PantryItem[]) {
-	const going = items.filter(
-		(item) => item.spoils && item.level !== 'out' && item.daysLeft <= weekDays,
-	).length
-
-	if (going) return `${going} going off`
-
-	const out = items.find((item) => item.level === 'out')
-
-	if (out) return `${out.name} out`
-
-	const low = items.find((item) => item.level === 'low')
-
-	if (low) return `${low.name} low`
-
-	return 'all good'
+// One chip in the row: its mark, its name and how many it holds. The one
+// picked is yolk; a spot with nothing in it is dashed.
+function SpotChip({
+	label,
+	count,
+	picked,
+	search,
+	mark,
+}: {
+	label: string
+	count: number
+	picked: boolean
+	search: { spot?: PantrySpot }
+	mark: React.ReactNode
+}) {
+	return (
+		<Link
+			to="/kitchen"
+			search={search}
+			resetScroll={false}
+			aria-current={picked ? 'true' : undefined}
+			className={cn(
+				'hover:border-foreground/30 inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-bold whitespace-nowrap transition-colors',
+				picked
+					? 'bg-kitchen-yolk/30 border-kitchen-yolk'
+					: count
+						? 'bg-card border-border'
+						: 'border-foreground/30 border-dashed',
+			)}
+		>
+			{mark}
+			{label}
+			{count ? (
+				<span className="text-muted-foreground tabular-nums">{count}</span>
+			) : null}
+		</Link>
+	)
 }
 
 // One spot's food as a wall of jars, a screenful at a glance rather than a
