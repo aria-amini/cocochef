@@ -1717,11 +1717,9 @@ export function mealTags(title: string): MealTags | undefined {
 	return {
 		cuisines,
 		flavors,
+		// Only the umbrella goes: tofu or beans in a meat dish still count.
 		proteins: meaty
-			? proteins.filter(
-					(name) =>
-						name !== 'vegetarian' && proteinGroupOf(name) !== 'vegetarian',
-				)
+			? proteins.filter((name) => name !== 'vegetarian')
 			: proteins,
 		forms: named(formParts),
 	}

@@ -19,6 +19,13 @@ describe('meal parts', () => {
 			'chicken',
 		])
 		expect(mealTags('Roasted Vegetable Stew')?.proteins).toContain('vegetarian')
+		// What else is in the dish still counts.
+		expect(mealTags('Chicken and Tofu Stir Fry')?.proteins).toEqual(
+			expect.arrayContaining(['chicken', 'tofu']),
+		)
+		expect(mealTags('Chicken and Tofu Stir Fry')?.proteins).not.toContain(
+			'vegetarian',
+		)
 	})
 
 	test('reads a title for its cuisine, flavor, protein and dish', () => {
