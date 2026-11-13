@@ -283,6 +283,44 @@ describe('sharing', () => {
 			.toBeVisible()
 	})
 
+	test('drops pages preloaded as a visitor once the visitor signs up', async () => {
+		api.web.mockResolvedValue(recipe)
+		api.publicRecipe.mockResolvedValue(recipe)
+
+		const { screen, router } = await renderRoute({
+			path: '/sites/example.com/pasta',
+		})
+
+		// A visitor's touch preloads a published recipe's plain page.
+		await router.preloadRoute({
+			to: '/$handle/$slug',
+			params: { handle: 'aria-amini', slug: 'weeknight-pasta' },
+		})
+
+		const preloaded = () =>
+			router.stores.cachedMatches
+				.get()
+				.some((match) => match.routeId === '/_app/$handle/$slug')
+
+		expect(preloaded()).toBe(true)
+
+		getAuthMocks().signUpEmail.mockImplementationOnce(async () => {
+			setMockSession(session)
+
+			return { error: null }
+		})
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		const signup = screen.getByRole('dialog', { name: 'create an account' })
+		await signup.getByLabelText('name').fill('Cook')
+		await signup.getByLabelText('email').fill('cook@example.com')
+		await signup.getByLabelText('password').fill('password123')
+		await signup
+			.getByRole('button', { name: 'create account', exact: true })
+			.click()
+
+		await expect.poll(preloaded).toBe(false)
+	})
+
 	test('shows a private or unavailable recipe without exposing its contents', async () => {
 		api.publicRecipe.mockResolvedValue(null)
 		const { screen } = await renderRoute({ path: '/aria-amini/private-recipe' })

@@ -1,3 +1,4 @@
+import { useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { AuthField } from '@/components/auth-form'
@@ -34,6 +35,7 @@ export function AuthDialog({
 	const [pending, setPending] = useState(false)
 	const [error, setError] = useState<string>()
 	const session = authClient.useSession()
+	const router = useRouter()
 
 	// A password typed into a closed dialog should not be waiting when it reopens.
 	function reset() {
@@ -65,6 +67,9 @@ export function AuthDialog({
 				setError(result.error.message ?? 'something went wrong — try again')
 			else {
 				await session.refetch()
+				// Pages kept or preloaded while signed out show a visitor's view,
+				// such as a recipe's plain public page instead of the app's.
+				router.clearCache()
 				onOpenChange(false)
 				reset()
 				onSuccess?.()
