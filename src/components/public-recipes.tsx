@@ -13,7 +13,7 @@ import { rememberRecipe } from '@/lib/recipes/last-opened'
 import { getRecipe } from '@/lib/recipes/server'
 import type {
 	readPublicProfile,
-	readPublicRecipe,
+	readRecipeAt,
 	readWebRecipe,
 } from '@/lib/sharing/server'
 
@@ -74,7 +74,10 @@ export function PublicProfile({
 }
 
 type PublicRecipe =
-	| NonNullable<Awaited<ReturnType<typeof readPublicRecipe>>>
+	| Extract<
+			Awaited<ReturnType<typeof readRecipeAt>>,
+			{ kind: 'public' }
+	  >['recipe']
 	| NonNullable<Awaited<ReturnType<typeof readWebRecipe>>>
 
 export function PublicRecipePage({

@@ -4,8 +4,10 @@ import { z } from 'zod'
 
 import { readSession } from '@/lib/auth/session'
 import { recipeIdInput } from '@/lib/recipes/model'
+import { readRecipe } from '@/lib/recipes/server'
 import { resolveStoredImage } from '@/lib/s3'
 
+import { recipeAt } from './recipe-at'
 import {
 	getOwnedRecipeAtAddress,
 	getPublishedRecipe,
@@ -118,24 +120,34 @@ export const readPublicProfile = createServerFn({ method: 'GET' })
 			: null
 	})
 
-export const readOwnedRecipeAddress = createServerFn({ method: 'GET' })
+// A readable address in one round trip: the session, the published recipe,
+// and the full one for someone signed in are all read here, not one request
+// after another from the browser.
+export const readRecipeAt = createServerFn({ method: 'GET' })
 	.validator(publicRecipeInput)
 	.handler(async ({ data }) => {
 		preventCaching()
-		const session = await readSession()
 
-		if (!session) return null
+		const [session, published] = await Promise.all([
+			readSession(),
+			getPublishedRecipe(data),
+		])
 
-		return getOwnedRecipeAtAddress(session.user.id, data.handle, data.slug)
-	})
-
-export const readPublicRecipe = createServerFn({ method: 'GET' })
-	.validator(publicRecipeInput)
-	.handler(async ({ data }) => {
-		preventCaching()
-		const recipe = await getPublishedRecipe(data)
-
-		return recipe ? withPublicImage(recipe) : null
+		return recipeAt({
+			published: published ? await withPublicImage(published) : null,
+			signedIn: Boolean(session),
+			ownedId: async () =>
+				session
+					? ((
+							await getOwnedRecipeAtAddress(
+								session.user.id,
+								data.handle,
+								data.slug,
+							)
+						)?.id ?? null)
+					: null,
+			full: async (id) => (await readRecipe(id)) ?? null,
+		})
 	})
 
 // Legacy unlisted links no longer grant access.

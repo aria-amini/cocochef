@@ -1,4 +1,4 @@
-import { createServerFn } from '@tanstack/react-start'
+import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { readSession, getViewerId, requireAccountId } from '@/lib/auth/session'
@@ -46,33 +46,36 @@ export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
 	}
 })
 
+// A recipe as the viewer sees it, with the readable address to show it at.
+export const readRecipe = createServerOnlyFn(async (id: string) => {
+	const viewerId = await getViewerId()
+	const recipe = await getRecipeForUser(viewerId, id)
+
+	if (!recipe) return recipe
+
+	// Reserving an address writes a profile, which only an account has.
+	const session = await readSession()
+
+	if (!recipe.publicPath && recipe.owned && session)
+		recipe.publicPath = await reservePrivateRecipeAddress(viewerId, recipe)
+
+	if (
+		!recipe.publicPath &&
+		!recipe.userId &&
+		recipe.sourceUrl &&
+		recipe.finalizedAt
+	) {
+		const link = await getWebRecipeLink(viewerId, recipe.id)
+
+		if (link) recipe.publicPath = `/sites/${link.site}/${link.slug}`
+	}
+
+	return withSignedImage(recipe)
+})
+
 export const getRecipe = createServerFn({ method: 'GET' })
 	.validator(recipeIdInput)
-	.handler(async ({ data }) => {
-		const viewerId = await getViewerId()
-		const recipe = await getRecipeForUser(viewerId, data.id)
-
-		if (!recipe) return recipe
-
-		// Reserving an address writes a profile, which only an account has.
-		const session = await readSession()
-
-		if (!recipe.publicPath && recipe.owned && session)
-			recipe.publicPath = await reservePrivateRecipeAddress(viewerId, recipe)
-
-		if (
-			!recipe.publicPath &&
-			!recipe.userId &&
-			recipe.sourceUrl &&
-			recipe.finalizedAt
-		) {
-			const link = await getWebRecipeLink(viewerId, recipe.id)
-
-			if (link) recipe.publicPath = `/sites/${link.site}/${link.slug}`
-		}
-
-		return withSignedImage(recipe)
-	})
+	.handler(({ data }) => readRecipe(data.id))
 
 export const createRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeInput)

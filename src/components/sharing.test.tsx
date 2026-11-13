@@ -16,18 +16,33 @@ const api = vi.hoisted(() => ({
 	deleteRecipe: vi.fn(),
 }))
 
-vi.mock('@/lib/sharing/server', () => ({
-	readOwnedRecipeAddress: () => Promise.resolve(null),
-	getMySharingProfile: api.profile,
-	updateSharingProfile: api.updateProfile,
-	getMyRecipeShare: api.share,
-	updateRecipeShare: api.updateShare,
-	createWebSharingLink: vi.fn(),
-	readPublicProfile: api.publicProfile,
-	readPublicRecipe: api.publicRecipe,
-	readUnlistedRecipe: api.unlisted,
-	readWebRecipe: api.web,
-}))
+vi.mock('@/lib/sharing/server', async () => {
+	const { recipeAt } = await import('@/lib/sharing/recipe-at')
+	const { getCurrentSession } = await import('@/lib/auth/session')
+
+	return {
+		// The server's choice, made from this file's mocks.
+		readRecipeAt: async ({
+			data,
+		}: {
+			data: { handle: string; slug: string }
+		}) =>
+			recipeAt({
+				published: await api.publicRecipe({ data }),
+				signedIn: Boolean(await getCurrentSession()),
+				ownedId: async () => null,
+				full: async (id) => (await api.getRecipe({ data: { id } })) ?? null,
+			}),
+		getMySharingProfile: api.profile,
+		updateSharingProfile: api.updateProfile,
+		getMyRecipeShare: api.share,
+		updateRecipeShare: api.updateShare,
+		createWebSharingLink: vi.fn(),
+		readPublicProfile: api.publicProfile,
+		readUnlistedRecipe: api.unlisted,
+		readWebRecipe: api.web,
+	}
+})
 
 vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/recipes/server')>()),
