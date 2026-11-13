@@ -1,7 +1,7 @@
 import { PencilSimple } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { useHideTabBar } from '@/components/app-nav'
 import { EditSharedButton } from '@/components/edit-shared-button'
@@ -12,7 +12,6 @@ import { RecipeSharing } from '@/components/recipe-sharing'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
 import { buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
-import { rememberRecipe } from '@/lib/recipes/last-opened'
 import { getRecipe } from '@/lib/recipes/server'
 import { getMyRecipeShare } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
@@ -40,8 +39,6 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 	)
 
 	useHideTabBar(editing)
-
-	useEffect(() => rememberRecipe(recipe.id), [recipe.id])
 
 	return (
 		<main

@@ -11,7 +11,6 @@ import { toast } from 'sonner'
 
 import { Avatar } from '@/components/avatar'
 import { authClient } from '@/lib/auth/client'
-import { forgetRecipe } from '@/lib/recipes/last-opened'
 import { useAvatarUrl } from '@/lib/use-avatar-url'
 import { cn } from '@/lib/utils/ui'
 
@@ -181,8 +180,6 @@ function SignOutItem() {
 			const { error } = await authClient.signOut()
 
 			if (error) throw new Error(error.message)
-			// The next account must not be sent to this one's last recipe.
-			forgetRecipe()
 			// A full load, not a navigation: the router's cached and preloaded
 			// pages and the query cache were read for this account.
 			window.location.assign('/')

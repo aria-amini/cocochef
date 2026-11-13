@@ -268,64 +268,6 @@ describe('sharing', () => {
 			.toBeVisible()
 	})
 
-	test('remembers a site recipe for the recipes tab, but not an unlisted one', async () => {
-		const remembered = () => sessionStorage.getItem('cocochef:last-recipe')
-
-		sessionStorage.clear()
-		api.web.mockResolvedValue(recipe)
-
-		const site = await renderRoute({
-			path: '/sites/example.com/pasta',
-			session,
-		})
-
-		await expect
-			.element(site.screen.getByRole('heading', { name: 'Weeknight pasta' }))
-			.toBeVisible()
-		expect(remembered()).toBe('pasta')
-		await site.screen.unmount()
-
-		sessionStorage.clear()
-
-		const unlisted = await renderRoute({
-			path: '/s/00000000-0000-4000-8000-000000000001',
-		})
-
-		await expect
-			.element(
-				unlisted.screen.getByRole('heading', { name: 'Weeknight pasta' }),
-			)
-			.toBeVisible()
-		expect(remembered()).toBeNull()
-	})
-
-	test('keeps the remembered recipe when a published address is unavailable', async () => {
-		api.web.mockResolvedValue(recipe)
-		api.publicRecipe.mockResolvedValue(null)
-
-		const { screen, router } = await renderRoute({
-			path: '/sites/example.com/pasta',
-			session,
-		})
-
-		await expect
-			.element(screen.getByRole('heading', { name: 'Weeknight pasta' }))
-			.toBeVisible()
-		expect(sessionStorage.getItem('cocochef:last-recipe')).toBe('pasta')
-
-		await router.navigate({
-			to: '/$handle/$slug',
-			params: { handle: 'aria-amini', slug: 'gone' },
-		})
-		await expect
-			.element(
-				screen.getByRole('heading', { name: 'you can’t open this recipe' }),
-			)
-			.toBeVisible()
-		// A link with no recipe behind it is no reason to forget this one.
-		expect(sessionStorage.getItem('cocochef:last-recipe')).toBe('pasta')
-	})
-
 	test('lets a signed-out visitor open signup from save', async () => {
 		api.web.mockResolvedValue(recipe)
 

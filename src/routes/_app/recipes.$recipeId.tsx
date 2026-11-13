@@ -51,11 +51,10 @@ export const Route = createFileRoute('/_app/recipes/$recipeId')({
 
 function RecipePage() {
 	const { recipe } = Route.useLoaderData()
-	const { recipeId } = Route.useParams()
 
 	return recipe ? (
 		<RecipeDetail key={recipe.id} recipe={recipe} />
 	) : (
-		<RecipeAccessDenied recipeId={recipeId} />
+		<RecipeAccessDenied />
 	)
 }
