@@ -1,4 +1,8 @@
-import { BucketAlreadyOwnedByYou, S3Client } from '@aws-sdk/client-s3'
+import {
+	BucketAlreadyOwnedByYou,
+	NoSuchKey,
+	S3Client,
+} from '@aws-sdk/client-s3'
 import {
 	afterEach,
 	beforeEach,
@@ -39,7 +43,12 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl: mocks.sign }))
 
 vi.mock('@/env.server', () => ({ serverEnv: mocks.env }))
 
-import { createAvatarUploadUrl, createRecipePhotoUpload } from './s3'
+import {
+	createAvatarUploadUrl,
+	createRecipePhotoUpload,
+	readStoredPhoto,
+	resolveStoredImage,
+} from './s3'
 
 describe('avatar upload authorization', () => {
 	beforeEach(() => vi.clearAllMocks())
@@ -95,6 +104,32 @@ describe('recipe photo upload', () => {
 		expect(first.key).toMatch(/^recipes\/owner-[\w-]+$/)
 		expect(first.key).not.toBe(second.key)
 		expect(first.url).toBe('https://storage.example/upload')
+	})
+})
+
+describe('stored images', () => {
+	beforeEach(() => vi.clearAllMocks())
+	afterEach(() => vi.restoreAllMocks())
+
+	test('gives a recipe photo its lasting address instead of a signed URL', async () => {
+		expect(await resolveStoredImage('recipes/owner-1234')).toBe(
+			'/api/photos/recipes/owner-1234',
+		)
+		expect(mocks.sign).not.toHaveBeenCalled()
+	})
+
+	test('still signs an avatar', async () => {
+		expect(await resolveStoredImage('avatars/owner-1234')).toBe(
+			'https://storage.example/upload',
+		)
+	})
+
+	test('reads no photo for a key the bucket does not have', async () => {
+		vi.spyOn(S3Client.prototype, 'send').mockImplementation(async () => {
+			throw new NoSuchKey({ message: 'missing', $metadata: {} })
+		})
+
+		expect(await readStoredPhoto('recipes/owner-gone')).toBeNull()
 	})
 })
 

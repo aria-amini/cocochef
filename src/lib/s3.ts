@@ -2,6 +2,7 @@ import {
 	BucketAlreadyOwnedByYou,
 	CreateBucketCommand,
 	GetObjectCommand,
+	NoSuchKey,
 	PutObjectCommand,
 	S3Client,
 } from '@aws-sdk/client-s3'
@@ -11,7 +12,7 @@ import { z } from 'zod'
 
 import { serverEnv as env } from '@/env.server'
 import { readSession } from '@/lib/auth/session'
-import { recipePhotoKey } from '@/lib/recipes/model'
+import { recipePhotoKey, recipePhotoPath } from '@/lib/recipes/model'
 
 // Storage settings are optional in development and required in production.
 const storageConfig = z.object({
@@ -53,6 +54,11 @@ export const resolveStoredImage = createServerOnlyFn(
 
 		if (isPublicUrl) return image
 
+		// A recipe photo has an address of its own (src/routes/api/photos.$.ts)
+		// that browsers and Cloudflare can keep, where a signed URL would be a
+		// new address, and a new download, on every page.
+		if (recipePhotoPath.safeParse(image).success) return `/api/photos/${image}`
+
 		const { bucket, client } = getStorage()
 
 		const command = new GetObjectCommand({ Bucket: bucket, Key: image })
@@ -60,6 +66,29 @@ export const resolveStoredImage = createServerOnlyFn(
 		return getSignedUrl(client, command, { expiresIn: 60 * 60 })
 	},
 )
+
+// An uploaded photo's bytes, or null when there is no such photo.
+export const readStoredPhoto = createServerOnlyFn(async (key: string) => {
+	const { bucket, client } = getStorage()
+
+	try {
+		const object = await client.send(
+			new GetObjectCommand({ Bucket: bucket, Key: key }),
+		)
+
+		return object.Body
+			? {
+					body: object.Body.transformToWebStream(),
+					type: object.ContentType,
+					length: object.ContentLength,
+					etag: object.ETag,
+				}
+			: null
+	} catch (error) {
+		if (error instanceof NoSuchKey) return null
+		throw error
+	}
+})
 
 export const getAvatarUrl = createServerFn({ method: 'GET' })
 	.validator(z.object({ image: z.string().nullish() }))
