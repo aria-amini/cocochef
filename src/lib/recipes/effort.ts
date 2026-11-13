@@ -1,8 +1,6 @@
-import { foodOf } from '@/lib/pantry/foods'
-
 // How much a recipe asks of the cook, read from what it says: how long it
-// takes and how much of that is hands on, what it would take to shop for,
-// how many it serves and how long what is left keeps. All of it is read from
+// takes and how much of that is hands on, how many it serves and how long
+// what is left keeps. All of it is read from
 // words, so it is rounded and said as "about".
 
 // What a recipe's own page and steps say of its time and keeping, worked out
@@ -313,50 +311,14 @@ export function recipeEffort(recipe: {
 	}
 }
 
-// What a shop for it would be: how many foods, how many of them fresh (to be
-// bought near the day), and how many parts of the shop they are spread over.
-export function shopEffort(toBuy: readonly string[]) {
-	const found = toBuy.map((line) => foodOf(line))
-
-	const fresh = found.filter(
-		(food) =>
-			food?.category === 'vegetables' ||
-			food?.category === 'fruit' ||
-			food?.category === 'meat' ||
-			food?.category === 'dairy',
-	).length
-
-	const aisles = new Set(found.map((food) => food?.category ?? 'other')).size
-
-	return { buy: toBuy.length, fresh, aisles }
-}
-
-export type EffortLevel = 'low' | 'medium' | 'high'
-
 // How many eat at a time, until a cook can say.
 const household = 2
 
-// The work a recipe asks, shared over the meals it makes: a pot of chili for
-// eight that freezes is less work a meal than a steak for two, though it
-// takes longer to make. Work is hands-on time and the shop (a trip, and a
-// little for each food); waiting is not work. Meals are its servings over a
-// household, as many as it keeps for: one if it is for the day, three over
-// the fridge's days, six if it freezes. Without a known kitchen, a third of
-// its foods count as ones to buy, a cupboard's usual share; without
-// servings, it is one meal.
-export function effortPerMeal(
-	effort: Pick<
-		RecipeEffort,
-		'activeMinutes' | 'totalMinutes' | 'foods' | 'servings' | 'keeps'
-	>,
-	buy?: number,
-) {
-	const hands = effort.activeMinutes ?? effort.totalMinutes
-
-	if (hands === undefined) return undefined
-
-	const shopping = buy ?? Math.round(effort.foods / 3)
-	const work = hands + (shopping ? 10 + shopping * 2 : 0)
+// How many meals a recipe makes for a household, as many as it keeps for:
+// one if it is for the day, three over the fridge's days, six if it freezes.
+// Unknown until its page or its cook says how many it serves.
+export function mealsOf(effort: Pick<RecipeEffort, 'servings' | 'keeps'>) {
+	if (!effort.servings) return undefined
 
 	const lasts = effort.keeps.freezes
 		? 6
@@ -364,22 +326,5 @@ export function effortPerMeal(
 			? 3
 			: 1
 
-	const meals = Math.max(
-		1,
-		Math.min(lasts, Math.floor((effort.servings ?? household) / household)),
-	)
-
-	return { work, meals, perMeal: Math.round(work / meals) }
-}
-
-// The effort in a word, by the work a meal.
-export function effortLevel(
-	effort: Parameters<typeof effortPerMeal>[0],
-	buy?: number,
-): EffortLevel | undefined {
-	const share = effortPerMeal(effort, buy)
-
-	if (!share) return undefined
-
-	return share.perMeal <= 25 ? 'low' : share.perMeal <= 50 ? 'medium' : 'high'
+	return Math.max(1, Math.min(lasts, Math.floor(effort.servings / household)))
 }

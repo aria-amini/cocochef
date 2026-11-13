@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 
-import { EffortCard } from '@/components/effort-card'
+import { EffortCard, effortShown } from '@/components/effort-card'
 import { AddToGroceries } from '@/components/grocery-send'
 import { IngredientText } from '@/components/ingredient-text'
 import { KitchenTag } from '@/components/kitchen-tag'
@@ -29,7 +29,7 @@ import { mealTags } from '@/lib/assistant/meal-parts'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
 import { lineStatus } from '@/lib/pantry/status'
-import { effortLevel, recipeEffort } from '@/lib/recipes/effort'
+import { recipeEffort } from '@/lib/recipes/effort'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import type { IngredientCategories } from '@/lib/recipes/model'
@@ -124,18 +124,10 @@ export function RecipeReader({
 		(line) => line.trim() && ingredientHeading(line) === undefined,
 	)
 
-	// What it asks of the cook, and what the kitchen lacks of it, when known.
+	// What it asks of the cook: its time, the meals it makes, how they keep.
 	const effort = recipeEffort({ ...recipe, foods })
 
-	const toBuy = knows
-		? foods.filter((line) => {
-				const kind = statusOf(line)?.kind
-
-				return kind === 'need' || kind === 'stale'
-			})
-		: undefined
-
-	const carded = effortLevel(effort, toBuy?.length) !== undefined
+	const carded = effortShown(effort)
 
 	const stepBox = (
 		text: string,
@@ -251,7 +243,6 @@ export function RecipeReader({
 					<RecipeMeta recipe={recipe} brief={carded} />
 					<EffortCard
 						effort={effort}
-						toBuy={toBuy}
 						tags={
 							<RecipeTags
 								title={recipe.title}

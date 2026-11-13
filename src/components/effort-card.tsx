@@ -7,43 +7,30 @@ import {
 } from '@phosphor-icons/react'
 
 import { shortDuration } from '@/lib/recipes/duration'
-import {
-	effortLevel,
-	type EffortLevel,
-	effortPerMeal,
-	type RecipeEffort,
-} from '@/lib/recipes/effort'
-import { cn } from '@/lib/utils/ui'
+import { mealsOf, type RecipeEffort } from '@/lib/recipes/effort'
 
-// Basil, yolk, tomato as a recipe asks more: the one scale DESIGN.md lets the
-// three be a traffic light for.
-export const effortTints = new Map<EffortLevel, { dot: string }>([
-	['low', { dot: 'bg-kitchen-basil' }],
-	['medium', { dot: 'bg-kitchen-yolk' }],
-	['high', { dot: 'bg-kitchen-tomato' }],
-])
+// Whether the card has anything to say: a time, or how many it serves.
+export const effortShown = (effort: RecipeEffort) =>
+	effort.totalMinutes !== undefined ||
+	effort.activeMinutes !== undefined ||
+	mealsOf(effort) !== undefined
 
-// What a recipe asks of the cook, beside its photo under its title: its time
-// and what it makes, and at its foot what kind of recipe it is. What to buy is the ingredients' to
-// say.
+// What a recipe asks of the cook, beside its photo under its title, as the
+// facts a week of cooking is planned by: its time and how much of it is hands
+// on, how many meals it makes, and how long they keep. At its foot, what kind
+// of recipe it is.
 export function EffortCard({
 	effort,
-	toBuy,
 	tags,
 }: {
 	effort: RecipeEffort
-	// What the reader's kitchen lacks of it, when the kitchen is known.
-	toBuy?: readonly string[] | undefined
 	// What kind of recipe it is, as the list's tags say it, at the card's foot.
 	tags?: React.ReactNode
 }) {
-	const share = effortPerMeal(effort, toBuy?.length)
-	const level = effortLevel(effort, toBuy?.length)
-	const tint = level ? effortTints.get(level) : undefined
+	if (!effortShown(effort)) return null
 
-	if (!share) return null
-
-	const hands = effort.activeMinutes ?? effort.totalMinutes ?? 0
+	const meals = mealsOf(effort)
+	const hands = effort.activeMinutes ?? effort.totalMinutes
 	const waiting = effort.waitingMinutes ?? 0
 
 	return (
@@ -52,24 +39,28 @@ export function EffortCard({
 			className="border-border mt-4 flex max-w-md flex-col gap-2.5 rounded-xl border px-3.5 py-3 lowercase"
 		>
 			<div className="grid grid-cols-2 gap-3 text-sm">
-				<Part icon={ClockIcon}>
-					<b>{shortDuration(effort.totalMinutes ?? hands + waiting)}</b>
-					{waiting > 0 ? (
-						<>
-							<span>{shortDuration(hands)} hands on</span>
-							<span>
-								{shortDuration(waiting)}{' '}
-								{effort.waits.slice(0, 2).join(', ') || 'waiting'}
-							</span>
-						</>
-					) : (
-						<span>all hands on</span>
-					)}
-				</Part>
+				{hands === undefined ? null : (
+					<Part icon={ClockIcon}>
+						<b>{shortDuration(effort.totalMinutes ?? hands + waiting)}</b>
+						{waiting > 0 ? (
+							<>
+								<span>{shortDuration(hands)} hands on</span>
+								<span>
+									{shortDuration(waiting)}{' '}
+									{effort.waits.slice(0, 2).join(', ') || 'waiting'}
+								</span>
+							</>
+						) : (
+							<span>all hands on</span>
+						)}
+					</Part>
+				)}
 				<Part icon={BowlFoodIcon}>
-					<b>
-						{share.meals} {share.meals === 1 ? 'meal' : 'meals'}
-					</b>
+					{meals ? (
+						<b>
+							{meals} {meals === 1 ? 'meal' : 'meals'}
+						</b>
+					) : null}
 					<span>keeps {effort.keeps.days}</span>
 					{effort.keeps.freezes ? (
 						<span className="inline-flex items-center gap-1">
@@ -85,19 +76,9 @@ export function EffortCard({
 					start the day before
 				</p>
 			) : null}
-			{tags || level ? (
+			{tags ? (
 				<div className="border-border flex flex-col gap-2 border-t pt-2.5">
 					{tags}
-					{/* The effort in a word, by its dot, last and quiet. */}
-					{level && tint ? (
-						<p className="inline-flex items-center gap-2 text-sm font-semibold">
-							<span
-								aria-hidden
-								className={cn('size-2 rounded-full', tint.dot)}
-							/>
-							{level} effort
-						</p>
-					) : null}
 				</div>
 			) : null}
 		</section>

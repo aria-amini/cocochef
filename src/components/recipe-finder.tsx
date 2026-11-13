@@ -8,7 +8,6 @@ import {
 	MagnifyingGlassIcon,
 	ArrowLeftIcon,
 	ArrowsDownUpIcon,
-	GaugeIcon,
 	CaretDownIcon,
 	CheckIcon,
 	SnowflakeIcon,
@@ -30,7 +29,6 @@ import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
 import { CourseIcon, ProteinIcon } from '@/components/course-icon'
-import { effortTints } from '@/components/effort-card'
 import {
 	ActiveFilter,
 	FilterPanel,
@@ -69,11 +67,6 @@ import {
 import { authClient } from '@/lib/auth/client'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe, peekRecipes } from '@/lib/import/server'
-import {
-	effortLevel,
-	effortPerMeal,
-	type RecipeEffort,
-} from '@/lib/recipes/effort'
 import { type RecipeSort, recipeSorts } from '@/lib/recipes/loved'
 import { matchesRecipeQuery } from '@/lib/recipes/model'
 import { isPastedRecipe } from '@/lib/recipes/paste'
@@ -267,25 +260,11 @@ export function RecipeFinder({
 export type FinderFilters = {
 	types?: readonly string[] | undefined
 	temps?: readonly string[] | undefined
-	// The rating sorts ask the server; effort orders what came back.
-	sort?: FinderSort | undefined
+	// The rating sorts ask the server.
+	sort?: RecipeSort | undefined
 	picks: MealPicks
 	sites?: readonly string[] | undefined
 }
-
-type FinderSort = RecipeSort | 'effort'
-
-const finderSorts: readonly FinderSort[] = [...recipeSorts, 'effort']
-
-// The work a meal a found recipe asks, for ordering by effort; what is not
-// known goes last.
-const workOf = (recipe: FoundRecipe) =>
-	(recipe.effort &&
-		effortPerMeal(
-			recipe.effort,
-			recipe.stock?.total ? recipe.stock.need.length : undefined,
-		)?.perMeal) ??
-	Number.POSITIVE_INFINITY
 
 // The finder laid flat in a page: its filters are the page's, and a recipe
 // picked opens its own page.
@@ -387,11 +366,11 @@ export function FinderPanel({
 	const { sort, picks } = filters
 	const sites = filters.sites ?? []
 
-	const setSort = (next: FinderSort | undefined) =>
+	const setSort = (next: RecipeSort | undefined) =>
 		setFilters({ ...filters, sort: next })
 
-	// A sort by rating searches everything; by effort, the list as it is.
-	const ratingSort = sort === 'effort' ? undefined : sort
+	// A sort by rating searches everything.
+	const ratingSort = sort
 
 	const setPicks = (update: (now: MealPicks) => MealPicks) =>
 		setFilters({ ...filters, picks: update(filters.picks) })
@@ -518,10 +497,7 @@ export function FinderPanel({
 							ofTemps(recipe),
 					)
 
-		// By effort, the least work a meal first, as read so far.
-		return sort === 'effort'
-			? [...kept].sort((a, b) => workOf(rated(a)) - workOf(rated(b)))
-			: kept
+		return kept
 	}
 
 	if (url) {
@@ -1289,7 +1265,7 @@ export function FinderPanel({
 								busy={busy}
 								optionProps={optionProps}
 								recipeRowClassName={recipeRowClassName}
-								showEffort={sort === 'effort'}
+
 								save={
 									inline
 										? (recipe) => ({
@@ -1385,7 +1361,6 @@ function SectionRows({
 	optionProps,
 	recipeRowClassName,
 	save,
-	showEffort,
 }: {
 	label: string
 	options: Option[]
@@ -1395,8 +1370,6 @@ function SectionRows({
 	recipeRowClassName: (index: number) => string
 	// Laid flat on home, each row saves from where it is.
 	save?: ((recipe: FoundRecipe) => RowSave) | undefined
-	// While the list is ordered by effort, each row says its own.
-	showEffort: boolean
 }) {
 	return (
 		<>
@@ -1418,7 +1391,6 @@ function SectionRows({
 								recipe={recipe}
 								note={recipeNote(recipe)}
 								save={save?.(recipe)}
-								showEffort={showEffort}
 							/>
 						</li>
 					)
@@ -1741,16 +1713,14 @@ function SortLine({
 	sort,
 	onSort,
 }: {
-	sort: FinderSort | undefined
-	onSort: (sort: FinderSort | undefined) => void
+	sort: RecipeSort | undefined
+	onSort: (sort: RecipeSort | undefined) => void
 }) {
-	const named = (each: FinderSort) => (each === 'loved' ? 'rating' : each)
+	const named = (each: RecipeSort) => (each === 'loved' ? 'rating' : each)
 
-	const mark = (each: FinderSort) =>
+	const mark = (each: RecipeSort) =>
 		each === 'votes' ? (
 			<UsersThreeIcon size={16} weight="bold" aria-hidden />
-		) : each === 'effort' ? (
-			<GaugeIcon size={16} weight="bold" aria-hidden />
 		) : (
 			<StarIcon
 				size={16}
@@ -1781,7 +1751,7 @@ function SortLine({
 						sideOffset={6}
 					>
 						<Menu.Popup className="floating bg-background w-44 py-1 outline-none">
-							{finderSorts.map((each) => (
+							{recipeSorts.map((each) => (
 								<Menu.Item
 									key={each}
 									onClick={() => onSort(each)}
@@ -1827,14 +1797,12 @@ function RecipeRow({
 	recipe,
 	note,
 	save,
-	showEffort,
 }: {
 	recipe: FoundRecipe
 	note: string
 	save?: RowSave | undefined
-	showEffort: boolean
 }) {
-	const { stock, rating } = recipe
+	const { rating } = recipe
 
 	return (
 		<>
@@ -1854,13 +1822,10 @@ function RecipeRow({
 				<span className="truncate text-base font-bold lowercase md:text-lg">
 					{recipe.title}
 				</span>
-				{/* The stars and the effort lead, at the row's right, lined up
-				    down the list. */}
-				<RatingAndEffort
-					rating={rating}
-					effort={showEffort ? recipe.effort : undefined}
-					buy={stock?.total ? stock.need.length : undefined}
-				/>
+				{/* The stars lead, at the row's right, lined up down the list. */}
+				<span className="row-span-3 flex flex-col items-end">
+					{rating ? <RatingBlock rating={rating} /> : <NoRating />}
+				</span>
 				{note ? (
 					<span className="text-muted-foreground col-start-1 truncate text-sm font-semibold lowercase md:text-base">
 						{note}
@@ -1926,37 +1891,6 @@ function NoRating() {
 				0.0
 			</span>
 			<span className="text-xs font-semibold md:text-sm">0 votes</span>
-		</span>
-	)
-}
-
-// The row's right: how it was rated, and under it how much it asks, by a dot
-// of basil, yolk or tomato. The recipe's page says why.
-function RatingAndEffort({
-	rating,
-	effort,
-	buy,
-}: {
-	rating: FoundRecipe['rating']
-	effort: RecipeEffort | undefined
-	buy: number | undefined
-}) {
-	const level = effort ? effortLevel(effort, buy) : undefined
-	const tint = level ? effortTints.get(level) : undefined
-
-	return (
-		<span className="row-span-3 flex flex-col items-end gap-1">
-			{rating ? <RatingBlock rating={rating} /> : <NoRating />}
-			{level && tint ? (
-				<span className="inline-flex items-center gap-1.5 text-xs font-bold whitespace-nowrap md:text-sm">
-					<span
-						aria-hidden
-						className={cn('size-2 shrink-0 rounded-full', tint.dot)}
-					/>
-					{level}
-					<span className="max-md:sr-only">effort</span>
-				</span>
-			) : null}
 		</span>
 	)
 }

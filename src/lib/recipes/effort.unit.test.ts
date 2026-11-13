@@ -1,13 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import {
-	effortLevel,
-	effortPerMeal,
-	keepingOf,
-	shopEffort,
-	stepWaits,
-	timeSplit,
-} from './effort'
+import { keepingOf, mealsOf, stepWaits, timeSplit } from './effort'
 
 describe('effort', () => {
 	test('counts what the steps say to wait out, to the end of a range', () => {
@@ -69,56 +62,18 @@ describe('effort', () => {
 		})
 	})
 
-	test('shares the work over the meals a recipe makes and keeps for', () => {
+	test('counts the meals a recipe makes for two, as long as it keeps', () => {
 		const days = { days: '3–4 days', freezes: false }
 
-		// A pot of chili for eight that freezes: an hour's work over four meals.
+		// A pot of chili for eight that freezes: four meals.
+		expect(mealsOf({ servings: 8, keeps: { ...days, freezes: true } })).toBe(4)
+		// A big batch that keeps only the fridge's days: three at most.
+		expect(mealsOf({ servings: 12, keeps: days })).toBe(3)
+		// Raw fish is for the day: one, however many it serves.
 		expect(
-			effortPerMeal(
-				{
-					activeMinutes: 60,
-					foods: 14,
-					servings: 8,
-					keeps: { ...days, freezes: true },
-				},
-				8,
-			),
-		).toEqual({ work: 86, meals: 4, perMeal: 22 })
-		expect(
-			effortLevel(
-				{
-					activeMinutes: 60,
-					foods: 14,
-					servings: 8,
-					keeps: { ...days, freezes: true },
-				},
-				8,
-			),
-		).toBe('low')
-		// A fancy steak for two: less time, all of it for one meal.
-		expect(
-			effortLevel({ activeMinutes: 90, foods: 9, servings: 2, keeps: days }, 5),
-		).toBe('high')
-		// Waiting is not work: a slow braise, a few minutes to put together.
-		expect(
-			effortLevel(
-				{
-					activeMinutes: 15,
-					totalMinutes: 180,
-					foods: 8,
-					servings: 4,
-					keeps: days,
-				},
-				1,
-			),
-		).toBe('low')
-	})
-
-	test('says how fresh and spread out a shop is', () => {
-		expect(shopEffort(['2 lb chicken thighs', 'cumin', 'onions'])).toEqual({
-			buy: 3,
-			fresh: 2,
-			aisles: 3,
-		})
+			mealsOf({ servings: 6, keeps: { days: 'the same day', freezes: false } }),
+		).toBe(1)
+		// Unknown until the page or the cook says how many it serves.
+		expect(mealsOf({ keeps: days })).toBeUndefined()
 	})
 })
