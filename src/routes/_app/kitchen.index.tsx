@@ -194,7 +194,12 @@ function Pantry({
 	// undo puts it back as it was, dates and count and all.
 	function remove(item: PantryItem) {
 		show(item.id, false)
-		void navigate({ to: '/kitchen', search: { spot }, resetScroll: false })
+		// Back to the view it was removed from, so undo shows it there.
+		void navigate({
+			to: '/kitchen',
+			search: { spot, list: showing },
+			resetScroll: false,
+		})
 
 		const removed = deletePantryItem({ data: { id: item.id } }).then(() =>
 			router.invalidate(),
@@ -323,7 +328,7 @@ function Pantry({
 					onClose={() =>
 						void navigate({
 							to: '/kitchen',
-							search: { spot },
+							search: { spot, list: showing },
 							resetScroll: false,
 						})
 					}
@@ -430,7 +435,16 @@ function daysTag(days: number) {
 
 // Food as cards to pick up, on the grid every view of the kitchen shares:
 // what to use first, or what came in last.
-function FoodCards({ label, items }: { label: string; items: PantryItem[] }) {
+function FoodCards({
+	label,
+	items,
+	list,
+}: {
+	label: string
+	items: PantryItem[]
+	// The view the cards are shown in, kept while one is open.
+	list?: 'recent' | undefined
+}) {
 	const [all, setAll] = useState(false)
 	const shown = all ? items : items.slice(0, firstShown)
 
@@ -439,7 +453,7 @@ function FoodCards({ label, items }: { label: string; items: PantryItem[] }) {
 			<ul aria-label={label} className={foodGridClassName}>
 				{shown.map((item) => (
 					<li key={item.id}>
-						<FoodCard item={item} search={{ item: item.id }} />
+						<FoodCard item={item} search={{ list, item: item.id }} />
 					</li>
 				))}
 			</ul>
@@ -470,7 +484,7 @@ function FoodCard({
 	selected = false,
 }: {
 	item: PantryItem
-	search: { spot?: PantrySpot; item: string }
+	search: { spot?: PantrySpot; list?: 'recent' | undefined; item: string }
 	selected?: boolean
 }) {
 	const out = item.level === 'out'
@@ -660,7 +674,7 @@ function OnHand({
 				<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
 			) : showing === 'recent' ? (
 				recent.length ? (
-					<FoodCards label="recently added" items={recent} />
+					<FoodCards label="recently added" items={recent} list="recent" />
 				) : (
 					<EmptyBlock
 						title="nothing added yet"
