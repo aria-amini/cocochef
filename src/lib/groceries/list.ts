@@ -87,7 +87,10 @@ export function shoppingLine(line: string) {
 
 	if (food.name === 'eggs') return 'eggs'
 
-	if (food.kind === 'count') return bought
+	// Counted food keeps its count, but not a cooking measure of it: "1 cup
+	// diced onions" is onions.
+	if (food.kind === 'count')
+		return kitchenMeasures.has(unit) ? food.name : bought
 
 	return !boughtByNeed.has(food.category) || kitchenMeasures.has(unit)
 		? food.name

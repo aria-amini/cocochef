@@ -193,6 +193,7 @@ export async function shelfRecipeUsing(
 		.where(
 			and(
 				eq(shelfRecipes.userId, userId),
+				visibleTo(userId, database),
 				isNotNull(recipes.finalizedAt),
 				or(
 					...stems.map((stem) =>

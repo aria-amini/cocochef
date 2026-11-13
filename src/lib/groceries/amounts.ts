@@ -59,7 +59,9 @@ export function shoppingUnitsFor(line: string): readonly string[] {
 
 	if (own) return own
 
-	if (food?.kind === 'count') return [each, 'lb', 'bag']
+	// Counted food sold one by one; canned food keeps its aisle's cans and jars.
+	if (food?.kind === 'count' && food.category !== 'cans')
+		return [each, 'lb', 'bag']
 
 	return unitsByAisle[food?.category ?? ingredientCategory(line)]
 }

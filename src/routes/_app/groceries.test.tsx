@@ -351,6 +351,14 @@ describe('groceries', () => {
 		await expect.poll(() => list.items[0]?.text).toBe('2 red onion')
 		await expectPageScreenshot(screen.container, 'groceries-edit')
 
+		// Escape takes an edit back: nothing is saved for it.
+		const renamed = screen.getByRole('textbox', { name: 'name of 2 red onion' })
+
+		await renamed.fill('purple onion')
+		await userEvent.keyboard('{Escape}')
+		await expect.element(renamed).toHaveValue('red onion')
+		expect(list.items[0]?.text).toBe('2 red onion')
+
 		// The amount's label opens its units; a new unit starts over.
 		await screen
 			.getByRole('button', { name: 'amount of red onion, change units' })
