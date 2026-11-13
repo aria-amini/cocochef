@@ -318,14 +318,21 @@ export function shelfState(
 		category: PantryCategory
 		confirmedAt: Date
 		boughtAt: Date
+		frozenAt?: Date | null | undefined
 	},
 	now: Date,
 ) {
-	const keeps = shelfLife(item.name, item.category)
+	// Put in the freezer, it keeps as frozen food does, from the day it went in.
+	const frozen = item.frozenAt ?? undefined
+
+	const keeps = frozen
+		? shelfLife(item.name, 'frozen')
+		: shelfLife(item.name, item.category)
+
 	const spoils = keeps <= spoilsWithin
 	const food = foodOf(item.name)
 	const staple = food ? food.staple : !freshCategories.has(item.category)
-	const bought = (now.getTime() - item.boughtAt.getTime()) / day
+	const bought = (now.getTime() - (frozen ?? item.boughtAt).getTime()) / day
 	const confirmed = (now.getTime() - item.confirmedAt.getTime()) / day
 
 	const state = spoils

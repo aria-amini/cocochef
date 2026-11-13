@@ -29,7 +29,11 @@ export const pantrySpotSprites: Record<PantrySpot, string> = {
 	freezer: 'ice-cube',
 }
 
-type Food = { name: string; category: PantryCategory }
+type Food = {
+	name: string
+	category: PantryCategory
+	frozenAt?: Date | null | undefined
+}
 
 // Fresh food that keeps three weeks and more sits out: onions, potatoes,
 // garlic, squash.
@@ -49,6 +53,9 @@ const herbs =
 
 // The spot a food lives in, from what kind of food it is.
 export function spotOf(food: Food): PantrySpot {
+	// Whatever it is, the cook put it in the freezer.
+	if (food.frozenAt) return 'freezer'
+
 	const name = food.name.toLowerCase()
 
 	switch (food.category) {

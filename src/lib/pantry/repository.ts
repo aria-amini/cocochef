@@ -220,6 +220,30 @@ export async function keepPantryItemForUser(
 	return item ?? null
 }
 
+// Into the freezer, or out of it. Frozen, it keeps a frozen food's months
+// from today; taken out, it is fresh from today, its fridge days counted
+// again.
+export async function setPantryItemFrozenForUser(
+	userId: string,
+	id: string,
+	frozen: boolean,
+	database: Database = getDb(),
+) {
+	const now = new Date()
+
+	const [item] = await database
+		.update(pantryItems)
+		.set(
+			frozen
+				? { frozenAt: now, confirmedAt: now }
+				: { frozenAt: null, boughtAt: now, confirmedAt: now },
+		)
+		.where(and(eq(pantryItems.id, id), eq(pantryItems.userId, userId)))
+		.returning()
+
+	return item ?? null
+}
+
 // A removed item put back as it was, under its own id, with its dates and
 // count: undoing a delete loses nothing.
 export async function restorePantryItemForUser(
@@ -229,6 +253,7 @@ export async function restorePantryItemForUser(
 		createdAt: Date
 		confirmedAt: Date
 		boughtAt: Date
+		frozenAt?: Date | null | undefined
 	},
 	database: Database = getDb(),
 ) {
@@ -244,6 +269,7 @@ export async function restorePantryItemForUser(
 			createdAt: item.createdAt,
 			confirmedAt: item.confirmedAt,
 			boughtAt: item.boughtAt,
+			frozenAt: item.frozenAt ?? null,
 		})
 		.onConflictDoNothing()
 		.returning()

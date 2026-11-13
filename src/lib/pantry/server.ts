@@ -25,6 +25,7 @@ import {
 	restockPantryForUser,
 	restockPantryItemForUser,
 	restorePantryItemForUser,
+	setPantryItemFrozenForUser,
 	setPantryItemCountForUser,
 	setPantryItemLevelForUser,
 } from './repository'
@@ -135,6 +136,17 @@ export const keepPantryItem = createServerFn({ method: 'POST' })
 		keepPantryItemForUser(await requireAccountId('keep ingredients'), data.id),
 	)
 
+// Put in the freezer, or taken out of it.
+export const setPantryItemFrozen = createServerFn({ method: 'POST' })
+	.validator(z.object({ id: z.string().min(1), frozen: z.boolean() }))
+	.handler(async ({ data }) =>
+		setPantryItemFrozenForUser(
+			await requireAccountId('keep ingredients'),
+			data.id,
+			data.frozen,
+		),
+	)
+
 export const restorePantryItem = createServerFn({ method: 'POST' })
 	.validator(
 		pantryItemInput.extend({
@@ -142,6 +154,7 @@ export const restorePantryItem = createServerFn({ method: 'POST' })
 			createdAt: z.coerce.date(),
 			confirmedAt: z.coerce.date(),
 			boughtAt: z.coerce.date(),
+			frozenAt: z.coerce.date().nullable().optional(),
 		}),
 	)
 	.handler(async ({ data }) =>

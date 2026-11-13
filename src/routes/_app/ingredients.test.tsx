@@ -69,6 +69,7 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 				createdAt: new Date('2026-10-19T12:00:00Z'),
 				confirmedAt: new Date('2026-10-19T12:00:00Z'),
 				boughtAt: new Date('2026-10-19T12:00:00Z'),
+				frozenAt: null,
 			}
 
 			state.items.push(item)
@@ -152,6 +153,7 @@ const item = (
 	createdAt: new Date('2026-10-19T12:00:00Z'),
 	confirmedAt: new Date('2026-10-19T12:00:00Z'),
 	boughtAt: new Date('2026-10-19T12:00:00Z'),
+	frozenAt: null,
 	spoils: false,
 	stale: false,
 	expired: false,
