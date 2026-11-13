@@ -1,5 +1,4 @@
 import {
-	CaretLeft,
 	CaretRight,
 	CheckIcon,
 	HourglassMediumIcon,
@@ -24,6 +23,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { CountPill } from '@/components/count-pill'
 import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
 import { GroceryList, type GroceryItem } from '@/components/grocery-list'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
@@ -286,26 +286,6 @@ function Pantry({
 			<div className="flex max-w-3xl flex-col gap-7 p-6 pb-28 md:p-10">
 				{/* The sidebar says where you are; the page opens on its own controls. */}
 				<h1 className="sr-only">kitchen</h1>
-				{spot ? (
-					<Link
-						to="/kitchen"
-						className="text-muted-foreground hover:text-foreground -mb-3 inline-flex min-h-9 items-center gap-1 self-start text-sm font-bold transition-colors"
-					>
-						<CaretLeft size={14} weight="bold" aria-hidden />
-						kitchen
-					</Link>
-				) : null}
-				{spot ? (
-					<header className="flex flex-wrap items-center justify-between gap-3">
-						<h2 className="text-2xl font-bold">
-							{pantrySpotLabels[spot]}{' '}
-							<span className="text-muted-foreground text-base font-semibold tabular-nums">
-								{inSpot.length}
-							</span>
-						</h2>
-					</header>
-				) : null}
-
 				{items.length === 0 ? (
 					<>
 						<section className="border-foreground/30 flex flex-col items-center gap-4 rounded-xl border border-dashed p-10 text-center">
@@ -329,8 +309,6 @@ function Pantry({
 							<Need list={list} wanting={wanting} shopping={false} />
 						) : null}
 					</>
-				) : spot ? (
-					<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
 				) : (
 					<>
 						{toCheck.length ? (
@@ -340,6 +318,8 @@ function Pantry({
 						<Need list={list} wanting={wanting} shopping={false} />
 						<Have
 							items={kept}
+							spot={spot}
+							inSpot={inSpot}
 							query={query}
 							onQuery={setQuery}
 							matches={matches}
@@ -385,11 +365,13 @@ function Pantry({
 function SectionHeading({
 	id,
 	icon: Mark,
+	count,
 	children,
 	action,
 }: {
 	id: string
 	icon?: Icon | undefined
+	count?: number | undefined
 	children: React.ReactNode
 	action?: React.ReactNode
 }) {
@@ -401,6 +383,7 @@ function SectionHeading({
 			>
 				{Mark ? <Mark size={18} weight="bold" aria-hidden /> : null}
 				{children}
+				{count ? <CountPill count={count} /> : null}
 			</h2>
 			{action}
 		</div>
@@ -412,13 +395,12 @@ function daysWord(days: number) {
 	return days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `${days} days`
 }
 
-// What is going off in the next two weeks, soonest first: this week's to
-// use, next week's to plan around, each a card to pick up. Under this week,
-// a recipe on the shelf that would use it.
+// What is going off in the next two weeks, soonest first, as cards to pick
+// up. Each card's days say which week it falls in: tomato for today and
+// tomorrow, yolk for the rest of this week, quiet for next. Under them, a
+// recipe on the shelf that would use the soonest.
 function GoingOff({ items }: { items: PantryItem[] }) {
-	const thisWeek = items.filter((item) => item.daysLeft <= weekDays)
-	const nextWeek = items.filter((item) => item.daysLeft > weekDays)
-	const asked = (thisWeek.length ? thisWeek : nextWeek).slice(0, useUpAsked)
+	const asked = items.slice(0, useUpAsked)
 
 	const recipe = useQuery({
 		queryKey: ['use-up', asked.map((item) => item.name)],
@@ -427,51 +409,14 @@ function GoingOff({ items }: { items: PantryItem[] }) {
 	})
 
 	return (
-		<section aria-labelledby="going-off" className="flex flex-col gap-4">
+		<section aria-labelledby="going-off" className="flex flex-col gap-3">
 			<SectionHeading
 				id="going-off"
 				icon={HourglassMediumIcon}
-				action={
-					<span className="text-muted-foreground text-sm font-semibold">
-						{items.length} in two weeks
-					</span>
-				}
+				count={items.length}
 			>
 				going off
 			</SectionHeading>
-			{thisWeek.length ? (
-				<WhenGroup label="this week" items={thisWeek} />
-			) : null}
-			{recipe.data ? (
-				<Link
-					to="/recipes/$recipeId"
-					params={{ recipeId: recipe.data.id }}
-					className="bg-card border-border hover:border-foreground/30 flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 transition-colors"
-				>
-					<span className="flex min-w-0 flex-1 flex-col">
-						<span className="text-muted-foreground text-xs font-semibold">
-							cook with {recipe.data.uses.length > 1 ? 'them' : 'it'}
-						</span>
-						<span className="truncate text-base font-bold">
-							{recipe.data.title}
-						</span>
-					</span>
-					<CaretRight size={16} weight="bold" aria-hidden />
-				</Link>
-			) : null}
-			{nextWeek.length ? (
-				<WhenGroup label="next week" items={nextWeek} />
-			) : null}
-		</section>
-	)
-}
-
-// One week's food going off, as cards in a grid, each with its days left:
-// tomato for today and tomorrow, yolk for the rest of the week, quiet after.
-function WhenGroup({ label, items }: { label: string; items: PantryItem[] }) {
-	return (
-		<div className="flex flex-col gap-2">
-			<h3 className="text-muted-foreground text-sm font-bold">{label}</h3>
 			<ul className="grid grid-cols-3 gap-2 md:grid-cols-5">
 				{items.map((item) => (
 					<li key={item.id}>
@@ -503,7 +448,24 @@ function WhenGroup({ label, items }: { label: string; items: PantryItem[] }) {
 					</li>
 				))}
 			</ul>
-		</div>
+			{recipe.data ? (
+				<Link
+					to="/recipes/$recipeId"
+					params={{ recipeId: recipe.data.id }}
+					className="bg-card border-border hover:border-foreground/30 flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 transition-colors"
+				>
+					<span className="flex min-w-0 flex-1 flex-col">
+						<span className="text-muted-foreground text-xs font-semibold">
+							cook with {recipe.data.uses.length > 1 ? 'them' : 'it'}
+						</span>
+						<span className="truncate text-base font-bold">
+							{recipe.data.title}
+						</span>
+					</span>
+					<CaretRight size={16} weight="bold" aria-hidden />
+				</Link>
+			) : null}
+		</section>
 	)
 }
 
@@ -603,12 +565,17 @@ function NeedNote({
 // the kitchen, and stocking up starts here too.
 function Have({
 	items,
+	spot,
+	inSpot,
 	query,
 	onQuery,
 	matches,
 	selectedId,
 }: {
 	items: PantryItem[]
+	// The spot opened under the tiles, and what it holds.
+	spot: PantrySpot | undefined
+	inSpot: PantryItem[]
 	query: string
 	onQuery: (query: string) => void
 	matches: PantryItem[]
@@ -633,6 +600,7 @@ function Have({
 			<SectionHeading
 				id="on-hand"
 				icon={JarLabelIcon}
+				count={items.length}
 				action={
 					<div className="flex items-center gap-2">
 						<button
@@ -710,46 +678,57 @@ function Have({
 					<NotFound name={query.trim()} onAdded={stopFinding} />
 				)
 			) : (
-				<ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
-					{spots.map(({ spot, held }) => (
-						<li key={spot}>
-							<Link
-								to="/kitchen"
-								search={{ spot }}
-								aria-label={`${pantrySpotLabels[spot]}, ${held.length}`}
-								className={cn(
-									'hover:border-foreground/30 flex h-full items-center gap-3 rounded-xl border p-3 transition-colors',
-									held.length
-										? 'bg-card border-border'
-										: 'border-foreground/30 border-dashed',
-								)}
-							>
-								<PantrySprite
-									look={standardLook({ key: pantrySpotSprites[spot] })}
+				<>
+					<ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+						{spots.map(({ spot: each, held }) => (
+							<li key={each}>
+								<Link
+									to="/kitchen"
+									// A spot opens its jars under the tiles; tapped again, it
+									// closes. The back button closes it too.
+									search={each === spot ? {} : { spot: each }}
+									resetScroll={false}
+									aria-current={each === spot ? 'true' : undefined}
+									aria-label={`${pantrySpotLabels[each]}, ${held.length}`}
 									className={cn(
-										'size-8 shrink-0',
-										!held.length && 'opacity-50',
+										'hover:border-foreground/30 flex h-full items-center gap-3 rounded-xl border p-3 transition-colors',
+										each === spot
+											? 'bg-kitchen-yolk/30 border-kitchen-yolk'
+											: held.length
+												? 'bg-card border-border'
+												: 'border-foreground/30 border-dashed',
 									)}
-								/>
-								<span className="flex min-w-0 flex-col">
-									<span className="truncate text-base font-bold">
-										{pantrySpotLabels[spot]}
-									</span>
-									<span className="text-muted-foreground truncate text-xs font-semibold">
-										{held.length ? (
-											<>
-												<span className="tabular-nums">{held.length}</span> ·{' '}
-												{spotNote(held)}
-											</>
-										) : (
-											'nothing frozen yet'
+								>
+									<PantrySprite
+										look={standardLook({ key: pantrySpotSprites[each] })}
+										className={cn(
+											'size-8 shrink-0',
+											!held.length && 'opacity-50',
 										)}
+									/>
+									<span className="flex min-w-0 flex-col">
+										<span className="truncate text-base font-bold">
+											{pantrySpotLabels[each]}
+										</span>
+										<span className="text-muted-foreground truncate text-xs font-semibold">
+											{held.length ? (
+												<>
+													<span className="tabular-nums">{held.length}</span> ·{' '}
+													{spotNote(held)}
+												</>
+											) : (
+												'empty'
+											)}
+										</span>
 									</span>
-								</span>
-							</Link>
-						</li>
-					))}
-				</ul>
+								</Link>
+							</li>
+						))}
+					</ul>
+					{spot ? (
+						<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
+					) : null}
+				</>
 			)}
 		</section>
 	)

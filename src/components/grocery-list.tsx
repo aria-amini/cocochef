@@ -29,6 +29,7 @@ import {
 import { toast } from 'sonner'
 
 import { AmountBar } from '@/components/amount-bar'
+import { CountPill } from '@/components/count-pill'
 import { groceryCountKey } from '@/components/grocery-badge'
 import { useGroceryComposer } from '@/components/grocery-entry'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
@@ -460,11 +461,7 @@ export function GroceryList({
 				>
 					<ToteSimpleIcon size={18} weight="bold" aria-hidden />
 					groceries
-					{waiting.length ? (
-						<span className="text-muted-foreground font-semibold tabular-nums">
-							{waiting.length}
-						</span>
-					) : null}
+					{waiting.length ? <CountPill count={waiting.length} /> : null}
 				</h2>
 				{editButton}
 				{waiting.length && !editing ? (
