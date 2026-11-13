@@ -3,11 +3,17 @@ import { createFileRoute, notFound } from '@tanstack/react-router'
 import { PublicRecipePage } from '@/components/public-recipes'
 import { RecipeAccessDenied } from '@/components/recipe-access-denied'
 import { RecipeDetail } from '@/components/recipe-detail'
+import { recipeHandoff } from '@/lib/recipes/handoff'
 import { readRecipeAt } from '@/lib/sharing/server'
 
 export const Route = createFileRoute('/_app/$handle/$slug')({
 	staticData: { header: 'none' },
-	loader: async ({ params }) => {
+	loader: async ({ params, cause }) => {
+		// Opened from its id, which already read it for this cook.
+		const handed = recipeHandoff.get(`/${params.handle}/${params.slug}`, cause)
+
+		if (handed) return { kind: 'app' as const, recipe: handed }
+
 		const found = await readRecipeAt({ data: params })
 
 		// Missing and private recipes look the same, and both are a real 404.
