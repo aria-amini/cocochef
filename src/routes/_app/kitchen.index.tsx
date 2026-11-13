@@ -663,7 +663,6 @@ function OnHand({
 					<FoodCards label="recently added" items={recent} />
 				) : (
 					<EmptyBlock
-						mark={<ClockIcon size={20} weight="bold" aria-hidden />}
 						title="nothing added yet"
 						body="what you bring home shows here first"
 					/>
@@ -672,7 +671,6 @@ function OnHand({
 				<FoodCards label="use first" items={fresh} />
 			) : (
 				<EmptyBlock
-					mark={<WarningCircleIcon size={20} weight="bold" aria-hidden />}
 					title="nothing to use first"
 					body="everything here keeps for two weeks or more"
 				/>
@@ -788,22 +786,19 @@ function ViewMenu({
 }
 
 // Nothing to show: a dashed block as tall as a row of cards, in their place,
-// saying so and why, with what to do about it when there is something.
+// saying so and why, with what to do about it when there is something. No
+// mark of its own: the picker over it already names the view.
 function EmptyBlock({
-	mark,
 	title,
 	body,
 	action,
 }: {
-	// Drawn in the block's quiet ink, 20px.
-	mark: React.ReactNode
 	title: string
 	body: string
 	action?: React.ReactNode
 }) {
 	return (
 		<div className="border-foreground/30 flex min-h-24 items-center gap-3 rounded-xl border border-dashed p-3">
-			<span className="text-muted-foreground shrink-0">{mark}</span>
 			<div className="flex min-w-0 flex-1 flex-col">
 				<p className="text-sm font-bold">{title}</p>
 				<p className="text-muted-foreground text-sm font-semibold">{body}</p>
@@ -835,7 +830,6 @@ function JarWall({
 	if (!items.length)
 		return (
 			<EmptyBlock
-				mark={<SpotIcon spot={spot} size={20} />}
 				title={`nothing in the ${pantrySpotLabels[spot]} yet`}
 				body="stock up and it lands where it keeps"
 				action={
