@@ -5,6 +5,7 @@ import {
 	LinkSimpleIcon,
 	LockSimpleIcon,
 	PencilSimpleLineIcon,
+	PlusIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
@@ -123,6 +124,9 @@ function Shelf() {
 						? [{ id: 'shared-recipes', title: 'shared', recipes: shared }]
 						: []
 
+	// The first shelf shown opens with the tile to add a recipe of your own.
+	const firstSection = sections.find((section) => section.recipes.length)?.id
+
 	return (
 		<main className="min-w-0 flex-1">
 			<motion.div
@@ -132,13 +136,6 @@ function Shelf() {
 				<h1 className="sr-only">my recipes</h1>
 				<div className="flex w-full flex-wrap items-center justify-between gap-3">
 					<SharedFrom signedIn={!!account} />
-					<div className="hidden items-center gap-3 md:flex">
-						{/* Every way to add a recipe of your own. */}
-						<AddRecipeMenu
-							iconSize={22}
-							className="bg-kitchen-yolk grid size-12 shrink-0 place-items-center rounded-full transition-colors hover:brightness-95"
-						/>
-					</div>
 				</div>
 				{isEmpty ? (
 					<button
@@ -220,6 +217,7 @@ function Shelf() {
 								{title}
 							</h2>
 							<div className={shelfGridClassName}>
+								{id === firstSection ? <AddTile /> : null}
 								{recipes.map((recipe) => (
 									<RecipeTile
 										key={recipe.id}
@@ -239,6 +237,26 @@ function Shelf() {
 				)}
 			</motion.div>
 		</main>
+	)
+}
+
+// Adding a recipe of your own, as the shelf's first tile: dashed, since it
+// is not a recipe yet, and the size of one. It opens every way to add: write
+// one, import a link, or paste its text. On a phone the round plus over the
+// tab bar does this, in thumb's reach, so the tile is for wider screens.
+function AddTile() {
+	return (
+		<div className="hidden md:block">
+			<AddRecipeMenu
+				align="start"
+				className="border-foreground/30 hover:border-foreground/50 text-muted-foreground hover:text-foreground data-popup-open:border-foreground/50 data-popup-open:text-foreground flex size-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed text-sm font-bold transition-colors"
+			>
+				<span className="border-foreground/40 grid size-10 place-items-center rounded-full border-2 border-dashed">
+					<PlusIcon size={18} weight="bold" aria-hidden />
+				</span>
+				add a recipe
+			</AddRecipeMenu>
+		</div>
 	)
 }
 
