@@ -13,7 +13,8 @@ vi.mock('@/lib/recipes/server', () => ({
 }))
 
 // A slow loader: long enough for the progress bar and placeholder to show.
-vi.mock('@/lib/pantry/server', () => ({
+vi.mock('@/lib/pantry/server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	listPantry: () =>
 		new Promise((resolve) => setTimeout(() => resolve([]), 900)),
 	createPantryItems: vi.fn(),

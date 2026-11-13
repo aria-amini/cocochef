@@ -52,11 +52,11 @@ export async function hasPublicRecipe(
 
 async function requireAccount(userId: string, database: SharingDatabase) {
 	const [account] = await database
-		.select({ anonymous: user.isAnonymous })
+		.select({ id: user.id })
 		.from(user)
 		.where(eq(user.id, userId))
 
-	if (!account || account.anonymous) throw new Error('sign in to share recipes')
+	if (!account) throw new Error('sign in to share recipes')
 }
 
 export async function saveSharingProfile(
@@ -183,11 +183,11 @@ async function ensureSharingProfile(userId: string, database: SharingDatabase) {
 	if (existing) return existing
 
 	const [account] = await database
-		.select({ name: user.name, anonymous: user.isAnonymous })
+		.select({ name: user.name })
 		.from(user)
 		.where(eq(user.id, userId))
 
-	if (!account || account.anonymous) throw new Error('sign in to save recipes')
+	if (!account) throw new Error('sign in to save recipes')
 	const rawBase = sharingSlug(account.name).slice(0, 30) || 'cook'
 
 	const base =

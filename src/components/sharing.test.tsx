@@ -59,6 +59,7 @@ const recipe = {
 	sourceNotes: 'Publisher cooking tip',
 	servings: null,
 	totalMinutes: null,
+	prepMinutes: null,
 	ratingValue: null,
 	ratingCount: null,
 	commentCount: null,
@@ -310,13 +311,11 @@ describe('sharing', () => {
 		expect(sessionStorage.getItem('cocochef:last-recipe')).toBe('pasta')
 	})
 
-	test('lets an anonymous visitor open signup from save', async () => {
+	test('lets a signed-out visitor open signup from save', async () => {
 		api.web.mockResolvedValue(recipe)
-		const guest = { ...session, user: { ...session.user, isAnonymous: true } }
 
 		const { screen } = await renderRoute({
 			path: '/sites/example.com/pasta',
-			session: guest,
 		})
 
 		const save = screen.getByRole('button', { name: 'save', exact: true })

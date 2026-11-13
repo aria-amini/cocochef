@@ -88,7 +88,11 @@ vi.mock('@/lib/recipes/server', () => ({
 	},
 }))
 
-type GroceryInput = { text: string; recipeId?: string; recipeTitle?: string }
+type GroceryInput = {
+	text: string
+	recipeId?: string
+	recipeTitle?: string
+}
 
 const groceryCalls = vi.hoisted(() => {
 	const calls: GroceryInput[][] = []
@@ -96,10 +100,63 @@ const groceryCalls = vi.hoisted(() => {
 	return calls
 })
 
-const groceryWaiting = vi.hoisted(() => ({ count: 0 }))
+type WaitingGrocery = { text: string; checkedAt: Date | null }
+
+const groceryWaiting = vi.hoisted(() => {
+	const items: WaitingGrocery[] = []
+
+	return { count: 0, items }
+})
+
+type KeptFood = {
+	name: string
+	level: 'plenty' | 'low' | 'out'
+	stale: boolean
+	confirmedAt: Date
+}
+
+const pantryState = vi.hoisted(() => {
+	const items: KeptFood[] = []
+	const learned: { text: string }[][] = []
+	const marked: string[] = []
+
+	return { items, learned, marked }
+})
+
+const kept = (
+	name: string,
+	level: KeptFood['level'] = 'plenty',
+	stale = false,
+): KeptFood => ({
+	name,
+	level,
+	stale,
+	confirmedAt: new Date('2026-03-02T12:00:00Z'),
+})
+
+vi.mock('@/lib/pantry/server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
+	// Copies, as the server sends, so a change shows up after a refetch.
+	pantryOnHand: () => Promise.resolve([...pantryState.items]),
+	restockPantry: ({ data }: { data: { text: string }[] }) => {
+		pantryState.learned.push(data.map(({ text }) => ({ text })))
+
+		return Promise.resolve({ restocked: 0, added: data.length })
+	},
+	markHave: ({ data }: { data: { text: string } }) => {
+		pantryState.marked.push(data.text)
+		pantryState.items.push(kept(data.text))
+
+		return Promise.resolve({ id: 'new', created: true, level: null })
+	},
+}))
+
+// The recipe's groceries button, whatever count it shows.
+const shopButton = (screen: { getByRole: typeof page.getByRole }) =>
+	screen.getByRole('button', { name: /to groceries|more$/ })
 
 vi.mock('@/lib/groceries/server', () => ({
-	listGroceries: () => Promise.resolve([]),
+	listGroceries: () => Promise.resolve(groceryWaiting.items),
 	countWaitingGroceries: () => Promise.resolve(groceryWaiting.count),
 	addGroceries: ({ data }: { data: GroceryInput[] }) => {
 		groceryCalls.push(data)
@@ -147,6 +204,9 @@ function fillRecipe() {
 
 describe('recipe detail', () => {
 	beforeEach(() => {
+		// No kitchen unless a test stocks one.
+		pantryState.items = []
+		groceryWaiting.items = []
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
@@ -165,6 +225,7 @@ describe('recipe detail', () => {
 			sourceNotes: null,
 			servings: null,
 			totalMinutes: null,
+			prepMinutes: null,
 			ratingValue: null,
 			ratingCount: null,
 			commentCount: null,
@@ -216,9 +277,11 @@ describe('recipe detail', () => {
 				.toBeVisible()
 
 			await nav.getByRole('link', { name: 'groceries' }).click()
+			// The groceries page loads on first visit, which can be slow when cold.
 			await expect
 				.element(
 					screen.getByRole('heading', { name: 'groceries', exact: true }),
+					{ timeout: 10_000 },
 				)
 				.toBeVisible()
 
@@ -318,7 +381,24 @@ describe('recipe detail', () => {
 		})
 	})
 
-	test('opens what the recipe would add to groceries, to change before adding', async () => {
+	test('asks a signed-out reader to sign up before adding to groceries', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1' })
+
+		groceryCalls.length = 0
+		await shopButton(screen).click()
+		await expect
+			.element(screen.getByRole('dialog', { name: 'create an account' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('dialog', { name: 'add groceries' }))
+			.not.toBeInTheDocument()
+		expect(groceryCalls).toEqual([])
+	})
+
+	test('opens every line the recipe would add to groceries, to untick before adding', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'## pasta',
@@ -327,47 +407,35 @@ describe('recipe detail', () => {
 			'## sauce',
 			'1 tbsp miso',
 		]
-
-		const writeText = vi
-			.spyOn(navigator.clipboard, 'writeText')
-			.mockResolvedValue(undefined)
+		groceryWaiting.items = []
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
 		groceryCalls.length = 0
-		await screen.getByRole('button', { name: 'add to groceries' }).click()
+		pantryState.learned.length = 0
+		await screen
+			.getByRole('button', { name: 'add 3 to groceries, 0 of 3 on your list' })
+			.click()
 
-		// Every line shows, without its preparation, to change before saving.
-		const review = page.getByRole('dialog', { name: 'add to groceries' })
-		await expect
-			.element(review.getByRole('textbox', { name: 'item 1' }))
-			.toHaveValue('200 g pasta')
-		await expect
-			.element(review.getByRole('textbox', { name: 'item 2' }))
-			.toHaveValue('2 cloves garlic')
+		// Every line shows ticked, as it is bought: no preparation, no section
+		// names, no spoonfuls for what comes in a package.
+		const review = page.getByRole('dialog', { name: 'add groceries' })
+		const line = (name: string) => review.getByRole('checkbox', { name })
 
-		// What the kitchen has is unticked, a line changed, another added.
-		await review.getByRole('checkbox', { name: 'add item 3' }).click()
-		await review
-			.getByRole('textbox', { name: 'item 2' })
-			.fill('3 cloves garlic')
-		await review
-			.getByRole('textbox', { name: 'add another item' })
-			.fill('parmesan')
-		await userEvent.keyboard('{Enter}')
-		await expect
-			.element(review.getByRole('textbox', { name: 'item 4' }))
-			.toHaveValue('parmesan')
-		await review.getByRole('button', { name: 'remove 200 g pasta' }).click()
+		await expect.element(line('pasta')).toBeChecked()
+		await expect.element(line('1 head garlic')).toBeChecked()
+		await expect.element(line('miso')).toBeChecked()
+
+		// What the kitchen has is unticked.
+		await review.getByText('miso', { exact: true }).click()
+		await expect.element(line('miso')).not.toBeChecked()
 		expect(groceryCalls).toEqual([])
 		await expectIsolatedScreenshot(review, 'add-to-groceries')
 
-		// The list as it stands can be copied for a message instead.
-		await review.getByRole('button', { name: 'copy' }).click()
-		expect(writeText).toHaveBeenCalledWith('3 cloves garlic\nparmesan')
-
 		await review.getByRole('button', { name: 'add 2' }).click()
 		await expect.element(review).not.toBeInTheDocument()
+		// Unticking it said the kitchen has it: the pantry learns so.
+		await expect.poll(() => pantryState.learned).toEqual([[{ text: 'miso' }]])
 		await expect.element(page.getByText('2 added to groceries')).toBeVisible()
 		// The groceries tab says how many landed, without leaving the recipe.
 		await expect
@@ -378,18 +446,123 @@ describe('recipe detail', () => {
 		expect(groceryCalls).toEqual([
 			[
 				{
-					text: '3 cloves garlic',
+					text: 'pasta',
 					recipeId: 'recipe-1',
 					recipeTitle: 'miso butter pasta',
 				},
 				{
-					text: 'parmesan',
+					text: '1 head garlic',
 					recipeId: 'recipe-1',
 					recipeTitle: 'miso butter pasta',
 				},
 			],
 		])
-		writeText.mockRestore()
+	})
+
+	test('leaves what is already on the grocery list unticked, and says so', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['200 g pasta', '2 cloves garlic']
+		groceryWaiting.items = [
+			{ text: '2 Cloves Garlic', checkedAt: null },
+			// Bought already: needed again.
+			{ text: '200 g pasta', checkedAt: new Date() },
+		]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen
+			.getByRole('button', { name: 'add 1 to groceries, 1 of 2 on your list' })
+			.click()
+
+		const review = page.getByRole('dialog', { name: 'add groceries' })
+
+		await expect
+			.element(
+				review
+					.getByRole('region', { name: 'already have' })
+					.getByRole('button', { name: 'buy 1 head garlic anyway' }),
+			)
+			.toBeVisible()
+		await expect.element(review.getByText('on your list')).toBeVisible()
+		await expect
+			.element(review.getByRole('checkbox', { name: /pasta/ }))
+			.toBeChecked()
+		groceryWaiting.items = []
+	})
+
+	test('leads to the list once it holds all the recipe still needs', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 cloves garlic', '1 cup milk']
+		groceryWaiting.items = [{ text: '1 cup milk', checkedAt: null }]
+		pantryState.items = [kept('garlic')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(
+				screen.getByRole('link', {
+					name: 'all 1 on your list: groceries list',
+				}),
+			)
+			.toHaveAttribute('href', '/groceries')
+
+		groceryWaiting.items = []
+		pantryState.items = []
+	})
+
+	test('offers no groceries when the kitchen has it all', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 cloves garlic', '1 cup milk']
+		groceryWaiting.items = []
+		pantryState.items = [kept('garlic'), kept('milk')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(screen.getByRole('button', { name: /groceries|more$/ }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('link', { name: /groceries list/ }))
+			.not.toBeInTheDocument()
+		pantryState.items = []
+	})
+
+	test('scrolls a long grocery list inside the dialog, its button in reach', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = Array.from(
+			{ length: 24 },
+			(_, index) => `${index + 1} tablespoon ingredient number ${index + 1}`,
+		)
+		groceryWaiting.items = []
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await shopButton(screen).click()
+
+		const review = page.getByRole('dialog', { name: 'add groceries' })
+		const list = review.getByRole('group', { name: 'items to add' })
+		const add = review.getByRole('button', { name: 'add 24' })
+
+		await expect.element(add).toBeVisible()
+
+		const box = (element: Element) => element.getBoundingClientRect()
+
+		// The rows scroll; the button sits below them, inside the dialog.
+		expect(list.element().scrollHeight).toBeGreaterThan(
+			list.element().clientHeight,
+		)
+		expect(box(add.element()).top).toBeGreaterThanOrEqual(
+			box(list.element()).bottom - 1,
+		)
+		expect(box(add.element()).bottom).toBeLessThanOrEqual(
+			box(review.element()).bottom,
+		)
+		await expectIsolatedScreenshot(review, 'add-to-groceries-long')
+
+		await review.getByText('ingredient number 1', { exact: true }).click()
+		await expect
+			.element(review.getByRole('button', { name: 'add 23' }))
+			.toBeEnabled()
 	})
 
 	test('shows specific and family icons while leaving unknown ingredients empty', async () => {
@@ -1620,7 +1793,10 @@ describe('recipe detail', () => {
 			.querySelector('svg')
 
 		if (!bookmark) throw new Error('saved button is missing its bookmark')
-		expect(getComputedStyle(bookmark).color).toBe('rgb(91, 61, 245)')
+		// The icon takes the button's colour, which fades in.
+		await expect
+			.poll(() => getComputedStyle(bookmark).color)
+			.toBe('rgb(91, 61, 245)')
 		// A saved recipe's bookmark asks before taking it back off the shelf.
 		await screen.getByRole('button', { name: 'saved', exact: true }).click()
 		await page.getByRole('button', { name: 'keep it' }).click()

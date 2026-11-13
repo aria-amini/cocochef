@@ -16,7 +16,7 @@ export const Route = createFileRoute('/_app/$handle/$slug')({
 		])
 
 		if (!recipe) {
-			if (session && !session.user.isAnonymous) {
+			if (session) {
 				const owned = await readOwnedRecipeAddress({ data: params })
 
 				if (owned) {
@@ -32,8 +32,7 @@ export const Route = createFileRoute('/_app/$handle/$slug')({
 
 		// Anyone the app already knows gets the recipe in the app, with the
 		// sidebar, cooking, and saving, at this same readable address. Visitors
-		// with no session (readers, crawlers, link previews) get the plain page;
-		// no guest account is made for them.
+		// with no session (readers, crawlers, link previews) get the plain page.
 		if (session) {
 			const full = await getRecipe({ data: { id: recipe.id } })
 

@@ -18,7 +18,7 @@ const navItems = [
 	{ label: 'groceries', icon: ShoppingCartIcon, to: '/groceries' },
 ] as const
 
-type TabBarMode = 'none' | 'bar' | 'bar-fab'
+type TabBarMode = 'none' | 'bar' | 'bar-fab' | 'bar-own-fab'
 
 // What a nav item does between a tap and the next page showing. It answers at
 // once: pressed while the finger is down, then highlighted with a pulsing icon
@@ -70,11 +70,13 @@ export function useTabBar(): TabBarMode {
 
 	if (!matches.some((match) => match.routeId === '/_app')) return 'none'
 
-	let mode: 'none' | 'fab' | undefined
+	let mode: 'none' | 'fab' | 'own-fab' | undefined
 
 	for (const match of matches) mode = match.staticData?.tabBar ?? mode
 
 	if (mode === 'none' || hidden) return 'none'
+
+	if (mode === 'own-fab') return 'bar-own-fab'
 
 	return mode === 'fab' ? 'bar-fab' : 'bar'
 }

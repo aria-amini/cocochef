@@ -344,7 +344,7 @@ export function filterCatalogItems(items: readonly string[], query: string) {
 // Shared food recognition uses the same category assignments as Ingredients,
 // plus the existing food aliases. Match whole words and prefer the most
 // specific food: coconut milk beats milk, tomato paste beats tomato.
-function categoryKey(name: string) {
+export function categoryKey(name: string) {
 	return normalizeIngredientName(name)
 		.normalize('NFD')
 		.replace(/\p{M}/gu, '')

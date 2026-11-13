@@ -14,7 +14,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
 				className={cn(
 					'bg-background text-foreground flex min-h-dvh flex-col md:flex-row md:pb-0',
 					tabBar === 'bar' && 'pb-tabbar',
-					tabBar === 'bar-fab' && 'pb-tabbar-fab',
+					(tabBar === 'bar-fab' || tabBar === 'bar-own-fab') && 'pb-tabbar-fab',
 				)}
 			>
 				<NavigationProgress />

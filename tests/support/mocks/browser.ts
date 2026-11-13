@@ -86,6 +86,18 @@ vi.mock('@/lib/auth/functions', () => ({
 vi.mock('@/lib/auth/session', () => ({
 	getCurrentSession: () => Promise.resolve(authState.session),
 	requireUserId: () => Promise.resolve(authState.session?.user.id ?? 'guest'),
+	getAccountId: () => {
+		const user = authState.session?.user
+
+		return Promise.resolve(user ? user.id : null)
+	},
+	requireAccountId: (action: string) => {
+		const user = authState.session?.user
+
+		return user
+			? Promise.resolve(user.id)
+			: Promise.reject(new Error(`sign in to ${action}`))
+	},
 }))
 
 vi.mock('@/routes/__root', async () => {

@@ -34,12 +34,12 @@ export function SaveRecipeButton({
 	const query = useQuery({
 		queryKey: ['recipe', recipe.id, account?.id],
 		queryFn: () => getRecipe({ data: { id: recipe.id } }),
-		enabled: recipe.saved === undefined && !!account && !account.isAnonymous,
+		enabled: recipe.saved === undefined && !!account,
 	})
 
 	const saved = query.data?.saved ?? recipe.saved ?? false
 	const owned = query.data?.owned ?? false
-	const signedIn = !!account && !account.isAnonymous
+	const signedIn = !!account
 
 	async function refresh() {
 		// A reload already under way, like the one sign-in starts, read the recipe
@@ -113,6 +113,7 @@ export function SaveRecipeButton({
 	return (
 		<>
 			<Button
+				// Light, not the page's one solid: saving is offered, not pressed on.
 				variant={saved ? 'saved' : 'outline'}
 				disabled={
 					pending ||
@@ -131,7 +132,6 @@ export function SaveRecipeButton({
 					size={14}
 					weight={saved ? 'fill' : 'bold'}
 					aria-hidden
-					className="text-kitchen-eggplant"
 				/>
 				{saved ? 'saved' : 'save'}
 			</Button>

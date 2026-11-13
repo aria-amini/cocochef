@@ -48,8 +48,9 @@ const useWaiting = () => {
 	}).data
 }
 
-// How many items are left to buy, on the groceries tab: nothing at none, and
-// "+3" for a moment when a recipe adds three. Seen, not read: `GroceryCount`
+// How many items are left to buy, on the groceries tab: a quiet number in
+// muted ink, since a list never needs you now, nothing at none, and "+3" in
+// yolk for a moment when a recipe adds three. Seen, not read: `GroceryCount`
 // says it right after the tab's name.
 export function GroceryBadge({ className }: { className?: string }) {
 	const waiting = useWaiting()
@@ -67,9 +68,10 @@ export function GroceryBadge({ className }: { className?: string }) {
 			key={added?.at ?? 'count'}
 			aria-hidden
 			className={cn(
-				'bg-kitchen-tomato text-background grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs leading-none font-bold tabular-nums',
-				added &&
-					'animate-in zoom-in-50 bg-kitchen-basil text-foreground duration-300',
+				'grid h-5 min-w-5 place-items-center rounded-full px-1 text-xs leading-none font-semibold tabular-nums',
+				added
+					? 'animate-in zoom-in-50 bg-kitchen-yolk/60 text-foreground duration-300'
+					: 'text-muted-foreground',
 				className,
 			)}
 		>

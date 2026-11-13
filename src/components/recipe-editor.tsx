@@ -241,7 +241,7 @@ export function RecipeEditor({
 	const session = authClient.useSession()
 	const user = session.data?.user
 	// Uploads need a real account, same as avatars.
-	const canAddPhoto = Boolean(user && !user.isAnonymous)
+	const canAddPhoto = Boolean(user)
 	const isDraft = !recipe?.finalizedAt
 	const shared = recipe ? !recipe.owned : false
 

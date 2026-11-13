@@ -18,8 +18,8 @@ describe('ingredient sprites', () => {
 		['2 tbsp chopped parsley', 'herb-bunch'],
 		['handful chopped coriander to serve', 'herb-bunch'],
 		['1 tsp ground coriander', 'shaker-jar'],
-		['1 tsp garlic powder', 'shaker-jar-squat'],
-		['1 tsp yellow mustard seed', 'cork-jar'],
+		['1 tsp garlic powder', 'shaker-jar'],
+		['1 tsp yellow mustard seed', 'shaker-jar'],
 		['1 chicken stock cube', 'packet'],
 		['2 tbsp fish sauce', 'soy-dasher'],
 		['1 tbsp coconut oil', 'mason-jar'],
@@ -59,10 +59,10 @@ describe('ingredient sprites', () => {
 		['raspberries', 'strawberry'],
 		['coconut milk', 'tin-can'],
 		['egg noodles', 'wheat'],
-		['freshly ground pepper', 'black-pepper'],
-		['1 tsp pepper', 'black-pepper'],
+		['freshly ground pepper', 'shaker-jar'],
+		['1 tsp pepper', 'shaker-jar'],
 		['1 red bell pepper, sliced', 'bell-pepper'],
-		['½ tsp crushed red pepper', 'chili-pepper'],
+		['½ tsp crushed red pepper', 'shaker-jar'],
 		['1 tbsp ghee', 'butter'],
 		['nonstick cooking spray', 'oil-bottle'],
 		['2 tsp cornflour', 'box'],
@@ -74,7 +74,7 @@ describe('ingredient sprites', () => {
 		['4 oz mascarpone', 'tub'],
 		['½ cup labneh', 'tub'],
 		['1 cup unsweetened applesauce', 'apple'],
-		['2 tbsp flaxseed meal', 'seeds'],
+		['2 tbsp flaxseed meal', 'shaker-jar'],
 		['2 tbsp cacao powder', 'canister-tin'],
 		['2 tsp pure vanilla extract', 'dropper-bottle'],
 		['1 tsp vanilla', 'dropper-bottle'],
@@ -88,7 +88,7 @@ describe('ingredient sprites', () => {
 		['1 cup coffee beans', 'coffee-beans'],
 		['200g green beans', 'green-beans'],
 		['2 tbsp tahini', 'mason-jar'],
-		['2 tbsp chia seeds', 'seeds'],
+		['2 tbsp chia seeds', 'shaker-jar'],
 		['1 tsp ground ginger', 'shaker-jar'],
 		['1 tbsp grated fresh ginger', 'ginger'],
 		['1 (13.5-ounce) can coconut milk', 'tin-can'],
@@ -197,7 +197,7 @@ describe('recolourable sprites', () => {
 		['1 tsp smoked paprika', 'shaker-jar', '#A8321A'],
 		['1 tsp paprika', 'shaker-jar', '#C8421A'],
 		['1 tsp ground cinnamon', 'shaker-jar', '#9A5B30'],
-		['1 tsp kosher salt', 'salt-shaker', '#F1F1EE'],
+		['1 tsp kosher salt', 'shaker-jar', '#F1F1EE'],
 		['1 cup water', 'tumbler', '#BFE0F0'],
 		['1 cup orange juice', 'tumbler', '#F08A1A'],
 		['1 cup red wine', 'wine-bottle', '#5A0F1E'],
@@ -242,13 +242,13 @@ describe('recolourable sprites', () => {
 		['1 cup honey roasted peanuts', 'nuts'],
 		['2 dill pickles', 'cucumber'],
 		['2 slices rye bread', 'bread'],
-		['1 tsp fennel seeds', 'cork-jar'],
+		['1 tsp fennel seeds', 'shaker-jar'],
 		['1 fresh fennel bulb', 'fennel'],
 		['4 sugar snap peas', 'peas'],
 		['2 flour tortillas', 'bread'],
-		['1 tsp cinnamon sticks', 'cinnamon-sticks'],
+		['1 tsp cinnamon sticks', 'shaker-jar'],
 		['1 cup oil-packed sun-dried tomatoes', 'tomato'],
-		['1 vanilla bean pod', 'vanilla-pods'],
+		['1 vanilla bean pod', 'shaker-jar'],
 		['1 cup vanilla bean ice cream', 'fallback-dairy'],
 		['1 cup milk or water', 'milk'],
 		['1 tsp salted butter', 'butter'],
@@ -256,14 +256,47 @@ describe('recolourable sprites', () => {
 		expect(ingredientItemSprite(name)).toBe(key)
 	})
 
-	test('paints a pantry item by name, but never over a chosen sprite', () => {
+	test('paints a pantry item by name, but never over a chosen container', () => {
 		expect(resolveSpriteLook('white vinegar')).toEqual({
 			key: 'oil-bottle',
 			tint: '#E4EEF0',
 		})
+		// A chosen sprite keeps its container, in that container's colour.
 		expect(resolveSpriteLook('white vinegar', 'vinegar')).toEqual({
-			key: 'vinegar',
+			key: 'oil-bottle',
+			tint: '#D8C48A',
 		})
 		expect(resolveSpriteLook('apple')).toEqual({ key: 'apple' })
+	})
+
+	test('keeps everything on the spice rack in one jar, and fresh plants fresh', () => {
+		const keys = [
+			'1 tsp ground cumin',
+			'1 tsp curry powder',
+			'1 tbsp taco seasoning',
+			'1 tsp onion powder',
+			'1 tsp kosher salt',
+			'1 tsp black pepper',
+			'2 whole cloves',
+			'1 star anise',
+			'3 cardamom pods',
+			'2 bay leaves',
+			'1 cinnamon stick',
+			'1 tsp cumin seeds',
+			'pinch of saffron',
+			'1 tsp dried sage',
+			'1 tsp ground ginger',
+			'1 tsp red pepper flakes',
+		].map((line) => ingredientItemLook(line)?.key)
+
+		expect(new Set(keys)).toEqual(new Set(['shaker-jar']))
+		expect(ingredientItemLook('4 fresh sage leaves')?.key).toBe(
+			'round-leaf-sprig',
+		)
+		expect(ingredientItemLook('1 inch ginger, grated')?.key).toBe('ginger')
+
+		// Kept with the spices, a plant is the dried one.
+		for (const name of ['sage', 'thyme', 'rosemary', 'ginger', 'coriander'])
+			expect(resolveSpriteLook(name, null, 'spices').key).toBe('shaker-jar')
 	})
 })

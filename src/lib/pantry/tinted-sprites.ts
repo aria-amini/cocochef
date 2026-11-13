@@ -503,5 +503,96 @@ export function tintedLook(food: string): SpriteLook | undefined {
 
 	const [key, , tint] = rule
 
-	return tint ? { key, tint } : { key }
+	return standardLook(tint ? { key, tint } : { key })
+}
+
+const shaker = (tint: string) => ({ key: 'shaker-jar', tint })
+
+// One container for each kind of food, whatever art a food first had, so the
+// spice rack is one jar, ground or whole, and every oil sits in the same
+// bottle: each older one-off bottle, tin or carton in its painted family. A
+// food painted already keeps its colour; one that was not takes its usual one.
+const containers = new Map<string, { key: string; tint: string }>([
+	// Ground spices, salt and blends.
+	['spice-tin', shaker('#B5651D')],
+	['spice-pouch', shaker('#B5651D')],
+	['shaker-jar-squat', shaker('#E8D9B0')],
+	['salt-shaker', shaker(WHITE)],
+	['salt', shaker(WHITE)],
+	['cinnamon', shaker('#9A5B30')],
+	['black-pepper', shaker('#3A332C')],
+	['fallback-spice', shaker('#B5651D')],
+	// Whole spices, seeds and dried leaves.
+	['vanilla-pods', shaker('#3A2416')],
+	['star-anise', shaker('#6A3A22')],
+	['cardamom-pods', shaker('#8AA05A')],
+	['nutmeg', shaker('#8A5A3C')],
+	['cloves', shaker('#5A3524')],
+	['saffron', shaker('#C8321E')],
+	['dried-chilies', shaker('#A8231A')],
+	['cinnamon-sticks', shaker('#9A5B30')],
+	['bay-leaves', shaker('#6B7A45')],
+	['seeds', shaker('#B79B62')],
+	['cork-jar', shaker('#B79B62')],
+	// Bottles, jars, tins and cartons drawn once, before their families.
+	['olive-oil', { key: 'oil-bottle', tint: '#A8A21E' }],
+	['vinegar', { key: 'oil-bottle', tint: '#D8C48A' }],
+	['sauce', { key: 'squeeze-bottle', tint: '#7A2A14' }],
+	['wine', { key: 'wine-bottle', tint: '#5A0F1E' }],
+	['spirits', { key: 'spirit-flask', tint: '#C77A1A' }],
+	['honey', { key: 'honey-jar', tint: '#E8A317' }],
+	['spread', { key: 'mason-jar', tint: '#C9944F' }],
+	['mustard', { key: 'mason-jar', tint: '#C9A94A' }],
+	['extract', { key: 'dropper-bottle', tint: '#4A2A14' }],
+	['broth', { key: 'carton', tint: '#E8C86A' }],
+	['can', { key: 'tin-can', tint: '#C8321E' }],
+])
+
+// A dried herb's colour: duller than any fresh bunch.
+const DRIED_HERB = '#6B7A45'
+
+// Fresh plants a cook also keeps dried, and the colour each dries to.
+const freshHerbs = new Set([
+	'basil',
+	'herb-bunch',
+	'round-leaf-sprig',
+	'rosemary',
+	'dill',
+	'chives',
+	'kale',
+])
+
+const driedColours = new Map([
+	['ginger', '#C79A55'],
+	['garlic', '#E8D9B0'],
+	['onion', '#E8D9B0'],
+	['chili-pepper', '#B8321C'],
+	['chile', '#B8321C'],
+	['jalapeno', '#5A8A2E'],
+	['lemongrass', '#B8B060'],
+	['lemon', '#E8C84A'],
+	['orange', '#E0861A'],
+])
+
+// Whether a look is the fresh plant of something also kept dried.
+export const isFreshPlant = (look: SpriteLook) =>
+	freshHerbs.has(look.key) || driedColours.has(look.key)
+
+// The spice rack's one jar for whatever is kept there: a fresh plant's art is
+// for the fresh one, so dried sage, ground ginger and chilli flakes are jars.
+// An extract keeps its dropper.
+export function jarLook(look: SpriteLook): SpriteLook {
+	if (look.key === 'shaker-jar' || look.key === 'dropper-bottle') return look
+
+	if (freshHerbs.has(look.key)) return shaker(DRIED_HERB)
+
+	return shaker(look.tint ?? driedColours.get(look.key) ?? '#B5651D')
+}
+
+export function standardLook(look: SpriteLook): SpriteLook {
+	const into = containers.get(look.key)
+
+	if (!into) return look
+
+	return { key: into.key, tint: look.tint ?? into.tint }
 }

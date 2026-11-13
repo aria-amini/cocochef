@@ -58,16 +58,10 @@ export const getRecipe = createServerFn({ method: 'GET' })
 
 		if (!recipe) return recipe
 
-		// Reserving an address writes a profile, which only an account has; a guest
-		// who still owns an older recipe can open it without one.
+		// Reserving an address writes a profile, which only an account has.
 		const session = await getCurrentSession()
 
-		if (
-			!recipe.publicPath &&
-			recipe.owned &&
-			session &&
-			!session.user.isAnonymous
-		)
+		if (!recipe.publicPath && recipe.owned && session)
 			recipe.publicPath = await reservePrivateRecipeAddress(viewerId, recipe)
 
 		if (

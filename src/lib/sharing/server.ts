@@ -29,8 +29,7 @@ import {
 async function accountId() {
 	const session = await getCurrentSession()
 
-	if (!session || session.user.isAnonymous)
-		throw new Error('sign in to share recipes')
+	if (!session) throw new Error('sign in to share recipes')
 
 	return session.user.id
 }
@@ -57,7 +56,7 @@ export const getMySharingProfile = createServerFn({ method: 'GET' }).handler(
 	async () => {
 		const session = await getCurrentSession()
 
-		if (!session || session.user.isAnonymous) return null
+		if (!session) return null
 
 		const profile = await getSharingProfile(session.user.id)
 
@@ -88,9 +87,7 @@ export const getMyRecipeShare = createServerFn({ method: 'GET' })
 	.handler(async ({ data }) => {
 		const session = await getCurrentSession()
 
-		return session && !session.user.isAnonymous
-			? getRecipeShare(session.user.id, data.id)
-			: null
+		return session ? getRecipeShare(session.user.id, data.id) : null
 	})
 
 export const updateRecipeShare = createServerFn({ method: 'POST' })
@@ -127,7 +124,7 @@ export const readOwnedRecipeAddress = createServerFn({ method: 'GET' })
 		preventCaching()
 		const session = await getCurrentSession()
 
-		if (!session || session.user.isAnonymous) return null
+		if (!session) return null
 
 		return getOwnedRecipeAtAddress(session.user.id, data.handle, data.slug)
 	})

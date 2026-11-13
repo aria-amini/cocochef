@@ -35,7 +35,7 @@ export function RecipeSharing({
 	const share = useQuery({
 		queryKey: ['recipe-share', session.data?.user.id, recipe.id],
 		queryFn: () => getMyRecipeShare({ data: { id: recipe.id } }),
-		enabled: !!session.data?.user && !session.data.user.isAnonymous,
+		enabled: !!session.data?.user,
 	})
 
 	return (
@@ -156,7 +156,7 @@ function SharingOptions({
 			) : null}
 			{session.isPending || profile.isPending || share.isPending ? (
 				<output>loading sharing options…</output>
-			) : !account || account.isAnonymous ? (
+			) : !account ? (
 				<p className="text-sm">
 					<Link to="/auth/signup" className="underline">
 						create an account

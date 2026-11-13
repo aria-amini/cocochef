@@ -1,33 +1,41 @@
 import {
-	CopyIcon,
-	ExportIcon,
+	ArrowRightIcon,
+	CheckIcon,
 	PlusIcon,
 	ShoppingCartIcon,
-	XIcon,
 } from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { useState, useSyncExternalStore } from 'react'
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
+import { AuthDialog } from '@/components/auth-dialog'
 import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
+import { ExtraTag, KitchenTag } from '@/components/kitchen-tag'
+import { PantrySprite } from '@/components/pantry-sprite'
 import { buttonVariants } from '@/components/ui/button'
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog'
-import { fieldClassName, placeholderClassName } from '@/components/ui/input'
+import { usePantry, useWaitingGroceries } from '@/components/use-pantry'
+import { authClient } from '@/lib/auth/client'
 import { groceryList } from '@/lib/groceries/list'
 import { addGroceries } from '@/lib/groceries/server'
+import { restockPantry } from '@/lib/pantry/server'
+import { ingredientItemLook } from '@/lib/pantry/sprites'
+import { lineStatus, wantsBuying } from '@/lib/pantry/status'
+import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 import { cn } from '@/lib/utils/ui'
 
-// A recipe's ingredients, sent to the groceries list: the cart opens what
-// would be added, to untick what the kitchen has, change a line or add one,
-// before anything goes on the list.
+// A recipe's ingredients, sent to the groceries list: the cart opens every
+// line, to untick what the kitchen has before anything goes on the list. The
+// button says how much of what it needs is on the list, and how many more
+// it would add.
+// Adding other things and changing a line live on the groceries page.
 export function AddToGroceries({
 	recipeId,
 	title,
@@ -38,20 +46,93 @@ export function AddToGroceries({
 	lines: string[]
 }) {
 	const [open, setOpen] = useState(false)
+	// A list needs an account: signed out, the button asks for one first.
+	const [authOpen, setAuthOpen] = useState(false)
+	const client = useQueryClient()
+	const account = authClient.useSession().data?.user
+	const signedIn = !!account
+
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	})
+
 	const items = groceryList(lines)
+	const pantry = usePantry(true)
+	const waiting = useWaitingGroceries(true)
 
 	if (!items.length) return null
+
+	const known = pantry.isSuccess && waiting.isSuccess
+
+	const statuses = items.map((item) =>
+		lineStatus(item, pantry.data ?? [], waiting.data ?? []),
+	)
+
+	const wanted = statuses.filter(wantsBuying).length
+	const listed = statuses.filter((status) => status?.kind === 'list').length
+
+	const pill =
+		'border-input hover:bg-muted/60 inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors'
+
+	// What the recipe sends shopping, and how much of it the list holds,
+	// says itself on the button, the one count on the recipe. With all of it
+	// on the list it leads there; with nothing to shop for, there is no
+	// button.
+	const shopping = wanted + listed
+
+	if (known && !wanted)
+		return listed ? (
+			<Link
+				to="/groceries"
+				aria-label={`all ${shopping} on your list: groceries list`}
+				className={pill}
+			>
+				<ShoppingCartIcon size={16} weight="bold" aria-hidden />
+				<span className="tabular-nums">
+					{shopping}/{shopping}
+				</span>
+				<CheckIcon size={14} weight="bold" aria-hidden />
+				<ArrowRightIcon size={14} weight="bold" aria-hidden />
+			</Link>
+		) : null
 
 	return (
 		<>
 			<button
 				type="button"
-				onClick={() => setOpen(true)}
-				className="border-input hover:bg-muted/60 inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors"
+				onClick={() => (signedIn ? setOpen(true) : setAuthOpen(true))}
+				aria-label={
+					known
+						? `add ${wanted} to groceries, ${listed} of ${shopping} on your list`
+						: undefined
+				}
+				className={pill}
 			>
 				<ShoppingCartIcon size={16} weight="bold" aria-hidden />
-				add to groceries
+				{known ? (
+					<>
+						<span className="tabular-nums">
+							{listed}/{shopping}
+						</span>
+						<span aria-hidden>·</span>
+						add {wanted}
+					</>
+				) : (
+					'add to groceries'
+				)}
 			</button>
+			<AuthDialog
+				open={authOpen}
+				onOpenChange={setAuthOpen}
+				redirect={pathname}
+				// Signed in, the cook goes on to the list they asked for, read
+				// again for the account's own pantry and list.
+				onSuccess={() => {
+					void client.invalidateQueries({ queryKey: ['pantry'] })
+					void client.invalidateQueries({ queryKey: ['groceries'] })
+					setOpen(true)
+				}}
+			/>
 			{open ? (
 				<GroceryReview
 					recipeId={recipeId}
@@ -64,16 +145,10 @@ export function AddToGroceries({
 	)
 }
 
-type Draft = { id: string; text: string; on: boolean }
-
-const draftOf = (text: string): Draft => ({
-	id: crypto.randomUUID(),
-	text,
-	on: true,
-})
-
-const noSubscription = () => () => {}
-
+// The recipe's lines with what each will do: a ticked one goes on the list,
+// an unticked one stays off it. What is needed, running low or not seen in a
+// while starts ticked; what is on the list or had starts unticked. Each says
+// why.
 function GroceryReview({
 	recipeId,
 	title,
@@ -87,54 +162,74 @@ function GroceryReview({
 }) {
 	const navigate = useNavigate()
 	const client = useQueryClient()
-	const [drafts, setDrafts] = useState(() => items.map(draftOf))
-	const [extra, setExtra] = useState('')
 	const [adding, setAdding] = useState(false)
+	// The cook's own ticks, by line; the rest follow the list.
+	const [ticks, setTicks] = useState<Record<number, boolean>>({})
 
-	// Known only in the browser; the server renders without it.
-	const canShare = useSyncExternalStore(
-		noSubscription,
-		() => 'share' in navigator,
-		() => false,
-	)
+	const pantry = usePantry(true).data ?? []
+	const waiting = useWaitingGroceries(true).data ?? []
+	const statuses = items.map((item) => lineStatus(item, pantry, waiting))
+	// A cook with no pantry or list yet gets no notes: "need" on every line
+	// would say nothing.
+	const knows = pantry.length > 0 || waiting.length > 0
 
-	const chosen = drafts.flatMap((draft) =>
-		draft.on && draft.text.trim() ? [draft.text.trim()] : [],
-	)
+	// Lines the kitchen has that the cook will buy anyway, ticked in place.
+	const [anyway, setAnyway] = useState<ReadonlySet<number>>(() => new Set())
 
-	const text = chosen.join('\n')
+	const ticked = (index: number) =>
+		wantsBuying(statuses[index]) ? (ticks[index] ?? true) : anyway.has(index)
 
-	const change = (id: string, patch: Partial<Draft>) =>
-		setDrafts((current) =>
-			current.map((draft) =>
-				draft.id === id ? { ...draft, ...patch } : draft,
-			),
-		)
+	const chosen = items.flatMap((_, index) => (ticked(index) ? [index] : []))
 
-	function addExtra() {
-		const line = extra.trim()
+	function buyAnyway(index: number, on: boolean) {
+		setAnyway((now) => {
+			const next = new Set(now)
 
-		if (!line) return
-		setDrafts((current) => [...current, draftOf(line)])
-		setExtra('')
+			if (on) next.add(index)
+			else next.delete(index)
+
+			return next
+		})
 	}
+
+	const indexes = items.map((_, index) => index)
+	const buying = indexes.filter((index) => wantsBuying(statuses[index]))
+	const having = indexes.filter((index) => !wantsBuying(statuses[index]))
 
 	async function add() {
 		setAdding(true)
 
 		try {
 			const added = await addGroceries({
-				// The list holds a line of 200 characters and 100 lines at a time.
-				data: chosen.slice(0, 100).map((item) => ({
-					text: item.slice(0, 200),
+				// The list takes a hundred lines at a time, each up to 200 letters.
+				data: chosen.slice(0, 100).map((index) => ({
+					text: (items[index] ?? '').slice(0, 200),
 					recipeId,
 					recipeTitle: title,
 				})),
 			})
 
+			// Unticking a line says the kitchen has it: the pantry learns so,
+			// and keeps it as long as that food keeps.
+			const had = items.filter(
+				(_, index) => wantsBuying(statuses[index]) && ticks[index] === false,
+			)
+
+			if (had.length)
+				void restockPantry({
+					data: had.map((text) => ({
+						text,
+						category: ingredientCategory(text),
+					})),
+				})
+					.then(() => client.invalidateQueries({ queryKey: ['pantry'] }))
+					// Learning is a bonus; the list is what was asked for.
+					.catch(() => undefined)
+
 			// The groceries tab says how many landed, without leaving the recipe.
 			pulseGroceries(added.length)
 			void client.invalidateQueries({ queryKey: groceryCountKey })
+			void client.invalidateQueries({ queryKey: ['groceries'] })
 			onClose()
 			toast.success(
 				added.length
@@ -154,144 +249,118 @@ function GroceryReview({
 		}
 	}
 
-	async function copy() {
-		try {
-			await navigator.clipboard.writeText(text)
-			toast.success('copied the list')
-		} catch {
-			toast.error('could not copy the list')
-		}
-	}
-
-	async function share() {
-		try {
-			await navigator.share({ title: `${title} groceries`, text })
-		} catch (error) {
-			// Closing the share sheet is not a failure.
-			if (error instanceof DOMException && error.name === 'AbortError') return
-			toast.error('could not share the list')
-		}
-	}
-
 	return (
 		<Dialog
 			open
 			// Held open while adding, so a late answer cannot close a new review.
 			onOpenChange={(next) => !next && !adding && onClose()}
 		>
-			<DialogContent className="flex max-h-[85dvh] flex-col">
-				<DialogHeader>
-					<DialogTitle>add to groceries</DialogTitle>
-					<DialogDescription>
-						from {title}. untick what you have, or change a line.
-					</DialogDescription>
+			<DialogContent className="flex flex-col">
+				{/* Centered, clear of the corner close button on either side. */}
+				<DialogHeader className="mx-8 text-center">
+					<DialogTitle>add groceries</DialogTitle>
 				</DialogHeader>
-				<ul
+				{/* Every line of the recipe, straight on the dialog, in two groups:
+				    what to buy, ticked to add, and what the kitchen has, a plus from
+				    buying anyway, ticked where it stands. */}
+				<fieldset
 					aria-label="items to add"
-					className="divide-border border-input min-h-0 flex-1 divide-y overflow-y-auto rounded-xl border"
+					className="scrollbar-visible -mt-2 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto"
 				>
-					{drafts.map((draft, index) => (
-						<li key={draft.id} className="flex items-center gap-2 pr-1 pl-3">
-							<input
-								type="checkbox"
-								aria-label={`add item ${index + 1}`}
-								checked={draft.on}
-								onChange={(event) =>
-									change(draft.id, { on: event.target.checked })
-								}
-								className="accent-kitchen-basil size-5 shrink-0"
-							/>
-							<input
-								aria-label={`item ${index + 1}`}
-								value={draft.text}
-								maxLength={200}
-								onChange={(event) =>
-									change(draft.id, { text: event.target.value })
-								}
-								className={cn(
-									'min-h-11 min-w-0 flex-1 bg-transparent text-base outline-none',
-									!draft.on && 'text-muted-foreground line-through',
-								)}
-							/>
-							<button
-								type="button"
-								aria-label={`remove ${draft.text.trim() || `item ${index + 1}`}`}
-								onClick={() =>
-									setDrafts((current) =>
-										current.filter((other) => other.id !== draft.id),
+					{buying.length ? (
+						<section aria-labelledby="to-buy">
+							<GroupHeading id="to-buy">to buy</GroupHeading>
+							<ul className="divide-border divide-y">
+								{buying.map((index) => {
+									const on = ticked(index)
+
+									return (
+										// The same line can appear twice in a recipe.
+										<li key={index}>
+											<label className="flex min-h-11 cursor-pointer items-center gap-3 py-1.5">
+												<input
+													type="checkbox"
+													checked={on}
+													onChange={(event) =>
+														setTicks((now) => ({
+															...now,
+															[index]: event.target.checked,
+														}))
+													}
+													className="accent-kitchen-basil size-5 shrink-0"
+												/>
+												<FoodIcon text={items[index] ?? ''} />
+												<span
+													className={cn(
+														'min-w-0 flex-1 text-base',
+														!on && 'text-muted-foreground',
+													)}
+												>
+													{items[index]}
+												</span>
+												{/* Why the line starts as it does. */}
+												<KitchenTag
+													status={knows ? statuses[index] : undefined}
+													listed="on your list"
+												/>
+											</label>
+										</li>
 									)
-								}
-								className="text-muted-foreground hover:text-foreground grid size-10 shrink-0 place-items-center rounded-full"
-							>
-								<XIcon size={14} weight="bold" aria-hidden />
-							</button>
-						</li>
-					))}
-				</ul>
-				<form
-					onSubmit={(event) => {
-						event.preventDefault()
-						addExtra()
-					}}
-					className="flex items-center gap-2"
-				>
-					<input
-						aria-label="add another item"
-						placeholder="add another item"
-						maxLength={200}
-						value={extra}
-						onChange={(event) => setExtra(event.target.value)}
-						className={cn(fieldClassName, placeholderClassName, 'flex-1')}
-					/>
-					<button
-						type="submit"
-						aria-label="put it on the list"
-						disabled={!extra.trim()}
-						className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
-					>
-						<PlusIcon size={14} weight="bold" aria-hidden />
-					</button>
-				</form>
-				{/* The same list as text, for a message or a note. */}
-				<div className="-mt-2 flex items-center gap-1">
-					<span className="text-muted-foreground mr-1 text-xs font-semibold">
-						as text
-					</span>
-					<button
-						type="button"
-						disabled={!chosen.length}
-						onClick={copy}
-						className={buttonVariants({
-							variant: 'ghost',
-							className: 'min-h-9 px-2.5',
-						})}
-					>
-						<CopyIcon size={16} weight="bold" aria-hidden />
-						copy
-					</button>
-					{canShare ? (
-						<button
-							type="button"
-							disabled={!chosen.length}
-							onClick={share}
-							className={buttonVariants({
-								variant: 'ghost',
-								className: 'min-h-9 px-2.5',
-							})}
-						>
-							<ExportIcon size={16} weight="bold" aria-hidden />
-							share
-						</button>
+								})}
+							</ul>
+						</section>
 					) : null}
-				</div>
+					{having.length ? (
+						<section aria-labelledby="already-have">
+							<GroupHeading id="already-have">already have</GroupHeading>
+							<ul className="divide-border divide-y">
+								{having.map((index) =>
+									anyway.has(index) ? (
+										<li key={index}>
+											<label className="flex min-h-11 cursor-pointer items-center gap-3 py-1.5">
+												<input
+													type="checkbox"
+													checked
+													onChange={() => buyAnyway(index, false)}
+													className="accent-kitchen-basil size-5 shrink-0"
+												/>
+												<FoodIcon text={items[index] ?? ''} />
+												<span className="min-w-0 flex-1 text-base">
+													{items[index]}
+												</span>
+												{/* Had, but going on the list all the same. */}
+												<ExtraTag />
+											</label>
+										</li>
+									) : (
+										<li
+											key={index}
+											className="flex min-h-11 items-center gap-3 py-1.5"
+										>
+											<button
+												type="button"
+												aria-label={`buy ${items[index]} anyway`}
+												onClick={() => buyAnyway(index, true)}
+												className="border-input hover:bg-muted/60 grid size-5 shrink-0 place-items-center rounded-full border transition-colors"
+											>
+												<PlusIcon size={12} weight="bold" aria-hidden />
+											</button>
+											<FoodIcon text={items[index] ?? ''} />
+											<span className="text-muted-foreground min-w-0 flex-1 text-base">
+												{items[index]}
+											</span>
+											<KitchenTag
+												status={statuses[index]}
+												listed="on your list"
+											/>
+										</li>
+									),
+								)}
+							</ul>
+						</section>
+					) : null}
+				</fieldset>
 				<DialogFooter>
-					<button
-						type="button"
-						onClick={onClose}
-						className={buttonVariants({ variant: 'outline' })}
-					>
-						cancel
-					</button>
 					<button
 						type="button"
 						disabled={!chosen.length || adding}
@@ -303,5 +372,32 @@ function GroceryReview({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+	)
+}
+
+// A group's name over its rows.
+function GroupHeading({
+	id,
+	children,
+}: {
+	id: string
+	children: React.ReactNode
+}) {
+	return (
+		<h3 id={id} className="text-muted-foreground pb-1 text-sm font-bold">
+			{children}
+		</h3>
+	)
+}
+
+// The food's picture, as on the grocery list; a food without one keeps its
+// place blank so the names line up.
+function FoodIcon({ text }: { text: string }) {
+	const look = ingredientItemLook(text)
+
+	return (
+		<span aria-hidden className="grid size-6 shrink-0 place-items-center">
+			{look ? <PantrySprite look={look} className="size-6" /> : null}
+		</span>
 	)
 }

@@ -1,40 +1,174 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
-import { requireUserId } from '@/lib/auth/session'
+import { getAccountId, requireAccountId } from '@/lib/auth/session'
+import { shelfRecipeUsing } from '@/lib/recipes/repository'
 
-import { pantryFields } from './model'
+import { shelfState } from './foods'
+import {
+	pantryCategories,
+	pantryCount,
+	pantryItemInput,
+	pantryLevels,
+} from './model'
 import {
 	createPantryItemsForUser,
 	deletePantryItemForUser,
+	keepPantryItemForUser,
 	listPantryForUser,
-	setPantryItemQuantityForUser,
+	markHaveForUser,
+	restockPantryForUser,
+	restockPantryItemForUser,
+	restorePantryItemForUser,
+	setPantryItemCountForUser,
+	setPantryItemLevelForUser,
 } from './repository'
 import { insertPantryItems } from './schema'
 
-export const listPantry = createServerFn({ method: 'GET' }).handler(async () =>
-	listPantryForUser(await requireUserId()),
+// Each item with how it keeps: fresh, worth a check, or past its days.
+async function pantryWithShelf(userId: string) {
+	const now = new Date()
+
+	return (await listPantryForUser(userId)).map((item) => {
+		const { state, spoils, daysLeft, boughtDaysAgo } = shelfState(item, now)
+
+		return {
+			...item,
+			stale: state === 'stale',
+			expired: state === 'expired',
+			spoils,
+			daysLeft,
+			boughtDaysAgo,
+		}
+	})
+}
+
+// What the pantry can vouch for: food bought for a meal is taken as eaten
+// once its few days are up, so recipes and the grocery list never count on
+// it. The ingredients page still shows it, to be checked.
+async function knownPantry(userId: string) {
+	return (await pantryWithShelf(userId)).filter((item) => !item.expired)
+}
+
+// The whole pantry, or null for a visitor, who has none to keep until they
+// sign up.
+export const listPantry = createServerFn({ method: 'GET' }).handler(
+	async () => {
+		const accountId = await getAccountId()
+
+		return accountId ? pantryWithShelf(accountId) : null
+	},
+)
+
+// What a recipe's reader has on hand. A visitor has nothing.
+export const pantryOnHand = createServerFn({ method: 'GET' }).handler(
+	async () => {
+		const accountId = await getAccountId()
+
+		return accountId ? knownPantry(accountId) : []
+	},
 )
 
 export const createPantryItems = createServerFn({ method: 'POST' })
 	.validator(insertPantryItems)
 	.handler(async ({ data }) =>
-		createPantryItemsForUser(await requireUserId(), data),
+		createPantryItemsForUser(await requireAccountId('keep ingredients'), data),
 	)
 
-export const setPantryItemQuantity = createServerFn({ method: 'POST' })
+export const setPantryItemLevel = createServerFn({ method: 'POST' })
+	.validator(z.object({ id: z.string().min(1), level: z.enum(pantryLevels) }))
+	.handler(async ({ data }) =>
+		setPantryItemLevelForUser(
+			await requireAccountId('keep ingredients'),
+			data.id,
+			data.level,
+		),
+	)
+
+export const setPantryItemCount = createServerFn({ method: 'POST' })
+	.validator(z.object({ id: z.string().min(1), count: pantryCount }))
+	.handler(async ({ data }) =>
+		setPantryItemCountForUser(
+			await requireAccountId('keep ingredients'),
+			data.id,
+			data.count,
+		),
+	)
+
+// Bought more: back to plenty, dated today, with how many if counted.
+export const restockPantryItem = createServerFn({ method: 'POST' })
+	.validator(z.object({ id: z.string().min(1), added: pantryCount.optional() }))
+	.handler(async ({ data }) =>
+		restockPantryItemForUser(
+			await requireAccountId('keep ingredients'),
+			data.id,
+			data.added,
+		),
+	)
+
+// Past its days, but the cook says it is still there.
+export const keepPantryItem = createServerFn({ method: 'POST' })
+	.validator(z.object({ id: z.string().min(1) }))
+	.handler(async ({ data }) =>
+		keepPantryItemForUser(await requireAccountId('keep ingredients'), data.id),
+	)
+
+export const restorePantryItem = createServerFn({ method: 'POST' })
 	.validator(
-		z.object({
+		pantryItemInput.extend({
 			id: z.string().min(1),
-			quantity: pantryFields.quantity,
+			createdAt: z.coerce.date(),
+			confirmedAt: z.coerce.date(),
+			boughtAt: z.coerce.date(),
 		}),
 	)
 	.handler(async ({ data }) =>
-		setPantryItemQuantityForUser(await requireUserId(), data.id, data.quantity),
+		restorePantryItemForUser(await requireAccountId('keep ingredients'), data),
 	)
 
 export const deletePantryItem = createServerFn({ method: 'POST' })
 	.validator(z.object({ id: z.string().min(1) }))
 	.handler(async ({ data }) =>
-		deletePantryItemForUser(await requireUserId(), data.id),
+		deletePantryItemForUser(
+			await requireAccountId('keep ingredients'),
+			data.id,
+		),
 	)
+
+export const markHave = createServerFn({ method: 'POST' })
+	.validator(
+		z.object({
+			text: z.string().trim().min(1).max(500),
+			category: z.enum(pantryCategories),
+		}),
+	)
+	.handler(async ({ data }) =>
+		markHaveForUser(await requireAccountId('keep ingredients'), data),
+	)
+
+export const restockPantry = createServerFn({ method: 'POST' })
+	.validator(
+		z
+			.array(
+				z.object({
+					text: z.string().trim().min(1).max(200),
+					category: z.enum(pantryCategories),
+				}),
+			)
+			.min(1)
+			.max(100),
+	)
+	.handler(async ({ data }) =>
+		restockPantryForUser(await requireAccountId('keep ingredients'), data),
+	)
+
+// A recipe on the cook's shelf that uses up what is going off.
+export const recipeUsingUp = createServerFn({ method: 'GET' })
+	.validator(
+		z.object({ foods: z.array(z.string().trim().min(1).max(80)).max(8) }),
+	)
+	.handler(async ({ data }) => {
+		const accountId = await getAccountId()
+
+		return accountId ? shelfRecipeUsing(accountId, data.foods) : null
+	})

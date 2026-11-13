@@ -27,7 +27,7 @@ export function EditSharedButton({
 
 	const [authOpen, setAuthOpen] = useState(false)
 
-	const signedIn = !!session.data?.user && !session.data.user.isAnonymous
+	const signedIn = !!session.data?.user
 
 	function open() {
 		if (onEdit) onEdit()

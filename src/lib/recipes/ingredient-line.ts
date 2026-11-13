@@ -22,6 +22,16 @@ const ingredientUnits = [
 	{ value: 'pinch', aliases: ['pinch', 'pinches'] },
 	{ value: 'can', aliases: ['can', 'cans'] },
 	{ value: 'bunch', aliases: ['bunch', 'bunches'] },
+	// What a shop sells in.
+	{ value: 'dozen', aliases: ['dozen'] },
+	{ value: 'head', aliases: ['head', 'heads'] },
+	{ value: 'pack', aliases: ['pack', 'packs', 'package', 'packages'] },
+	{ value: 'bag', aliases: ['bag', 'bags'] },
+	{ value: 'box', aliases: ['box', 'boxes'] },
+	{ value: 'jar', aliases: ['jar', 'jars'] },
+	{ value: 'bottle', aliases: ['bottle', 'bottles'] },
+	{ value: 'carton', aliases: ['carton', 'cartons'] },
+	{ value: 'gallon', aliases: ['gallon', 'gallons'] },
 ] as const
 
 const unitByAlias = new Map<string, string>(
@@ -196,6 +206,14 @@ const plurals = new Map([
 	['can', 'cans'],
 	['bunch', 'bunches'],
 	['pinch', 'pinches'],
+	['pack', 'packs'],
+	['head', 'heads'],
+	['bag', 'bags'],
+	['box', 'boxes'],
+	['jar', 'jars'],
+	['bottle', 'bottles'],
+	['carton', 'cartons'],
+	['gallon', 'gallons'],
 ])
 
 const glyphs: [number, string][] = [
@@ -236,7 +254,7 @@ export function amountOf(line: string) {
 	return { quantity, unit: canonical, rest }
 }
 
-function withAmount(quantity: number, unit: string, rest: string) {
+export function withAmount(quantity: number, unit: string, rest: string) {
 	const named = quantity > 1 ? (plurals.get(unit) ?? unit) : unit
 
 	return [formatQuantity(quantity), named, rest].filter(Boolean).join(' ')
