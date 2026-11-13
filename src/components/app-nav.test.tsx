@@ -90,11 +90,8 @@ describe('app nav', () => {
 			.element(nav.getByRole('link', { name: 'home' }))
 			.toHaveAttribute('aria-current', 'page')
 		await expect
-			.element(nav.getByRole('link', { name: 'ingredients' }))
-			.toHaveAttribute('href', '/ingredients')
-		await expect
-			.element(nav.getByRole('link', { name: 'groceries' }))
-			.toHaveAttribute('href', '/groceries')
+			.element(nav.getByRole('link', { name: 'kitchen' }))
+			.toHaveAttribute('href', '/kitchen')
 		expect(router.state.location.pathname).toBe('/')
 		expect(
 			nav
@@ -102,10 +99,10 @@ describe('app nav', () => {
 				.elements()
 				.map((link) => link.textContent)
 				.filter((label) => label !== 'cocochef' && label !== 'add'),
-		).toEqual(['home', 'recipes', 'ingredients', 'groceries'])
+		).toEqual(['home', 'my recipes', 'kitchen'])
 	})
 
-	test('opens the ingredients from navigation', async () => {
+	test('opens the kitchen from navigation', async () => {
 		const { screen, router } = await renderRoute({
 			path: '/recipes',
 			session: member,
@@ -113,51 +110,35 @@ describe('app nav', () => {
 
 		await screen
 			.getByRole('navigation', { name: 'Primary' })
-			.getByRole('link', { name: 'ingredients' })
+			.getByRole('link', { name: 'kitchen' })
 			.click()
 		await expect
-			.element(
-				screen.getByRole('heading', { name: 'ingredients', exact: true }),
-			)
-			.toBeVisible()
-		expect(router.state.location.pathname).toBe('/ingredients')
-	})
-
-	test('opens the grocery list from navigation', async () => {
-		const { screen } = await renderRoute({ path: '/recipes', session: member })
-
-		await screen
-			.getByRole('navigation', { name: 'Primary' })
-			.getByRole('link', { name: 'groceries' })
-			.click()
-		await expect
-			.element(screen.getByRole('heading', { name: 'groceries', level: 1 }))
+			.element(screen.getByRole('heading', { name: 'kitchen', level: 1 }))
 			.toBeInTheDocument()
+		expect(router.state.location.pathname).toBe('/kitchen')
 	})
 
-	test('counts what is left to buy on the groceries tab', async () => {
+	test('counts what is left to buy on the kitchen tab', async () => {
 		groceryWaiting.count = 3
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
 
-		const groceries = screen
+		const kitchen = screen
 			.getByRole('navigation', { name: 'Primary' })
-			.getByRole('link', { name: /groceries/ })
+			.getByRole('link', { name: /kitchen/ })
 
-		await expect.element(groceries).toHaveAccessibleName('groceries (3 to buy)')
-		await expect
-			.element(groceries.getByText('3', { exact: true }))
-			.toBeVisible()
+		await expect.element(kitchen).toHaveAccessibleName('kitchen (3 to buy)')
+		await expect.element(kitchen.getByText('3', { exact: true })).toBeVisible()
 	})
 
 	test('shows no count when nothing is left to buy', async () => {
 		const { screen } = await renderRoute({ path: '/recipes', session: member })
 
-		const groceries = screen
+		const kitchen = screen
 			.getByRole('navigation', { name: 'Primary' })
-			.getByRole('link', { name: /groceries/ })
+			.getByRole('link', { name: /kitchen/ })
 
-		await expect.element(groceries).toBeVisible()
-		await expect.element(groceries).toHaveAccessibleName('groceries')
+		await expect.element(kitchen).toBeVisible()
+		await expect.element(kitchen).toHaveAccessibleName('kitchen')
 	})
 
 	test('puts settings and sign out in the account menu', async () => {
@@ -176,7 +157,7 @@ describe('app nav', () => {
 
 	test('puts navigation in the thumb zone on phones and a sidebar on desktop', async () => {
 		const { screen } = await renderRoute({
-			path: '/ingredients',
+			path: '/kitchen',
 			session: member,
 		})
 
@@ -261,7 +242,7 @@ describe('app nav', () => {
 
 	test('keeps thumb targets at least 44px tall', async () => {
 		const { screen } = await renderRoute({
-			path: '/groceries',
+			path: '/kitchen',
 			session: member,
 		})
 
@@ -279,11 +260,6 @@ describe('app nav', () => {
 
 		for (const link of targets)
 			expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
-
-		// The empty list's way in, on any screen.
-		expect(
-			heightOf(screen.getByRole('button', { name: 'add an item' })),
-		).toBeGreaterThanOrEqual(44)
 
 		if (isPhone())
 			expect(
@@ -340,7 +316,7 @@ describe('app nav', () => {
 			const logoBox = logo.element().getBoundingClientRect()
 
 			const rowBox = nav
-				.getByRole('link', { name: 'recipes' })
+				.getByRole('link', { name: 'my recipes' })
 				.element()
 				.getBoundingClientRect()
 
