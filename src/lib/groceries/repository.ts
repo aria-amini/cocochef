@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNotNull, isNull } from 'drizzle-orm'
+import { and, asc, count, eq, isNotNull, isNull, ne } from 'drizzle-orm'
 
 import { type Database, getDb, type Queryable } from '@/db/connection'
 import { groceryItems, pantryItems, type StockedWas } from '@/db/schema'
@@ -108,8 +108,36 @@ export async function setGroceryCheckedForUser(
 		if (!!line.checkedAt === checked) return { item: line, stocked: null }
 
 		if (!checked) {
-			if (line.stockedId)
-				await putBack(userId, line.stockedId, line.stockedWas, tx)
+			if (line.stockedId) {
+				// Two lines can fill one pantry item, such as "garlic" and "2 cloves
+				// garlic". The first ticked holds what the item was before; while
+				// another stays ticked the item stays filled, and the first hands
+				// its memory on, so the last untick puts back the item as it was.
+				const [next] = await tx
+					.select({ id: groceryItems.id, checkedAt: groceryItems.checkedAt })
+					.from(groceryItems)
+					.where(
+						and(
+							eq(groceryItems.userId, userId),
+							eq(groceryItems.stockedId, line.stockedId),
+							ne(groceryItems.id, id),
+							isNotNull(groceryItems.checkedAt),
+						),
+					)
+					.orderBy(asc(groceryItems.checkedAt))
+					.limit(1)
+
+				if (!next) await putBack(userId, line.stockedId, line.stockedWas, tx)
+				else if (
+					line.checkedAt &&
+					next.checkedAt &&
+					line.checkedAt <= next.checkedAt
+				)
+					await tx
+						.update(groceryItems)
+						.set({ stockedWas: line.stockedWas })
+						.where(eq(groceryItems.id, next.id))
+			}
 
 			const [item] = await tx
 				.update(groceryItems)
