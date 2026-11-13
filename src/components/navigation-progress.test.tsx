@@ -19,6 +19,12 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 		new Promise((resolve) => setTimeout(() => resolve([]), 900)),
 }))
 
+vi.mock('@/lib/groceries/server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/groceries/server')>()),
+	listGroceries: () => Promise.resolve([]),
+	countWaitingGroceries: () => Promise.resolve(0),
+}))
+
 const session = {
 	user: { id: 'user-1', name: 'Cook', email: 'cook@example.com' },
 	session: { id: 'session-1', token: 'token' },
@@ -32,12 +38,10 @@ describe('page loading', () => {
 		})
 
 		await expect
-			.element(
-				screen.getByRole('heading', { name: 'your recipes', exact: true }),
-			)
+			.element(screen.getByRole('heading', { name: 'my recipes', level: 1 }))
 			.toBeInTheDocument()
 
-		void router.navigate({ to: '/ingredients' })
+		void router.navigate({ to: '/kitchen' })
 
 		await expect
 			.element(page.getByRole('progressbar', { name: 'loading page' }))
@@ -52,16 +56,14 @@ describe('page loading', () => {
 
 	test('stays quiet when the next page loads quickly', async () => {
 		const { router, screen } = await renderRoute({
-			path: '/ingredients',
+			path: '/kitchen',
 			session,
 		})
 
 		await expect.element(screen.getByText('nothing here yet')).toBeVisible()
 		await router.navigate({ to: '/recipes' })
 		await expect
-			.element(
-				screen.getByRole('heading', { name: 'your recipes', exact: true }),
-			)
+			.element(screen.getByRole('heading', { name: 'my recipes', level: 1 }))
 			.toBeInTheDocument()
 		await expect
 			.element(page.getByRole('progressbar', { name: 'loading page' }))
