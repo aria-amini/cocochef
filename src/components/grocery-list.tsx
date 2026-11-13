@@ -317,9 +317,11 @@ export function GroceryList({
 	// Inside the kitchen the aisles sit under the section's own heading.
 	const heading = shopping ? 'h2' : 'h3'
 
-	const editButton = items.length ? (
+	// Always there, greyed while the list is empty, so the row never shifts.
+	const editButton = (
 		<button
 			type="button"
+			disabled={!items.length}
 			aria-pressed={editing}
 			onClick={() => setEditing((now) => !now)}
 			className={buttonVariants({
@@ -334,7 +336,7 @@ export function GroceryList({
 			)}
 			{editing ? 'done' : 'edit'}
 		</button>
-	) : null
+	)
 
 	const list = editing ? (
 		<PlanList
@@ -459,16 +461,16 @@ export function GroceryList({
 				</h2>
 				<div className="flex-1" />
 				{editButton}
-				{waiting.length && !editing ? (
-					<button
-						type="button"
-						onClick={onShop}
-						className={buttonVariants({ className: 'gap-1.5 px-3' })}
-					>
-						<ShoppingCartIcon size={16} weight="bold" aria-hidden />
-						shop
-					</button>
-				) : null}
+				{/* Greyed with nothing to buy, or while the list is being edited. */}
+				<button
+					type="button"
+					disabled={!waiting.length || editing}
+					onClick={onShop}
+					className={buttonVariants({ className: 'gap-1.5 px-3' })}
+				>
+					<ShoppingCartIcon size={16} weight="bold" aria-hidden />
+					shop
+				</button>
 			</div>
 			{items.length ? list : null}
 			{items.length || composer.open ? null : (
