@@ -97,10 +97,12 @@ export async function setGroceryCheckedForUser(
 	database: Database = getDb(),
 ) {
 	return database.transaction(async (tx) => {
+		// Locked, so two ticks at once cannot both stock the food.
 		const [line] = await tx
 			.select()
 			.from(groceryItems)
 			.where(and(eq(groceryItems.id, id), eq(groceryItems.userId, userId)))
+			.for('update')
 
 		if (!line) return null
 

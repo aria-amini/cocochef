@@ -211,6 +211,8 @@ export function GroceryList({
 	function clear() {
 		change({ kind: 'clear' }, async () => {
 			await clearCheckedGroceries()
+			// The lines it would untick are gone, so its undo could do nothing.
+			toast.dismiss('stocked')
 		})
 	}
 
