@@ -75,7 +75,8 @@ export default defineToolkit({
 				authToken: process.env.SENTRY_AUTH_TOKEN ?? '',
 				telemetry: Boolean(process.env.SENTRY_AUTH_TOKEN),
 				silent: !process.env.CI,
-				tunnelRoute: true,
+				// No tunnelRoute: its generated route reached the client bundle
+				// with all of Sentry. The tunnel is src/routes/api/oven.ts.
 				sourcemaps: {
 					// The default `./**/*.map` skips dot directories, so it never
 					// matched the public maps under .output.
