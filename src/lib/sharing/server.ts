@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { setResponseHeader } from '@tanstack/react-start/server'
 import { z } from 'zod'
 
-import { getCurrentSession } from '@/lib/auth/session'
+import { readSession } from '@/lib/auth/session'
 import { recipeIdInput } from '@/lib/recipes/model'
 import { resolveStoredImage } from '@/lib/s3'
 
@@ -27,7 +27,7 @@ import {
 } from './schema'
 
 async function accountId() {
-	const session = await getCurrentSession()
+	const session = await readSession()
 
 	if (!session) throw new Error('sign in to share recipes')
 
@@ -54,7 +54,7 @@ async function withPublicImage<T extends { imageUrl: string | null }>(
 
 export const getMySharingProfile = createServerFn({ method: 'GET' }).handler(
 	async () => {
-		const session = await getCurrentSession()
+		const session = await readSession()
 
 		if (!session) return null
 
@@ -85,7 +85,7 @@ export const updateSharingProfile = createServerFn({ method: 'POST' })
 export const getMyRecipeShare = createServerFn({ method: 'GET' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) => {
-		const session = await getCurrentSession()
+		const session = await readSession()
 
 		return session ? getRecipeShare(session.user.id, data.id) : null
 	})
@@ -97,7 +97,7 @@ export const updateRecipeShare = createServerFn({ method: 'POST' })
 export const createWebSharingLink = createServerFn({ method: 'POST' })
 	.validator(recipeIdInput)
 	.handler(async ({ data }) => {
-		const session = await getCurrentSession()
+		const session = await readSession()
 
 		if (!session) throw new Error('open the recipe on your shelf to share it')
 
@@ -122,7 +122,7 @@ export const readOwnedRecipeAddress = createServerFn({ method: 'GET' })
 	.validator(publicRecipeInput)
 	.handler(async ({ data }) => {
 		preventCaching()
-		const session = await getCurrentSession()
+		const session = await readSession()
 
 		if (!session) return null
 

@@ -84,6 +84,7 @@ vi.mock('@/lib/auth/functions', () => ({
 
 vi.mock('@/lib/auth/session', () => ({
 	getCurrentSession: () => Promise.resolve(authState.session),
+	readSession: () => Promise.resolve(authState.session),
 	getAccountId: () => {
 		const user = authState.session?.user
 

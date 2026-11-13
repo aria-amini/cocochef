@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 
-import { getCurrentSession } from '@/lib/auth/session'
+import { readSession } from '@/lib/auth/session'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 
 import {
@@ -60,7 +60,7 @@ export const suggestIngredientSections = createServerFn({ method: 'POST' })
 		if (data.title.length < suggestionTitleMin) return { sections: [] }
 
 		const [session, answer] = await Promise.all([
-			getCurrentSession(),
+			readSession(),
 			ask(
 				'sections',
 				sectionsInstructions,

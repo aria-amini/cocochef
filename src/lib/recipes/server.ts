@@ -1,11 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
-import {
-	getCurrentSession,
-	getViewerId,
-	requireAccountId,
-} from '@/lib/auth/session'
+import { readSession, getViewerId, requireAccountId } from '@/lib/auth/session'
 import { resolveStoredImage } from '@/lib/s3'
 import {
 	getWebRecipeLink,
@@ -59,7 +55,7 @@ export const getRecipe = createServerFn({ method: 'GET' })
 		if (!recipe) return recipe
 
 		// Reserving an address writes a profile, which only an account has.
-		const session = await getCurrentSession()
+		const session = await readSession()
 
 		if (!recipe.publicPath && recipe.owned && session)
 			recipe.publicPath = await reservePrivateRecipeAddress(viewerId, recipe)

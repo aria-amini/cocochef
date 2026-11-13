@@ -33,7 +33,7 @@ const mocks = vi.hoisted(() => {
 	}
 })
 
-vi.mock('@/lib/auth/session', () => ({ getCurrentSession: mocks.session }))
+vi.mock('@/lib/auth/session', () => ({ readSession: mocks.session }))
 
 vi.mock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl: mocks.sign }))
 
