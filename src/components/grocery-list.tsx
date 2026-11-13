@@ -6,6 +6,7 @@ import {
 	PencilSimpleIcon,
 	PlusIcon,
 	ShoppingCartIcon,
+	ToteSimpleIcon,
 	TrashIcon,
 	XIcon,
 } from '@phosphor-icons/react'
@@ -453,8 +454,12 @@ export function GroceryList({
 	return (
 		<section aria-labelledby="need" className="flex flex-col gap-3">
 			<div className="flex min-h-9 flex-wrap items-center gap-2">
-				<h2 id="need" className="flex-1 text-base font-bold">
-					need{' '}
+				<h2
+					id="need"
+					className="inline-flex flex-1 items-center gap-2 text-base font-bold"
+				>
+					<ToteSimpleIcon size={18} weight="bold" aria-hidden />
+					groceries
 					{waiting.length ? (
 						<span className="text-muted-foreground font-semibold tabular-nums">
 							{waiting.length}

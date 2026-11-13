@@ -2,10 +2,14 @@ import {
 	CaretLeft,
 	CaretRight,
 	CheckIcon,
+	HourglassMediumIcon,
+	type Icon,
+	JarLabelIcon,
 	MagnifyingGlass,
 	Minus,
 	Plus,
 	ShoppingCartIcon,
+	SnowflakeIcon,
 	TrashIcon,
 	X,
 } from '@phosphor-icons/react'
@@ -48,6 +52,7 @@ import {
 	restockPantryItem,
 	restorePantryItem,
 	setPantryItemCount,
+	setPantryItemFrozen,
 	setPantryItemLevel,
 } from '@/lib/pantry/server'
 import {
@@ -139,11 +144,14 @@ function PantryPreview() {
 	)
 }
 
-// Food that spoils within this many days is worth using first.
-const soonDays = 3
+// Food going off within the week is worth using first; the week after is
+// worth knowing about.
+const weekDays = 7
 
-// The page leads with at most this much going off, soonest first.
-const soonShown = 4
+const horizonDays = 14
+
+// The recipe to use food up is asked for this much of it, soonest first.
+const useUpAsked = 4
 
 function Pantry({
 	loaded,
@@ -198,6 +206,7 @@ function Pantry({
 				createdAt: item.createdAt,
 				confirmedAt: item.confirmedAt,
 				boughtAt: item.boughtAt,
+				frozenAt: item.frozenAt,
 			}
 
 			try {
@@ -223,7 +232,6 @@ function Pantry({
 	// "Do I have it?": a search looks through everything and shows what
 	// matches in one list.
 	const [query, setQuery] = useState('')
-	const searching = query.trim().length > 0
 
 	const found = new Set(
 		filterCatalogItems(
@@ -249,7 +257,7 @@ function Pantry({
 	const soon = kept
 		.filter(
 			(item) =>
-				item.spoils && item.level !== 'out' && item.daysLeft <= soonDays,
+				item.spoils && item.level !== 'out' && item.daysLeft <= horizonDays,
 		)
 		.sort((a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name))
 
@@ -287,64 +295,16 @@ function Pantry({
 						kitchen
 					</Link>
 				) : null}
-				<header className="flex flex-wrap items-center justify-between gap-3">
-					{spot ? (
+				{spot ? (
+					<header className="flex flex-wrap items-center justify-between gap-3">
 						<h2 className="text-2xl font-bold">
 							{pantrySpotLabels[spot]}{' '}
 							<span className="text-muted-foreground text-base font-semibold tabular-nums">
 								{inSpot.length}
 							</span>
 						</h2>
-					) : items.length ? (
-						<label className="bg-card border-input focus-within:border-foreground/40 flex min-h-11 min-w-0 flex-1 basis-56 items-center gap-2 rounded-xl border px-3 transition-colors">
-							<MagnifyingGlass
-								size={18}
-								weight="bold"
-								aria-hidden
-								className="text-muted-foreground shrink-0"
-							/>
-							<input
-								type="search"
-								aria-label="find an ingredient"
-								placeholder="do i have…"
-								value={query}
-								onChange={(event) => setQuery(event.target.value)}
-								className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-base outline-none [&::-webkit-search-cancel-button]:hidden"
-							/>
-							{searching ? (
-								<button
-									type="button"
-									aria-label="clear the search"
-									onClick={() => setQuery('')}
-									className="text-muted-foreground hover:text-foreground -mr-1 grid size-8 place-items-center rounded-md transition-colors"
-								>
-									<X size={16} weight="bold" aria-hidden />
-								</button>
-							) : null}
-						</label>
-					) : null}
-					{/* The shelf's round add: at the row's end on desktop, floating
-					    above the tab bar on phones, in thumb's reach. */}
-					{items.length > 0 ? (
-						<>
-							<Link
-								to="/kitchen/bulk"
-								aria-label="add ingredients"
-								title="add ingredients"
-								className="bg-kitchen-yolk ml-auto hidden size-12 shrink-0 place-items-center rounded-full transition-colors hover:brightness-95 md:grid"
-							>
-								<Plus size={22} weight="bold" aria-hidden />
-							</Link>
-							<Link
-								to="/kitchen/bulk"
-								aria-label="add ingredients"
-								className="bg-kitchen-yolk bottom-fab fixed right-4 z-20 grid size-14 place-items-center rounded-full shadow-md transition-colors hover:brightness-95 md:hidden"
-							>
-								<Plus size={26} weight="bold" aria-hidden />
-							</Link>
-						</>
-					) : null}
-				</header>
+					</header>
+				) : null}
 
 				{items.length === 0 ? (
 					<>
@@ -371,29 +331,20 @@ function Pantry({
 					</>
 				) : spot ? (
 					<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
-				) : searching ? (
-					matches.length ? (
-						<ul
-							aria-label="matches"
-							className="bg-card border-border divide-border divide-y overflow-hidden rounded-xl border"
-						>
-							{matches.map((item) => (
-								<li key={item.id}>
-									<Row item={item} selected={item.id === selectedId} />
-								</li>
-							))}
-						</ul>
-					) : (
-						<NotFound name={query.trim()} onAdded={() => setQuery('')} />
-					)
 				) : (
 					<>
 						{toCheck.length ? (
 							<CheckThese items={toCheck} onRemove={remove} />
 						) : null}
-						{soon.length ? <UseSoon items={soon} /> : null}
+						{soon.length ? <GoingOff items={soon} /> : null}
 						<Need list={list} wanting={wanting} shopping={false} />
-						<OnHand items={kept} />
+						<Have
+							items={kept}
+							query={query}
+							onQuery={setQuery}
+							matches={matches}
+							selectedId={selectedId}
+						/>
 					</>
 				)}
 			</div>
@@ -429,19 +380,26 @@ function Pantry({
 	)
 }
 
-// A section's name, quiet, over what it holds, with room for one action.
+// A section's name, quiet, over what it holds, with room for one action. Its
+// mark says what kind of section it is at a glance down a long page.
 function SectionHeading({
 	id,
+	icon: Mark,
 	children,
 	action,
 }: {
 	id: string
+	icon?: Icon | undefined
 	children: React.ReactNode
 	action?: React.ReactNode
 }) {
 	return (
 		<div className="flex min-h-9 items-center justify-between gap-3">
-			<h2 id={id} className="text-base font-bold">
+			<h2
+				id={id}
+				className="inline-flex items-center gap-2 text-base font-bold"
+			>
+				{Mark ? <Mark size={18} weight="bold" aria-hidden /> : null}
 				{children}
 			</h2>
 			{action}
@@ -454,60 +412,36 @@ function daysWord(days: number) {
 	return days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `${days} days`
 }
 
-// What is going off, soonest first, as cards to pick up; and a recipe on
-// the shelf that would use it.
-function UseSoon({ items }: { items: PantryItem[] }) {
-	const shown = items.slice(0, soonShown)
+// What is going off in the next two weeks, soonest first: this week's to
+// use, next week's to plan around, each a card to pick up. Under this week,
+// a recipe on the shelf that would use it.
+function GoingOff({ items }: { items: PantryItem[] }) {
+	const thisWeek = items.filter((item) => item.daysLeft <= weekDays)
+	const nextWeek = items.filter((item) => item.daysLeft > weekDays)
+	const asked = (thisWeek.length ? thisWeek : nextWeek).slice(0, useUpAsked)
 
 	const recipe = useQuery({
-		queryKey: ['use-up', shown.map((item) => item.name)],
+		queryKey: ['use-up', asked.map((item) => item.name)],
 		queryFn: () =>
-			recipeUsingUp({ data: { foods: shown.map((item) => item.name) } }),
+			recipeUsingUp({ data: { foods: asked.map((item) => item.name) } }),
 	})
 
 	return (
-		<section aria-labelledby="use-soon" className="flex flex-col gap-3">
+		<section aria-labelledby="going-off" className="flex flex-col gap-4">
 			<SectionHeading
-				id="use-soon"
+				id="going-off"
+				icon={HourglassMediumIcon}
 				action={
-					items.length > 1 ? (
-						<span className="text-muted-foreground text-sm font-semibold">
-							{items.length} going off
-						</span>
-					) : null
+					<span className="text-muted-foreground text-sm font-semibold">
+						{items.length} in two weeks
+					</span>
 				}
 			>
-				use soon
+				going off
 			</SectionHeading>
-			<ul className="-mx-6 flex snap-x gap-3 overflow-x-auto px-6 pb-1 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
-				{shown.map((item) => (
-					<li key={item.id} className="shrink-0 snap-start">
-						<Link
-							to="/kitchen"
-							search={{ item: item.id }}
-							resetScroll={false}
-							data-pantry={item.id}
-							aria-label={`${item.name}, ${daysWord(item.daysLeft)}`}
-							className="bg-card border-border hover:border-foreground/30 flex h-full w-32 flex-col gap-2 rounded-xl border p-3 transition-colors md:w-auto"
-						>
-							<Sprite item={item} className="size-10" />
-							<span className="text-base leading-tight font-bold">
-								{item.name}
-							</span>
-							<span
-								className={cn(
-									'mt-auto self-start rounded-full px-2 text-xs leading-5 font-bold',
-									item.daysLeft <= 1
-										? 'bg-kitchen-tomato/15'
-										: 'bg-kitchen-yolk/30',
-								)}
-							>
-								{daysWord(item.daysLeft)}
-							</span>
-						</Link>
-					</li>
-				))}
-			</ul>
+			{thisWeek.length ? (
+				<WhenGroup label="this week" items={thisWeek} />
+			) : null}
 			{recipe.data ? (
 				<Link
 					to="/recipes/$recipeId"
@@ -525,7 +459,51 @@ function UseSoon({ items }: { items: PantryItem[] }) {
 					<CaretRight size={16} weight="bold" aria-hidden />
 				</Link>
 			) : null}
+			{nextWeek.length ? (
+				<WhenGroup label="next week" items={nextWeek} />
+			) : null}
 		</section>
+	)
+}
+
+// One week's food going off, as cards in a grid, each with its days left:
+// tomato for today and tomorrow, yolk for the rest of the week, quiet after.
+function WhenGroup({ label, items }: { label: string; items: PantryItem[] }) {
+	return (
+		<div className="flex flex-col gap-2">
+			<h3 className="text-muted-foreground text-sm font-bold">{label}</h3>
+			<ul className="grid grid-cols-3 gap-2 md:grid-cols-5">
+				{items.map((item) => (
+					<li key={item.id}>
+						<Link
+							to="/kitchen"
+							search={{ item: item.id }}
+							resetScroll={false}
+							data-pantry={item.id}
+							aria-label={`${item.name}, ${daysWord(item.daysLeft)}`}
+							className="bg-card border-border hover:border-foreground/30 flex h-full flex-col gap-1.5 rounded-xl border p-2.5 transition-colors"
+						>
+							<Sprite item={item} className="size-8" />
+							<span className="text-sm leading-tight font-bold">
+								{item.name}
+							</span>
+							<span
+								className={cn(
+									'mt-auto self-start rounded-full px-2 text-xs leading-5 font-bold',
+									item.daysLeft <= 1
+										? 'bg-kitchen-tomato/15'
+										: item.daysLeft <= weekDays
+											? 'bg-kitchen-yolk/30'
+											: 'bg-muted',
+								)}
+							>
+								{daysWord(item.daysLeft)}
+							</span>
+						</Link>
+					</li>
+				))}
+			</ul>
+		</div>
 	)
 }
 
@@ -620,43 +598,159 @@ function NeedNote({
 }
 
 // Everything else, by where it lives: each spot with how much it holds and
-// the one thing worth knowing about it.
-function OnHand({ items }: { items: PantryItem[] }) {
+// the one thing worth knowing about it. The freezer is always there, dashed
+// while nothing is in it. "Do I have it?" is asked here, of everything in
+// the kitchen, and stocking up starts here too.
+function Have({
+	items,
+	query,
+	onQuery,
+	matches,
+	selectedId,
+}: {
+	items: PantryItem[]
+	query: string
+	onQuery: (query: string) => void
+	matches: PantryItem[]
+	selectedId: string | undefined
+}) {
+	const [finding, setFinding] = useState(false)
+	const searching = query.trim().length > 0
+
 	const spots = pantrySpots.flatMap((spot) => {
 		const held = items.filter((item) => spotOf(item) === spot)
 
-		return held.length ? [{ spot, held }] : []
+		return held.length || spot === 'freezer' ? [{ spot, held }] : []
 	})
+
+	function stopFinding() {
+		onQuery('')
+		setFinding(false)
+	}
 
 	return (
 		<section aria-labelledby="on-hand" className="flex flex-col gap-3">
-			<SectionHeading id="on-hand">have</SectionHeading>
-			<ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
-				{spots.map(({ spot, held }) => (
-					<li key={spot}>
-						<Link
-							to="/kitchen"
-							search={{ spot }}
-							aria-label={`${pantrySpotLabels[spot]}, ${held.length}`}
-							className="bg-card border-border hover:border-foreground/30 flex h-full items-center gap-3 rounded-xl border p-3 transition-colors"
+			<SectionHeading
+				id="on-hand"
+				icon={JarLabelIcon}
+				action={
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							aria-label="find an ingredient"
+							aria-pressed={finding}
+							onClick={() => (finding ? stopFinding() : setFinding(true))}
+							className={buttonVariants({
+								variant: finding ? 'saved' : 'outline',
+								className: 'px-3',
+							})}
 						>
-							<PantrySprite
-								look={standardLook({ key: pantrySpotSprites[spot] })}
-								className="size-8 shrink-0"
-							/>
-							<span className="flex min-w-0 flex-col">
-								<span className="truncate text-base font-bold">
-									{pantrySpotLabels[spot]}
-								</span>
-								<span className="text-muted-foreground truncate text-xs font-semibold">
-									<span className="tabular-nums">{held.length}</span> ·{' '}
-									{spotNote(held)}
-								</span>
-							</span>
+							<MagnifyingGlass size={16} weight="bold" aria-hidden />
+						</button>
+						<Link
+							to="/kitchen/bulk"
+							className={buttonVariants({
+								variant: 'outline',
+								className: 'gap-1.5 px-3',
+							})}
+						>
+							<Plus size={14} weight="bold" aria-hidden />
+							stock up
 						</Link>
-					</li>
-				))}
-			</ul>
+					</div>
+				}
+			>
+				on hand
+			</SectionHeading>
+			{finding ? (
+				<label className="bg-card border-input focus-within:border-foreground/40 flex min-h-11 items-center gap-2 rounded-xl border px-3 transition-colors">
+					<MagnifyingGlass
+						size={18}
+						weight="bold"
+						aria-hidden
+						className="text-muted-foreground shrink-0"
+					/>
+					<input
+						type="search"
+						aria-label="find an ingredient"
+						placeholder="do i have…"
+						// Opened by a tap to look something up, so the keyboard comes up.
+						// eslint-disable-next-line jsx-a11y/no-autofocus
+						autoFocus
+						value={query}
+						onChange={(event) => onQuery(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === 'Escape') stopFinding()
+						}}
+						className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-base outline-none [&::-webkit-search-cancel-button]:hidden"
+					/>
+					<button
+						type="button"
+						aria-label="close the search"
+						onClick={stopFinding}
+						className="text-muted-foreground hover:text-foreground -mr-1 grid size-8 place-items-center rounded-md transition-colors"
+					>
+						<X size={16} weight="bold" aria-hidden />
+					</button>
+				</label>
+			) : null}
+			{searching ? (
+				matches.length ? (
+					<ul
+						aria-label="matches"
+						className="bg-card border-border divide-border divide-y overflow-hidden rounded-xl border"
+					>
+						{matches.map((item) => (
+							<li key={item.id}>
+								<Row item={item} selected={item.id === selectedId} />
+							</li>
+						))}
+					</ul>
+				) : (
+					<NotFound name={query.trim()} onAdded={stopFinding} />
+				)
+			) : (
+				<ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+					{spots.map(({ spot, held }) => (
+						<li key={spot}>
+							<Link
+								to="/kitchen"
+								search={{ spot }}
+								aria-label={`${pantrySpotLabels[spot]}, ${held.length}`}
+								className={cn(
+									'hover:border-foreground/30 flex h-full items-center gap-3 rounded-xl border p-3 transition-colors',
+									held.length
+										? 'bg-card border-border'
+										: 'border-foreground/30 border-dashed',
+								)}
+							>
+								<PantrySprite
+									look={standardLook({ key: pantrySpotSprites[spot] })}
+									className={cn(
+										'size-8 shrink-0',
+										!held.length && 'opacity-50',
+									)}
+								/>
+								<span className="flex min-w-0 flex-col">
+									<span className="truncate text-base font-bold">
+										{pantrySpotLabels[spot]}
+									</span>
+									<span className="text-muted-foreground truncate text-xs font-semibold">
+										{held.length ? (
+											<>
+												<span className="tabular-nums">{held.length}</span> ·{' '}
+												{spotNote(held)}
+											</>
+										) : (
+											'nothing frozen yet'
+										)}
+									</span>
+								</span>
+							</Link>
+						</li>
+					))}
+				</ul>
+			)}
 		</section>
 	)
 }
@@ -664,7 +758,7 @@ function OnHand({ items }: { items: PantryItem[] }) {
 // The one thing worth knowing about a spot, most pressing first.
 function spotNote(items: PantryItem[]) {
 	const going = items.filter(
-		(item) => item.spoils && item.level !== 'out' && item.daysLeft <= soonDays,
+		(item) => item.spoils && item.level !== 'out' && item.daysLeft <= weekDays,
 	).length
 
 	if (going) return `${going} going off`
@@ -1332,6 +1426,33 @@ function DetailPanel({
 						{pack ? `bought ${pack}` : 'bought more'}
 					</button>
 				))}
+				{/* Into the freezer, to keep for months; food bought frozen lives
+				    there already. */}
+				{item.frozenAt || item.category !== 'frozen' ? (
+					<button
+						type="button"
+						disabled={pending}
+						onClick={() => {
+							const frozen = !item.frozenAt
+
+							void save(async () => {
+								await setPantryItemFrozen({ data: { id: item.id, frozen } })
+								toast(
+									frozen
+										? `${item.name} is in the freezer`
+										: `${item.name} is out of the freezer`,
+								)
+							})
+						}}
+						className={buttonVariants({
+							variant: 'outline',
+							className: 'min-h-11',
+						})}
+					>
+						<SnowflakeIcon size={16} weight="bold" aria-hidden />
+						{item.frozenAt ? 'take out' : 'freeze it'}
+					</button>
+				) : null}
 			</div>
 			<dl className="text-muted-foreground border-foreground/20 w-full border-t pt-3 text-xs">
 				<div className="flex justify-between py-0.5">
@@ -1348,6 +1469,14 @@ function DetailPanel({
 							: dateFormat.format(item.boughtAt).toLowerCase()}
 					</dd>
 				</div>
+				{item.frozenAt ? (
+					<div className="flex justify-between py-0.5">
+						<dt>frozen</dt>
+						<dd className="text-foreground font-semibold">
+							{dateFormat.format(item.frozenAt).toLowerCase()}
+						</dd>
+					</div>
+				) : null}
 				{item.level === 'out' || item.daysLeft > 365 ? null : (
 					<div className="flex justify-between py-0.5">
 						<dt>keeps</dt>
