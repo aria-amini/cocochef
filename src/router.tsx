@@ -3,6 +3,7 @@ import { createRouter } from '@tanstack/react-router'
 
 import { NotFoundComponent, ServerErrorComponent } from '@/components/errors'
 import { pendingOptions } from '@/components/page-pending'
+import { loadNewCodeAfterDeploys } from '@/lib/utils/new-code'
 import { queryClient } from '@/lib/utils/query'
 
 import { routeTree } from './routeTree.gen'
@@ -23,6 +24,7 @@ export const getRouter = () => {
 	})
 
 	if (!router.isServer) {
+		loadNewCodeAfterDeploys(router)
 		Sentry.addIntegration(
 			Sentry.tanstackRouterBrowserTracingIntegration(router),
 		)
