@@ -119,7 +119,7 @@ export function PublicRecipePage({
 							{recipe.publisher.displayName}&apos;s recipes
 						</BackLink>
 					) : (
-						<BackLink to="/recipes">back to recipes</BackLink>
+						<BackLink to="/recipes">back to my recipes</BackLink>
 					)}
 				</BackBar>
 				<RecipeReader
