@@ -1,7 +1,7 @@
 import {
 	CheckIcon,
+	ClockCounterClockwiseIcon,
 	HourglassMediumIcon,
-	type Icon,
 	JarLabelIcon,
 	ToteSimpleIcon,
 	MagnifyingGlass,
@@ -24,7 +24,6 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { CountPill } from '@/components/count-pill'
 import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
 import { GroceryList, type GroceryItem } from '@/components/grocery-list'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
@@ -77,6 +76,9 @@ const pantrySearch = z.object({
 	spot: z.enum(pantrySpots).optional().catch(undefined),
 	item: z.string().optional(),
 	shop: z.boolean().optional().catch(undefined),
+	// On hand shows what to use first, or what came in last.
+	list: z.enum(['recent']).optional().catch(undefined),
+	// Which side is open: on hand, or the grocery list.
 	view: z.enum(['groceries']).optional().catch(undefined),
 })
 
@@ -170,7 +172,7 @@ function Pantry({
 	const navigate = useNavigate()
 	const router = useRouter()
 
-	const { spot, item: selectedId, view } = Route.useSearch()
+	const { spot, item: selectedId, view, list: showing } = Route.useSearch()
 
 	// The tab reopens whichever side was open last.
 	useEffect(() => {
@@ -271,6 +273,11 @@ function Pantry({
 		.filter((item) => item.level !== 'out' && item.daysLeft <= horizonDays)
 		.sort((a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name))
 
+	// What came into the kitchen last: added, bought or restocked.
+	const recent = [...kept].sort(
+		(a, b) => b.boughtAt.getTime() - a.boughtAt.getTime(),
+	)
+
 	const wanting = byName(kept.filter((item) => item.level !== 'plenty')).sort(
 		(a, b) => Number(b.level === 'out') - Number(a.level === 'out'),
 	)
@@ -288,7 +295,6 @@ function Pantry({
 				<h1 className="sr-only">kitchen</h1>
 				<KitchenSwitch
 					view={view}
-					have={kept.length}
 					buy={list.filter((line) => !line.checkedAt).length}
 				/>
 				{view === 'groceries' ? (
@@ -320,6 +326,8 @@ function Pantry({
 						<OnHand
 							items={kept}
 							fresh={fresh}
+							recent={recent}
+							showing={showing}
 							spot={spot}
 							inSpot={inSpot}
 							query={query}
@@ -367,11 +375,9 @@ function Pantry({
 // so neither moves when the other grows.
 function KitchenSwitch({
 	view,
-	have,
 	buy,
 }: {
 	view: 'groceries' | undefined
-	have: number
 	buy: number
 }) {
 	const sides = [
@@ -379,7 +385,7 @@ function KitchenSwitch({
 			key: 'have',
 			label: 'on hand',
 			mark: JarLabelIcon,
-			count: have,
+			count: 0,
 			picked: !view,
 		},
 		{
@@ -409,19 +415,22 @@ function KitchenSwitch({
 				>
 					<Mark size={18} weight={picked ? 'fill' : 'bold'} aria-hidden />
 					{label}
-					{count ? <CountPill count={count} /> : null}
+					{/* How much is left to buy, in a small yolk pill after its name. */}
+					{count ? (
+						<span className="bg-kitchen-yolk grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-xs leading-none font-bold tabular-nums">
+							<span className="sr-only">, </span>
+							{count}
+						</span>
+					) : null}
 				</Link>
 			))}
 		</nav>
 	)
 }
 
-// A section's name, quiet, over what it holds, with room for one action. Its
-// mark says what kind of section it is at a glance down a long page.
+// A section's name, quiet, over what it holds, with room for one action.
 function SectionHeading({
 	id,
-	icon: Mark,
-	count,
 	named = true,
 	children,
 	action,
@@ -429,8 +438,6 @@ function SectionHeading({
 	id: string
 	// Said out loud only, where the kitchen's switch already names it.
 	named?: boolean
-	icon?: Icon | undefined
-	count?: number | undefined
 	children: React.ReactNode
 	action?: React.ReactNode
 }) {
@@ -443,9 +450,7 @@ function SectionHeading({
 					named || 'sr-only',
 				)}
 			>
-				{Mark ? <Mark size={18} weight="bold" aria-hidden /> : null}
 				{children}
-				{count ? <CountPill count={count} /> : null}
 			</h2>
 			{named ? null : <div className="flex-1" />}
 			{action}
@@ -494,16 +499,13 @@ function daysTag(days: number) {
 
 // Fresh food, soonest to go first, as cards to pick up, each with its days
 // left.
-function GoingOff({ items }: { items: PantryItem[] }) {
+function FoodCards({ label, items }: { label: string; items: PantryItem[] }) {
 	const [all, setAll] = useState(false)
 	const shown = all ? items : items.slice(0, firstShown)
 
 	return (
 		<div className="flex flex-col gap-3">
-			<ul
-				aria-label="use first"
-				className="grid grid-cols-3 gap-2 md:grid-cols-5"
-			>
+			<ul aria-label={label} className="grid grid-cols-3 gap-2 md:grid-cols-5">
 				{shown.map((item) => (
 					<li key={item.id}>
 						<Link
@@ -629,6 +631,8 @@ function NeedNote({
 function OnHand({
 	items,
 	fresh,
+	recent,
+	showing,
 	spot,
 	inSpot,
 	query,
@@ -639,6 +643,9 @@ function OnHand({
 	items: PantryItem[]
 	// Food that goes off within two weeks, soonest first.
 	fresh: PantryItem[]
+	// What came in last, newest first, and whether it is the one shown.
+	recent: PantryItem[]
+	showing: 'recent' | undefined
 	// The spot picked, and what it holds; none picked shows what is going off.
 	spot: PantrySpot | undefined
 	inSpot: PantryItem[]
@@ -754,10 +761,24 @@ function OnHand({
 							<SpotChip
 								label="use first"
 								count={fresh.length}
-								picked={!spot}
+								picked={!spot && !showing}
 								search={{}}
 								mark={
 									<HourglassMediumIcon size={16} weight="bold" aria-hidden />
+								}
+							/>
+						</li>
+						<li className="shrink-0">
+							<SpotChip
+								label="recently added"
+								picked={!spot && showing === 'recent'}
+								search={{ list: 'recent' }}
+								mark={
+									<ClockCounterClockwiseIcon
+										size={16}
+										weight="bold"
+										aria-hidden
+									/>
 								}
 							/>
 						</li>
@@ -780,8 +801,10 @@ function OnHand({
 					</ul>
 					{spot ? (
 						<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
+					) : showing === 'recent' ? (
+						<FoodCards label="recently added" items={recent} />
 					) : fresh.length ? (
-						<GoingOff items={fresh} />
+						<FoodCards label="use first" items={fresh} />
 					) : (
 						<p className="text-muted-foreground text-sm font-semibold">
 							nothing goes off in the next two weeks
@@ -803,9 +826,11 @@ function SpotChip({
 	mark,
 }: {
 	label: string
-	count: number
+	// How many it holds; none given says nothing, and a spot with none is
+	// dashed.
+	count?: number | undefined
 	picked: boolean
-	search: { spot?: PantrySpot }
+	search: { spot?: PantrySpot; list?: 'recent' }
 	mark: React.ReactNode
 }) {
 	return (
@@ -818,9 +843,9 @@ function SpotChip({
 				'hover:border-foreground/30 inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-bold whitespace-nowrap transition-colors',
 				picked
 					? 'bg-kitchen-yolk/30 border-kitchen-yolk'
-					: count
-						? 'bg-card border-border'
-						: 'border-foreground/30 border-dashed',
+					: count === 0
+						? 'border-foreground/30 border-dashed'
+						: 'bg-card border-border',
 			)}
 		>
 			{mark}
