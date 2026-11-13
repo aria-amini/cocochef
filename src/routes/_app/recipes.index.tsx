@@ -129,7 +129,7 @@ function Shelf() {
 				{...enter}
 				className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
 			>
-				<h1 className="sr-only">your recipes</h1>
+				<h1 className="sr-only">my recipes</h1>
 				<div className="flex w-full flex-wrap items-center justify-between gap-3">
 					<SharedFrom signedIn={!!account} />
 					<div className="hidden items-center gap-3 md:flex">

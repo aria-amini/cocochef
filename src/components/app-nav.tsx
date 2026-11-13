@@ -7,10 +7,17 @@ import { AddRecipeMenu } from '@/components/add-recipe-menu'
 import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
 import { cn } from '@/lib/utils/ui'
 
+// Each tab's key is its path's name; the name on it says whose recipes the
+// shelf holds, since home finds new ones.
 const navItems = [
-	{ label: 'home', icon: HouseIcon, to: '/' },
-	{ label: 'recipes', icon: CookingPotIcon, to: '/recipes' },
-	{ label: 'kitchen', icon: CarrotIcon, to: '/kitchen' },
+	{ label: 'home', name: 'home', icon: HouseIcon, to: '/' },
+	{
+		label: 'recipes',
+		name: 'my recipes',
+		icon: CookingPotIcon,
+		to: '/recipes',
+	},
+	{ label: 'kitchen', name: 'kitchen', icon: CarrotIcon, to: '/kitchen' },
 ] as const
 
 type TabBarMode = 'none' | 'bar' | 'bar-fab' | 'bar-own-fab'
@@ -169,7 +176,7 @@ function Sidebar() {
 				/>
 				cocochef
 			</Link>
-			{navItems.map(({ label, icon: Icon, to }) => {
+			{navItems.map(({ label, name, icon: Icon, to }) => {
 				const active = tab === label
 
 				return (
@@ -191,7 +198,7 @@ function Sidebar() {
 							aria-hidden
 							className={navIconFeedbackClassName}
 						/>
-						{label}
+						{name}
 						{label === 'kitchen' ? (
 							<>
 								<GroceryCount />
@@ -255,7 +262,7 @@ function TabBar() {
 				aria-label="Primary"
 				className="border-border bg-background pb-safe fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t md:hidden"
 			>
-				{navItems.map(({ label, icon: Icon, to }) => {
+				{navItems.map(({ label, name, icon: Icon, to }) => {
 					const active = tab === label
 
 					return (
@@ -284,7 +291,7 @@ function TabBar() {
 									<GroceryBadge className="bg-background absolute -top-1.5 -right-3" />
 								) : null}
 							</span>
-							{label}
+							{name}
 							{label === 'kitchen' ? <GroceryCount /> : null}
 						</Link>
 					)
