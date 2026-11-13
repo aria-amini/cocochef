@@ -38,6 +38,9 @@ describe('shopping amounts', () => {
 		expect(shoppingUnitsFor('eggs')).toEqual(['dozen', 'each'])
 		expect(shoppingUnitsFor('2 limes')[0]).toBe('each')
 		expect(shoppingUnitsFor('garlic')).toEqual(['head'])
+		// Counted food in a can is bought by the can.
+		expect(shoppingUnitsFor('chickpeas')).toContain('can')
+		expect(shoppingUnitsFor('chickpeas')).not.toContain('each')
 	})
 })
 

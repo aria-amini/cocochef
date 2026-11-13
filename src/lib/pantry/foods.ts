@@ -286,6 +286,9 @@ const shelfByFood = new Map<string, number>([
 
 // How long a food keeps, in days, from the day it was bought.
 export function shelfLife(name: string, category: PantryCategory) {
+	// Kept frozen, whatever it is called: "frozen salmon" is not fresh salmon.
+	if (category === 'frozen') return shelfByCategory.frozen
+
 	const food = foodOf(name)
 
 	return (

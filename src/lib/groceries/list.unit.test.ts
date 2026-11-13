@@ -79,6 +79,7 @@ describe('shoppingLine', () => {
 		['1/8 teaspoon Ground white pepper', 'ground white pepper'],
 		['¼ cup red pepper', 'red pepper'],
 		['1 tbsp white miso', 'white miso'],
+		['1 cup diced onions', 'onions'],
 	])('buys %s as %s', (line, bought) => {
 		expect(shoppingLine(line)).toBe(bought)
 	})

@@ -130,6 +130,13 @@ describe('shelfState', () => {
 		expect(shelfLife('2 lb short ribs', 'meat')).toBe(3)
 	})
 
+	test("keeps what is stored frozen for a frozen food's time, not the fresh one's", () => {
+		expect(shelfLife('frozen salmon', 'frozen')).toBeGreaterThan(30)
+		expect(shelfLife('frozen salmon', 'frozen')).toBe(
+			shelfLife('frozen peas', 'frozen'),
+		)
+	})
+
 	test('trusts what keeps until the cook last said so long ago', () => {
 		expect(kept('soy sauce', 'sauces', 300, 90)).toMatchObject({
 			state: 'fresh',

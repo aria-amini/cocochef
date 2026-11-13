@@ -1,6 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { Popover } from '@base-ui/react/popover'
-import { useSyncExternalStore } from 'react'
+import { createContext, useContext, useSyncExternalStore } from 'react'
 
 const wideQuery = '(min-width: 48rem)'
 
@@ -19,6 +19,9 @@ function useWide() {
 		() => false,
 	)
 }
+
+// Which root the sheet rendered, so its done button closes the right one.
+const SheetMode = createContext<'popover' | 'dialog'>('dialog')
 
 type InitialFocus = (
 	type: 'mouse' | 'touch' | 'pen' | 'keyboard' | '',
@@ -96,7 +99,7 @@ export function ItemSheet({
 							className="floating bg-card flex w-80 flex-col gap-4 rounded-xl p-4 outline-none"
 						>
 							<Popover.Title className="sr-only">{title}</Popover.Title>
-							{children}
+							<SheetMode value="popover">{children}</SheetMode>
 						</Popover.Popup>
 					</Popover.Positioner>
 				</Popover.Portal>
@@ -118,7 +121,7 @@ export function ItemSheet({
 					className="bg-card fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col gap-4 overflow-y-auto rounded-t-xl p-5 pb-8 outline-none"
 				>
 					<Dialog.Title className="sr-only">{title}</Dialog.Title>
-					{children}
+					<SheetMode value="dialog">{children}</SheetMode>
 				</Dialog.Popup>
 			</Dialog.Portal>
 		</Dialog.Root>
@@ -137,8 +140,8 @@ export function ItemSheetDone({
 	children: React.ReactNode
 	'data-sheet-done'?: boolean
 }) {
-	const wide = useWide()
-	const Close = wide ? Popover.Close : Dialog.Close
+	const Close =
+		useContext(SheetMode) === 'popover' ? Popover.Close : Dialog.Close
 
 	return (
 		<Close ref={ref} className={className} {...rest}>
