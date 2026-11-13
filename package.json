@@ -83,6 +83,7 @@
 		"better-auth": "^1.6.20",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
+		"country-flag-icons": "^1.6.20",
 		"drizzle-kit": "1.0.0-rc.4",
 		"drizzle-seed": "1.0.0-rc.4",
 		"fallow": "^3.6.0",

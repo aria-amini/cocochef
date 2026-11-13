@@ -1,4 +1,4 @@
-import { getCurrentSession } from '@/lib/auth/session'
+import { getAccountId } from '@/lib/auth/session'
 import { rateLimit } from '@/lib/import/rate-limit'
 
 import { askModel } from './model'
@@ -7,12 +7,12 @@ import { askModel } from './model'
 // limited number of times a minute; visitors and anyone past the limit get
 // the mock answers.
 export async function mayAskModel() {
-	const session = await getCurrentSession()
+	const accountId = await getAccountId()
 
-	if (!session || session.user.isAnonymous) return false
+	if (!accountId) return false
 
 	try {
-		rateLimit(`assistant:${session.user.id}`, 30)
+		rateLimit(`assistant:${accountId}`, 30)
 
 		return true
 	} catch {

@@ -3,7 +3,6 @@ import {
 	expectIsolatedScreenshot,
 	expectPageScreenshot,
 } from '@tests/support/screenshot'
-import { isPhone } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
 
@@ -20,21 +19,31 @@ const shelfState = vi.hoisted<ShelfState>(() => ({
 }))
 
 const discovery = vi.hoisted(() => ({
-	search: vi.fn(),
-	popular: vi.fn(),
 	import: vi.fn(),
 }))
 
-vi.mock('@/lib/discover/server', () => ({
-	searchRecipes: discovery.search,
-	popularRecipes: discovery.popular,
+const saves = vi.hoisted(() => ({
+	remove: vi.fn(),
+	save: vi.fn(),
 }))
 
-vi.mock('@/lib/import/server', () => ({ importRecipe: discovery.import }))
+vi.mock('@/lib/home/server', () => ({
+	homeNow: async () => ({
+		signedIn: true,
+		cooking: null,
+		shopping: null,
+		waiting: 0,
+	}),
+}))
+
+vi.mock('@/lib/import/server', () => ({
+	importRecipe: discovery.import,
+	peekRecipes: () => Promise.resolve([]),
+}))
 
 vi.mock('@/lib/recipes/server', () => ({
-	removeSavedRecipe: () => Promise.resolve(null),
-	saveRecipe: () => Promise.resolve(null),
+	removeSavedRecipe: saves.remove,
+	saveRecipe: saves.save,
 	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
 	getRecipe: ({ data }: { data: { id: string } }) => {
 		const recipe = shelfState.recipes.find((recipe) => recipe.id === data.id)
@@ -104,24 +113,8 @@ const dal: Recipe = {
 describe('recipes shelf', () => {
 	beforeEach(() => {
 		shelfState.recipes = []
-		discovery.search.mockReset().mockResolvedValue({
-			results: [
-				{
-					title: 'online ramen',
-					url: 'https://example.com/ramen',
-					siteName: 'Example',
-					saved: false,
-					draft: false,
-					ingredientMatches: [],
-					siteId: 'example',
-				},
-			],
-			warming: false,
-		})
-		discovery.popular.mockReset().mockResolvedValue({
-			warming: false,
-			results: [],
-		})
+		saves.remove.mockReset().mockResolvedValue(null)
+		saves.save.mockReset().mockResolvedValue(null)
 		discovery.import
 			.mockReset()
 			.mockRejectedValue(new Error('Import failed. Please retry.'))
@@ -160,21 +153,6 @@ describe('recipes shelf', () => {
 			.toHaveFocus()
 	})
 
-	test('says the ai button is coming soon on hover, and does nothing', async () => {
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		const ai = screen.getByRole('button', { name: /ai: ask for ideas/ })
-
-		await ai.hover()
-		await expect
-			.element(screen.getByText('coming soon'), { timeout: 1000 })
-			.toBeVisible()
-		await expect.element(ai).toHaveAttribute('aria-disabled', 'true')
-	})
-
 	test('keeps the add button on an empty shelf and a full one', async () => {
 		const { screen, router, queryClient } = await renderRoute({
 			path: '/recipes',
@@ -202,114 +180,6 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('button', { name: /save your first recipe/ }))
 			.not.toBeInTheDocument()
-	})
-
-	test('puts pictured discovery recipes first, keeping each group in order', async () => {
-		shelfState.recipes = [dal]
-
-		const popular = (title: string, imageUrl?: string) => ({
-			recipeId: 'id-' + title,
-			title,
-			imageUrl,
-			siteName: 'Example',
-			saved: false,
-			draft: false,
-			ingredientMatches: [],
-		})
-
-		discovery.popular.mockResolvedValue({
-			warming: false,
-			results: [
-				popular('plain a'),
-				popular('pictured b', '/sprites/pantry/apple.png'),
-				popular('plain c'),
-				popular('pictured d', '/sprites/pantry/carrot.png'),
-				popular('pictured e', '/sprites/pantry/flour.png'),
-			],
-		})
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		const discover = screen.getByRole('region', { name: 'discover recipes' })
-
-		await expect.element(discover).toBeVisible()
-		// Four tiles at most, so the last plain recipe is left to the finder. Phones
-		// hide all but the first two, so this reads the tiles, not the role tree.
-		await expect
-			.poll(() =>
-				[...discover.element().querySelectorAll('a')].map(
-					(tile) => tile.querySelector('span.line-clamp-2')?.textContent,
-				),
-			)
-			.toEqual(['pictured b', 'pictured d', 'pictured e', 'plain a'])
-	})
-
-	test('stands a plain pot in for a discovery recipe with no usable photo', async () => {
-		shelfState.recipes = [dal]
-
-		const popular = (title: string, imageUrl?: string) => ({
-			recipeId: 'id-' + title,
-			title,
-			imageUrl,
-			siteName: 'Example',
-			saved: false,
-			draft: false,
-			ingredientMatches: [],
-		})
-
-		discovery.popular.mockResolvedValue({
-			warming: false,
-			results: [popular('no photo'), popular('broken photo', '/missing.png')],
-		})
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		const discover = screen.getByRole('region', { name: 'discover recipes' })
-
-		const tileOf = (title: string) =>
-			[...discover.element().querySelectorAll('a')].find((tile) =>
-				tile.textContent?.startsWith(title + 'Example'),
-			)
-
-		// A broken photo falls back too, and no tile shows an ingredient.
-		await expect
-			.poll(() => tileOf('broken photo')?.querySelector('[data-placeholder]'))
-			.toBeTruthy()
-		expect(
-			tileOf('no photo')?.querySelector('[data-placeholder] svg'),
-		).toBeTruthy()
-		expect(discover.element().querySelector('img[src^="/sprites"]')).toBeNull()
-	})
-
-	test.each([
-		['MacIntel', '⌘K'],
-		['iPhone', '⌘K'],
-		['iPad', '⌘K'],
-		['Linux x86_64', 'ctrl K'],
-		['Win32', 'ctrl K'],
-	])('hints %s users at %s to search', async (platform, hint) => {
-		vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform)
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		const search = screen.getByRole('button', { name: /search any recipe/ })
-
-		await expect.element(search).toBeVisible()
-		const key = search.element().querySelector('kbd')
-
-		if (!key) throw new Error('search is missing its shortcut hint')
-		expect(key.textContent).toBe(hint)
-		// Phones have no keyboard to press it on.
-		expect(getComputedStyle(key).display === 'none').toBe(isPhone())
 	})
 
 	test('marks the saved section with the eggplant bookmark, apart from your own', async () => {
@@ -340,7 +210,73 @@ describe('recipes shelf', () => {
 		expect(getComputedStyle(person).color).not.toBe(eggplant)
 	})
 
-	test('shows search and the ways to add a recipe', async () => {
+	test('takes a saved recipe off its tile, with undo', async () => {
+		shelfState.recipes = [
+			misoButterPasta,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		// Your own recipes carry no chip; only saved ones do.
+		await expect
+			.element(screen.getByRole('button', { name: 'unsave shared soup' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'unsave miso butter pasta' }))
+			.not.toBeInTheDocument()
+
+		await screen.getByRole('button', { name: 'unsave shared soup' }).click()
+		await expect
+			.poll(() => saves.remove)
+			.toHaveBeenCalledWith({ data: { id: 'shared' } })
+		await expect
+			.element(screen.getByText('taken off your recipes'))
+			.toBeVisible()
+
+		await screen.getByRole('button', { name: 'undo' }).click()
+		await expect
+			.poll(() => saves.save)
+			.toHaveBeenCalledWith({ data: { id: 'shared' } })
+	})
+
+	test('falls back to everything when the last recipe of a filter goes', async () => {
+		shelfState.recipes = [
+			misoButterPasta,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+		saves.remove.mockImplementation(async () => {
+			shelfState.recipes = shelfState.recipes.filter(
+				(recipe) => recipe.id !== 'shared',
+			)
+
+			return null
+		})
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await screen.getByRole('button', { name: /^saved/ }).click()
+		await screen.getByRole('button', { name: 'unsave shared soup' }).click()
+		// Nothing is saved now, so the shelf is not left on an empty filter.
+		await expect
+			.element(screen.getByRole('button', { name: /^saved/ }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(
+				screen
+					.getByRole('region', { name: 'your recipes' })
+					.getByText('miso butter pasta'),
+			)
+			.toBeVisible()
+	})
+
+	test('shows the ways to add a recipe', async () => {
 		shelfState.recipes = [misoButterPasta, dal]
 
 		const { screen } = await renderRoute({
@@ -355,143 +291,6 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('button', { name: 'add recipe' }))
 			.toBeVisible()
-
-		await expect
-			.element(screen.getByRole('button', { name: /search any recipe/ }))
-			.toBeVisible()
-	})
-
-	test('shows popular recipes under your own and opens them', async () => {
-		shelfState.recipes = [dal]
-		discovery.popular.mockResolvedValue({
-			warming: false,
-			results: [
-				{
-					recipeId: misoButterPasta.id,
-					title: 'shared miso pasta',
-					siteName: 'cocochef',
-					saved: false,
-					draft: false,
-					ingredientMatches: [],
-				},
-				{
-					url: 'https://example.com/ramen',
-					title: 'site ramen',
-					siteName: 'Example',
-					saved: false,
-					draft: false,
-					ingredientMatches: [],
-				},
-			],
-		})
-		discovery.import.mockResolvedValue({ id: dal.id, title: 'dal' })
-
-		const { screen, router } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		const yours = screen.getByRole('region', { name: 'your recipes' })
-		const popular = screen.getByRole('region', { name: 'discover recipes' })
-
-		await expect.element(yours.getByText('dal')).toBeVisible()
-		await expect
-			.element(popular.getByRole('link', { name: /shared miso pasta/ }))
-			.toHaveAttribute('href', '/recipes/recipe-1')
-
-		await popular.getByRole('button', { name: /site ramen/ }).click()
-		await expect
-			.poll(() => router.state.location.pathname)
-			.toBe('/recipes/recipe-2')
-		// Looking at a recipe from a site leaves it off the shelf.
-		expect(discovery.import).toHaveBeenCalledWith({
-			data: { url: 'https://example.com/ramen', keep: false },
-		})
-	})
-
-	test('keeps discovery to one compact row within the screen', async () => {
-		shelfState.recipes = [dal]
-		discovery.popular.mockResolvedValue({
-			warming: false,
-			results: Array.from({ length: 40 }, (_, index) => ({
-				recipeId: 'popular-' + index,
-				title: 'popular recipe ' + index,
-				siteName: 'Example',
-				saved: false,
-				draft: false,
-				ingredientMatches: [],
-			})),
-		})
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		const yours = screen.getByRole('region', { name: 'your recipes' })
-		const discover = screen.getByRole('region', { name: 'discover recipes' })
-		const first = discover.getByRole('link', { name: /popular recipe 0/ })
-		await expect.element(first).toBeVisible()
-		// Only what the row can show is rendered, however many were found.
-		expect(discover.getByRole('link').elements().length).toBeLessThanOrEqual(4)
-		const ownBounds = yours.getByRole('link').element().getBoundingClientRect()
-		const foundBounds = first.element().getBoundingClientRect()
-		expect(foundBounds.left).toBe(ownBounds.left)
-		expect(foundBounds.height).toBeLessThan(ownBounds.height)
-
-		if (!isPhone()) {
-			expect(
-				Math.abs(
-					discover.element().getBoundingClientRect().right -
-						screen
-							.getByRole('button', { name: 'add recipe', exact: true })
-							.element()
-							.getBoundingClientRect().right,
-				),
-			).toBeLessThan(1)
-		}
-
-		const visible = [...discover.element().querySelectorAll('a')].filter(
-			(node) => getComputedStyle(node).display !== 'none',
-		)
-
-		expect(visible.length).toBe(isPhone() ? 2 : 4)
-
-		for (const tile of visible)
-			expect(tile.getBoundingClientRect().top).toBe(foundBounds.top)
-
-		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
-			window.innerWidth,
-		)
-	})
-
-	test('holds the popular row with placeholders while it loads', async () => {
-		discovery.popular.mockReturnValue(new Promise(() => {}))
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await expect
-			.element(screen.getByRole('region', { name: 'discover recipes' }))
-			.toHaveAttribute('aria-busy', 'true')
-	})
-
-	test('ends the shelf cleanly when popular recipes fail to load', async () => {
-		discovery.popular.mockRejectedValue(new Error('offline'))
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await expect
-			.element(screen.getByText('save your first recipe', { exact: false }))
-			.toBeVisible()
-		await expect
-			.element(screen.getByRole('region', { name: 'discover recipes' }))
-			.not.toBeInTheDocument()
 	})
 
 	test('imports a link from the add menu', async () => {
@@ -595,7 +394,7 @@ describe('recipes shelf', () => {
 		})
 	})
 
-	test('captures the shelf with a draft, a saved recipe and discovery', async () => {
+	test('captures the shelf with a draft and a saved recipe', async () => {
 		// The command glyph comes from whichever system font has it, so only the
 		// ctrl hint can be compared across machines. The hint test asserts the Mac
 		// text instead.
@@ -605,22 +404,6 @@ describe('recipes shelf', () => {
 			misoButterPasta,
 			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
 		]
-		discovery.popular.mockResolvedValue({
-			warming: false,
-			results: [
-				{ title: 'abcd', imageUrl: '/sprites/pantry/apple.png' },
-				{ title: 'abcde' },
-				{ title: 'abcdef' },
-				{ title: 'abcdefg' },
-			].map((recipe) => ({
-				...recipe,
-				recipeId: 'id-' + recipe.title,
-				siteName: 'Example',
-				saved: false,
-				draft: false,
-				ingredientMatches: [],
-			})),
-		})
 
 		const { screen } = await renderRoute({
 			path: '/recipes',

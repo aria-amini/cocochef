@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 
 import { ImportDialog, linkFrom } from '@/components/import-link'
 import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
@@ -27,8 +27,8 @@ export function useRecipeActions() {
 	return actions
 }
 
-// One box and one import dialog for every page, so the search, the buttons,
-// the phone's round button and ⌘K all open the same thing.
+// One box and one import dialog for every page: the box picks a recipe to
+// start a new one from.
 export function RecipeActionsProvider({
 	children,
 }: {
@@ -52,27 +52,22 @@ export function RecipeActionsProvider({
 
 	const actions = useMemo<RecipeActions>(
 		() => ({
-			find: (query = '', onUse) => setFinder({ open: true, query, onUse }),
+			// Searching is home's: a search asked for anywhere goes there. Picking
+			// a recipe to start one from is a moment in the editor, not a place
+			// to come back to, so it opens over the editor and keeps no history.
+			find: (query = '', onUse) =>
+				onUse
+					? setFinder({ open: true, query, onUse })
+					: void navigate({ to: '/', search: { q: query } }),
 			importLink: (url) => {
 				setImporting({ open: true, url })
 			},
 			pasteText: () => setPasting(true),
 		}),
-		[],
+		[navigate],
 	)
 
-	useEffect(() => {
-		function toggle(event: KeyboardEvent) {
-			if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k')
-				return
-			event.preventDefault()
-			setFinder((current) => ({ open: !current.open, query: '' }))
-		}
-
-		window.addEventListener('keydown', toggle)
-
-		return () => window.removeEventListener('keydown', toggle)
-	}, [])
+	const dismiss = () => setFinder((current) => ({ ...current, open: false }))
 
 	const importDialog = (
 		<ImportDialog
@@ -90,7 +85,8 @@ export function RecipeActionsProvider({
 				open={finder.open}
 				defaultQuery={finder.query}
 				onUse={finder.onUse}
-				onOpenChange={(open) => setFinder((current) => ({ ...current, open }))}
+				onDismiss={dismiss}
+				onLeave={dismiss}
 			>
 				{finder.open ? importDialog : null}
 			</RecipeFinder>

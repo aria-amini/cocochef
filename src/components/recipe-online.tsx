@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { searchRecipes } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
+import type { RecipeSort } from '@/lib/recipes/loved'
 import { cn } from '@/lib/utils/ui'
 
 type Result = Awaited<ReturnType<typeof searchRecipes>>['results'][number]
@@ -25,11 +26,21 @@ type OnlineSearch = {
 	failed: boolean
 }
 
-type Settled = Omit<OnlineSearch, 'loading'> & { query?: string }
+type Settled = Omit<OnlineSearch, 'loading'> & { asked?: string }
 
-// Searches the recipe sites for `query` once it settles. Pass `undefined` to
-// stay idle. The first search starts the crawl, so keep asking while sites load.
-export function useOnlineRecipes(query: string | undefined): OnlineSearch {
+// What was asked, so results answer only the question that fetched them.
+const askedOf = (query: string, sort: RecipeSort | undefined) =>
+	`${sort ?? ''} ${query}`
+
+// Searches the recipe sites for `query` once it settles, or sorted by `sort`,
+// every rated recipe. Pass `undefined` to stay idle. The first search
+// starts the crawl, so keep asking while sites load.
+export function useOnlineRecipes(
+	query: string | undefined,
+	sort?: RecipeSort,
+): OnlineSearch {
+	const asked = query === undefined ? undefined : askedOf(query, sort)
+
 	const [settled, setSettled] = useState<Settled>({
 		results: [],
 		warming: false,
@@ -44,11 +55,13 @@ export function useOnlineRecipes(query: string | undefined): OnlineSearch {
 
 		async function run(q: string) {
 			try {
-				const found = await searchRecipes({ data: { q: q.slice(0, 80) } })
+				const found = await searchRecipes({
+					data: { q: q.slice(0, 80), sort },
+				})
 
 				if (cancelled) return
 				setSettled({
-					query: q,
+					asked: askedOf(q, sort),
 					results: found.results,
 					warming: found.warming,
 					failed: false,
@@ -57,7 +70,12 @@ export function useOnlineRecipes(query: string | undefined): OnlineSearch {
 				if (found.warming) timer = setTimeout(() => void run(q), WARM_POLL_MS)
 			} catch {
 				if (!cancelled)
-					setSettled({ query: q, results: [], warming: false, failed: true })
+					setSettled({
+						asked: askedOf(q, sort),
+						results: [],
+						warming: false,
+						failed: true,
+					})
 			}
 		}
 
@@ -67,10 +85,10 @@ export function useOnlineRecipes(query: string | undefined): OnlineSearch {
 			cancelled = true
 			clearTimeout(timer)
 		}
-	}, [query])
+	}, [query, sort])
 
-	// Results belong to the query that fetched them; a new query starts empty.
-	const current = query !== undefined && settled.query === query
+	// Results belong to the question that fetched them; a new one starts empty.
+	const current = asked !== undefined && settled.asked === asked
 
 	return {
 		results: current ? settled.results : [],
@@ -128,10 +146,12 @@ export function RecipeThumb({
 	imageUrl,
 	title,
 	className,
+	glyphSize = 22,
 }: {
 	imageUrl?: string | null | undefined
 	title: string
 	className?: string | undefined
+	glyphSize?: number
 }) {
 	const [broken, setBroken] = useState(false)
 
@@ -144,7 +164,7 @@ export function RecipeThumb({
 					className,
 				)}
 			>
-				<RecipeGlyph title={title} size={22} />
+				<RecipeGlyph title={title} size={glyphSize} />
 			</span>
 		)
 

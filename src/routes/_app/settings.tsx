@@ -58,24 +58,6 @@ function Profile() {
 		)
 	}
 
-	if (user.isAnonymous) {
-		return (
-			<main className={pageClassName}>
-				<PageTitle>guest cook</PageTitle>
-				<div className="border-foreground/50 flex flex-col items-start gap-4 rounded-xl border border-dashed p-5">
-					<p className="text-sm font-semibold">
-						no account yet — your shelf lives only in this browser. make an
-						account to keep it on any device.
-					</p>
-					<Link to="/auth/signup" className={buttonVariants()}>
-						keep my shelf
-					</Link>
-				</div>
-				<RecipeTransfer />
-			</main>
-		)
-	}
-
 	return (
 		<AccountProfile
 			userId={user.id}

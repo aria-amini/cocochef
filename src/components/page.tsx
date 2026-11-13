@@ -1,5 +1,5 @@
 import { ArrowLeftIcon } from '@phosphor-icons/react'
-import { createLink } from '@tanstack/react-router'
+import { createLink, useCanGoBack, useRouter } from '@tanstack/react-router'
 import * as React from 'react'
 
 import { cn } from '@/lib/utils/ui'
@@ -64,6 +64,26 @@ export function BackButton({
 			<ArrowLeftIcon size={14} weight="bold" aria-hidden />
 			{children}
 		</button>
+	)
+}
+
+// The way back for a recipe opened from home's search: back through history
+// when it came from there, so the search keeps its words, filters and place,
+// or else to home asking the same thing again.
+export function BackToSearch({ query }: { query: string }) {
+	const router = useRouter()
+	const canGoBack = useCanGoBack()
+
+	return (
+		<BackButton
+			onClick={() => {
+				if (canGoBack) router.history.back()
+				else
+					void router.navigate({ to: '/', search: query ? { q: query } : {} })
+			}}
+		>
+			{query ? 'back to results' : 'back to home'}
+		</BackButton>
 	)
 }
 

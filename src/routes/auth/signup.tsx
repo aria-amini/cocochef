@@ -6,7 +6,6 @@ import { AuthField, AuthShell } from '@/components/auth-form'
 import { Button } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
 import { redirectAuthenticatedUsers } from '@/lib/auth/functions'
-import { formatShelfStats, useShelfStats } from '@/lib/use-shelf-stats'
 
 export const Route = createFileRoute('/auth/signup')({
 	beforeLoad: redirectAuthenticatedUsers,
@@ -15,10 +14,6 @@ export const Route = createFileRoute('/auth/signup')({
 
 function Signup() {
 	const navigate = useNavigate()
-	const session = authClient.useSession()
-	const isGuest = Boolean(session.data?.user.isAnonymous)
-	const stats = useShelfStats(isGuest ? session.data?.user.id : undefined)
-	const shelfSummary = stats ? formatShelfStats(stats) : ''
 	const [name, setName] = useState('')
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
@@ -34,7 +29,7 @@ function Signup() {
 			const { error } = await authClient.signUp.email({ name, email, password })
 
 			if (error) toast.error(error.message)
-			else await navigate({ to: '/recipes' })
+			else await navigate({ to: '/' })
 		} catch {
 			toast.error("couldn't create your account — try again")
 		} finally {
@@ -44,14 +39,7 @@ function Signup() {
 
 	return (
 		<AuthShell
-			title={isGuest ? 'keep your shelf' : 'create an account'}
-			intro={
-				isGuest
-					? shelfSummary
-						? `keep your ${shelfSummary} on any device once you have an account.`
-						: 'your guest shelf comes with you when you create an account.'
-					: undefined
-			}
+			title="create an account"
 			footer={
 				<>
 					already have an account?{' '}

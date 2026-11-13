@@ -1,7 +1,12 @@
 import { type Database, getDb } from '@/db/connection'
 import { mealTags as mealTagsTable } from '@/db/schema'
 
-import { mealTags, type MealTags } from './meal-parts'
+import {
+	groupProteins,
+	mealTags,
+	type MealTags,
+	placeCuisines,
+} from './meal-parts'
 
 // Saved tags by page (or `recipe:<id>`); undefined for what isn't a meal.
 type Saved = ReadonlyMap<string, MealTags | undefined>
@@ -24,9 +29,10 @@ async function savedTags(database: Database) {
 				row.key,
 				row.meal
 					? {
-							cuisines: row.cuisines,
+							// Older tags name a country without its region.
+							cuisines: placeCuisines(row.cuisines),
 							flavors: row.flavors,
-							proteins: row.proteins,
+							proteins: groupProteins(row.proteins),
 							forms: row.forms,
 						}
 					: undefined,
