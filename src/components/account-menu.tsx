@@ -5,8 +5,8 @@ import {
 	SignOutIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
-import { Link, useRouter } from '@tanstack/react-router'
-import { useEffect, useState, type ReactNode } from 'react'
+import { Link } from '@tanstack/react-router'
+import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/avatar'
@@ -34,18 +34,12 @@ const itemClassName =
 	'flex w-full cursor-default items-center gap-2.5 px-3 py-2.5 text-xs font-semibold outline-none select-none data-highlighted:bg-kitchen-yolk/40'
 
 export function AccountMenu({ variant }: { variant: Variant }) {
+	// The session refreshes itself when anything signs in or out, so no page
+	// change asks for it again. Asking on every navigation (and every touch,
+	// which preloads) briefly swapped this button for its placeholder while
+	// signed out, and iPhone Safari drops a tap's click when the page changes
+	// under the finger.
 	const session = authClient.useSession()
-	const router = useRouter()
-	const refetchSession = session.refetch
-
-	useEffect(
-		() =>
-			router.subscribe('onResolved', () => {
-				void refetchSession()
-			}),
-		[router, refetchSession],
-	)
-
 	const user = session.data?.user
 	const avatarUrl = useAvatarUrl(user?.image)
 
