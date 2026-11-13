@@ -34,7 +34,9 @@
 		"import:fetch": "uv run --locked scripts/import-fetch.py",
 		"recipes:index": "vpx scripts/recipe-data.ts index",
 		"recipes:seed": "varlock run -- vpx scripts/recipe-data.ts seed",
-		"recipes:ratings": "varlock run -- vpx scripts/recipe-ratings.ts"
+		"recipes:ratings": "varlock run -- vpx scripts/recipe-ratings.ts",
+		"bench": "node scripts/bench.ts",
+		"bench:seed": "docker compose --env-file .env.workspace.local exec -T postgres sh -c 'psql -q -v ON_ERROR_STOP=1 -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < scripts/bench-seed.sql"
 	},
 	"dependencies": {
 		"@varlock/hashicorp-vault-plugin": "^2.1.2",
