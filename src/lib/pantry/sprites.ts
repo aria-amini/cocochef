@@ -4,6 +4,9 @@ import { ingredientSubject } from '../recipes/ingredient-line'
 import { foodFamily } from './food-family'
 import type { PantryCategory } from './model'
 import {
+	isFreshPlant,
+	jarLook,
+	standardLook,
 	tintedFamilySprites,
 	tintedLook,
 	type Rule,
@@ -709,11 +712,12 @@ export function resolveSpriteLook(
 		(spriteKeys.has(spriteKey) ||
 			Object.values(fallbackKeys).includes(spriteKey))
 
-	return (
-		(!chosen && tintedLook(normalizeName(name))) || {
-			key: resolveSpriteKey(name, spriteKey, category),
-		}
-	)
+	const look =
+		(!chosen && tintedLook(normalizeName(name))) ||
+		standardLook({ key: resolveSpriteKey(name, spriteKey, category) })
+
+	// Whatever is kept with the spices is kept dried, in a jar.
+	return category === 'spices' ? jarLook(look) : look
 }
 
 function resolveSpriteKey(
@@ -883,9 +887,24 @@ export function ingredientItemSprite(name: string) {
 	return ingredientItemLook(name)?.key
 }
 
+// Words that say a plant is kept dried: "dried thyme", "ground ginger",
+// "red pepper flakes".
+const driedWords =
+	/\b(?:dried|ground|powder(?:ed)?|flakes?|crushed|granules?|rubbed)\b/
+
 // The picture for a recipe's ingredient line: a sprite and, for a recolourable
-// one, the colour to paint it.
+// one, the colour to paint it. A plant kept dried is a jar.
 export function ingredientItemLook(name: string): SpriteLook | undefined {
+	const look = freshItemLook(name)
+
+	if (!look) return undefined
+
+	return isFreshPlant(look) && driedWords.test(normalizeName(name))
+		? jarLook(look)
+		: look
+}
+
+function freshItemLook(name: string): SpriteLook | undefined {
 	// The food itself: the measuring is taken off, then everything from a
 	// comma, a bracket, "with ..." or "in oil/brine" on.
 	const main = normalizeName(
@@ -906,7 +925,7 @@ export function ingredientItemLook(name: string): SpriteLook | undefined {
 	if (familySprite) {
 		const [key, , tint] = familySprite
 
-		return tint ? { key, tint } : { key }
+		return standardLook(tint ? { key, tint } : { key })
 	}
 
 	const family = foodFamily(main)
@@ -919,7 +938,7 @@ export function ingredientItemLook(name: string): SpriteLook | undefined {
 		({ alias, guess }) => !guess && normalized.includes(` ${alias} `),
 	)
 
-	if (named) return { key: named.key }
+	if (named) return standardLook({ key: named.key })
 
 	const match = ingredientMatches.find(({ alias }) =>
 		normalized.includes(` ${alias} `),
@@ -935,7 +954,7 @@ export function ingredientItemLook(name: string): SpriteLook | undefined {
 
 	if (family?.id === 'seed') return { key: 'fallback-grain' }
 
-	return match ? { key: match.key } : undefined
+	return match ? standardLook({ key: match.key }) : undefined
 }
 
 function singularIngredientWords(name: string) {

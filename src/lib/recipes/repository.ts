@@ -7,6 +7,7 @@ import {
 	exists,
 	getColumns,
 	gt,
+	gte,
 	ilike,
 	inArray,
 	isNull,
@@ -137,6 +138,97 @@ export async function listShelfForUser(
 			},
 		),
 	}
+}
+
+// Each recipe's ingredient lines, in order.
+export async function ingredientLinesFor(
+	recipeIds: string[],
+	database: Database = getDb(),
+) {
+	const lines = new Map<string, string[]>()
+
+	if (recipeIds.length === 0) return lines
+
+	const rows = await database
+		.select({
+			recipeId: recipeIngredients.recipeId,
+			text: recipeIngredients.text,
+		})
+		.from(recipeIngredients)
+		.where(inArray(recipeIngredients.recipeId, recipeIds))
+		.orderBy(asc(recipeIngredients.position))
+
+	for (const row of rows)
+		lines.set(row.recipeId, [...(lines.get(row.recipeId) ?? []), row.text])
+
+	return lines
+}
+
+// The finished recipe on this user's shelf that uses the most of these
+// foods, matched in its ingredient lines, and which of them it uses. Null when
+// none uses any.
+export async function shelfRecipeUsing(
+	userId: string,
+	foods: string[],
+	database: Database = getDb(),
+) {
+	if (foods.length === 0) return null
+
+	// "chicken thighs" finds "6 chicken thigh fillets" too.
+	const stems = foods.map((food) => {
+		const name = food.toLowerCase().trim()
+
+		return name.length > 4 ? name.replace(/e?s$/, '') : name
+	})
+
+	const lines = await database
+		.select({
+			id: recipes.id,
+			title: recipes.title,
+			text: recipeIngredients.text,
+		})
+		.from(shelfRecipes)
+		.innerJoin(recipes, eq(recipes.id, shelfRecipes.recipeId))
+		.innerJoin(recipeIngredients, eq(recipeIngredients.recipeId, recipes.id))
+		.where(
+			and(
+				eq(shelfRecipes.userId, userId),
+				visibleTo(userId, database),
+				isNotNull(recipes.finalizedAt),
+				or(
+					...stems.map((stem) =>
+						ilike(recipeIngredients.text, likePattern(stem)),
+					),
+				),
+			),
+		)
+
+	const uses = new Map<string, { title: string; foods: Set<string> }>()
+
+	for (const line of lines) {
+		const text = line.text.toLowerCase()
+		const entry = uses.get(line.id) ?? { title: line.title, foods: new Set() }
+
+		stems.forEach((stem, index) => {
+			const food = foods[index]
+
+			if (food && text.includes(stem)) entry.foods.add(food)
+		})
+		uses.set(line.id, entry)
+	}
+
+	const [best] = [...uses].sort(
+		(a, b) =>
+			b[1].foods.size - a[1].foods.size || a[1].title.localeCompare(b[1].title),
+	)
+
+	return best
+		? {
+				id: best[0],
+				title: best[1].title,
+				uses: foods.filter((food) => best[1].foods.has(food)),
+			}
+		: null
 }
 
 // How many ingredients and steps each draft has, group names not counted.
@@ -336,6 +428,20 @@ function searchTerms(query: string) {
 const likePattern = (term: string) =>
 	`%${term.replaceAll(/[\\%_]/g, (match) => `\\${match}`)}%`
 
+// How loved a recipe is, as a Bayesian average: its readers' stars, pulled
+// toward the catalogue's own average as if it had `lovedWeight` more ordinary
+// ratings, so five stars from three readers does not beat 4.8 from five
+// hundred. The weight is about how many ratings a recipe usually has.
+const lovedWeight = 25
+
+function lovedScore() {
+	const prior = sql`(select coalesce(avg(${recipes.ratingValue}), 4) from ${recipes} where ${recipes.userId} is null and ${recipes.ratingCount} > 0)`
+
+	return sql<number>`(coalesce(${recipes.ratingValue}, 0) * coalesce(${recipes.ratingCount}, 0) + ${prior} * ${lovedWeight}) / (coalesce(${recipes.ratingCount}, 0) + ${lovedWeight})`.mapWith(
+		Number,
+	)
+}
+
 // Recipes this user can open whose name or ingredients hold every word, so
 // "chicken thighs lemon" finds what cooks with them. Names that hold more of
 // the words rank first, then what is on the shelf, then the newest. Each says
@@ -346,9 +452,44 @@ export async function findRecipesForUser(
 	limit = 20,
 	database: Database = getDb(),
 ) {
+	return findVisibleRecipes(userId, { query }, limit, database)
+}
+
+// Every rated recipe this user can open, most loved first, or by votes the
+// most rated first, whatever they gave it; with a query, only those matching
+// it.
+export async function findLovedRecipesForUser(
+	userId: string,
+	query: string,
+	sort: 'loved' | 'votes',
+	limit = 20,
+	database: Database = getDb(),
+) {
+	return findVisibleRecipes(
+		userId,
+		{ query, minRating: 0, byVotes: sort === 'votes' },
+		limit,
+		database,
+	)
+}
+
+async function findVisibleRecipes(
+	userId: string,
+	{
+		query,
+		minRating,
+		byVotes = false,
+	}: {
+		query: string
+		minRating?: number | undefined
+		byVotes?: boolean
+	},
+	limit: number,
+	database: Database,
+) {
 	const terms = searchTerms(query)
 
-	if (terms.length === 0) return []
+	if (terms.length === 0 && minRating === undefined) return []
 
 	const inTitle = (term: string) => ilike(recipes.title, likePattern(term))
 
@@ -365,23 +506,47 @@ export async function findRecipesForUser(
 				),
 		)
 
-	const titleHits = sql.join(
-		terms.map((term) => sql`(case when ${inTitle(term)} then 1 else 0 end)`),
-		sql` + `,
-	)
+	// Names that hold more of the words first; without words, no order.
+	const byTitle = terms.length
+		? [
+				desc(
+					sql.join(
+						terms.map(
+							(term) => sql`(case when ${inTitle(term)} then 1 else 0 end)`,
+						),
+						sql` + `,
+					),
+				),
+			]
+		: []
+
+	const rated =
+		minRating === undefined
+			? undefined
+			: and(gte(recipes.ratingValue, minRating), gt(recipes.ratingCount, 0))
+
+	const order =
+		minRating === undefined
+			? [
+					...byTitle,
+					sql`${shelfRecipes.addedAt} is null`,
+					desc(recipes.createdAt),
+				]
+			: [
+					desc(byVotes ? recipes.ratingCount : lovedScore()),
+					...byTitle,
+					desc(recipes.createdAt),
+				]
 
 	const found = await recipesForUser(database, userId)
 		.where(
 			and(
 				visibleTo(userId, database),
+				rated,
 				...terms.map((term) => or(inTitle(term), inIngredients(term))),
 			),
 		)
-		.orderBy(
-			desc(titleHits),
-			sql`${shelfRecipes.addedAt} is null`,
-			desc(recipes.createdAt),
-		)
+		.orderBy(...order)
 		.limit(limit)
 
 	if (found.length === 0) return []
@@ -447,6 +612,7 @@ export async function popularSharedRecipes(
 			title: recipes.title,
 			imageUrl: recipes.imageUrl,
 			sourceUrl: recipes.sourceUrl,
+			totalMinutes: recipes.totalMinutes,
 			ratingValue: recipes.ratingValue,
 			ratingCount: recipes.ratingCount,
 		})
@@ -529,6 +695,7 @@ export async function copyRecipeForUser(
 				sourceNotes: original.sourceNotes,
 				servings: original.servings,
 				totalMinutes: original.totalMinutes,
+				prepMinutes: original.prepMinutes,
 				createdAt: new Date(),
 				finalizedAt: new Date(),
 			})
@@ -670,6 +837,8 @@ export async function createSharedRecipe(
 		sourceUrl: string
 		sourceNotes?: string | undefined
 		totalMinutes?: number | undefined
+		prepMinutes?: number | undefined
+		servings?: number | undefined
 		rating?: { value: number; count: number } | undefined
 		commentCount?: number | undefined
 		ingredients?: string[] | undefined
@@ -690,6 +859,8 @@ export async function createSharedRecipe(
 				sourceUrl: input.sourceUrl,
 				sourceNotes: input.sourceNotes ?? null,
 				totalMinutes: input.totalMinutes ?? null,
+				prepMinutes: input.prepMinutes ?? null,
+				servings: input.servings ?? null,
 				ratingValue: input.rating?.value ?? null,
 				ratingCount: input.rating?.count ?? null,
 				commentCount: input.commentCount ?? null,
@@ -888,6 +1059,7 @@ export async function updateRecipeForUser(
 						sourceNotes: current.sourceNotes,
 						servings: current.servings,
 						totalMinutes: current.totalMinutes,
+						prepMinutes: current.prepMinutes,
 						createdAt: new Date(),
 						finalizedAt: new Date(),
 					})

@@ -113,7 +113,7 @@ export const getAvatarUploadUrl = createServerFn({ method: 'POST' })
 export const createAvatarUploadUrl = createServerOnlyFn(async (key: string) => {
 	const session = await getCurrentSession()
 
-	if (!session || session.user.isAnonymous) {
+	if (!session) {
 		throw new Error('Sign in to upload an avatar')
 	}
 
@@ -132,7 +132,7 @@ export const getRecipePhotoUploadUrl = createServerFn({
 export const createRecipePhotoUpload = createServerOnlyFn(async () => {
 	const session = await getCurrentSession()
 
-	if (!session || session.user.isAnonymous) {
+	if (!session) {
 		throw new Error('Sign in to upload a recipe photo')
 	}
 

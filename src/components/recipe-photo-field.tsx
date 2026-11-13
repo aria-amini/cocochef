@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils/ui'
 
 const maxBytes = 10 * 1024 * 1024
 
-// Stands where the photo field would for a guest, who can't upload: the slot
+// Stands where the photo field would when signed out, with no uploads: the slot
 // says why and links to sign-in, which returns here, instead of vanishing.
 export function GuestPhotoSlot() {
 	const location = useLocation()

@@ -97,8 +97,7 @@ export function ImportLinkForm({
 
 					setInvalid(!url)
 
-					if (url && (!session.data?.user || session.data.user.isAnonymous))
-						setAuthOpen(true)
+					if (url && !session.data?.user) setAuthOpen(true)
 					else if (url) void imported.save(url, { keep: true })
 				}}
 			>

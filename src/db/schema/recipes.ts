@@ -44,6 +44,8 @@ export const recipes = snakeCase.table(
 		sourceNotes: text(),
 		servings: integer(),
 		totalMinutes: integer(),
+		// The part of the time spent preparing, hands on, when the page says.
+		prepMinutes: integer(),
 		// What the page's readers said of it, when it says: the average star
 		// rating, how many rated it, and how many comments it has.
 		ratingValue: real(),

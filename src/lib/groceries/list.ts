@@ -1,4 +1,12 @@
-import { ingredientHeading } from '@/lib/recipes/ingredient-line'
+import { foodOf, neverBuy } from '@/lib/pantry/foods'
+import type { PantryCategory } from '@/lib/pantry/model'
+import {
+	amountOf,
+	ingredientHeading,
+	ingredientSubject,
+} from '@/lib/recipes/ingredient-line'
+
+import { sameItem } from './model'
 
 // The words a preparation note is made of: "finely chopped", "to taste",
 // "cut into 1-inch pieces". The list is closed on purpose and holds no word
@@ -49,11 +57,67 @@ export function groceryLine(line: string) {
 	return bare || kept
 }
 
-// A recipe's lines to buy, one each: all but its section names.
-export function groceryList(lines: string[]) {
-	return lines.flatMap((line) =>
-		!line.trim() || ingredientHeading(line) !== undefined
-			? []
-			: [groceryLine(line)],
-	)
+// Measures for a pan, not a shop: nobody buys a teaspoon.
+const kitchenMeasures = new Set(['tsp', 'tbsp', 'cup', 'pinch', 'ml'])
+
+// What spoils is bought by what the recipe needs; the rest by the package.
+const boughtByNeed = new Set<PantryCategory>(['meat', 'vegetables', 'fruit'])
+
+// A recipe line as it is bought, not cooked. Food bought by the package
+// (a jar of cumin, a bottle of soy sauce, a carton of milk) loses the
+// amount: "1 tsp ground cumin" is cumin. Fresh food keeps what the recipe
+// needs, by weight or by count ("2 lb short ribs", "2 onions"), unless it
+// is measured in spoons or cups ("1 cup chopped cilantro" is cilantro).
+// Cloves of garlic come as a head, and eggs by the box. A food the catalog
+// does not know loses only spoons and cups.
+export function shoppingLine(line: string) {
+	const bought = groceryLine(line)
+	const food = foodOf(bought)
+	const unit = amountOf(bought)?.unit ?? ''
+
+	// Spoons and cups never go to the shop, whatever the food: "1 tbsp
+	// shaoxing wine" is a bottle of shaoxing wine.
+	if (!food)
+		return kitchenMeasures.has(unit)
+			? ingredientSubject(bought).toLowerCase()
+			: bought
+
+	if (food.name === 'garlic' && /\bcloves?\b/i.test(bought))
+		return '1 head garlic'
+
+	if (food.name === 'eggs') return 'eggs'
+
+	// Counted food keeps its count, but not a cooking measure of it: "1 cup
+	// diced onions" is onions.
+	if (food.kind === 'count')
+		return kitchenMeasures.has(unit) ? food.name : bought
+
+	return !boughtByNeed.has(food.category) || kitchenMeasures.has(unit)
+		? food.name
+		: bought
 }
+
+// A recipe's lines to buy, as bought: all but its section names and the
+// water and ice nobody shops for, and once each, so two recipes' cumin is
+// one jar.
+export function groceryList(lines: string[]) {
+	const seen = new Set<string>()
+
+	return lines.flatMap((line) => {
+		if (!line.trim() || ingredientHeading(line) !== undefined || neverBuy(line))
+			return []
+
+		const bought = shoppingLine(line)
+		const key = sameItem(bought)
+
+		if (seen.has(key)) return []
+		seen.add(key)
+
+		return [bought]
+	})
+}
+
+// The name a bought line goes into the pantry under: the food it is, as the
+// catalog names it, or the line without its amount and notes.
+export const pantryNameOf = (line: string) =>
+	foodOf(line)?.name ?? ingredientSubject(groceryLine(line)).toLowerCase()

@@ -44,20 +44,17 @@ import { createAvatarUploadUrl, createRecipePhotoUpload } from './s3'
 describe('avatar upload authorization', () => {
 	beforeEach(() => vi.clearAllMocks())
 
-	test.each([null, { user: { id: 'guest', isAnonymous: true } }])(
-		'rejects signed-out and guest users before URL signing',
-		async (session) => {
-			mocks.session.mockResolvedValue(session)
-			await expect(
-				createAvatarUploadUrl('avatars/guest-photo'),
-			).rejects.toThrow('Sign in to upload an avatar')
-			expect(mocks.sign).not.toHaveBeenCalled()
-		},
-	)
+	test('rejects signed-out users before URL signing', async () => {
+		mocks.session.mockResolvedValue(null)
+		await expect(
+			createAvatarUploadUrl('avatars/visitor-photo'),
+		).rejects.toThrow('Sign in to upload an avatar')
+		expect(mocks.sign).not.toHaveBeenCalled()
+	})
 
 	test('rejects another user’s avatar key', async () => {
 		mocks.session.mockResolvedValue({
-			user: { id: 'owner', isAnonymous: false },
+			user: { id: 'owner' },
 		})
 		await expect(createAvatarUploadUrl('avatars/other-photo')).rejects.toThrow(
 			'Invalid avatar key',
@@ -67,7 +64,7 @@ describe('avatar upload authorization', () => {
 
 	test('signs an owned avatar key', async () => {
 		mocks.session.mockResolvedValue({
-			user: { id: 'owner', isAnonymous: false },
+			user: { id: 'owner' },
 		})
 		await expect(createAvatarUploadUrl('avatars/owner-photo')).resolves.toEqual(
 			{ url: 'https://storage.example/upload' },
@@ -79,20 +76,17 @@ describe('avatar upload authorization', () => {
 describe('recipe photo upload', () => {
 	beforeEach(() => vi.clearAllMocks())
 
-	test.each([null, { user: { id: 'guest', isAnonymous: true } }])(
-		'rejects signed-out and guest users before URL signing',
-		async (session) => {
-			mocks.session.mockResolvedValue(session)
-			await expect(createRecipePhotoUpload()).rejects.toThrow(
-				'Sign in to upload a recipe photo',
-			)
-			expect(mocks.sign).not.toHaveBeenCalled()
-		},
-	)
+	test('rejects signed-out users before URL signing', async () => {
+		mocks.session.mockResolvedValue(null)
+		await expect(createRecipePhotoUpload()).rejects.toThrow(
+			'Sign in to upload a recipe photo',
+		)
+		expect(mocks.sign).not.toHaveBeenCalled()
+	})
 
 	test('signs a fresh key under the owner prefix', async () => {
 		mocks.session.mockResolvedValue({
-			user: { id: 'owner', isAnonymous: false },
+			user: { id: 'owner' },
 		})
 
 		const first = await createRecipePhotoUpload()
@@ -105,7 +99,7 @@ describe('recipe photo upload', () => {
 })
 
 describe('development bucket', () => {
-	const owner = { user: { id: 'owner', isAnonymous: false } }
+	const owner = { user: { id: 'owner' } }
 
 	beforeEach(() => {
 		vi.clearAllMocks()

@@ -30,13 +30,12 @@ import {
 	setRecipeShare,
 } from './repository'
 
-async function account(db: Database, anonymous = false) {
+async function account(db: Database) {
 	const id = crypto.randomUUID()
 	await db.insert(user).values({
 		id,
 		name: 'Private account name',
 		email: `${id}@example.com`,
-		isAnonymous: anonymous,
 		createdAt: new Date(),
 		updatedAt: new Date(),
 	})
@@ -274,14 +273,6 @@ describe('recipe publication boundaries', () => {
 		await expect(
 			setRecipeShare(userId, { recipeId: draft.id, visibility: 'public' }, db),
 		).rejects.toThrow('finish')
-		const guest = await account(db, true)
-		await expect(
-			saveSharingProfile(
-				guest,
-				{ handle: 'guest-cook', displayName: 'Guest', autoPublish: true },
-				db,
-			),
-		).rejects.toThrow('sign in')
 	})
 	test('handles and slugs are stable, unique, and cannot claim app routes', async ({
 		db,

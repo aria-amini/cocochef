@@ -1,7 +1,8 @@
-import { Check, Plus } from '@phosphor-icons/react'
+import { Check, MagnifyingGlass, Plus } from '@phosphor-icons/react'
 import {
 	createFileRoute,
 	Link,
+	redirect,
 	useNavigate,
 	useRouter,
 } from '@tanstack/react-router'
@@ -11,6 +12,7 @@ import { z } from 'zod'
 
 import { BackLink, PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
+import { buttonVariants } from '@/components/ui/button'
 import {
 	catalogSectionId,
 	catalogSections,
@@ -20,8 +22,13 @@ import {
 	normalizeIngredientName,
 } from '@/lib/pantry/catalog'
 import { pantryBulkMax, pantryCategoryLabels } from '@/lib/pantry/model'
-import { createPantryItems, listPantry } from '@/lib/pantry/server'
+import {
+	createPantryItems,
+	listPantry,
+	restockPantryItem,
+} from '@/lib/pantry/server'
 import { resolveSpriteLook } from '@/lib/pantry/sprites'
+import { standardLook } from '@/lib/pantry/tinted-sprites'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/ingredients/bulk')({
@@ -29,7 +36,14 @@ export const Route = createFileRoute('/_app/ingredients/bulk')({
 	validateSearch: z.object({
 		cat: catalogSectionId.optional().catch(undefined),
 	}),
-	loader: () => listPantry(),
+	// Signed out, there is no pantry to add to: its page says how to get one.
+	loader: async () => {
+		const items = await listPantry()
+
+		if (!items) throw redirect({ to: '/ingredients' })
+
+		return items
+	},
 	component: BulkAdd,
 })
 
@@ -39,9 +53,16 @@ function BulkAdd() {
 	const section = findCatalogSection(cat)
 	const owned = new Set(items.map((item) => normalizeIngredientName(item.name)))
 
+	// What ran out or runs low can be picked again here, to restock it.
+	const wanting = new Map(
+		items
+			.filter((item) => item.level !== 'plenty')
+			.map((item) => [normalizeIngredientName(item.name), item] as const),
+	)
+
 	return (
 		<main className="flex-1">
-			<div className="mx-auto flex max-w-6xl flex-col gap-5 p-6 pb-28 md:p-10 md:pb-28">
+			<div className="flex max-w-3xl flex-col gap-5 p-6 pb-28 md:p-10 md:pb-28">
 				<div>
 					<BackLink
 						to={section ? '/ingredients/bulk' : '/ingredients'}
@@ -50,7 +71,7 @@ function BulkAdd() {
 						{section ? 'all sections' : 'ingredients'}
 					</BackLink>
 					<PageTitle>
-						{section ? pantryCategoryLabels[section.id] : 'stock up fast'}
+						{section ? pantryCategoryLabels[section.id] : 'add ingredients'}
 					</PageTitle>
 					<p className="text-muted-foreground mt-2 text-sm">
 						{section
@@ -60,7 +81,12 @@ function BulkAdd() {
 				</div>
 
 				{section ? (
-					<SectionPicker key={section.id} section={section} owned={owned} />
+					<SectionPicker
+						key={section.id}
+						section={section}
+						owned={owned}
+						wanting={wanting}
+					/>
 				) : (
 					<SectionGrid owned={owned} />
 				)}
@@ -73,7 +99,7 @@ function SectionGrid({ owned }: { owned: Set<string> }) {
 	return (
 		<>
 			<nav
-				aria-label="Sections"
+				aria-label="sections"
 				className="grid grid-cols-2 gap-3 sm:grid-cols-3"
 			>
 				{catalogSections.map((entry) => {
@@ -86,17 +112,16 @@ function SectionGrid({ owned }: { owned: Set<string> }) {
 							search={{ cat: entry.id }}
 							className="border-border bg-card flex items-center gap-3 rounded-xl border p-4"
 						>
-							<img
-								src={`/sprites/pantry/${categorySprites[entry.id]}.png`}
-								alt=""
-								className="size-10 shrink-0 [image-rendering:pixelated] md:size-12"
+							<PantrySprite
+								look={standardLook({ key: categorySprites[entry.id] })}
+								className="size-10 shrink-0 md:size-12"
 							/>
 							<span className="flex min-w-0 flex-col">
 								<span className="font-bold lowercase md:text-lg">
 									{pantryCategoryLabels[entry.id]}
 								</span>
-								<span className="text-muted-foreground font-mono text-xs">
-									{have}/{entry.items.length} stashed
+								<span className="text-muted-foreground text-xs font-semibold">
+									{have ? `${have} kept` : 'none yet'}
 								</span>
 							</span>
 						</Link>
@@ -105,7 +130,7 @@ function SectionGrid({ owned }: { owned: Set<string> }) {
 			</nav>
 			<Link
 				to="/ingredients"
-				className="bg-kitchen-basil self-start rounded-md px-4 py-2 text-xs font-semibold"
+				className={buttonVariants({ className: 'self-start' })}
 			>
 				done
 			</Link>
@@ -116,9 +141,11 @@ function SectionGrid({ owned }: { owned: Set<string> }) {
 function SectionPicker({
 	section,
 	owned,
+	wanting,
 }: {
 	section: NonNullable<ReturnType<typeof findCatalogSection>>
 	owned: Set<string>
+	wanting: ReadonlyMap<string, { id: string; level: string }>
 }) {
 	const router = useRouter()
 	const navigate = useNavigate()
@@ -137,6 +164,9 @@ function SectionPicker({
 		typed.length <= 80 &&
 		!all.includes(typed) &&
 		!owned.has(typed)
+
+	// Kept food is greyed out, unless it ran out or runs low.
+	const pickable = (name: string) => !owned.has(name) || wanting.has(name)
 
 	function toggle(name: string) {
 		setSelected((current) => {
@@ -162,17 +192,28 @@ function SectionPicker({
 		setPending(true)
 
 		try {
-			const created = await createPantryItems({
-				data: [...selected].map((name) => ({
-					name,
-					quantity: 1,
-					category: section.id,
-				})),
-			})
+			const picked = [...selected]
+			const restocked = picked.flatMap((name) => wanting.get(name) ?? [])
+			const fresh = picked.filter((name) => !wanting.has(name))
 
-			toast.success(`added ${created.length} to ${label}`)
+			if (fresh.length)
+				await createPantryItems({
+					data: fresh.map((name) => ({ name, category: section.id })),
+				})
+
+			for (const item of restocked)
+				await restockPantryItem({ data: { id: item.id } })
+
+			toast.success(
+				fresh.length && restocked.length
+					? `added ${fresh.length}, restocked ${restocked.length}`
+					: fresh.length
+						? `added ${fresh.length} to ${label}`
+						: `restocked ${restocked.length}`,
+			)
 			await router.invalidate()
-			await navigate({ to: '/ingredients/bulk', search: {} })
+			// Back to the pantry, where what was added can be seen.
+			await navigate({ to: '/ingredients' })
 		} catch {
 			toast.error("couldn't add those — try again")
 			setPending(false)
@@ -181,8 +222,14 @@ function SectionPicker({
 
 	return (
 		<>
-			<label className="flex flex-col gap-1.5">
-				<span className="text-xs font-semibold">filter</span>
+			<label className="bg-card border-input focus-within:border-foreground/40 flex min-h-11 items-center gap-2 rounded-xl border px-3 transition-colors">
+				<MagnifyingGlass
+					size={18}
+					weight="bold"
+					aria-hidden
+					className="text-muted-foreground shrink-0"
+				/>
+				<span className="sr-only">find in {label}</span>
 				<input
 					type="search"
 					value={query}
@@ -195,35 +242,24 @@ function SectionPicker({
 						event.preventDefault()
 						const [only] = shown
 
-						if (shown.length === 1 && only && !owned.has(only)) {
+						if (shown.length === 1 && only && pickable(only)) {
 							toggle(only)
 							setQuery('')
 						} else if (canAddTyped) {
 							addTyped()
 						}
 					}}
-					className="border-input bg-background w-full rounded-md border px-3 py-2 text-lg font-semibold placeholder:opacity-50"
+					className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-base outline-none [&::-webkit-search-cancel-button]:hidden"
 				/>
 			</label>
 
 			<ul
 				aria-label={`${label} to add`}
-				className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+				className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4"
 			>
-				{canAddTyped ? (
-					<li>
-						<button
-							type="button"
-							onClick={addTyped}
-							className="border-foreground/50 hover:border-input flex h-full w-full items-center gap-2 rounded-xl border border-dashed p-2 text-left text-sm font-semibold"
-						>
-							<Plus size={18} weight="bold" aria-hidden className="m-2" />
-							add &ldquo;{typed}&rdquo;
-						</button>
-					</li>
-				) : null}
 				{shown.map((name) => {
-					const have = owned.has(name)
+					const have = !pickable(name)
+					const low = wanting.get(name)
 					const on = selected.has(name)
 
 					return (
@@ -245,7 +281,14 @@ function SectionPicker({
 									look={resolveSpriteLook(name, null, section.id)}
 									className="size-9 shrink-0"
 								/>
-								<span className="min-w-0 flex-1 leading-tight">{name}</span>
+								<span className="flex min-w-0 flex-1 flex-col leading-tight">
+									<span>{name}</span>
+									{low ? (
+										<span className="text-muted-foreground text-xs">
+											{low.level === 'out' ? 'out' : 'running low'}
+										</span>
+									) : null}
+								</span>
 								{on || have ? (
 									<Check
 										size={16}
@@ -254,13 +297,24 @@ function SectionPicker({
 										className="shrink-0"
 									/>
 								) : null}
-								{have ? (
-									<span className="sr-only">, already stashed</span>
-								) : null}
+								{have ? <span className="sr-only">, already kept</span> : null}
 							</button>
 						</li>
 					)
 				})}
+				{/* The catalog's own matches first; what was typed, last. */}
+				{canAddTyped ? (
+					<li>
+						<button
+							type="button"
+							onClick={addTyped}
+							className="border-foreground/50 hover:border-input flex h-full w-full items-center gap-2 rounded-xl border border-dashed p-2 text-left text-sm font-semibold"
+						>
+							<Plus size={18} weight="bold" aria-hidden className="m-2" />
+							add &ldquo;{typed}&rdquo;
+						</button>
+					</li>
+				) : null}
 			</ul>
 
 			{shown.length === 0 && !canAddTyped ? (
@@ -268,12 +322,12 @@ function SectionPicker({
 			) : null}
 
 			<div className="border-border bg-card fixed inset-x-0 bottom-0 z-40 border-t p-3 md:left-48">
-				<div className="mx-auto flex max-w-6xl items-center gap-3 px-3 md:px-7">
+				<div className="flex max-w-3xl items-center gap-3 px-3 md:px-7">
 					<p
 						aria-live="polite"
 						className="text-muted-foreground flex-1 text-xs font-semibold"
 					>
-						{selected.size} picked
+						{selected.size ? `${selected.size} picked` : 'tap what you have'}
 					</p>
 					{selected.size > 0 ? (
 						<button
@@ -288,9 +342,13 @@ function SectionPicker({
 						type="button"
 						disabled={pending || selected.size === 0}
 						onClick={submit}
-						className="bg-kitchen-basil rounded-md px-4 py-2.5 text-xs font-semibold disabled:opacity-50"
+						className={buttonVariants()}
 					>
-						{pending ? 'adding…' : `add ${selected.size}`}
+						{pending
+							? 'adding…'
+							: selected.size
+								? `add ${selected.size}`
+								: 'add'}
 					</button>
 				</div>
 			</div>

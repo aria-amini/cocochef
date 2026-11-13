@@ -67,6 +67,7 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 		sourceNotes: null,
 		servings: null,
 		totalMinutes: null,
+		prepMinutes: null,
 		ratingValue: null,
 		ratingCount: null,
 		commentCount: null,

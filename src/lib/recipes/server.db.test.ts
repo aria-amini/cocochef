@@ -4,8 +4,9 @@ import {
 	test,
 	type Database,
 } from '@tests/support/fixtures/db'
+import { eq } from 'drizzle-orm'
 
-import { mealLogs, user } from '@/db/schema'
+import { mealLogs, recipes, user } from '@/db/schema'
 import {
 	getOwnedRecipeAtAddress,
 	getRecipeShare,
@@ -24,8 +25,10 @@ import {
 	removeSavedRecipeForUser,
 	popularSharedRecipes,
 	saveRecipeForUser,
+	shelfRecipeUsing,
 	createSharedRecipe,
 	findSharedRecipeByUrl,
+	findLovedRecipesForUser,
 	findRecipesForUser,
 	sharedRecipeUrls,
 	updateRecipeForUser,
@@ -664,6 +667,82 @@ describe('shared recipes', () => {
 			findRecipesForUser(userId, `${tag} mango`, 20, db),
 		).resolves.toEqual([])
 		await expect(findRecipesForUser(userId, '% _', 20, db)).resolves.toEqual([])
+	})
+
+	test('orders every rated recipe by its stars weighed by votes, or by votes', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const tag = crypto.randomUUID().slice(0, 8)
+
+		const shared = (title: string, rating?: { value: number; count: number }) =>
+			createSharedRecipe(
+				{
+					title: `${tag} ${title}`,
+					sourceUrl: `https://example.com/${tag}-${title}`,
+					ingredients: ['1 lemon'],
+					steps: ['cook'],
+					rating,
+				},
+				db,
+			)
+
+		const fewFans = await shared('few fans', { value: 5, count: 3 })
+		const favourite = await shared('favourite', { value: 4.8, count: 500 })
+		const fine = await shared('fine', { value: 4.2, count: 900 })
+		await shared('unrated')
+
+		if (!fewFans || !favourite || !fine)
+			throw new Error('recipes were not created')
+
+		const mine = [fewFans.id, favourite.id, fine.id]
+
+		const ids = async (query: string, sort: 'loved' | 'votes') =>
+			(await findLovedRecipesForUser(userId, query, sort, 200, db))
+				.map((recipe) => recipe.id)
+				.filter((id) => mine.includes(id))
+
+		// Five stars from three readers ranks under 4.8 from five hundred; what
+		// is not rated at all is left out.
+		expect(await ids(tag, 'loved')).toEqual([favourite.id, fewFans.id, fine.id])
+		// By votes, the most rated first, whatever they gave.
+		expect(await ids(tag, 'votes')).toEqual([fine.id, favourite.id, fewFans.id])
+		// Without words, it looks through everything.
+		expect(await ids('', 'loved')).toEqual([favourite.id, fewFans.id, fine.id])
+	})
+
+	test('picks the shelf recipe that uses the most of what is going off', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+
+		const recipe = async (title: string, ingredients: string[]) => {
+			const made = await createRecipeForUser(userId, { title, ingredients }, db)
+
+			if (!made) throw new Error('recipe was not created')
+			await db
+				.update(recipes)
+				.set({ finalizedAt: new Date() })
+				.where(eq(recipes.id, made.id))
+
+			return made
+		}
+
+		await recipe('green salad', ['2 cups spinach', '1 lemon'])
+
+		const best = await recipe('salmon with greens', [
+			'2 salmon fillets',
+			'4 cups baby spinach',
+		])
+
+		await expect(
+			shelfRecipeUsing(userId, ['spinach', 'salmon', 'cilantro'], db),
+		).resolves.toEqual({
+			id: best.id,
+			title: 'salmon with greens',
+			uses: ['spinach', 'salmon'],
+		})
+		await expect(shelfRecipeUsing(userId, ['tofu'], db)).resolves.toBeNull()
 	})
 
 	test('opens unsaved, then saves to the shelf once', async ({ db }) => {

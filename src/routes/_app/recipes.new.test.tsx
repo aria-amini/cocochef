@@ -1132,14 +1132,8 @@ describe('write a recipe', () => {
 			.toBe('recipes/user-1-photo')
 	})
 
-	test('asks guests to create an account before writing', async () => {
-		const { screen } = await renderRoute({
-			path: '/recipes/new',
-			session: {
-				...testSession,
-				user: { ...testSession.user, isAnonymous: true },
-			},
-		})
+	test('asks a signed-out visitor to create an account before writing', async () => {
+		const { screen } = await renderRoute({ path: '/recipes/new' })
 
 		await expect
 			.element(screen.getByRole('dialog', { name: 'create an account' }))

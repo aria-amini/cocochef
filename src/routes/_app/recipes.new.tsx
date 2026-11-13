@@ -10,6 +10,7 @@ import { AuthDialog } from '@/components/auth-dialog'
 import { BackLink } from '@/components/page'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { RecipeEditor } from '@/components/recipe-editor'
+import { buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
 
 const newRecipeSearch = z.object({
@@ -54,13 +55,7 @@ function NewRecipe() {
 		setPendingPaste(pasted)
 	}, [pasted])
 	useEffect(() => {
-		if (
-			session.isPending ||
-			!session.data?.user ||
-			session.data.user.isAnonymous ||
-			!pendingPaste
-		)
-			return
+		if (session.isPending || !session.data?.user || !pendingPaste) return
 		sessionStorage.removeItem('recipe-paste')
 
 		if (pasted)
@@ -77,13 +72,12 @@ function NewRecipe() {
 			<div className="flex max-w-2xl flex-col gap-6 p-6 md:p-10">
 				<BackLink to="/recipes">recipes</BackLink>
 				<h1 className="sr-only">write a recipe</h1>
-				{session.isPending ? null : !session.data?.user ||
-				  session.data.user.isAnonymous ? (
+				{session.isPending ? null : !session.data?.user ? (
 					<>
 						<p>create an account to write your recipes.</p>
 						<button
 							type="button"
-							className="underline"
+							className={buttonVariants({ className: 'self-start' })}
 							onClick={() => setAuthOpen(true)}
 						>
 							create an account

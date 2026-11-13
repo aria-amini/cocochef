@@ -21,7 +21,8 @@ vi.mock('@/lib/recipes/server', () => ({
 	deleteRecipe: vi.fn(),
 }))
 
-vi.mock('@/lib/pantry/server', () => ({
+vi.mock('@/lib/pantry/server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	listPantry: async () => [],
 	createPantryItems: vi.fn(),
 	setPantryItemQuantity: vi.fn(),
@@ -65,6 +66,7 @@ const misoButterPasta: Recipe = {
 	sourceNotes: null,
 	servings: null,
 	totalMinutes: null,
+	prepMinutes: null,
 	ratingValue: null,
 	ratingCount: null,
 	commentCount: null,
@@ -133,8 +135,8 @@ describe('app nav', () => {
 			.getByRole('link', { name: 'groceries' })
 			.click()
 		await expect
-			.element(screen.getByRole('textbox', { name: 'add an item' }))
-			.toBeVisible()
+			.element(screen.getByRole('heading', { name: 'groceries', level: 1 }))
+			.toBeInTheDocument()
 	})
 
 	test('counts what is left to buy on the groceries tab', async () => {
@@ -315,8 +317,9 @@ describe('app nav', () => {
 		for (const link of targets)
 			expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
 
+		// The empty list's way in, on any screen.
 		expect(
-			heightOf(screen.getByRole('textbox', { name: 'add an item' })),
+			heightOf(screen.getByRole('button', { name: 'add an item' })),
 		).toBeGreaterThanOrEqual(44)
 
 		if (isPhone())

@@ -64,7 +64,7 @@ export function ExportRecipeButton({
 
 // The whole shelf out as a file, and a file back in. This is how recipes move
 // between kitchens that do not share a database, such as a preview and the
-// live site, or a guest's browser and an account.
+// live site.
 export function RecipeTransfer() {
 	const router = useRouter()
 	const queryClient = useQueryClient()

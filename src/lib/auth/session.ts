@@ -44,3 +44,10 @@ export async function requireAccountId(action: string) {
 
 	return session.user.id
 }
+
+// The signed-in account, if any.
+export async function getAccountId() {
+	const session = await getCurrentSession()
+
+	return session ? session.user.id : null
+}

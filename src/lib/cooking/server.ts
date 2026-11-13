@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 
-import { requireUserId } from '@/lib/auth/session'
+import { requireAccountId } from '@/lib/auth/session'
 
 import {
 	getCookingForUser,
@@ -12,15 +12,16 @@ import { cookingCommand, cookingId } from './schema'
 export const getCooking = createServerFn({ method: 'GET' })
 	.validator(cookingId)
 	.handler(async ({ data }) =>
-		getCookingForUser(await requireUserId(), data.recipeId),
+		getCookingForUser(await requireAccountId('keep your place'), data.recipeId),
 	)
 
 export const updateCooking = createServerFn({ method: 'POST' })
 	.validator(cookingCommand)
 	.handler(async ({ data }) =>
-		updateCookingForUser(await requireUserId(), data),
+		updateCookingForUser(await requireAccountId('keep your place'), data),
 	)
 
 export const listActiveCooking = createServerFn({ method: 'GET' }).handler(
-	async () => listActiveCookingForUser(await requireUserId()),
+	async () =>
+		listActiveCookingForUser(await requireAccountId('keep your place')),
 )

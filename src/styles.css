@@ -4,13 +4,9 @@
 @import '@fontsource-variable/open-sans';
 @import '@fontsource-variable/jetbrains-mono';
 
-/* The visible area for fixed full-height panels (see useVisualViewportVars):
-   the whole screen until a keyboard shrinks it, with the gap above kept clear
-   of a notch or status bar. */
+/* How much of the screen an on-screen keyboard covers (see useKeyboardInset). */
 :root {
-	--vv-top: 0px;
-	--vv-height: 100dvh;
-	--vv-gap: calc(1rem + env(safe-area-inset-top, 0px));
+	--keyboard-inset: 0px;
 }
 
 :root {
@@ -22,8 +18,8 @@
 	--card-foreground: #16130e;
 	--popover: #fffdf8;
 	--popover-foreground: #16130e;
-	--primary: #2fa84f;
-	--primary-foreground: #16130e;
+	--primary: #16130e;
+	--primary-foreground: #fdf6ec;
 	--secondary: #f3e7d0;
 	--secondary-foreground: #16130e;
 	--muted: #f3e7d0;
@@ -136,6 +132,31 @@
    on the cream ground. Add the background at the call site. */
 @utility floating {
 	@apply border-foreground/30 rounded-xl border shadow-md;
+}
+
+/* A scrolling list whose bar stays on screen, so it reads as scrollable before
+   it is touched: macOS otherwise hides the bar until a scroll. Only the bar
+   is drawn here; pair it with overflow-y-auto. Chrome and Safari draw this
+   bar; Firefox a thin one in the same ink. */
+@utility scrollbar-visible {
+	scrollbar-gutter: stable;
+
+	&::-webkit-scrollbar {
+		width: 10px;
+	}
+
+	&::-webkit-scrollbar-thumb {
+		border: 3px solid transparent;
+		border-radius: 9999px;
+		background-clip: padding-box;
+		background-color: color-mix(in oklab, var(--foreground) 30%, transparent);
+	}
+
+	@supports not selector(::-webkit-scrollbar) {
+		scrollbar-color: color-mix(in oklab, var(--foreground) 30%, transparent)
+			transparent;
+		scrollbar-width: thin;
+	}
 }
 
 @keyframes progress-slide {

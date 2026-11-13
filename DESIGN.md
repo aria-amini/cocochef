@@ -34,13 +34,19 @@ home:
 ## Rules
 
 - **Ingredient colors only.** A tint is tomato, yolk, basil or eggplant, never
-  "blue" or "indigo". Yolk marks active and selected; basil confirms and saves;
-  tomato is destructive; eggplant is the only cool accent (focus, underline).
-- **One solid.** At most one saturated fill per screen, on the primary action.
-  Everything else is a tint or paper.
-- **Paper, never white or dark.** Ink is the only text color; borders are ink at
-  reduced opacity. Don't put gray text on a colored surface; tint from the
-  surface's ink.
+  "blue" or "indigo". Yolk marks active and selected; basil confirms (a tick,
+  progress, "have it"); tomato is destructive; eggplant is the only cool accent
+  (focus, underline).
+- **Effort is the one scale.** A recipe's effort reads basil, yolk, tomato for
+  low, medium, high, as a light tint with a line of its own color, so it can be
+  told at a glance and stays apart from a selected row's yolk. No other measure
+  borrows the three as a traffic light.
+- **One solid.** At most one solid fill per screen: the primary action, in ink
+  with paper text. Everything else is a tint or paper. Colour stays with the
+  food.
+- **Paper, never white or dark.** Ink is the only text color, save the paper
+  label on that one ink button; borders are ink at reduced opacity. Don't put
+  gray text on a colored surface; tint from the surface's ink.
 - **One hairline weight.** Use the field line (`--input`) only for things the
   user types into or presses as a secondary action.
 - **Declare once.** A resting surface is lifted by a hairline or a shadow, never

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils/ui'
 
-// One button family for every screen: basil for the one primary action, paper
+// One button family for every screen: ink for the one primary action, paper
 // with a field line for the rest, 8px corners, semibold lowercase labels, and
 // the eggplant focus outline.
 const buttonStyles = cva(
@@ -11,7 +11,7 @@ const buttonStyles = cva(
 	{
 		variants: {
 			variant: {
-				default: 'bg-kitchen-basil text-foreground hover:brightness-95',
+				default: 'bg-foreground text-background hover:bg-foreground/85',
 				outline: 'border-input bg-background hover:bg-muted/60',
 				saved:
 					'border-kitchen-eggplant/35 bg-kitchen-eggplant/10 text-kitchen-eggplant hover:bg-kitchen-eggplant/20',
