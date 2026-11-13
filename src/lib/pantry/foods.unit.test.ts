@@ -142,6 +142,22 @@ describe('shelfState', () => {
 		expect(shelfLife('2 lb short ribs', 'meat')).toBe(3)
 	})
 
+	test('counts when food was bought from the purchase, not the freezing', () => {
+		const frozenToday = shelfState(
+			{
+				name: 'chicken thighs',
+				category: 'meat',
+				boughtAt: daysAgo(10),
+				confirmedAt: daysAgo(10),
+				frozenAt: now,
+			},
+			now,
+		)
+
+		expect(frozenToday.boughtDaysAgo).toBe(10)
+		expect(frozenToday.daysLeft).toBe(shelfLife('chicken thighs', 'frozen'))
+	})
+
 	test("keeps what is stored frozen for a frozen food's time, not the fresh one's", () => {
 		expect(shelfLife('frozen salmon', 'frozen')).toBeGreaterThan(30)
 		expect(shelfLife('frozen salmon', 'frozen')).toBe(

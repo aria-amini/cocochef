@@ -357,7 +357,11 @@ export function shelfState(
 		state,
 		spoils,
 		daysLeft: Math.max(0, Math.ceil(keeps - bought)),
-		boughtDaysAgo: Math.max(0, Math.floor(bought)),
+		// Freezing keeps food longer, not bought more recently.
+		boughtDaysAgo: Math.max(
+			0,
+			Math.floor((now.getTime() - item.boughtAt.getTime()) / day),
+		),
 	} as const
 }
 
