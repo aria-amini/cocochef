@@ -458,36 +458,38 @@ function daysWord(days: number) {
 	return days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `${days} days`
 }
 
-// How long food has left, in a pill: tomato for today and tomorrow,
-// yolk for the rest of the week, quiet after.
-function DaysPill({ days, className }: { days: number; className?: string }) {
+// How long food has left, as a badge pinned to the corner of its picture:
+// solid tomato for today and tomorrow, solid yolk for the rest of the week,
+// paper after. A ring of the page's own colour lifts it off the tile.
+function DaysBadge({ days }: { days: number }) {
 	return (
 		<span
+			aria-hidden
 			className={cn(
-				'rounded-full px-2 text-xs leading-5 font-bold whitespace-nowrap',
+				'border-background absolute -top-2 -right-2 rounded-full border-2 px-1.5 text-xs leading-4 font-bold whitespace-nowrap tabular-nums',
 				days <= 1
-					? 'bg-kitchen-tomato/15'
+					? 'bg-kitchen-tomato'
 					: days <= weekDays
-						? 'bg-kitchen-yolk/30'
-						: 'bg-muted',
-				className,
+						? 'bg-kitchen-yolk'
+						: 'bg-card outline-foreground/25 outline -outline-offset-3',
 			)}
 		>
-			{daysShort(days)}
+			{daysTag(days)}
 		</span>
 	)
 }
 
-// Days left, said shorter the further off they are: "tomorrow", "5 days",
-// "3 wks", "4 mo", "2 yr".
-function daysShort(days: number) {
-	if (days < 14) return daysWord(days)
+// Days left, short enough for a corner: "today", "2d", "3w", "4mo", "2y".
+function daysTag(days: number) {
+	if (days <= 0) return 'today'
 
-	if (days < 60) return `${Math.round(days / 7)} wks`
+	if (days < 14) return `${days}d`
 
-	if (days < 365) return `${Math.round(days / 30)} mo`
+	if (days < 60) return `${Math.round(days / 7)}w`
 
-	return `${Math.round(days / 365)} yr`
+	if (days < 365) return `${Math.round(days / 30)}mo`
+
+	return `${Math.round(days / 365)}y`
 }
 
 // Fresh food, soonest to go first, as cards to pick up, each with its days
@@ -510,13 +512,13 @@ function GoingOff({ items }: { items: PantryItem[] }) {
 							resetScroll={false}
 							data-pantry={item.id}
 							aria-label={`${item.name}, ${daysWord(item.daysLeft)}`}
-							className="bg-card border-border hover:border-foreground/30 flex h-full flex-col gap-1.5 rounded-xl border p-2.5 transition-colors"
+							className="bg-card border-border hover:border-foreground/30 relative flex h-full flex-col gap-1.5 rounded-xl border p-2.5 transition-colors"
 						>
 							<Sprite item={item} className="size-8" />
+							<DaysBadge days={item.daysLeft} />
 							<span className="text-sm leading-tight font-bold">
 								{item.name}
 							</span>
-							<DaysPill days={item.daysLeft} className="mt-auto self-start" />
 						</Link>
 					</li>
 				))}
@@ -884,13 +886,13 @@ function JarWall({
 										search={{ spot, item: item.id }}
 										resetScroll={false}
 										data-pantry={item.id}
-										aria-label={`${item.name}, ${leftOf(item)}`}
+										aria-label={`${item.name}, ${leftOf(item)}${out ? '' : `, ${daysWord(item.daysLeft)}`}`}
 										aria-current={item.id === selectedId ? 'true' : undefined}
 										className="group/jar flex flex-col items-center gap-1.5 text-center"
 									>
 										<span
 											className={cn(
-												'grid size-14 place-items-center rounded-xl border transition-colors',
+												'relative grid size-14 place-items-center rounded-xl border transition-colors',
 												out
 													? 'border-foreground/35 border-dashed'
 													: item.level === 'low'
@@ -904,6 +906,8 @@ function JarWall({
 												item={item}
 												className={cn('size-8', out && 'opacity-40 grayscale')}
 											/>
+											{/* Each jar says how long it has left. */}
+											{out ? null : <DaysBadge days={item.daysLeft} />}
 										</span>
 										<span
 											className={cn(
@@ -913,10 +917,6 @@ function JarWall({
 										>
 											{item.name}
 										</span>
-										{/* Each jar says how long it has left. */}
-										{!out ? (
-											<DaysPill days={item.daysLeft} className="-mt-0.5" />
-										) : null}
 									</Link>
 								</li>
 							)
