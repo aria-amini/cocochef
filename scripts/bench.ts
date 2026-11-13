@@ -4,8 +4,8 @@
 //
 //   vp run bench <base url> [runs]
 //
-// Signs in as BENCH_EMAIL / BENCH_PASSWORD, creating the account the first
-// time; locally, `vp run bench:seed` then gives it a shelf to tap through.
+// Signs in as bench@cocochef.test, creating the account the first time;
+// locally, `vp run bench:seed` then gives it a shelf to tap through.
 // Run it against a production build
 // (`vp run build`, then `vp run start`) or a deployed URL, never the dev
 // server: dev serves unbundled modules and is many times slower. Lab numbers
@@ -18,9 +18,10 @@ const [base = 'http://localhost:3000', runsArg = '5'] = process.argv.slice(2)
 
 const runs = Number(runsArg)
 
-const email = process.env.BENCH_EMAIL ?? 'bench@cocochef.test'
+// The account scripts/bench-seed.sql fills.
+const email = 'bench@cocochef.test'
 
-const password = process.env.BENCH_PASSWORD ?? 'bench-password-123'
+const password = 'bench-password-123'
 
 // 4x CPU slowdown, 100ms round trips, ~9 Mbps down: a mid-range phone on 4G.
 const phone = { cpu: 4, latency: 100, down: 9, up: 3 }

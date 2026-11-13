@@ -21,23 +21,23 @@ begin
 
 		insert into recipes (id, user_id, title, servings, total_minutes, created_at, finalized_at)
 		values (recipe, uid, titles[i], 4, 30 + i * 5, now() - i * interval '1 day', now() - i * interval '1 day')
-		on conflict (id) do nothing;
+		on conflict do nothing;
 
 		insert into shelf_recipes (id, user_id, recipe_id, added_at)
 		values ('bench-shelf-' || i, uid, recipe, now() - i * interval '1 day')
-		on conflict (id) do nothing;
+		on conflict do nothing;
 
 		for j in 1..10 loop
 			insert into recipe_ingredients (id, recipe_id, position, text)
 			values (recipe || '-i' || j, recipe, j - 1, ingredients[j])
-			on conflict (id) do nothing;
+			on conflict do nothing;
 		end loop;
 
 		for j in 1..6 loop
 			insert into recipe_steps (id, recipe_id, position, text)
 			values (recipe || '-s' || j, recipe, j - 1,
 				'stir everything together and cook gently until it smells wonderful, about ten minutes.')
-			on conflict (id) do nothing;
+			on conflict do nothing;
 		end loop;
 	end loop;
 end $$;
