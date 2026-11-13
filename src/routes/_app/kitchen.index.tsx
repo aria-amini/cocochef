@@ -197,7 +197,7 @@ function Pantry({
 		// Back to the view it was removed from, so undo shows it there.
 		void navigate({
 			to: '/kitchen',
-			search: { spot, list: showing },
+			search: { spot, list: showing, view },
 			resetScroll: false,
 		})
 
@@ -328,7 +328,7 @@ function Pantry({
 					onClose={() =>
 						void navigate({
 							to: '/kitchen',
-							search: { spot, list: showing },
+							search: { spot, list: showing, view },
 							resetScroll: false,
 						})
 					}
@@ -566,7 +566,7 @@ function Need({
 						<Link
 							key={item.id}
 							to="/kitchen"
-							search={{ item: item.id }}
+							search={{ item: item.id, view: 'groceries' }}
 							resetScroll={false}
 							data-pantry={item.id}
 							aria-label={`${item.name}, ${leftOf(item)}`}

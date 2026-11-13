@@ -212,8 +212,9 @@ function SectionPicker({
 						: `restocked ${restocked.length}`,
 			)
 			await router.invalidate()
-			// Back to the pantry, where what was added can be seen.
-			await navigate({ to: '/kitchen' })
+			// Back to the kitchen's newest, where what was added can be seen;
+			// use first would hide food that keeps for weeks.
+			await navigate({ to: '/kitchen', search: { list: 'recent' } })
 		} catch {
 			toast.error("couldn't add those — try again")
 			setPending(false)

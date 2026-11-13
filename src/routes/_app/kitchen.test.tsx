@@ -464,6 +464,29 @@ describe('kitchen', () => {
 			.not.toBeInTheDocument()
 	})
 
+	test('keeps what old ingredient links asked for when they redirect', async () => {
+		const pantry = await renderRoute({
+			path: '/ingredients?spot=fridge&item=pantry-1',
+			session,
+		})
+
+		await expect
+			.poll(() => pantry.router.state.location.search)
+			.toMatchObject({ spot: 'fridge', item: 'pantry-1' })
+		expect(pantry.router.state.location.pathname).toBe('/kitchen')
+		await pantry.screen.unmount()
+
+		const bulk = await renderRoute({
+			path: '/ingredients/bulk?cat=fruit',
+			session,
+		})
+
+		await expect
+			.poll(() => bulk.router.state.location.pathname)
+			.toBe('/kitchen/bulk')
+		expect(bulk.router.state.location.search).toMatchObject({ cat: 'fruit' })
+	})
+
 	test('redirects the old add page to the section picker', async () => {
 		const { screen } = await renderRoute({ path: '/ingredients/new', session })
 		await screen.getByRole('link', { name: /dairy & eggs/ }).click()
