@@ -1,15 +1,10 @@
 import { shelfLife } from './foods'
 import type { PantryCategory } from './model'
 
-// Where food lives in a kitchen, which is how a cook looks for it: the
-// fridge, the counter, the cupboard, the spice rack and the freezer.
-export const pantrySpots = [
-	'fridge',
-	'counter',
-	'pantry',
-	'spices',
-	'freezer',
-] as const
+// Where food lives in a kitchen, which is how a cook looks for it: the cold
+// first, the fridge and the freezer, then the counter and the pantry, whose
+// shelves hold the spices too.
+export const pantrySpots = ['fridge', 'freezer', 'counter', 'pantry'] as const
 
 export type PantrySpot = (typeof pantrySpots)[number]
 
@@ -17,16 +12,7 @@ export const pantrySpotLabels: Record<PantrySpot, string> = {
 	fridge: 'fridge',
 	counter: 'counter',
 	pantry: 'pantry',
-	spices: 'spice rack',
 	freezer: 'freezer',
-}
-
-export const pantrySpotSprites: Record<PantrySpot, string> = {
-	fridge: 'milk',
-	counter: 'banana',
-	pantry: 'can',
-	spices: 'fallback-spice',
-	freezer: 'ice-cube',
 }
 
 type Food = {
@@ -60,7 +46,7 @@ export function spotOf(food: Food): PantrySpot {
 
 	switch (food.category) {
 		case 'spices':
-			return 'spices'
+			return 'pantry'
 		case 'frozen':
 			return 'freezer'
 		case 'meat':
@@ -97,28 +83,6 @@ const rest = (label = 'other') => shelf('other', label, () => true)
 // Each spot's shelves, in the order a cook looks along them. A food sits on
 // the first that holds it.
 const shelvesBySpot: Record<PantrySpot, Shelf[]> = {
-	spices: [
-		shelf('salt-pepper', 'salt & pepper', (_, name) =>
-			/\bsalt\b|\b(?:black|white) pepper\b|\bpeppercorns?\b|^pepper$/.test(
-				name,
-			),
-		),
-		shelf('blends', 'blends', (_, name) =>
-			/\b(?:seasoning|masala|curry|five spice|za.?atar|blend|mix|herbes de provence|old bay|bagel|cajun|jerk|ras el hanout|baharat|dukkah|furikake|chili powder)\b/.test(
-				name,
-			),
-		),
-		shelf('dried-herbs', 'dried herbs', (_, name) => herbs.test(name)),
-		shelf(
-			'whole',
-			'whole spices & seeds',
-			(_, name) =>
-				/\b(?:seeds?|whole|sticks?|pods?|star anise|saffron|cloves?|nutmeg|threads)\b/.test(
-					name,
-				) && !/\bground\b/.test(name),
-		),
-		rest('ground spices'),
-	],
 	pantry: [
 		shelf('oils', 'oils & vinegars', (_, name) =>
 			/\boils?\b|\bvinegar\b|\bcooking spray\b/.test(name),
@@ -159,6 +123,11 @@ const shelvesBySpot: Record<PantrySpot, Shelf[]> = {
 			(food) => food.category === 'sauces',
 		),
 		shelf('grains', 'grains & pasta', (food) => food.category === 'grains'),
+		shelf(
+			'spices',
+			'spices & dried herbs',
+			(food) => food.category === 'spices',
+		),
 		rest(),
 	],
 	fridge: [

@@ -2,15 +2,15 @@ import { Menu } from '@base-ui/react/menu'
 import {
 	CheckIcon,
 	CaretDownIcon,
+	ClockIcon,
 	JarLabelIcon,
 	ToteSimpleIcon,
-	MagnifyingGlass,
 	Minus,
 	Plus,
 	ShoppingCartIcon,
 	SnowflakeIcon,
 	TrashIcon,
-	X,
+	WarningCircleIcon,
 } from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -29,18 +29,14 @@ import { GroceryList, type GroceryItem } from '@/components/grocery-list'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { SignUpToKeep } from '@/components/sign-up-to-keep'
+import { SpotIcon } from '@/components/spot-icon'
 import { buttonVariants } from '@/components/ui/button'
 import { undoToast } from '@/components/undo-toast'
 import { addGroceries, listGroceries } from '@/lib/groceries/server'
-import {
-	rememberKitchenSpot,
-	rememberKitchenView,
-	useKitchenSpot,
-} from '@/lib/kitchen-view'
-import { categorySprites, filterCatalogItems } from '@/lib/pantry/catalog'
+import { rememberKitchenView } from '@/lib/kitchen-view'
+import { categorySprites } from '@/lib/pantry/catalog'
 import { findInPantry, foodOf } from '@/lib/pantry/foods'
 import {
-	pantryCategories,
 	pantryCategoryLabels,
 	pantryLevelLabels,
 	pantryLevels,
@@ -49,7 +45,6 @@ import {
 	type PantryLevel,
 } from '@/lib/pantry/model'
 import {
-	createPantryItems,
 	deletePantryItem,
 	listPantry,
 	keepPantryItem,
@@ -62,15 +57,12 @@ import {
 import {
 	pantrySpotLabels,
 	pantrySpots,
-	pantrySpotSprites,
 	shelvesOf,
 	spotOf,
 	type PantrySpot,
 } from '@/lib/pantry/spots'
 import { resolveSpriteLook } from '@/lib/pantry/sprites'
-import { hadItIn } from '@/lib/pantry/status'
 import { standardLook } from '@/lib/pantry/tinted-sprites'
-import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 import { cn } from '@/lib/utils/ui'
 
 // The page's place: one spot's jars, the item whose details are open, and
@@ -247,29 +239,6 @@ function Pantry({
 	const kept = items.filter((item) => !item.expired)
 	const toCheck = items.filter((item) => item.expired)
 
-	// "Do I have it?": a search looks through everything and shows what
-	// matches in one list.
-	const [query, setQuery] = useState('')
-
-	const found = new Set(
-		filterCatalogItems(
-			items.map((item) => item.name),
-			query,
-		),
-	)
-
-	// A food's name or kind first; a shelf's name ("spices") only when no
-	// food answers, so "egg" finds the eggs, not all of dairy.
-	const named = items.filter(
-		(item) => found.has(item.name) || ofKind(item.name, query),
-	)
-
-	const matches = byCategory(
-		named.length
-			? named
-			: items.filter((item) => ofShelf(item.category, query)),
-	)
-
 	// The page leads with only what asks for something: food going off, and
 	// food that ran out or runs low. The rest is on hand, by where it lives.
 	// Food that goes off within two weeks, soonest first: what to use first.
@@ -286,16 +255,9 @@ function Pantry({
 		(a, b) => Number(b.level === 'out') - Number(a.level === 'out'),
 	)
 
-	// The spot whose jars show: the one asked for, or the last one picked, or
-	// the fridge, where most fresh food lives.
-	const rememberedSpot = useKitchenSpot()
-	const shownSpot = spot ?? rememberedSpot ?? 'fridge'
-
-	useEffect(() => {
-		if (spot) rememberKitchenSpot(spot)
-	}, [spot])
-
-	const inSpot = byName(kept.filter((item) => spotOf(item) === shownSpot))
+	const inSpot = spot
+		? byName(kept.filter((item) => spotOf(item) === spot))
+		: []
 
 	const selected = items.find((i) => i.id === selectedId) ?? null
 
@@ -339,11 +301,8 @@ function Pantry({
 							fresh={fresh}
 							recent={recent}
 							showing={showing}
-							spot={shownSpot}
+							spot={spot}
 							inSpot={inSpot}
-							query={query}
-							onQuery={setQuery}
-							matches={matches}
 							selectedId={selectedId}
 						/>
 					</>
@@ -444,20 +403,19 @@ function daysWord(days: number) {
 	return days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `${days} days`
 }
 
-// How long food has left, as a badge pinned to the corner of its picture:
-// solid tomato for today and tomorrow, solid yolk for the rest of the week,
-// paper after. A ring of the page's own colour lifts it off the tile.
+// How long food has left, as a badge across from its picture: solid tomato
+// for today and tomorrow, solid yolk for the rest of the week, paper after.
 function DaysBadge({ days }: { days: number }) {
 	return (
 		<span
 			aria-hidden
 			className={cn(
-				'border-background absolute -top-2 -right-2 rounded-full border-2 px-1.5 text-xs leading-4 font-bold whitespace-nowrap tabular-nums',
+				'rounded-full px-1.5 text-xs leading-4 font-bold whitespace-nowrap tabular-nums',
 				days <= 1
 					? 'bg-kitchen-tomato'
 					: days <= weekDays
 						? 'bg-kitchen-yolk'
-						: 'bg-card outline-foreground/25 outline -outline-offset-3',
+						: 'bg-card outline-foreground/25 outline',
 			)}
 		>
 			{daysTag(days)}
@@ -465,44 +423,24 @@ function DaysBadge({ days }: { days: number }) {
 	)
 }
 
-// Days left, short enough for a corner: "today", "2d", "3w", "4mo", "2y".
+// Days left, short enough to sit by a picture on the narrowest card:
+// "now", "2d", "13d".
 function daysTag(days: number) {
-	if (days <= 0) return 'today'
-
-	if (days < 14) return `${days}d`
-
-	if (days < 60) return `${Math.round(days / 7)}w`
-
-	if (days < 365) return `${Math.round(days / 30)}mo`
-
-	return `${Math.round(days / 365)}y`
+	return days <= 0 ? 'now' : `${days}d`
 }
 
-// Fresh food, soonest to go first, as cards to pick up, each with its days
-// left.
+// Food as cards to pick up, on the grid every view of the kitchen shares:
+// what to use first, or what came in last.
 function FoodCards({ label, items }: { label: string; items: PantryItem[] }) {
 	const [all, setAll] = useState(false)
 	const shown = all ? items : items.slice(0, firstShown)
 
 	return (
 		<div className="flex flex-col gap-3">
-			<ul aria-label={label} className="grid grid-cols-3 gap-2 md:grid-cols-5">
+			<ul aria-label={label} className={foodGridClassName}>
 				{shown.map((item) => (
 					<li key={item.id}>
-						<Link
-							to="/kitchen"
-							search={{ item: item.id }}
-							resetScroll={false}
-							data-pantry={item.id}
-							aria-label={`${item.name}, ${daysWord(item.daysLeft)}`}
-							className="bg-background border-border hover:border-foreground/30 relative flex h-full flex-col gap-1.5 rounded-xl border p-2.5 transition-colors"
-						>
-							<Sprite item={item} className="size-8" />
-							<DaysBadge days={item.daysLeft} />
-							<span className="text-sm leading-tight font-bold">
-								{item.name}
-							</span>
-						</Link>
+						<FoodCard item={item} search={{ item: item.id }} />
 					</li>
 				))}
 			</ul>
@@ -511,12 +449,78 @@ function FoodCards({ label, items }: { label: string; items: PantryItem[] }) {
 					type="button"
 					aria-expanded={all}
 					onClick={() => setAll((now) => !now)}
-					className="text-muted-foreground hover:text-foreground min-h-10 self-start rounded-md px-1 text-sm font-bold transition-colors"
+					className="text-muted-foreground hover:text-foreground -ml-2 min-h-10 self-start rounded-md px-2 text-sm font-bold transition-colors"
 				>
 					{all ? 'show fewer' : `show all ${items.length}`}
 				</button>
 			) : null}
 		</div>
+	)
+}
+
+// The one grid food sits on, in every view of the kitchen, so cards line up
+// whichever is showing.
+const foodGridClassName = 'grid grid-cols-3 gap-2 md:grid-cols-5'
+
+// One food: its picture, its name, and across from the picture how long it
+// has. One that ran out is dashed and struck; one running low is tinted
+// yolk. It opens its details.
+function FoodCard({
+	item,
+	search,
+	selected = false,
+}: {
+	item: PantryItem
+	search: { spot?: PantrySpot; item: string }
+	selected?: boolean
+}) {
+	const out = item.level === 'out'
+
+	return (
+		<Link
+			to="/kitchen"
+			search={search}
+			resetScroll={false}
+			data-pantry={item.id}
+			aria-label={`${item.name}, ${leftOf(item)}${out ? '' : `, ${daysWord(item.daysLeft)}`}`}
+			aria-current={selected ? 'true' : undefined}
+			className={cn(
+				// One height for every card, two lines of name, so rows match
+				// whatever the names.
+				'hover:border-foreground/25 relative flex h-24 flex-col gap-1.5 rounded-xl border p-2.5 transition-colors',
+				// A tile's tan against the paper is its only edge; out food,
+				// not there, is dashed instead.
+				out
+					? 'border-foreground/35 border-dashed'
+					: item.level === 'low'
+						? 'bg-kitchen-yolk/30 border-transparent'
+						: 'bg-background border-transparent',
+				selected && 'border-foreground/45 border-solid',
+			)}
+		>
+			{/* The picture and, across from it, how long it has: one row, so
+			    the two never meet however narrow the card. */}
+			<span className="flex items-start justify-between gap-1">
+				<Sprite
+					item={item}
+					className={cn('size-8 shrink-0', out && 'opacity-40 grayscale')}
+				/>
+				{/* Only what goes off within two weeks says when; nobody needs
+				    to know the vinegar keeps a year. */}
+				{out || item.daysLeft > horizonDays ? null : (
+					<DaysBadge days={item.daysLeft} />
+				)}
+			</span>
+			<span
+				className={cn(
+					// At the card's foot, so its space falls between picture and name.
+					'mt-auto line-clamp-2 text-sm leading-tight font-bold',
+					out && 'text-muted-foreground line-through',
+				)}
+			>
+				{item.name}
+			</span>
+		</Link>
 	)
 }
 
@@ -604,10 +608,10 @@ function NeedNote({
 	return null
 }
 
-// What the kitchen holds, in two panels. The first shows food as cards: what
-// to use first (the default), or what came in last, with finding and
-// stocking up in its corner. The second shows one spot's jars, the fridge
-// unless another was picked, its name a menu of the rest.
+// What the kitchen holds, on one surface: one picker and the food it picks.
+// The picker offers what to use first (the default), what came in last, and
+// each spot; whichever it is, the food shows on the same grid. Stocking up
+// sits across from it.
 function OnHand({
 	items,
 	fresh,
@@ -615,181 +619,126 @@ function OnHand({
 	showing,
 	spot,
 	inSpot,
-	query,
-	onQuery,
-	matches,
 	selectedId,
 }: {
 	items: PantryItem[]
 	// Food that goes off within two weeks, soonest first.
 	fresh: PantryItem[]
-	// What came in last, newest first, and whether it is the one shown.
+	// What came in last, newest first.
 	recent: PantryItem[]
 	showing: 'recent' | undefined
-	// The spot whose jars show, and what it holds.
-	spot: PantrySpot
+	// The spot picked, if one is, and what it holds.
+	spot: PantrySpot | undefined
 	inSpot: PantryItem[]
-	query: string
-	onQuery: (query: string) => void
-	matches: PantryItem[]
 	selectedId: string | undefined
 }) {
-	const [finding, setFinding] = useState(false)
-	const searching = query.trim().length > 0
-
-	function stopFinding() {
-		onQuery('')
-		setFinding(false)
-	}
-
-	const lists = [
-		{ key: 'first', label: 'use first', count: fresh.length, picked: !showing },
-		{
-			key: 'recent',
-			label: 'recently added',
-			count: 0,
-			picked: showing === 'recent',
-		},
-	] as const
+	const view: KitchenPick = spot ?? (showing === 'recent' ? 'recent' : 'first')
 
 	return (
-		<section aria-labelledby="on-hand" className="flex flex-col gap-4">
+		<section
+			aria-labelledby="on-hand"
+			className="bg-card border-border flex flex-col gap-3 rounded-xl border p-4"
+		>
 			<h2 id="on-hand" className="sr-only">
 				on hand
 			</h2>
-			<div className={panelClassName}>
-				<div className="flex min-h-10 items-center gap-1">
-					{finding ? (
-						<label className="bg-background border-input focus-within:border-foreground/40 flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-md border px-3 transition-colors">
-							<MagnifyingGlass
-								size={16}
-								weight="bold"
-								aria-hidden
-								className="text-muted-foreground shrink-0"
-							/>
-							<input
-								type="search"
-								aria-label="find an ingredient"
-								placeholder="do i have…"
-								// Opened by a tap to look something up, so the keyboard
-								// comes up.
-								// eslint-disable-next-line jsx-a11y/no-autofocus
-								autoFocus
-								value={query}
-								onChange={(event) => onQuery(event.target.value)}
-								onKeyDown={(event) => {
-									if (event.key === 'Escape') stopFinding()
-								}}
-								className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-base outline-none [&::-webkit-search-cancel-button]:hidden"
-							/>
-						</label>
-					) : (
-						<nav aria-label="food to show" className="flex flex-1 items-center">
-							{lists.map(({ key, label, count, picked }) => (
-								<Link
-									key={key}
-									to="/kitchen"
-									search={key === 'recent' ? { list: 'recent' } : {}}
-									resetScroll={false}
-									aria-current={picked ? 'true' : undefined}
-									className={cn(
-										'inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 text-sm font-bold transition-colors',
-										picked
-											? 'text-foreground'
-											: 'text-muted-foreground hover:text-foreground',
-									)}
-								>
-									{label}
-									{count ? (
-										<span className="text-muted-foreground tabular-nums">
-											{count}
-										</span>
-									) : null}
-								</Link>
-							))}
-						</nav>
-					)}
-					<button
-						type="button"
-						aria-label={finding ? 'close the search' : 'find an ingredient'}
-						onClick={() => (finding ? stopFinding() : setFinding(true))}
-						className={iconButtonClassName}
-					>
-						{finding ? (
-							<X size={18} weight="bold" aria-hidden />
-						) : (
-							<MagnifyingGlass size={18} weight="bold" aria-hidden />
-						)}
-					</button>
-					<Link
-						to="/kitchen/bulk"
-						aria-label="stock up"
-						title="stock up"
-						className={iconButtonClassName}
-					>
-						<Plus size={18} weight="bold" aria-hidden />
-					</Link>
+			<div className="-my-1 flex min-h-10 items-center gap-1">
+				<div className="flex flex-1 items-center">
+					<ViewMenu view={view} items={items} fresh={fresh.length} />
 				</div>
-				{searching ? (
-					matches.length ? (
-						<ul
-							aria-label="matches"
-							className="bg-background border-border divide-border divide-y overflow-hidden rounded-xl border"
-						>
-							{matches.map((item) => (
-								<li key={item.id}>
-									<Row item={item} selected={item.id === selectedId} />
-								</li>
-							))}
-						</ul>
-					) : (
-						<NotFound name={query.trim()} onAdded={stopFinding} />
-					)
-				) : showing === 'recent' ? (
-					<FoodCards label="recently added" items={recent} />
-				) : fresh.length ? (
-					<FoodCards label="use first" items={fresh} />
-				) : (
-					<p className="text-muted-foreground px-2 pb-1 text-sm font-semibold">
-						nothing goes off in the next two weeks
-					</p>
-				)}
+				<Link
+					to="/kitchen/bulk"
+					aria-label="stock up"
+					title="stock up"
+					// Its tap room hangs into the gutter, so the mark lines up with
+					// the cards' right edge.
+					className={cn(iconButtonClassName, '-mr-2.5')}
+				>
+					<Plus size={18} weight="bold" aria-hidden />
+				</Link>
 			</div>
-			{searching ? null : (
-				<div className={panelClassName}>
-					<SpotMenu spot={spot} items={items} />
-					<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
-				</div>
+			{spot ? (
+				<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
+			) : showing === 'recent' ? (
+				recent.length ? (
+					<FoodCards label="recently added" items={recent} />
+				) : (
+					<EmptyBlock
+						mark={<ClockIcon size={20} weight="bold" aria-hidden />}
+						title="nothing added yet"
+						body="what you bring home shows here first"
+					/>
+				)
+			) : fresh.length ? (
+				<FoodCards label="use first" items={fresh} />
+			) : (
+				<EmptyBlock
+					mark={<WarningCircleIcon size={20} weight="bold" aria-hidden />}
+					title="nothing to use first"
+					body="everything here keeps for two weeks or more"
+				/>
 			)}
 		</section>
 	)
 }
 
-// A panel: a paper card that holds one part of the page, its controls and
-// what they show together, so nothing floats loose on the page.
-const panelClassName =
-	'bg-card border-border flex flex-col gap-3 rounded-xl border p-3'
+// What the picker can show: food to use first, food that came in last, or
+// one spot's food.
+type KitchenPick = 'first' | 'recent' | PantrySpot
 
-// A quiet square button in a panel's corner, for one action by its mark.
-const iconButtonClassName =
-	'text-muted-foreground hover:text-foreground hover:bg-muted/60 grid size-10 shrink-0 place-items-center rounded-md transition-colors'
+const pickLabels: Record<'first' | 'recent', string> = {
+	first: 'use first',
+	recent: 'recent',
+}
 
-// The spot panel's name, which is also its picker: "in the fridge ▾" opens
-// a menu of every spot and how much it holds.
-function SpotMenu({ spot, items }: { spot: PantrySpot; items: PantryItem[] }) {
+const pickLabel = (pick: KitchenPick) =>
+	pick === 'first' || pick === 'recent'
+		? pickLabels[pick]
+		: pantrySpotLabels[pick]
+
+// A pick's mark: an exclamation for what to use first, a clock for what came
+// in last, and each spot's own.
+function PickMark({ pick, size = 18 }: { pick: KitchenPick; size?: number }) {
+	if (pick === 'first')
+		return <WarningCircleIcon size={size} weight="bold" aria-hidden />
+
+	if (pick === 'recent')
+		return <ClockIcon size={size} weight="bold" aria-hidden />
+
+	return <SpotIcon spot={pick} size={size} />
+}
+
+// The surface's one picker: its name says what is showing, and it opens on
+// every view, the two lists first and then the spots, each with what it
+// holds when that is worth saying.
+function ViewMenu({
+	view,
+	items,
+	fresh,
+}: {
+	view: KitchenPick
+	items: PantryItem[]
+	fresh: number
+}) {
 	const navigate = useNavigate()
+
+	const picks: {
+		pick: KitchenPick
+		search: { spot?: PantrySpot; list?: 'recent' }
+	}[] = [
+		{ pick: 'first', search: {} },
+		{ pick: 'recent', search: { list: 'recent' } },
+		...pantrySpots.map((each) => ({ pick: each, search: { spot: each } })),
+	]
 
 	return (
 		<Menu.Root>
-			<Menu.Trigger className="hover:bg-muted/60 data-popup-open:bg-muted -mx-1 inline-flex min-h-10 items-center gap-2 self-start rounded-md px-2 text-sm font-bold transition-colors">
-				<PantrySprite
-					look={standardLook({ key: pantrySpotSprites[spot] })}
-					className="size-5"
-				/>
-				<span>
-					<span className="text-muted-foreground font-semibold">in the </span>
-					{pantrySpotLabels[spot]}
-				</span>
+			<Menu.Trigger className="hover:bg-muted/60 data-popup-open:bg-muted -ml-2 inline-flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-bold transition-colors">
+				<PickMark pick={view} />
+				{pickLabel(view)}
+				{view === 'first' && fresh ? (
+					<span className="text-muted-foreground tabular-nums">{fresh}</span>
+				) : null}
 				<CaretDownIcon size={12} weight="bold" aria-hidden />
 			</Menu.Trigger>
 			<Menu.Portal>
@@ -800,34 +749,33 @@ function SpotMenu({ spot, items }: { spot: PantrySpot; items: PantryItem[] }) {
 					sideOffset={6}
 				>
 					<Menu.Popup className="floating bg-background w-56 py-1 outline-none">
-						{pantrySpots.map((each) => {
-							const held = items.filter((item) => spotOf(item) === each).length
+						{picks.map(({ pick, search }, index) => {
+							const empty =
+								pick !== 'first' &&
+								pick !== 'recent' &&
+								!items.some((item) => spotOf(item) === pick)
 
 							return (
 								<Menu.Item
-									key={each}
+									key={pick}
 									onClick={() =>
 										void navigate({
 											to: '/kitchen',
-											search: (now) => ({
-												...now,
-												spot: each,
-												item: undefined,
-											}),
+											search,
 											resetScroll: false,
 										})
 									}
-									className="data-highlighted:bg-kitchen-yolk/40 flex w-full cursor-default items-center gap-3 px-3 py-2.5 text-sm font-semibold outline-none select-none"
+									className={cn(
+										'data-highlighted:bg-kitchen-yolk/40 flex w-full cursor-default items-center gap-3 px-3 py-2.5 text-sm font-semibold outline-none select-none',
+										// The spots start after a hairline, apart from the lists.
+										index === 2 && 'border-border mt-1 border-t pt-3.5',
+									)}
 								>
-									<PantrySprite
-										look={standardLook({ key: pantrySpotSprites[each] })}
-										className={cn('size-5', !held && 'opacity-50')}
-									/>
-									<span className="flex-1">{pantrySpotLabels[each]}</span>
-									<span className="text-muted-foreground tabular-nums">
-										{held || ''}
+									<span className={cn(empty && 'text-muted-foreground')}>
+										<PickMark pick={pick} />
 									</span>
-									{each === spot ? (
+									<span className="flex-1">{pickLabel(pick)}</span>
+									{pick === view ? (
 										<CheckIcon size={14} weight="bold" aria-hidden />
 									) : null}
 								</Menu.Item>
@@ -840,9 +788,42 @@ function SpotMenu({ spot, items }: { spot: PantrySpot; items: PantryItem[] }) {
 	)
 }
 
-// One spot's food as a wall of jars, a screenful at a glance rather than a
-// long list: a dashed, struck jar ran out, a yolk one runs low. A jar opens
-// its details.
+// Nothing to show: a dashed block as tall as a row of cards, in their place,
+// saying so and why, with what to do about it when there is something.
+function EmptyBlock({
+	mark,
+	title,
+	body,
+	action,
+}: {
+	// Drawn in the block's quiet ink, 20px.
+	mark: React.ReactNode
+	title: string
+	body: string
+	action?: React.ReactNode
+}) {
+	return (
+		<div className="border-foreground/30 flex min-h-24 items-center gap-3 rounded-xl border border-dashed p-3">
+			<span className="text-muted-foreground shrink-0">{mark}</span>
+			<div className="flex min-w-0 flex-1 flex-col">
+				<p className="text-sm font-bold">{title}</p>
+				<p className="text-muted-foreground text-sm font-semibold">{body}</p>
+			</div>
+			{action}
+		</div>
+	)
+}
+
+// A quiet square button in the surface's corner, for one action by its mark.
+const iconButtonClassName =
+	'text-muted-foreground hover:text-foreground hover:bg-muted/60 grid size-10 shrink-0 place-items-center rounded-md transition-colors'
+
+// A spot names its shelves only once it holds this much; below it, one grid
+// in shelf order reads better than rows of one or two.
+const shelvesFrom = 9
+
+// One spot's food on the same grid as every list of food. A full spot is
+// split into named shelves; a small one is one grid in shelf order.
 function JarWall({
 	items,
 	spot,
@@ -854,82 +835,60 @@ function JarWall({
 }) {
 	if (!items.length)
 		return (
-			<p className="text-muted-foreground text-sm font-semibold">
-				nothing in the {pantrySpotLabels[spot]} yet
-			</p>
+			<EmptyBlock
+				mark={<SpotIcon spot={spot} size={20} />}
+				title={`nothing in the ${pantrySpotLabels[spot]} yet`}
+				body="stock up and it lands where it keeps"
+				action={
+					<Link
+						to="/kitchen/bulk"
+						className={buttonVariants({
+							variant: 'outline',
+							className: 'shrink-0 gap-1.5 px-3',
+						})}
+					>
+						<Plus size={14} weight="bold" aria-hidden />
+						stock up
+					</Link>
+				}
+			/>
 		)
 
 	const shelves = shelvesOf(spot, items)
+	const named = shelves.length > 1 && items.length >= shelvesFrom
 
-	// One shelf needs no name over it.
-	const named = shelves.length > 1
+	const card = (item: PantryItem) => (
+		<li key={item.id}>
+			<FoodCard
+				item={item}
+				search={{ spot, item: item.id }}
+				selected={item.id === selectedId}
+			/>
+		</li>
+	)
+
+	if (!named)
+		return (
+			<ul aria-label={pantrySpotLabels[spot]} className={foodGridClassName}>
+				{shelves.flatMap((shelf) => shelf.items).map(card)}
+			</ul>
+		)
 
 	return (
 		<section
 			aria-label={pantrySpotLabels[spot]}
-			className="flex flex-col gap-6"
+			className="flex flex-col gap-5"
 		>
 			{shelves.map((shelf) => (
 				<section
 					key={shelf.id}
-					aria-label={named ? shelf.label : undefined}
-					className="flex flex-col gap-3"
+					aria-label={shelf.label}
+					className="flex flex-col gap-2"
 				>
-					{named ? (
-						<h3 className="text-muted-foreground text-sm font-bold">
-							{shelf.label}{' '}
-							<span className="font-semibold tabular-nums">
-								· {shelf.items.length}
-							</span>
-						</h3>
-					) : null}
-					<ul className="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-x-2 gap-y-4">
-						{shelf.items.map((item) => {
-							const out = item.level === 'out'
-
-							return (
-								<li key={item.id}>
-									<Link
-										to="/kitchen"
-										search={{ spot, item: item.id }}
-										resetScroll={false}
-										data-pantry={item.id}
-										aria-label={`${item.name}, ${leftOf(item)}${out ? '' : `, ${daysWord(item.daysLeft)}`}`}
-										aria-current={item.id === selectedId ? 'true' : undefined}
-										className="group/jar flex flex-col items-center gap-1.5 text-center"
-									>
-										<span
-											className={cn(
-												'relative grid size-14 place-items-center rounded-xl border transition-colors',
-												out
-													? 'border-foreground/35 border-dashed'
-													: item.level === 'low'
-														? 'bg-kitchen-yolk/30 border-transparent'
-														: 'bg-background border-border group-hover/jar:border-foreground/30',
-												item.id === selectedId &&
-													'border-foreground/45 border-solid',
-											)}
-										>
-											<Sprite
-												item={item}
-												className={cn('size-8', out && 'opacity-40 grayscale')}
-											/>
-											{/* Each jar says how long it has left. */}
-											{out ? null : <DaysBadge days={item.daysLeft} />}
-										</span>
-										<span
-											className={cn(
-												'text-xs leading-tight font-semibold',
-												out && 'text-muted-foreground line-through',
-											)}
-										>
-											{item.name}
-										</span>
-									</Link>
-								</li>
-							)
-						})}
-					</ul>
+					<h3 className="text-muted-foreground text-sm font-bold">
+						{shelf.label}
+					</h3>
+					<ul className={foodGridClassName}>{shelf.items.map(card)}</ul>
 				</section>
 			))}
 		</section>
@@ -1026,60 +985,6 @@ function CheckThese({
 	)
 }
 
-// A search that finds nothing: the cook may have it and never said, or may
-// want it.
-function NotFound({ name, onAdded }: { name: string; onAdded: () => void }) {
-	const router = useRouter()
-	const [adding, setAdding] = useState(false)
-
-	async function add() {
-		setAdding(true)
-
-		try {
-			await createPantryItems({
-				data: [
-					{ name: name.toLowerCase(), category: ingredientCategory(name) },
-				],
-			})
-			await router.invalidate()
-			toast.success(`${name.toLowerCase()} added to ingredients`)
-			onAdded()
-		} catch {
-			toast.error(`couldn't add ${name.toLowerCase()} — try again`)
-		} finally {
-			setAdding(false)
-		}
-	}
-
-	// Half a word is not a food: "i have" waits for one the catalog knows.
-	const known = !!foodOf(name)
-
-	return (
-		<section
-			aria-label="not found"
-			className="flex flex-col items-start gap-3 px-1"
-		>
-			<p className="text-muted-foreground text-sm font-semibold">
-				no {name} in your ingredients
-			</p>
-			<div className="flex flex-wrap gap-2">
-				{known ? (
-					<button
-						type="button"
-						disabled={adding}
-						onClick={() => void add()}
-						className="border-input hover:bg-muted/60 inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors disabled:opacity-60"
-					>
-						<Plus size={16} weight="bold" aria-hidden />
-						i have {name.toLowerCase()}
-					</button>
-				) : null}
-				<BuyButton names={[name]} />
-			</div>
-		</section>
-	)
-}
-
 // Puts pantry items on the groceries list, and says so from the tab.
 function BuyButton({ names }: { names: string[] }) {
 	const client = useQueryClient()
@@ -1159,94 +1064,8 @@ function keepsFor(days: number) {
 	return 'keeps'
 }
 
-// Words a cook searches by that name a kind of food, not a food.
-const kinds = new Map([
-	[
-		'cheese',
-		[
-			'cheddar',
-			'mozzarella',
-			'parmesan',
-			'feta',
-			'goat cheese',
-			'brie',
-			'gruyere',
-			'ricotta',
-			'cream cheese',
-			'cottage cheese',
-		],
-	],
-	['fish', ['salmon', 'cod', 'tilapia', 'tuna steak', 'canned tuna']],
-	['seafood', ['shrimp', 'scallops', 'salmon', 'cod', 'tilapia']],
-	[
-		'herbs',
-		[
-			'cilantro',
-			'parsley',
-			'fresh basil',
-			'fresh thyme',
-			'oregano',
-			'dried thyme',
-			'bay leaves',
-		],
-	],
-	[
-		'beans',
-		['black beans', 'chickpeas', 'kidney beans', 'green beans', 'lentils'],
-	],
-	['nuts', ['almonds', 'walnuts', 'peanuts', 'peanut butter']],
-	['berries', ['strawberries', 'blueberries', 'raspberries']],
-	['pasta', ['spaghetti', 'pasta']],
-	['oil', ['olive oil', 'vegetable oil', 'sesame oil']],
-	[
-		'vinegar',
-		[
-			'white vinegar',
-			'balsamic vinegar',
-			'red wine vinegar',
-			'rice vinegar',
-			'apple cider vinegar',
-		],
-	],
-])
-
-// Whether a search names a kind of food this item is: "cheese" finds
-// cheddar, "fish" finds salmon.
-function ofKind(name: string, query: string) {
-	const word = query.trim().toLowerCase()
-
-	if (word.length < 3) return false
-
-	return [...kinds].some(
-		([kind, names]) =>
-			(kind.startsWith(word) || word.startsWith(kind.replace(/s$/, ''))) &&
-			names.includes(name.toLowerCase()),
-	)
-}
-
-// Whether a search names the shelf an item sits on: "spice" finds the
-// spices, "herbs" the vegetables and herbs.
-function ofShelf(category: PantryCategory, query: string) {
-	const word = query.trim().toLowerCase().replace(/s$/, '')
-
-	if (word.length < 3) return false
-
-	return pantryCategoryLabels[category]
-		.split(/\W+/)
-		.some((part) => part.length > 3 && part.replace(/s$/, '') === word)
-}
-
 const byName = (items: PantryItem[]) =>
 	[...items].sort((a, b) => a.name.localeCompare(b.name))
-
-// A long section in the shelf's order, then by name, for its light labels.
-function byCategory(items: PantryItem[]) {
-	return [...items].sort(
-		(a, b) =>
-			pantryCategories.indexOf(a.category) -
-				pantryCategories.indexOf(b.category) || a.name.localeCompare(b.name),
-	)
-}
 
 // How much is left, in words: a count when the cook keeps one, else the level.
 function leftOf(item: PantryItem) {
@@ -1304,79 +1123,6 @@ function LevelIcon({ level }: { level: PantryLevel }) {
 				/>
 			))}
 		</svg>
-	)
-}
-
-// What a row says beside its name, if anything is worth noticing. Every note
-// is one small pill, tinted only when it asks for something.
-function noteOf(item: PantryItem) {
-	if (item.level === 'out') return { text: 'out', tone: 'note' } as const
-
-	if (item.quantity !== null)
-		return {
-			text: `× ${item.quantity}`,
-			tone: item.level === 'low' ? 'low' : 'note',
-		} as const
-
-	if (item.level === 'low') return { text: 'running low', tone: 'low' } as const
-
-	// Food about to spoil says so, wherever it is listed.
-	if (item.spoils && item.daysLeft <= 2)
-		return { text: keepsFor(item.daysLeft), tone: 'low' } as const
-
-	if (item.stale)
-		return { text: hadItIn(item.confirmedAt), tone: 'note' } as const
-
-	return null
-}
-
-function Row({ item, selected }: { item: PantryItem; selected: boolean }) {
-	const out = item.level === 'out'
-	const note = noteOf(item)
-
-	return (
-		<Link
-			to="/kitchen"
-			search={{ item: item.id }}
-			resetScroll={false}
-			data-pantry={item.id}
-			aria-label={`${item.name}, ${leftOf(item)}`}
-			aria-current={selected ? 'true' : undefined}
-			className={cn(
-				'flex min-h-11 items-center gap-3 px-3 py-1.5 transition-colors',
-				selected ? 'bg-kitchen-yolk/30' : 'hover:bg-muted/60',
-			)}
-		>
-			<PantrySprite
-				look={resolveSpriteLook(item.name, item.spriteKey, item.category)}
-				className={cn(
-					'size-6 shrink-0 object-contain [image-rendering:pixelated]',
-					out && 'opacity-35 grayscale',
-				)}
-			/>
-			<span
-				className={cn(
-					'min-w-0 flex-1 truncate text-base',
-					out && 'text-muted-foreground',
-				)}
-			>
-				{item.name}
-			</span>
-			{note ? (
-				<span
-					className={cn(
-						'shrink-0 rounded-full px-2 text-xs leading-5 font-semibold whitespace-nowrap',
-						note.tone === 'low'
-							? 'bg-kitchen-yolk/30'
-							: note.tone === 'note'
-								? 'bg-foreground/5'
-								: 'text-muted-foreground',
-					)}
-				>
-					{note.text}
-				</span>
-			) : null}
-		</Link>
 	)
 }
 

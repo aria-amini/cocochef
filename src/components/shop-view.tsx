@@ -32,15 +32,15 @@ function shelfOf(line: string): ShelfId {
 
 	if (category === 'dairy') return 'dairy'
 
+	if (category === 'spices') return 'spices'
+
 	const spot = spotOf({ name: ingredientSubject(line), category })
 
 	return spot === 'fridge' || spot === 'counter'
 		? 'fresh'
-		: spot === 'spices'
-			? 'spices'
-			: spot === 'freezer'
-				? 'frozen'
-				: 'pantry'
+		: spot === 'freezer'
+			? 'frozen'
+			: 'pantry'
 }
 
 // Food that spoils within this many days is worth using first.

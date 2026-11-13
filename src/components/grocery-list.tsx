@@ -391,7 +391,7 @@ export function GroceryList({
 		// floats loose on the page.
 		<section
 			aria-labelledby="need"
-			className="bg-card border-border flex flex-col gap-3 rounded-xl border p-3"
+			className="bg-card border-border flex flex-col gap-3 rounded-xl border p-4"
 		>
 			<div className="flex min-h-9 flex-wrap items-center gap-2">
 				{/* The kitchen's switch names the list; its name is said only. */}
@@ -501,7 +501,7 @@ function ListBox({
 			transition={{ duration: reduceMotion ? 0 : 0.25, ease: 'easeOut' }}
 		>
 			<div className="pb-5">
-				<Heading className="text-muted-foreground flex items-center justify-between gap-2 px-1 pb-1 text-sm font-bold">
+				<Heading className="text-muted-foreground flex items-center justify-between gap-2 pb-1 text-sm font-bold">
 					<button
 						type="button"
 						aria-expanded={open}
@@ -651,7 +651,7 @@ function PlanList({
 		<div className="flex flex-col gap-5">
 			{groups.map((group) => (
 				<section key={group.key} aria-label={group.label}>
-					<Heading className="text-muted-foreground px-1 pb-1 text-sm font-bold">
+					<Heading className="text-muted-foreground pb-1 text-sm font-bold">
 						{group.label}
 					</Heading>
 					<ul className="bg-background border-border divide-border divide-y rounded-xl border">
