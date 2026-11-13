@@ -83,7 +83,8 @@ export function AddToGroceries({
 	if (known && !wanted)
 		return listed ? (
 			<Link
-				to="/kitchen/shop"
+				to="/kitchen"
+				hash="need"
 				aria-label={`all ${shopping} on your list: groceries list`}
 				className={pill}
 			>
@@ -238,7 +239,7 @@ function GroceryReview({
 				{
 					action: {
 						label: 'open',
-						onClick: () => void navigate({ to: '/kitchen/shop' }),
+						onClick: () => void navigate({ to: '/kitchen', hash: 'need' }),
 					},
 				},
 			)
