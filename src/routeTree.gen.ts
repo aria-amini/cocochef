@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as IntroRouteImport } from './routes/intro'
 import { Route as HandleIndexRouteImport } from './routes/$handle.index'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppGroceriesRouteImport } from './routes/_app/groceries'
@@ -36,11 +35,6 @@ import { Route as AppSitesSiteSlugRouteImport } from './routes/_app/sites.$site.
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IntroRoute = IntroRouteImport.update({
-  id: '/intro',
-  path: '/intro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HandleIndexRoute = HandleIndexRouteImport.update({
@@ -156,7 +150,6 @@ const AppSitesSiteSlugRoute = AppSitesSiteSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/intro': typeof IntroRoute
   '/groceries': typeof AppGroceriesRoute
   '/home': typeof AppHomeRoute
   '/pantry': typeof AppPantryRoute
@@ -180,7 +173,6 @@ export interface FileRoutesByFullPath {
   '/sites/$site/$slug': typeof AppSitesSiteSlugRoute
 }
 export interface FileRoutesByTo {
-  '/intro': typeof IntroRoute
   '/groceries': typeof AppGroceriesRoute
   '/home': typeof AppHomeRoute
   '/pantry': typeof AppPantryRoute
@@ -207,7 +199,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/intro': typeof IntroRoute
   '/_app/groceries': typeof AppGroceriesRoute
   '/_app/home': typeof AppHomeRoute
   '/_app/pantry': typeof AppPantryRoute
@@ -235,7 +226,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/intro'
     | '/groceries'
     | '/home'
     | '/pantry'
@@ -259,7 +249,6 @@ export interface FileRouteTypes {
     | '/sites/$site/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/intro'
     | '/groceries'
     | '/home'
     | '/pantry'
@@ -285,7 +274,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
-    | '/intro'
     | '/_app/groceries'
     | '/_app/home'
     | '/_app/pantry'
@@ -312,7 +300,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
-  IntroRoute: typeof IntroRoute
   ApiHealthRoute: typeof ApiHealthRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthSignupRoute: typeof AuthSignupRoute
@@ -328,13 +315,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/intro': {
-      id: '/intro'
-      path: '/intro'
-      fullPath: '/intro'
-      preLoaderRoute: typeof IntroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$handle/': {
@@ -546,7 +526,6 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
-  IntroRoute: IntroRoute,
   ApiHealthRoute: ApiHealthRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthSignupRoute: AuthSignupRoute,
