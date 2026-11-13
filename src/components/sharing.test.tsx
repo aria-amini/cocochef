@@ -256,7 +256,7 @@ describe('sharing', () => {
 			.element(
 				screen
 					.getByRole('navigation', { name: 'Primary' })
-					.getByRole('link', { name: 'recipes' }),
+					.getByRole('link', { name: 'my recipes' }),
 			)
 			.toHaveAttribute('aria-current', 'page')
 		await expect
@@ -331,7 +331,7 @@ describe('sharing', () => {
 			.toBeVisible()
 		await expect.element(screen.getByText('1 onion')).not.toBeInTheDocument()
 		await expect
-			.element(screen.getByRole('link', { name: 'back to recipes' }))
+			.element(screen.getByRole('link', { name: 'back to my recipes' }))
 			.toBeVisible()
 	})
 	test('opens a shared recipe in the app for someone with a session, at the same readable address', async () => {
