@@ -9,18 +9,18 @@ import { z } from 'zod'
 
 import { AuthDialog } from '@/components/auth-dialog'
 import { buttonVariants } from '@/components/ui/button'
-import { getCurrentSession } from '@/lib/auth/session'
+import { getAccountId } from '@/lib/auth/session'
 import { importSiteLogo, importSites } from '@/lib/import/sites'
 import { cn } from '@/lib/utils/ui'
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute('/intro')({
 	// `/?preview` keeps the pitch visible to a signed-in dev; it is dev-only.
 	validateSearch: z.object({ preview: z.unknown().optional() }),
-	// Anyone with a shelf, guest or account, skips the pitch.
+	// Anyone with an account skips the pitch.
 	beforeLoad: async ({ search }) => {
 		if (import.meta.env.DEV && search.preview !== undefined) return
 
-		if (await getCurrentSession()) throw redirect({ to: '/recipes' })
+		if (await getAccountId()) throw redirect({ to: '/' })
 	},
 	component: Landing,
 })
@@ -78,7 +78,7 @@ function Landing() {
 								find a recipe, save it, and cook from one clean page.
 							</p>
 							<Link
-								to="/recipes"
+								to="/"
 								className={cn(buttonVariants({ size: 'lg' }), 'self-start')}
 							>
 								start your shelf
@@ -137,7 +137,7 @@ function Landing() {
 								save your first recipe
 							</h2>
 							<Link
-								to="/recipes"
+								to="/"
 								className={buttonVariants({ variant: 'outline', size: 'lg' })}
 							>
 								start your shelf
@@ -151,7 +151,7 @@ function Landing() {
 				onOpenChange={setAuthOpen}
 				redirect="/recipes"
 				initialMode="signin"
-				onSuccess={() => void navigate({ to: '/recipes' })}
+				onSuccess={() => void navigate({ to: '/' })}
 			/>
 		</>
 	)

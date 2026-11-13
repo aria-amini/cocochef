@@ -4,6 +4,8 @@ import { z } from 'zod'
 
 import { serverEnv as env } from '@/env.server'
 import { getViewerId, requireAccountId } from '@/lib/auth/session'
+import { kitchenStock } from '@/lib/pantry/stock.server'
+import { effortFor } from '@/lib/recipes/effort.server'
 import { clampRecipeTitle, recipeInput } from '@/lib/recipes/model'
 import {
 	addMissingSourceNotes,
@@ -50,6 +52,8 @@ async function findOrFetch(url: string, sourceUrl: string) {
 		sourceUrl,
 		sourceNotes: page.recipe.sourceNotes,
 		totalMinutes: page.recipe.totalMinutes,
+		prepMinutes: page.recipe.prepMinutes,
+		servings: page.recipe.servings,
 		rating: page.recipe.rating,
 		commentCount: page.recipe.commentCount,
 	})
@@ -116,4 +120,69 @@ export const importRecipe = createServerFn({ method: 'POST' })
 		if (data.keep) await saveRecipeForUser(userId, recipe.id)
 
 		return recipe
+	})
+
+// How many result pages a reader's search reads in on its own, to show their
+// stars: few, from a budget of their own, so it never uses up the imports a
+// cook asks for.
+const peekBatch = 4
+
+const peeksPerMinute = 24
+
+// Search results' pages read in ahead of a click, so each row shows how its
+// readers rated it. A page that fails is skipped; it can still be opened.
+export const peekRecipes = createServerFn({ method: 'POST' })
+	.validator(
+		z.object({
+			urls: z.array(z.url({ protocol: /^https?$/ }).max(2000)).max(peekBatch),
+		}),
+	)
+	.handler(async ({ data }) => {
+		const viewerId = await getViewerId()
+		const ip = getRequestIP() ?? 'unknown'
+		const userId = viewerId === 'visitor' ? `visitor:${ip}` : viewerId
+		const read = []
+
+		for (const url of data.urls) {
+			try {
+				const sourceUrl = canonicalRecipeUrl(url)
+
+				const recipe =
+					(await findSharedRecipeByUrl(sourceUrl)) ??
+					(await (() => {
+						rateLimit(`peek:${userId}`, peeksPerMinute)
+						rateLimit(`peek-ip:${ip}`, peeksPerMinute * 2)
+
+						return withImportSlot(`peek:${userId}`, () =>
+							findOrFetch(url, sourceUrl),
+						)
+					})())
+
+				read.push({
+					url,
+					id: recipe.id,
+					ratingValue: recipe.ratingValue,
+					ratingCount: recipe.ratingCount,
+					totalMinutes: recipe.totalMinutes,
+				})
+			} catch {
+				// Out of budget, or a page that will not read: its row waits for a
+				// click.
+			}
+		}
+
+		// What the kitchen has of each, and what each asks of the cook, now
+		// that its lines and steps are known.
+		const ids = read.map((page) => page.id)
+
+		const [stock, effort] = await Promise.all([
+			kitchenStock(ids),
+			effortFor(ids),
+		])
+
+		return read.map((page) => ({
+			...page,
+			stock: stock.get(page.id) ?? null,
+			effort: effort.get(page.id) ?? null,
+		}))
 	})

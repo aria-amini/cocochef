@@ -1,33 +1,30 @@
-import { Tooltip } from '@base-ui/react/tooltip'
 import {
-	MagnifyingGlassIcon,
 	ArrowRightIcon,
 	BookmarkSimpleIcon,
+	GlobeHemisphereWestIcon,
+	LinkSimpleIcon,
+	LockSimpleIcon,
 	PencilSimpleLineIcon,
 	UserIcon,
-	RobotIcon,
 } from '@phosphor-icons/react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'framer-motion'
-import { useSyncExternalStore } from 'react'
+import { useState } from 'react'
+import { toast } from 'sonner'
 
 import { AddRecipeMenu } from '@/components/add-recipe-menu'
-import {
-	PopularRecipes,
-	shelfGridClassName,
-	shelfHeadingClassName,
-} from '@/components/popular-recipes'
 import { useRecipeActions } from '@/components/recipe-actions'
 import { RecipeGlyph } from '@/components/recipe-glyph'
-import { RecipeSources } from '@/components/recipe-sources'
-import { Badge } from '@/components/ui/badge'
+import { SaveChip } from '@/components/save-chip'
 import { authClient } from '@/lib/auth/client'
-import { listShelf } from '@/lib/recipes/server'
+import { listShelf, removeSavedRecipe, saveRecipe } from '@/lib/recipes/server'
 import {
 	tileColorFor,
 	tileColors,
 	type TileColor,
 } from '@/lib/recipes/tile-color'
+import { getMySharingProfile } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/recipes/')({
@@ -41,10 +38,25 @@ const ease = [0.16, 1, 0.3, 1] as const
 
 type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 
+// The recipe shelf's filters: everything, or one kind.
+// Four even columns from a tablet up, two on a phone.
+const shelfGridClassName =
+	'grid grid-cols-2 gap-4 md:auto-rows-[var(--spacing-tile)] md:grid-cols-4'
+
+// Each of the shelf's sections opens the same way: its icon, then its name.
+const shelfHeadingClassName = 'flex items-center gap-2 text-xl font-bold'
+
+const shelfFilters = ['all', 'written', 'saved', 'drafts', 'shared'] as const
+
+type ShelfFilter = (typeof shelfFilters)[number]
+
+// Your recipes: the ones you wrote, the ones you saved, and drafts still
+// being written, each saying who can see it. Finding new ones is home's job.
 function Shelf() {
 	const { recipes: shelfRecipes } = Route.useLoaderData()
 	const account = authClient.useSession().data?.user
 	const { find } = useRecipeActions()
+	const [filter, setFilter] = useState<ShelfFilter>('all')
 
 	const reduce = useReducedMotion()
 
@@ -56,21 +68,57 @@ function Shelf() {
 				transition: { duration: 0.6, ease },
 			}
 
+	const mine = (recipe: Recipe) => !!account && recipe.userId === account.id
+
 	const ownRecipes = shelfRecipes.filter(
-		(recipe) => !!account && recipe.userId === account.id && recipe.finalizedAt,
+		(recipe) => mine(recipe) && recipe.finalizedAt,
 	)
 
 	// Recipes still being written, kept apart so they are easy to come back to.
 	const drafts = shelfRecipes.filter(
-		(recipe) =>
-			!!account && recipe.userId === account.id && !recipe.finalizedAt,
+		(recipe) => mine(recipe) && !recipe.finalizedAt,
 	)
 
-	const savedRecipes = shelfRecipes.filter(
-		(recipe) => !account || recipe.userId !== account.id,
+	const savedRecipes = shelfRecipes.filter((recipe) => !mine(recipe))
+
+	// What others can see: on your profile, or by its link.
+	const shared = ownRecipes.filter(
+		(recipe) => recipe.visibility && recipe.visibility !== 'private',
 	)
+
+	const counts: Record<ShelfFilter, number> = {
+		all: shelfRecipes.length,
+		written: ownRecipes.length,
+		saved: savedRecipes.length,
+		drafts: drafts.length,
+		shared: shared.length,
+	}
 
 	const isEmpty = shelfRecipes.length === 0
+
+	const sections =
+		filter === 'all'
+			? [
+					{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes },
+					{
+						id: 'saved-recipes',
+						title: 'saved recipes',
+						recipes: savedRecipes,
+					},
+				]
+			: filter === 'written'
+				? [{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes }]
+				: filter === 'saved'
+					? [
+							{
+								id: 'saved-recipes',
+								title: 'saved recipes',
+								recipes: savedRecipes,
+							},
+						]
+					: filter === 'shared'
+						? [{ id: 'shared-recipes', title: 'shared', recipes: shared }]
+						: []
 
 	return (
 		<main className="min-w-0 flex-1">
@@ -78,14 +126,9 @@ function Shelf() {
 				{...enter}
 				className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
 			>
-				<h1 className="sr-only">recipes</h1>
-				<div className="flex w-full max-w-3xl flex-wrap items-start gap-3">
-					<div className="flex min-w-0 flex-1 basis-64 flex-col gap-2">
-						<div className="flex gap-2">
-							<FinderBox onOpen={() => find()} />
-							<AskForIdeas />
-						</div>
-					</div>
+				<h1 className="sr-only">your recipes</h1>
+				<div className="flex w-full flex-wrap items-center justify-between gap-3">
+					<SharedFrom signedIn={!!account} />
 					<div className="hidden items-center gap-3 md:flex">
 						{/* Every way to add a recipe of your own. */}
 						<AddRecipeMenu
@@ -114,16 +157,40 @@ function Shelf() {
 							</span>
 						</span>
 					</button>
+				) : (
+					<nav
+						aria-label="show"
+						className="-mx-6 flex gap-2 overflow-x-auto px-6 md:mx-0 md:flex-wrap md:px-0"
+					>
+						{shelfFilters.flatMap((option) =>
+							option !== 'all' && !counts[option]
+								? []
+								: [
+										<button
+											key={option}
+											type="button"
+											aria-pressed={filter === option}
+											onClick={() => setFilter(option)}
+											className={cn(
+												'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors',
+												filter === option
+													? 'bg-kitchen-yolk/45 border-transparent'
+													: 'border-input hover:bg-muted/60',
+											)}
+										>
+											{option}
+											<span className="text-muted-foreground tabular-nums">
+												{counts[option]}
+											</span>
+										</button>,
+									],
+						)}
+					</nav>
+				)}
+				{(filter === 'all' || filter === 'drafts') && drafts.length ? (
+					<Drafts drafts={drafts} />
 				) : null}
-				{drafts.length ? <Drafts drafts={drafts} /> : null}
-				{[
-					{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes },
-					{
-						id: 'saved-recipes',
-						title: 'saved recipes',
-						recipes: savedRecipes,
-					},
-				].map(({ id, title, recipes }) =>
+				{sections.map(({ id, title, recipes }) =>
 					recipes.length ? (
 						<section
 							key={id}
@@ -131,15 +198,21 @@ function Shelf() {
 							className="flex min-w-0 flex-col gap-3"
 						>
 							<h2 id={id} className={shelfHeadingClassName}>
-								{id === 'your-recipes' ? (
-									<UserIcon size={20} weight="bold" aria-hidden />
-								) : (
+								{id === 'saved-recipes' ? (
 									<BookmarkSimpleIcon
 										size={20}
 										weight="fill"
 										aria-hidden
 										className="text-kitchen-eggplant"
 									/>
+								) : id === 'shared-recipes' ? (
+									<GlobeHemisphereWestIcon
+										size={20}
+										weight="bold"
+										aria-hidden
+									/>
+								) : (
+									<UserIcon size={20} weight="bold" aria-hidden />
 								)}
 								{title}
 							</h2>
@@ -148,124 +221,163 @@ function Shelf() {
 									<RecipeTile
 										key={recipe.id}
 										recipe={recipe}
+										saved={id === 'saved-recipes'}
 										color={tileColorFor(recipe.id)}
+										seenBy={
+											mine(recipe)
+												? (recipe.visibility ?? 'private')
+												: undefined
+										}
 									/>
 								))}
 							</div>
 						</section>
 					) : null,
 				)}
-				<PopularRecipes />
 			</motion.div>
 		</main>
 	)
 }
 
-// Where an assistant may open one day, beside the search, with its beta chip on
-// the button's top edge. Until then it is greyed out, does nothing, and says
-// "coming soon" at once on hover or focus.
-function AskForIdeas() {
-	return (
-		<Tooltip.Root>
-			{/* aria-disabled, not disabled: a disabled button gets no hover or
-			    focus, so it could never say why it does nothing. */}
-			<Tooltip.Trigger
-				delay={150}
-				render={
-					<button
-						type="button"
-						aria-disabled
-						aria-label="ai: ask for ideas (coming soon)"
-						className="border-input bg-card text-muted-foreground relative inline-flex shrink-0 cursor-default items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold opacity-60"
-					/>
-				}
-			>
-				<RobotIcon size={20} weight="duotone" aria-hidden />
-				ai
-				<Badge size="small" tone="beta" className="absolute -top-2 -right-1.5">
-					beta
-				</Badge>
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner side="bottom" sideOffset={6} className="z-50">
-					<Tooltip.Popup className="floating bg-background px-2.5 py-1 text-xs font-semibold">
-						coming soon
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	)
-}
+// Where your shared recipes can be seen: your profile, or a way to make one.
+function SharedFrom({ signedIn }: { signedIn: boolean }) {
+	const profile = useQuery({
+		queryKey: ['sharing-profile', 'shelf'],
+		queryFn: () => getMySharingProfile(),
+		enabled: signedIn,
+	})
 
-// The one box's front door: it looks like the search it opens.
-function FinderBox({ onOpen }: { onOpen: () => void }) {
-	const isMac = useSyncExternalStore(
-		() => () => undefined,
-		() => /Mac|iPhone|iPad/.test(navigator.platform),
-		() => true,
-	)
+	if (!signedIn || profile.isPending) return <span />
 
-	return (
-		<button
-			type="button"
-			onClick={onOpen}
-			className="border-input bg-card text-muted-foreground hover:border-foreground/60 flex w-full min-w-0 items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-base transition-colors"
-		>
-			<MagnifyingGlassIcon
-				size={18}
-				weight="bold"
-				aria-hidden
-				className="text-foreground shrink-0"
-			/>
-			<span className="min-w-0 truncate">search any recipe</span>
-			<RecipeSources className="mr-auto" />
-			<kbd
-				aria-hidden
-				className="border-border hidden shrink-0 rounded-md border px-1.5 text-xs font-semibold md:inline"
-			>
-				{isMac ? '⌘K' : 'ctrl K'}
-			</kbd>
-		</button>
-	)
-}
-
-function RecipeTile({ recipe, color }: { recipe: Recipe; color: TileColor }) {
-	return (
+	return profile.data ? (
 		<Link
-			to="/recipes/$recipeId"
-			params={{ recipeId: recipe.id }}
-			className={cn(
-				'border-border relative flex aspect-square flex-col overflow-hidden border transition-shadow hover:shadow-md md:aspect-auto rounded-xl',
-				recipe.imageUrl ? 'bg-card text-foreground' : tileColors[color],
-			)}
+			to="/$handle"
+			params={{ handle: profile.data.handle }}
+			className="text-muted-foreground hover:text-foreground inline-flex min-h-9 items-center gap-1.5 text-sm font-bold transition-colors"
 		>
-			{recipe.imageUrl ? (
-				<>
-					<div className="relative min-h-0 flex-1">
-						<img
-							src={recipe.imageUrl}
-							alt=""
-							loading="lazy"
-							className="absolute inset-0 size-full object-cover"
-						/>
-					</div>
-					<h3 className="border-border bg-card line-clamp-2 shrink-0 border-t px-2.5 py-1.5 text-sm leading-tight font-bold wrap-anywhere">
-						{recipe.title}
-					</h3>
-				</>
-			) : (
-				<>
-					<RecipeGlyph
-						title={recipe.title}
-						size={40}
-						className="text-foreground/60 absolute top-3 right-3"
-					/>
-					<h3 className="absolute right-3 bottom-2.5 left-3 line-clamp-4 text-xl leading-tight font-bold wrap-anywhere">
-						{recipe.title}
-					</h3>
-				</>
-			)}
+			<GlobeHemisphereWestIcon size={16} weight="bold" aria-hidden />
+			your profile · @{profile.data.handle}
+			<ArrowRightIcon size={14} weight="bold" aria-hidden />
 		</Link>
+	) : (
+		<Link
+			to="/settings"
+			hash="public-profile"
+			className="text-muted-foreground hover:text-foreground inline-flex min-h-9 items-center gap-1.5 text-sm font-bold underline underline-offset-4 transition-colors"
+		>
+			make a profile to share recipes
+		</Link>
+	)
+}
+
+// Who can see a recipe of yours, said once on its tile.
+const seenByLabels = {
+	private: { label: 'only you', icon: LockSimpleIcon },
+	unlisted: { label: 'by link', icon: LinkSimpleIcon },
+	public: { label: 'public', icon: GlobeHemisphereWestIcon },
+} as const
+
+function RecipeTile({
+	recipe,
+	color,
+	seenBy,
+	saved = false,
+}: {
+	recipe: Recipe
+	color: TileColor
+	seenBy?: keyof typeof seenByLabels | undefined
+	// Saved from someone else, it can be taken off from its corner.
+	saved?: boolean
+}) {
+	const seen = seenBy ? seenByLabels[seenBy] : undefined
+
+	return (
+		<div className="relative">
+			{saved ? <UnsaveChip recipe={recipe} /> : null}
+			<Link
+				to="/recipes/$recipeId"
+				params={{ recipeId: recipe.id }}
+				className={cn(
+					'border-border relative flex aspect-square flex-col overflow-hidden border transition-shadow hover:shadow-md md:aspect-auto rounded-xl',
+					recipe.imageUrl ? 'bg-card text-foreground' : tileColors[color],
+				)}
+			>
+				{seen ? (
+					<span
+						aria-hidden
+						title={seen.label}
+						className="bg-card/90 border-border absolute top-2 left-2 z-10 grid size-7 place-items-center rounded-md border"
+					>
+						<seen.icon size={14} weight="bold" aria-hidden />
+					</span>
+				) : null}
+				{recipe.imageUrl ? (
+					<>
+						<div className="relative min-h-0 flex-1">
+							<img
+								src={recipe.imageUrl}
+								alt=""
+								loading="lazy"
+								className="absolute inset-0 size-full object-cover"
+							/>
+						</div>
+						<h3 className="border-border bg-card line-clamp-2 shrink-0 border-t px-2.5 py-1.5 text-sm leading-tight font-bold wrap-anywhere">
+							{recipe.title}
+						</h3>
+					</>
+				) : (
+					<>
+						<RecipeGlyph
+							title={recipe.title}
+							size={40}
+							className="text-foreground/60 absolute top-3 right-3"
+						/>
+						<h3 className="absolute right-3 bottom-2.5 left-3 line-clamp-4 text-xl leading-tight font-bold wrap-anywhere">
+							{recipe.title}
+						</h3>
+					</>
+				)}
+			</Link>
+		</div>
+	)
+}
+
+// Takes a saved recipe off the shelf from its tile, with a moment to take it
+// back.
+function UnsaveChip({ recipe }: { recipe: Recipe }) {
+	const router = useRouter()
+	const [saving, setSaving] = useState(false)
+
+	async function unsave() {
+		setSaving(true)
+
+		try {
+			await removeSavedRecipe({ data: { id: recipe.id } })
+			await router.invalidate()
+			toast.success('taken off your recipes', {
+				position: 'bottom-center',
+				action: {
+					label: 'undo',
+					onClick: () =>
+						void saveRecipe({ data: { id: recipe.id } }).then(() =>
+							router.invalidate(),
+						),
+				},
+			})
+		} catch {
+			toast.error("couldn't take it off — try again")
+		} finally {
+			setSaving(false)
+		}
+	}
+
+	return (
+		<SaveChip
+			title={recipe.title}
+			saved
+			saving={saving}
+			toggle={() => void unsave()}
+		/>
 	)
 }
 

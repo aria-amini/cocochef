@@ -112,8 +112,11 @@ function RootComponent() {
 						unstyled: true,
 						classNames: {
 							toast:
-								'floating bg-card text-foreground flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold overflow-hidden',
+								'floating bg-card text-foreground font-sans flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold overflow-hidden',
 							error: 'bg-kitchen-tomato text-foreground',
+							// Undo is a button to reach for, not a word in the line.
+							actionButton:
+								'border-input hover:bg-muted/60 ml-auto min-h-9 shrink-0 rounded-md border px-3 text-sm font-semibold transition-colors',
 						},
 					}}
 				/>

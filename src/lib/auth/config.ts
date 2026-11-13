@@ -1,20 +1,17 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
-import { anonymous, oAuthProxy } from 'better-auth/plugins'
+import { oAuthProxy } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 
 import { getDb } from '@/db/connection'
 import { account, session, user, verification } from '@/db/schema'
 import { serverEnv as env } from '@/env.server'
 
-import { moveGuestDataToNewUser } from './link-account'
 import { proxyCredentials, proxyUrls } from './proxy-config'
 
 const appUrl = new URL(env.BETTER_AUTH_URL)
 
 const appOrigin = appUrl.origin
-
-const appHostname = appUrl.hostname
 
 export const allowedHosts = [
 	'127.0.0.1:*',
@@ -65,7 +62,6 @@ function createAuth() {
 
 	return betterAuth({
 		appName: 'cocochef',
-		disabledPaths: ['/sign-in/anonymous'],
 		baseURL: {
 			allowedHosts,
 			protocol: 'auto',
@@ -103,11 +99,6 @@ function createAuth() {
 					workspaceUrl: env.BASE_URL,
 				}),
 				secret: proxySecret,
-			}),
-			anonymous({
-				emailDomainName: appHostname,
-				generateName: () => 'guest cook',
-				onLinkAccount: moveGuestDataToNewUser,
 			}),
 			tanstackStartCookies(),
 		],

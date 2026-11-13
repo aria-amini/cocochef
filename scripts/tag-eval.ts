@@ -11,6 +11,7 @@ import pg from 'pg'
 
 import {
 	cuisineParts,
+	placeCuisines,
 	formParts,
 	mealTags,
 	proteinParts,
@@ -47,14 +48,18 @@ const questions = {
 	meal: noul(
 		'Is this a savory dish someone would cook as a main or side for a meal? Desserts, baked sweets, drinks, sauces, dressings and spice mixes are not.',
 	),
-	cuisine: choice('Which cuisine is this dish from?', {
-		...labels(
-			cuisineParts.map((cuisine) => cuisine.name),
-			{},
-		),
-		'american south': 'Cajun, Creole, Southern, Tex-Mex, barbecue',
-		other: 'Another cuisine, or no clear cuisine (plain American, fusion)',
-	}),
+	cuisine: choice(
+		'Which country is this dish from? Pick the region only when the dish belongs to several of its countries alike (hummus, jollof, borscht).',
+		{
+			...labels(
+				cuisineParts.map((cuisine) => cuisine.name),
+				{},
+			),
+			american:
+				'American, including Cajun, Creole, Southern, Tex-Mex, barbecue',
+			other: 'No clear cuisine (plain home cooking, fusion)',
+		},
+	),
 	flavor: choice(
 		'Which of these flavors or styles defines the dish? Pick none unless one clearly does.',
 		labels(flavorNames, { none: 'None of these defines it' }),
@@ -64,9 +69,13 @@ const questions = {
 			proteinParts.map((protein) => protein.name),
 			{},
 		),
-		'white fish': 'Cod, halibut, tilapia, haddock and other mild white fish',
-		'beans & lentils': 'Beans, lentils or chickpeas as the main protein',
-		none: 'No main protein: vegetables, grains or cheese carry it',
+		fish: 'Any fish or seafood: salmon, tuna, shrimp, white fish',
+		beef: 'Beef, or other red meat such as lamb',
+		chicken: 'Chicken, or other poultry such as turkey',
+		vegetarian: 'Tofu, beans, lentils or vegetables carry it',
+		egg: 'Eggs carry it',
+		dairy: 'Cheese, paneer or yogurt carries it',
+		none: 'No main protein: grains or bread carry it',
 		other: 'Another protein not listed (sausage counts as pork)',
 	}),
 	...Object.fromEntries(
@@ -242,12 +251,10 @@ for (const r of done) {
 	const flavors = meal ? confident(r.jev.flavor, ['none']) : []
 
 	const cuisines = meal
-		? [
-				...new Set([
-					...confident(r.jev.cuisine, ['other']),
-					...flavors.flatMap((flavor) => cuisineOf(flavor) ?? []),
-				]),
-			]
+		? placeCuisines([
+				...confident(r.jev.cuisine, ['other']),
+				...flavors.flatMap((flavor) => cuisineOf(flavor) ?? []),
+			])
 		: []
 
 	await db.query(

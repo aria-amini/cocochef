@@ -10,6 +10,8 @@
 		// Build tooling: mise-tasks/ imports execa, styles.css imports shadcn CSS
 		"execa",
 		"shadcn",
+		// Flags are loaded as files by an import.meta.glob path in meal-bubbles
+		"country-flag-icons",
 	],
 	"rules": {
 		// Nitro bundles app code into .output, so packages the app imports are

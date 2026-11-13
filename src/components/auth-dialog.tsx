@@ -11,7 +11,6 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog'
 import { authClient } from '@/lib/auth/client'
-import { formatShelfStats, useShelfStats } from '@/lib/use-shelf-stats'
 
 type Mode = 'signup' | 'signin'
 
@@ -35,9 +34,6 @@ export function AuthDialog({
 	const [pending, setPending] = useState(false)
 	const [error, setError] = useState<string>()
 	const session = authClient.useSession()
-	const isGuest = Boolean(session.data?.user.isAnonymous)
-	const stats = useShelfStats(isGuest ? session.data?.user.id : undefined)
-	const shelfSummary = stats ? formatShelfStats(stats) : ''
 
 	// A password typed into a closed dialog should not be waiting when it reopens.
 	function reset() {
@@ -99,9 +95,7 @@ export function AuthDialog({
 					</DialogTitle>
 					<DialogDescription>
 						{mode === 'signup'
-							? shelfSummary
-								? `keep your ${shelfSummary} on any device once you have an account.`
-								: 'keep your recipes and kitchen on any device.'
+							? 'keep your recipes and kitchen on any device.'
 							: 'welcome back to your kitchen.'}
 					</DialogDescription>
 				</DialogHeader>

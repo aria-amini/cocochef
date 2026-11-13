@@ -5,7 +5,7 @@ import { getCurrentSession } from './session'
 export async function redirectAuthenticatedUsers() {
 	const session = await getCurrentSession()
 
-	if (session && !session.user.isAnonymous) {
+	if (session) {
 		throw redirect({ to: '/' })
 	}
 }

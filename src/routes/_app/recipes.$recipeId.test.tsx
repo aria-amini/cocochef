@@ -381,6 +381,67 @@ describe('recipe detail', () => {
 		})
 	})
 
+	test('says what the recipe takes in a card under its title', async () => {
+		fillRecipe()
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		const card = screen.getByRole('region', { name: 'what it takes' })
+
+		await expect.element(card.getByText('25m', { exact: true })).toBeVisible()
+		await expect.element(card.getByText('all hands on')).toBeVisible()
+		await expect.element(card.getByText('2 meals')).toBeVisible()
+		await expect.element(card.getByText('low effort')).toBeVisible()
+	})
+
+	test('opens the photo to the whole screen and closes it again', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.imageUrl = '/sprites/pantry/apple.png'
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await screen
+			.getByRole('button', {
+				name: 'see the photo of miso butter pasta full screen',
+			})
+			.click()
+
+		const dialog = page.getByRole('dialog', { name: 'miso butter pasta' })
+
+		await expect.element(dialog).toBeVisible()
+		await page.getByRole('button', { name: 'close the photo' }).click()
+		await expect.element(dialog).not.toBeInTheDocument()
+	})
+
+	test('words the way back by where the recipe was opened from', async () => {
+		const { screen, router } = await renderRoute({ path: '/recipes', session })
+
+		const open = (state: { foundBy?: string }) =>
+			router.navigate({
+				to: '/recipes/$recipeId',
+				params: { recipeId: 'recipe-1' },
+				state,
+			})
+
+		await open({})
+		await expect
+			.element(screen.getByRole('link', { name: 'back to recipes' }))
+			.toBeVisible()
+
+		// From a search on home, it goes back to that search's results.
+		await router.navigate({ to: '/recipes' })
+		await open({ foundBy: 'miso' })
+		await expect
+			.element(screen.getByRole('button', { name: 'back to results' }))
+			.toBeVisible()
+
+		// From home with nothing typed, it goes back to home.
+		await router.navigate({ to: '/recipes' })
+		await open({ foundBy: '' })
+		await expect
+			.element(screen.getByRole('button', { name: 'back to home' }))
+			.toBeVisible()
+	})
+
 	test('asks a signed-out reader to sign up before adding to groceries', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso']
@@ -524,6 +585,115 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('link', { name: /groceries list/ }))
 			.not.toBeInTheDocument()
+		pantryState.items = []
+	})
+
+	test('marks what the kitchen has, and what it needs, a tap from had', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = [
+			'2 cloves garlic, minced',
+			'1 cup milk',
+			'2 cups flour',
+			'2 lb short ribs',
+			'1 ripe avocado',
+			'1 cup water',
+		]
+		groceryWaiting.items = [{ text: '2 lb short ribs', checkedAt: null }]
+		pantryState.items = [
+			kept('garlic'),
+			kept('milk', 'low'),
+			kept('flour', 'plenty', true),
+		]
+		pantryState.marked.length = 0
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+		const ingredients = screen.getByRole('table', { name: 'ingredients' })
+
+		await expect.element(ingredients.getByText('have it')).toBeVisible()
+		await expect.element(ingredients.getByText('running low')).toBeVisible()
+		await expect.element(ingredients.getByText('on list')).toBeVisible()
+		await expect
+			.element(
+				ingredients.getByRole('button', {
+					name: 'had it in march: mark as have it',
+				}),
+			)
+			.toBeVisible()
+
+		// Water is never counted, nor what the kitchen has: of the four to shop
+		// for, one is on the list, and the button adds the other three.
+		const count = screen.getByRole('heading', { name: 'ingredients' })
+
+		const shop = screen.getByRole('button', {
+			name: 'add 3 to groceries, 1 of 4 on your list',
+		})
+
+		await expect.element(shop).toHaveTextContent('1/4·add 3')
+
+		// Short enough that the groceries button stays beside it, even on a phone.
+		const middle = (element: Element) => {
+			const box = element.getBoundingClientRect()
+
+			return box.top + box.height / 2
+		}
+
+		expect(
+			Math.abs(middle(count.element()) - middle(shop.element())),
+		).toBeLessThan(8)
+		await expectPageScreenshot(screen.container, 'pantry-marks')
+
+		// Bought without the app knowing: one tap says so.
+		await ingredients
+			.getByRole('button', { name: 'need: mark as have it' })
+			.click()
+		await expect.poll(() => pantryState.marked).toEqual(['1 ripe avocado'])
+
+		const fewer = screen.getByRole('button', {
+			name: 'add 2 to groceries, 1 of 3 on your list',
+		})
+
+		await expect.element(fewer).toBeVisible()
+		await fewer.click()
+
+		const review = page.getByRole('dialog', { name: 'add groceries' })
+		const toBuy = review.getByRole('region', { name: 'to buy' })
+		const have = review.getByRole('region', { name: 'already have' })
+
+		// A line's name ends with what the kitchen says of it.
+		const line = (group: typeof toBuy, name: string) =>
+			group.getByRole('checkbox', { name: new RegExp(`^${name}`) })
+
+		await expect.element(line(toBuy, 'milk')).toBeChecked()
+		await expect.element(line(toBuy, 'flour')).toBeChecked()
+		await expectIsolatedScreenshot(review, 'add-to-groceries-grouped')
+
+		// What the kitchen has is a plus from buying anyway, ticked where it
+		// stands; unticked, it is a plus again.
+		for (const name of ['1 head garlic', '2 lb short ribs', '1 ripe avocado'])
+			await expect
+				.element(have.getByRole('button', { name: `buy ${name} anyway` }))
+				.toBeVisible()
+
+		await have.getByRole('button', { name: 'buy 1 head garlic anyway' }).click()
+		await expect.element(line(have, '1 head garlic')).toBeChecked()
+		await expect.element(line(have, '1 head garlic extra')).toBeVisible()
+		await expectIsolatedScreenshot(review, 'add-to-groceries-extra')
+		await expect
+			.element(review.getByRole('button', { name: 'add 3' }))
+			.toBeVisible()
+		await line(have, '1 head garlic').click()
+		await expect
+			.element(have.getByRole('button', { name: 'buy 1 head garlic anyway' }))
+			.toBeVisible()
+
+		// Bought anyway, it goes on the list with the rest.
+		await have.getByRole('button', { name: 'buy 1 head garlic anyway' }).click()
+		groceryCalls.length = 0
+		await review.getByRole('button', { name: 'add 3' }).click()
+		await expect
+			.poll(() => groceryCalls[0]?.map(({ text }) => text))
+			.toEqual(['1 head garlic', 'milk', 'flour'])
+		groceryWaiting.items = []
 		pantryState.items = []
 	})
 

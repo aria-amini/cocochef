@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
 
-// Phones keep the layout viewport at full height when the on-screen keyboard
-// opens (`100dvh` does not shrink), so a tall fixed panel ends up behind it.
-// While `active`, this publishes the visible area as CSS variables the panel can
-// size itself with: `--vv-top` and `--vv-height` for the area, and `--vv-gap` for
-// the space to leave above the panel, which tightens when the keyboard is up.
-// The defaults, for no keyboard, live in styles.css.
-export function useVisualViewportVars(active: boolean) {
+// A full-screen panel on a phone stays full height when the on-screen keyboard
+// opens: the keyboard slides over its bottom, rather than the panel shrinking
+// a beat behind it and redrawing. While `active`, this publishes how much of
+// the screen the keyboard covers as `--keyboard-inset`, for scroll areas to
+// pad their ends by, so nothing is left out of reach beneath it. The default,
+// for no keyboard, lives in styles.css.
+export function useKeyboardInset(active: boolean) {
 	useEffect(() => {
 		const viewport = window.visualViewport
 
@@ -15,18 +15,12 @@ export function useVisualViewportVars(active: boolean) {
 		const root = document.documentElement.style
 
 		const update = () => {
-			const keyboard = window.innerHeight - viewport.height > 120
+			const covered = Math.max(
+				0,
+				window.innerHeight - viewport.height - viewport.offsetTop,
+			)
 
-			root.setProperty('--vv-top', `${viewport.offsetTop}px`)
-			root.setProperty('--vv-height', `${viewport.height}px`)
-
-			// Still below a notch or status bar, which the keyboard does not move.
-			if (keyboard)
-				root.setProperty(
-					'--vv-gap',
-					'calc(0.5rem + env(safe-area-inset-top, 0px))',
-				)
-			else root.removeProperty('--vv-gap')
+			root.setProperty('--keyboard-inset', `${Math.round(covered)}px`)
 		}
 
 		update()
@@ -36,9 +30,7 @@ export function useVisualViewportVars(active: boolean) {
 		return () => {
 			viewport.removeEventListener('resize', update)
 			viewport.removeEventListener('scroll', update)
-			root.removeProperty('--vv-top')
-			root.removeProperty('--vv-height')
-			root.removeProperty('--vv-gap')
+			root.removeProperty('--keyboard-inset')
 		}
 	}, [active])
 }
