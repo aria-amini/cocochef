@@ -6,7 +6,6 @@ import {
 	addGroceriesForUser,
 	listGroceriesForUser,
 } from '@/lib/groceries/repository'
-import { shelfRecipeUsing } from '@/lib/recipes/repository'
 
 import { findInPantry, shelfState } from './foods'
 import {
@@ -196,14 +195,3 @@ export const restockPantry = createServerFn({ method: 'POST' })
 	.handler(async ({ data }) =>
 		restockPantryForUser(await requireAccountId('keep ingredients'), data),
 	)
-
-// A recipe on the cook's shelf that uses up what is going off.
-export const recipeUsingUp = createServerFn({ method: 'GET' })
-	.validator(
-		z.object({ foods: z.array(z.string().trim().min(1).max(80)).max(8) }),
-	)
-	.handler(async ({ data }) => {
-		const accountId = await getAccountId()
-
-		return accountId ? shelfRecipeUsing(accountId, data.foods) : null
-	})

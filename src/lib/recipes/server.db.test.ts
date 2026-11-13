@@ -4,9 +4,8 @@ import {
 	test,
 	type Database,
 } from '@tests/support/fixtures/db'
-import { eq } from 'drizzle-orm'
 
-import { mealLogs, recipes, user } from '@/db/schema'
+import { mealLogs, user } from '@/db/schema'
 import {
 	getOwnedRecipeAtAddress,
 	getRecipeShare,
@@ -25,7 +24,6 @@ import {
 	removeSavedRecipeForUser,
 	popularSharedRecipes,
 	saveRecipeForUser,
-	shelfRecipeUsing,
 	createSharedRecipe,
 	findSharedRecipeByUrl,
 	findLovedRecipesForUser,
@@ -709,40 +707,6 @@ describe('shared recipes', () => {
 		expect(await ids(tag, 'votes')).toEqual([fine.id, favourite.id, fewFans.id])
 		// Without words, it looks through everything.
 		expect(await ids('', 'loved')).toEqual([favourite.id, fewFans.id, fine.id])
-	})
-
-	test('picks the shelf recipe that uses the most of what is going off', async ({
-		db,
-	}) => {
-		const userId = await seedUser(db)
-
-		const recipe = async (title: string, ingredients: string[]) => {
-			const made = await createRecipeForUser(userId, { title, ingredients }, db)
-
-			if (!made) throw new Error('recipe was not created')
-			await db
-				.update(recipes)
-				.set({ finalizedAt: new Date() })
-				.where(eq(recipes.id, made.id))
-
-			return made
-		}
-
-		await recipe('green salad', ['2 cups spinach', '1 lemon'])
-
-		const best = await recipe('salmon with greens', [
-			'2 salmon fillets',
-			'4 cups baby spinach',
-		])
-
-		await expect(
-			shelfRecipeUsing(userId, ['spinach', 'salmon', 'cilantro'], db),
-		).resolves.toEqual({
-			id: best.id,
-			title: 'salmon with greens',
-			uses: ['spinach', 'salmon'],
-		})
-		await expect(shelfRecipeUsing(userId, ['tofu'], db)).resolves.toBeNull()
 	})
 
 	test('opens unsaved, then saves to the shelf once', async ({ db }) => {

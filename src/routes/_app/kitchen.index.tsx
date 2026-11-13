@@ -1,5 +1,4 @@
 import {
-	CaretRight,
 	CheckIcon,
 	HourglassMediumIcon,
 	type Icon,
@@ -12,7 +11,7 @@ import {
 	TrashIcon,
 	X,
 } from '@phosphor-icons/react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import {
 	createFileRoute,
 	Link,
@@ -47,7 +46,6 @@ import {
 	createPantryItems,
 	deletePantryItem,
 	listPantry,
-	recipeUsingUp,
 	keepPantryItem,
 	restockPantryItem,
 	restorePantryItem,
@@ -150,8 +148,8 @@ const weekDays = 7
 
 const horizonDays = 14
 
-// The recipe to use food up is asked for this much of it, soonest first.
-const useUpAsked = 4
+// The kitchen opens on this much of its food, soonest to go first.
+const firstShown = 9
 
 function Pantry({
 	loaded,
@@ -254,11 +252,9 @@ function Pantry({
 
 	// The page leads with only what asks for something: food going off, and
 	// food that ran out or runs low. The rest is on hand, by where it lives.
-	const soon = kept
-		.filter(
-			(item) =>
-				item.spoils && item.level !== 'out' && item.daysLeft <= horizonDays,
-		)
+	// Food that goes off within two weeks, soonest first: what to use first.
+	const fresh = kept
+		.filter((item) => item.level !== 'out' && item.daysLeft <= horizonDays)
 		.sort((a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name))
 
 	const wanting = byName(kept.filter((item) => item.level !== 'plenty')).sort(
@@ -316,7 +312,7 @@ function Pantry({
 						) : null}
 						<OnHand
 							items={kept}
-							soon={soon}
+							fresh={fresh}
 							spot={spot}
 							inSpot={inSpot}
 							query={query}
@@ -395,26 +391,51 @@ function daysWord(days: number) {
 	return days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `${days} days`
 }
 
-// What is going off in the next two weeks, soonest first, as cards to pick
-// up. Each card's days say which week it falls in: tomato for today and
-// tomorrow, yolk for the rest of this week, quiet for next. Under them, a
-// recipe on the shelf that would use the soonest.
-function GoingOff({ items }: { items: PantryItem[] }) {
-	const asked = items.slice(0, useUpAsked)
+// How long food has left, in a pill: tomato for today and tomorrow,
+// yolk for the rest of the week, quiet after.
+function DaysPill({ days, className }: { days: number; className?: string }) {
+	return (
+		<span
+			className={cn(
+				'rounded-full px-2 text-xs leading-5 font-bold whitespace-nowrap',
+				days <= 1
+					? 'bg-kitchen-tomato/15'
+					: days <= weekDays
+						? 'bg-kitchen-yolk/30'
+						: 'bg-muted',
+				className,
+			)}
+		>
+			{daysShort(days)}
+		</span>
+	)
+}
 
-	const recipe = useQuery({
-		queryKey: ['use-up', asked.map((item) => item.name)],
-		queryFn: () =>
-			recipeUsingUp({ data: { foods: asked.map((item) => item.name) } }),
-	})
+// Days left, said shorter the further off they are: "tomorrow", "5 days",
+// "3 wks", "4 mo", "2 yr".
+function daysShort(days: number) {
+	if (days < 14) return daysWord(days)
+
+	if (days < 60) return `${Math.round(days / 7)} wks`
+
+	if (days < 365) return `${Math.round(days / 30)} mo`
+
+	return `${Math.round(days / 365)} yr`
+}
+
+// Fresh food, soonest to go first, as cards to pick up, each with its days
+// left.
+function GoingOff({ items }: { items: PantryItem[] }) {
+	const [all, setAll] = useState(false)
+	const shown = all ? items : items.slice(0, firstShown)
 
 	return (
 		<div className="flex flex-col gap-3">
 			<ul
-				aria-label="going off"
+				aria-label="use first"
 				className="grid grid-cols-3 gap-2 md:grid-cols-5"
 			>
-				{items.map((item) => (
+				{shown.map((item) => (
 					<li key={item.id}>
 						<Link
 							to="/kitchen"
@@ -428,38 +449,20 @@ function GoingOff({ items }: { items: PantryItem[] }) {
 							<span className="text-sm leading-tight font-bold">
 								{item.name}
 							</span>
-							<span
-								className={cn(
-									'mt-auto self-start rounded-full px-2 text-xs leading-5 font-bold',
-									item.daysLeft <= 1
-										? 'bg-kitchen-tomato/15'
-										: item.daysLeft <= weekDays
-											? 'bg-kitchen-yolk/30'
-											: 'bg-muted',
-								)}
-							>
-								{daysWord(item.daysLeft)}
-							</span>
+							<DaysPill days={item.daysLeft} className="mt-auto self-start" />
 						</Link>
 					</li>
 				))}
 			</ul>
-			{recipe.data ? (
-				<Link
-					to="/recipes/$recipeId"
-					params={{ recipeId: recipe.data.id }}
-					className="bg-card border-border hover:border-foreground/30 flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 transition-colors"
+			{items.length > firstShown ? (
+				<button
+					type="button"
+					aria-expanded={all}
+					onClick={() => setAll((now) => !now)}
+					className="text-muted-foreground hover:text-foreground min-h-10 self-start rounded-md px-1 text-sm font-bold transition-colors"
 				>
-					<span className="flex min-w-0 flex-1 flex-col">
-						<span className="text-muted-foreground text-xs font-semibold">
-							cook with {recipe.data.uses.length > 1 ? 'them' : 'it'}
-						</span>
-						<span className="truncate text-base font-bold">
-							{recipe.data.title}
-						</span>
-					</span>
-					<CaretRight size={16} weight="bold" aria-hidden />
-				</Link>
+					{all ? 'show fewer' : `show all ${items.length}`}
+				</button>
 			) : null}
 		</div>
 	)
@@ -556,13 +559,13 @@ function NeedNote({
 }
 
 // What the kitchen holds, under one heading. A row of chips picks what to
-// look at: what is going off (the default, so the page leads with what to
-// use first), or one spot's jars. The freezer is always there, dashed while
+// look at: the fresh food to use first (the default, so the page leads with
+// it, its count what goes within two weeks), or one spot's jars. The freezer is always there, dashed while
 // nothing is in it. "Do I have it?" is asked here, of everything in the
 // kitchen, and stocking up starts here too.
 function OnHand({
 	items,
-	soon,
+	fresh,
 	spot,
 	inSpot,
 	query,
@@ -571,8 +574,8 @@ function OnHand({
 	selectedId,
 }: {
 	items: PantryItem[]
-	// Food going off in the next two weeks, soonest first.
-	soon: PantryItem[]
+	// Food that goes off within two weeks, soonest first.
+	fresh: PantryItem[]
 	// The spot picked, and what it holds; none picked shows what is going off.
 	spot: PantrySpot | undefined
 	inSpot: PantryItem[]
@@ -687,8 +690,8 @@ function OnHand({
 					>
 						<li className="shrink-0">
 							<SpotChip
-								label="going off"
-								count={soon.length}
+								label="use first"
+								count={fresh.length}
 								picked={!spot}
 								search={{}}
 								mark={
@@ -715,11 +718,11 @@ function OnHand({
 					</ul>
 					{spot ? (
 						<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
-					) : soon.length ? (
-						<GoingOff items={soon} />
+					) : fresh.length ? (
+						<GoingOff items={fresh} />
 					) : (
 						<p className="text-muted-foreground text-sm font-semibold">
-							nothing going off in the next two weeks
+							nothing goes off in the next two weeks
 						</p>
 					)}
 				</>
@@ -850,6 +853,10 @@ function JarWall({
 										>
 											{item.name}
 										</span>
+										{/* Each jar says how long it has left. */}
+										{!out ? (
+											<DaysPill days={item.daysLeft} className="-mt-0.5" />
+										) : null}
 									</Link>
 								</li>
 							)

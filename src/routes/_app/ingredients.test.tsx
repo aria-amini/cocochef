@@ -24,7 +24,6 @@ const state = vi.hoisted<{
 	items: KnownItem[]
 	signedOut?: boolean
 	// The shelf recipe that would use up what is going off.
-	usingUp?: { id: string; title: string; uses: string[] } | null
 }>(() => ({ items: [] }))
 
 // What was deleted, so undo can put it back.
@@ -51,7 +50,6 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	// Copies, as the server sends, so a change shows up after a reload.
 	listPantry: async () =>
 		state.signedOut ? null : state.items.map((entry) => ({ ...entry })),
-	recipeUsingUp: async () => state.usingUp ?? null,
 	createPantryItems: async ({ data }: { data: PantryItemInput[] }) =>
 		data.map((input, index) => {
 			const item = {
@@ -165,7 +163,6 @@ describe('ingredients', () => {
 	beforeEach(() => {
 		state.items = [item('carrots', 'vegetables'), item('eggs', 'dairy')]
 		state.signedOut = false
-		state.usingUp = null
 		bought.calls.length = 0
 	})
 
@@ -221,11 +218,6 @@ describe('ingredients', () => {
 			item('cumin', 'spices'),
 			item('paprika', 'spices'),
 		]
-		state.usingUp = {
-			id: 'recipe-1',
-			title: 'salmon with greens',
-			uses: ['spinach', 'salmon'],
-		}
 
 		const { screen } = await renderRoute({ path: '/ingredients', session })
 
