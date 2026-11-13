@@ -8,7 +8,6 @@ import {
 	PlusIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
-import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useState } from 'react'
@@ -25,7 +24,6 @@ import {
 	tileColors,
 	type TileColor,
 } from '@/lib/recipes/tile-color'
-import { getMySharingProfile } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/recipes/')({
@@ -47,17 +45,12 @@ const shelfGridClassName =
 // Each of the shelf's sections opens the same way: its icon, then its name.
 const shelfHeadingClassName = 'flex items-center gap-2 text-xl font-bold'
 
-const shelfFilters = ['all', 'written', 'saved', 'drafts', 'shared'] as const
-
-type ShelfFilter = (typeof shelfFilters)[number]
-
 // Your recipes: the ones you wrote, the ones you saved, and drafts still
 // being written, each saying who can see it. Finding new ones is home's job.
 function Shelf() {
 	const { recipes: shelfRecipes } = Route.useLoaderData()
 	const account = authClient.useSession().data?.user
 	const { find } = useRecipeActions()
-	const [picked, setFilter] = useState<ShelfFilter>('all')
 
 	const reduce = useReducedMotion()
 
@@ -82,50 +75,16 @@ function Shelf() {
 
 	const savedRecipes = shelfRecipes.filter((recipe) => !mine(recipe))
 
-	// What others can see: on your profile, or by its link.
-	const shared = ownRecipes.filter(
-		(recipe) => recipe.visibility && recipe.visibility !== 'private',
-	)
-
-	const counts: Record<ShelfFilter, number> = {
-		all: shelfRecipes.length,
-		written: ownRecipes.length,
-		saved: savedRecipes.length,
-		drafts: drafts.length,
-		shared: shared.length,
-	}
-
-	// A filter whose last recipe goes (an unsave) falls back to everything.
-	const filter = picked === 'all' || counts[picked] ? picked : 'all'
-
 	const isEmpty = shelfRecipes.length === 0
 
-	const sections =
-		filter === 'all'
-			? [
-					{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes },
-					{
-						id: 'saved-recipes',
-						title: 'saved recipes',
-						recipes: savedRecipes,
-					},
-				]
-			: filter === 'written'
-				? [{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes }]
-				: filter === 'saved'
-					? [
-							{
-								id: 'saved-recipes',
-								title: 'saved recipes',
-								recipes: savedRecipes,
-							},
-						]
-					: filter === 'shared'
-						? [{ id: 'shared-recipes', title: 'shared', recipes: shared }]
-						: []
+	const sections = [
+		{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes },
+		{ id: 'saved-recipes', title: 'saved recipes', recipes: savedRecipes },
+	]
 
-	// The first shelf shown opens with the tile to add a recipe of your own.
-	const firstSection = sections.find((section) => section.recipes.length)?.id
+	// Your own recipes open with the tile to add one, so that shelf shows even
+	// before it holds any: on a wide screen, where the tile is.
+	const ownShelf = 'your-recipes'
 
 	return (
 		<main className="min-w-0 flex-1">
@@ -134,9 +93,6 @@ function Shelf() {
 				className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
 			>
 				<h1 className="sr-only">my recipes</h1>
-				<div className="flex w-full flex-wrap items-center justify-between gap-3">
-					<SharedFrom signedIn={!!account} />
-				</div>
 				{isEmpty ? (
 					<button
 						type="button"
@@ -157,45 +113,17 @@ function Shelf() {
 							</span>
 						</span>
 					</button>
-				) : (
-					<nav
-						aria-label="show"
-						className="-mx-6 flex gap-2 overflow-x-auto px-6 md:mx-0 md:flex-wrap md:px-0"
-					>
-						{shelfFilters.flatMap((option) =>
-							option !== 'all' && !counts[option]
-								? []
-								: [
-										<button
-											key={option}
-											type="button"
-											aria-pressed={filter === option}
-											onClick={() => setFilter(option)}
-											className={cn(
-												'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors',
-												filter === option
-													? 'bg-kitchen-yolk/45 border-transparent'
-													: 'border-input hover:bg-muted/60',
-											)}
-										>
-											{option}
-											<span className="text-muted-foreground tabular-nums">
-												{counts[option]}
-											</span>
-										</button>,
-									],
-						)}
-					</nav>
-				)}
-				{(filter === 'all' || filter === 'drafts') && drafts.length ? (
-					<Drafts drafts={drafts} />
 				) : null}
+				{drafts.length ? <Drafts drafts={drafts} /> : null}
 				{sections.map(({ id, title, recipes }) =>
-					recipes.length ? (
+					recipes.length || id === ownShelf ? (
 						<section
 							key={id}
 							aria-labelledby={id}
-							className="flex min-w-0 flex-col gap-3"
+							className={cn(
+								'min-w-0 flex-col gap-3',
+								recipes.length ? 'flex' : 'hidden md:flex',
+							)}
 						>
 							<h2 id={id} className={shelfHeadingClassName}>
 								{id === 'saved-recipes' ? (
@@ -205,19 +133,13 @@ function Shelf() {
 										aria-hidden
 										className="text-kitchen-eggplant"
 									/>
-								) : id === 'shared-recipes' ? (
-									<GlobeHemisphereWestIcon
-										size={20}
-										weight="bold"
-										aria-hidden
-									/>
 								) : (
 									<UserIcon size={20} weight="bold" aria-hidden />
 								)}
 								{title}
 							</h2>
 							<div className={shelfGridClassName}>
-								{id === firstSection ? <AddTile /> : null}
+								{id === ownShelf ? <AddTile /> : null}
 								{recipes.map((recipe) => (
 									<RecipeTile
 										key={recipe.id}
@@ -257,37 +179,6 @@ function AddTile() {
 				add a recipe
 			</AddRecipeMenu>
 		</div>
-	)
-}
-
-// Where your shared recipes can be seen: your profile, or a way to make one.
-function SharedFrom({ signedIn }: { signedIn: boolean }) {
-	const profile = useQuery({
-		queryKey: ['sharing-profile', 'shelf'],
-		queryFn: () => getMySharingProfile(),
-		enabled: signedIn,
-	})
-
-	if (!signedIn || profile.isPending) return <span />
-
-	return profile.data ? (
-		<Link
-			to="/$handle"
-			params={{ handle: profile.data.handle }}
-			className="text-muted-foreground hover:text-foreground inline-flex min-h-9 items-center gap-1.5 text-sm font-bold transition-colors"
-		>
-			<GlobeHemisphereWestIcon size={16} weight="bold" aria-hidden />
-			your profile · @{profile.data.handle}
-			<ArrowRightIcon size={14} weight="bold" aria-hidden />
-		</Link>
-	) : (
-		<Link
-			to="/settings"
-			hash="public-profile"
-			className="text-muted-foreground hover:text-foreground inline-flex min-h-9 items-center gap-1.5 text-sm font-bold underline underline-offset-4 transition-colors"
-		>
-			make a profile to share recipes
-		</Link>
 	)
 }
 
