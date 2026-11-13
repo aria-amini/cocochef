@@ -30,8 +30,6 @@ and runs the deploy and migrations with `varlock run --frozen`, not `vp run`:
 
 Error monitoring is wired through Sentry (`@sentry/tanstackstart-react`).
 
-Product analytics run through PostHog behind a `/api/ingest` proxy.
-
 Some recipe sites refuse datacenter addresses, so link imports fall back to a
 relay on a home connection (`src/lib/import/relay.ts`). Deploys reach it through
 `IMPORT_RELAY_URL` and `IMPORT_RELAY_TOKEN`; with them unset, imports skip the

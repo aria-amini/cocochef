@@ -60,6 +60,5 @@ workspace by `mise-tasks/setup.ts`.
 - **GitHub** — source control
 - **Railway** — hosting and Postgres
 - **Cloudflare** — DNS/CDN
-- **PostHog** — product analytics
 - **Sentry** — error monitoring
 - **OpenBao** — secrets manager (self-hosted, see aria-amini/infra)
