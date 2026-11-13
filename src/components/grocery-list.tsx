@@ -387,7 +387,12 @@ export function GroceryList({
 	) : null
 
 	return (
-		<section aria-labelledby="need" className="flex flex-col gap-3">
+		// One panel holds the list, its actions and its rows, so nothing
+		// floats loose on the page.
+		<section
+			aria-labelledby="need"
+			className="bg-card border-border flex flex-col gap-3 rounded-xl border p-3"
+		>
 			<div className="flex min-h-9 flex-wrap items-center gap-2">
 				{/* The kitchen's switch names the list; its name is said only. */}
 				<h2 id="need" className="sr-only">
@@ -535,7 +540,7 @@ function ListBox({
 							exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
 							transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
 						>
-							<ul className="bg-card border-border divide-border divide-y rounded-xl border">
+							<ul className="bg-background border-border divide-border divide-y rounded-xl border">
 								<AnimatePresence initial={false}>
 									{items.map(row)}
 								</AnimatePresence>
@@ -649,7 +654,7 @@ function PlanList({
 					<Heading className="text-muted-foreground px-1 pb-1 text-sm font-bold">
 						{group.label}
 					</Heading>
-					<ul className="bg-card border-border divide-border divide-y rounded-xl border">
+					<ul className="bg-background border-border divide-border divide-y rounded-xl border">
 						{group.items.map((item) => (
 							<PlanRow
 								key={item.id}
