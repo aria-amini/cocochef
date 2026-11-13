@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
+import { GroceryList, type GroceryItem } from '@/components/grocery-list'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { SignUpToKeep } from '@/components/sign-up-to-keep'
@@ -57,16 +58,18 @@ import {
 	spotOf,
 	type PantrySpot,
 } from '@/lib/pantry/spots'
-import { ingredientItemLook, resolveSpriteLook } from '@/lib/pantry/sprites'
+import { resolveSpriteLook } from '@/lib/pantry/sprites'
 import { hadItIn } from '@/lib/pantry/status'
 import { standardLook } from '@/lib/pantry/tinted-sprites'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 import { cn } from '@/lib/utils/ui'
 
-// The page's place: one spot's jars, and the item whose details are open.
+// The page's place: one spot's jars, the item whose details are open, and
+// whether the kitchen is put away for shopping.
 const pantrySearch = z.object({
 	spot: z.enum(pantrySpots).optional().catch(undefined),
 	item: z.string().optional(),
+	shop: z.boolean().optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/_app/kitchen/')({
@@ -86,10 +89,6 @@ export const Route = createFileRoute('/_app/kitchen/')({
 })
 
 type PantryItem = NonNullable<Awaited<ReturnType<typeof listPantry>>>[number]
-
-type GroceryItem = NonNullable<
-	Awaited<ReturnType<typeof listGroceries>>
->[number]
 
 // A pantry is kept by an account; signed out, the page says so.
 function PantryPage() {
@@ -156,7 +155,7 @@ function Pantry({
 	const navigate = useNavigate()
 	const router = useRouter()
 
-	const { spot, item: selectedId } = Route.useSearch()
+	const { spot, item: selectedId, shop } = Route.useSearch()
 
 	// A removed item leaves the list at once, and the pantry only once its
 	// undo has passed.
@@ -264,6 +263,16 @@ function Pantry({
 
 	const selected = items.find((i) => i.id === selectedId) ?? null
 
+	// Shopping, the kitchen steps aside for the list alone.
+	if (shop)
+		return (
+			<main className="flex-1">
+				<div className="flex max-w-3xl flex-col gap-6 p-6 pb-28 md:p-10">
+					<Need list={list} wanting={wanting} shopping />
+				</div>
+			</main>
+		)
+
 	return (
 		<main className="flex-1">
 			<div className="flex max-w-3xl flex-col gap-7 p-6 pb-28 md:p-10">
@@ -338,22 +347,28 @@ function Pantry({
 				</header>
 
 				{items.length === 0 ? (
-					<section className="border-foreground/30 flex flex-col items-center gap-4 rounded-xl border border-dashed p-10 text-center">
-						<PantryPreview />
-						<div className="flex flex-col gap-1">
-							<p className="text-lg font-bold">nothing here yet</p>
-							<p className="text-muted-foreground max-w-xs text-sm font-semibold">
-								recipes and groceries check here for what you already have
-							</p>
-						</div>
-						<Link
-							to="/kitchen/bulk"
-							className={buttonVariants({ className: 'min-h-11 gap-1.5' })}
-						>
-							<Plus size={14} weight="bold" aria-hidden />
-							stock up
-						</Link>
-					</section>
+					<>
+						<section className="border-foreground/30 flex flex-col items-center gap-4 rounded-xl border border-dashed p-10 text-center">
+							<PantryPreview />
+							<div className="flex flex-col gap-1">
+								<p className="text-lg font-bold">nothing here yet</p>
+								<p className="text-muted-foreground max-w-xs text-sm font-semibold">
+									recipes and groceries check here for what you already have
+								</p>
+							</div>
+							<Link
+								to="/kitchen/bulk"
+								className={buttonVariants({ className: 'min-h-11 gap-1.5' })}
+							>
+								<Plus size={14} weight="bold" aria-hidden />
+								stock up
+							</Link>
+						</section>
+						{/* A list kept before the kitchen is, still shows. */}
+						{list.length ? (
+							<Need list={list} wanting={wanting} shopping={false} />
+						) : null}
+					</>
 				) : spot ? (
 					<JarWall items={inSpot} spot={spot} selectedId={selectedId} />
 				) : searching ? (
@@ -377,7 +392,7 @@ function Pantry({
 							<CheckThese items={toCheck} onRemove={remove} />
 						) : null}
 						{soon.length ? <UseSoon items={soon} /> : null}
-						<Need list={list} wanting={wanting} />
+						<Need list={list} wanting={wanting} shopping={false} />
 						<OnHand items={kept} />
 					</>
 				)}
@@ -514,17 +529,19 @@ function UseSoon({ items }: { items: PantryItem[] }) {
 	)
 }
 
-// What the kitchen needs: the grocery list still to buy, each line saying
-// why when the kitchen knows (out, low, or the recipe it is for), and below
-// it what ran out or runs low but is not on the list yet. Shopping opens the
-// same list by aisle.
+// What the kitchen needs: the grocery list itself, to tick, change and add
+// to, each line saying why when the kitchen knows (out, low, or the recipe it
+// is for); and below it what ran out or runs low but is not on it yet.
 function Need({
 	list,
 	wanting,
+	shopping,
 }: {
 	list: GroceryItem[]
 	wanting: PantryItem[]
+	shopping: boolean
 }) {
+	const navigate = useNavigate()
 	const waiting = list.filter((line) => !line.checkedAt)
 
 	const unlisted = wanting.filter(
@@ -532,48 +549,15 @@ function Need({
 	)
 
 	return (
-		<section aria-labelledby="need" className="flex flex-col gap-3">
-			<SectionHeading
-				id="need"
-				action={
-					waiting.length ? (
-						<Link
-							to="/kitchen/shop"
-							className={buttonVariants({ className: 'gap-1.5 px-3' })}
-						>
-							<ShoppingCartIcon size={16} weight="bold" aria-hidden />
-							shop
-						</Link>
-					) : null
-				}
-			>
-				need{' '}
-				{waiting.length ? (
-					<span className="text-muted-foreground font-semibold tabular-nums">
-						{waiting.length}
-					</span>
-				) : null}
-			</SectionHeading>
-			{waiting.length ? (
-				<ul
-					aria-label="your list"
-					className="bg-card border-border divide-border divide-y overflow-hidden rounded-xl border"
-				>
-					{waiting.map((line) => (
-						<li key={line.id}>
-							<NeedRow line={line} kept={findInPantry(line.text, wanting)} />
-						</li>
-					))}
-				</ul>
-			) : (
-				<Link
-					to="/kitchen/shop"
-					className="border-foreground/30 text-muted-foreground hover:text-foreground flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-base transition-colors"
-				>
-					<Plus size={16} weight="bold" aria-hidden />
-					nothing on your list
-				</Link>
+		<GroceryList
+			saved={list}
+			shopping={shopping}
+			noteOf={(line) => (
+				<NeedNote line={line} kept={findInPantry(line.text, wanting)} />
 			)}
+			onShop={() => void navigate({ to: '/kitchen', search: { shop: true } })}
+			onDone={() => void navigate({ to: '/kitchen' })}
+		>
 			{unlisted.length ? (
 				<div className="flex flex-wrap items-center gap-2">
 					{unlisted.map((item) => (
@@ -598,45 +582,41 @@ function Need({
 					<BuyButton names={unlisted.map((item) => item.name)} />
 				</div>
 			) : null}
-		</section>
+		</GroceryList>
 	)
 }
 
-// A line still to buy: its food, what it says, and why it is wanted when the
-// kitchen knows. The list itself opens to change it.
-function NeedRow({
+// Why a line is wanted, when the kitchen knows: the food ran out or runs
+// low, or a recipe asked for it.
+function NeedNote({
 	line,
 	kept,
 }: {
 	line: GroceryItem
 	kept: PantryItem | undefined
 }) {
-	const look = ingredientItemLook(line.text)
-
-	return (
-		<Link
-			to="/kitchen/shop"
-			className="hover:bg-muted/60 flex min-h-11 items-center gap-3 px-3 py-1.5 transition-colors"
-		>
-			<span aria-hidden className="grid size-6 shrink-0 place-items-center">
-				{look ? <PantrySprite look={look} className="size-6" /> : null}
+	if (kept?.level === 'out')
+		return (
+			<span className="bg-kitchen-tomato/15 shrink-0 rounded-full px-2 text-xs leading-5 font-bold">
+				out
 			</span>
-			<span className="min-w-0 flex-1 truncate text-base">{line.text}</span>
-			{kept?.level === 'out' ? (
-				<span className="bg-kitchen-tomato/15 rounded-full px-2 text-xs leading-5 font-bold">
-					out
-				</span>
-			) : kept?.level === 'low' ? (
-				<span className="bg-kitchen-yolk/30 rounded-full px-2 text-xs leading-5 font-bold">
-					low
-				</span>
-			) : line.recipeTitle ? (
-				<span className="text-muted-foreground min-w-0 shrink truncate text-xs font-semibold">
-					for {line.recipeTitle}
-				</span>
-			) : null}
-		</Link>
-	)
+		)
+
+	if (kept?.level === 'low')
+		return (
+			<span className="bg-kitchen-yolk/30 shrink-0 rounded-full px-2 text-xs leading-5 font-bold">
+				low
+			</span>
+		)
+
+	if (line.recipeTitle)
+		return (
+			<span className="text-muted-foreground max-w-[45%] min-w-0 shrink truncate text-xs font-semibold">
+				for {line.recipeTitle}
+			</span>
+		)
+
+	return null
 }
 
 // Everything else, by where it lives: each spot with how much it holds and
