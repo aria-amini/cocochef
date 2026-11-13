@@ -90,9 +90,17 @@ const byLength = [...foods].sort((a, b) => b.key.length - a.key.length)
 // The food a line names, if the catalog knows it. Matches whole words after
 // the same plural and accent folding the catalog uses, and treats "a can of"
 // as canned: "1 (15-ounce) can chickpeas" is chickpeas, "2 cans tomatoes" is
-// canned tomatoes.
+// canned tomatoes. A food named only to say how little of it there is
+// ("low-salt", "reduced-sodium", "sugar-free") is not the food, and stock is
+// broth: "½ low-salt vegetable stock cube" is vegetable broth, never salt.
 export function foodOf(line: string): Food | undefined {
-	const text = ` ${categoryKey(line.replace(/\bcans?\b/gi, 'canned'))} `
+	const text = ` ${categoryKey(
+		line
+			.replace(/\b(?:low|lower|reduced|less|no)[-\s]+\p{L}+/giu, ' ')
+			.replace(/\b\p{L}+-free\b/giu, ' ')
+			.replace(/\b(?:stock|bouillon)\b/gi, 'broth')
+			.replace(/\bcans?\b/gi, 'canned'),
+	)} `
 
 	return byLength.find(({ key }) => text.includes(` ${key} `))
 }

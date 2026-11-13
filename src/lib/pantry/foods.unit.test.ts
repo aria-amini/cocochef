@@ -22,6 +22,18 @@ describe('foodOf', () => {
 		expect(foodOf('1 (15-ounce) can chickpeas')?.name).toBe('chickpeas')
 	})
 
+	test('reads a food named as a modifier as not that food', () => {
+		expect(foodOf('½ low-salt vegetable stock cube')?.name).toBe(
+			'vegetable broth',
+		)
+		expect(foodOf('1 cup reduced-sodium chicken broth')?.name).toBe(
+			'chicken broth',
+		)
+		expect(foodOf('2 tbsp sugar-free maple syrup')?.name).toBe('maple syrup')
+		expect(foodOf('1 cup low fat milk')?.name).toBe('milk')
+		expect(foodOf('1 cup half-and-half')?.name).toBe('half and half')
+	})
+
 	test('knows nothing of a food outside the catalog', () => {
 		expect(foodOf('2 lb bone-in short ribs')).toBeUndefined()
 	})
