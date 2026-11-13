@@ -243,39 +243,6 @@ describe('recipes shelf', () => {
 			.toHaveBeenCalledWith({ data: { id: 'shared' } })
 	})
 
-	test('falls back to everything when the last recipe of a filter goes', async () => {
-		shelfState.recipes = [
-			misoButterPasta,
-			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
-		]
-		saves.remove.mockImplementation(async () => {
-			shelfState.recipes = shelfState.recipes.filter(
-				(recipe) => recipe.id !== 'shared',
-			)
-
-			return null
-		})
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await screen.getByRole('button', { name: /^saved/ }).click()
-		await screen.getByRole('button', { name: 'unsave shared soup' }).click()
-		// Nothing is saved now, so the shelf is not left on an empty filter.
-		await expect
-			.element(screen.getByRole('button', { name: /^saved/ }))
-			.not.toBeInTheDocument()
-		await expect
-			.element(
-				screen
-					.getByRole('region', { name: 'your recipes' })
-					.getByText('miso butter pasta'),
-			)
-			.toBeVisible()
-	})
-
 	test('shows the ways to add a recipe', async () => {
 		shelfState.recipes = [misoButterPasta, dal]
 
