@@ -98,13 +98,24 @@ async function listIfWanting(
 }
 
 export const setPantryItemLevel = createServerFn({ method: 'POST' })
-	.validator(z.object({ id: z.string().min(1), level: z.enum(pantryLevels) }))
+	.validator(
+		z.object({
+			id: z.string().min(1),
+			level: z.enum(pantryLevels),
+			// False when an undo puts a level back: that is no ask to buy it.
+			list: z.boolean().optional(),
+		}),
+	)
 	.handler(async ({ data }) => {
 		const accountId = await requireAccountId('keep ingredients')
 
 		const item = await setPantryItemLevelForUser(accountId, data.id, data.level)
 
-		return { item, listed: await listIfWanting(accountId, item) }
+		return {
+			item,
+			listed:
+				data.list === false ? false : await listIfWanting(accountId, item),
+		}
 	})
 
 export const setPantryItemCount = createServerFn({ method: 'POST' })

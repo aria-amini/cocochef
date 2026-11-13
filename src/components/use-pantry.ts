@@ -62,7 +62,7 @@ export function useMarkHave() {
 							await deletePantryItem({ data: { id: marked.id } })
 						else if (marked.level)
 							await setPantryItemLevel({
-								data: { id: marked.id, level: marked.level },
+								data: { id: marked.id, level: marked.level, list: false },
 							})
 						await refresh()
 					},
