@@ -340,8 +340,13 @@ describe('groceries', () => {
 			.toHaveAttribute('aria-pressed', 'true')
 
 		// The amount steps in a shop's units, right on the row.
-		await screen.getByRole('button', { name: 'more onion' }).click()
+		const more = screen.getByRole('button', { name: 'more onion' })
+		const moreButton = more.element()
+
+		await more.click()
 		await expect.poll(() => list.items[0]?.text).toBe('2 onion')
+		// Stepping keeps the row, so keyboard focus on the button isn't lost.
+		expect(moreButton.isConnected).toBe(true)
 
 		// The name is retyped in place and keeps its amount.
 		const name = screen.getByRole('textbox', { name: 'name of 2 onion' })
