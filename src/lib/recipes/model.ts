@@ -22,7 +22,7 @@ export const recipePhotoKey = (userId: string) =>
 export const ownsRecipePhoto = (userId: string, image: string) =>
 	image.startsWith(`recipes/${userId}-`)
 
-const recipePhotoPath = z.string().regex(/^recipes\/[\w-]{1,150}$/)
+export const recipePhotoPath = z.string().regex(/^recipes\/[\w-]{1,150}$/)
 
 const recipeFields = {
 	title: z.string().trim().min(1).max(recipeTitleMax),
