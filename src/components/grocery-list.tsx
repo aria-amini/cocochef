@@ -1,11 +1,9 @@
 import {
 	CaretDownIcon,
 	CheckIcon,
-	ExportIcon,
 	MinusIcon,
 	PencilSimpleIcon,
 	PlusIcon,
-	ShoppingCartIcon,
 	TrashIcon,
 	XIcon,
 } from '@phosphor-icons/react'
@@ -23,7 +21,6 @@ import {
 	useOptimistic,
 	useRef,
 	useState,
-	useSyncExternalStore,
 } from 'react'
 import { toast } from 'sonner'
 
@@ -119,23 +116,15 @@ const draftItem = (text: string): Item => ({
 // foot, where a tick takes it back out. Edit turns every row into one to
 // change.
 //
-// It lives in the kitchen, as the section of what the kitchen needs, with
-// each line saying why when the kitchen knows. Shopping is the same list
-// with the kitchen put away: big rows for a thumb, and done to clear the
-// cart and bring the kitchen back.
+// It is the kitchen's groceries side, with each line saying why when the
+// kitchen knows, in rows big enough for a thumb in the shop.
 export function GroceryList({
 	saved,
-	shopping,
 	noteOf,
-	onShop,
-	onDone,
 	children,
 }: {
 	saved: Item[]
-	shopping: boolean
 	noteOf?: (item: Item) => React.ReactNode
-	onShop: () => void
-	onDone: () => void
 	// What the kitchen adds under the list: food running out, not yet on it.
 	children?: React.ReactNode
 }) {
@@ -175,9 +164,7 @@ export function GroceryList({
 		return () => clearTimeout(timer)
 	}, [fresh])
 
-	const waiting = items.filter((item) => !item.checkedAt)
 	const inCart = items.filter((item) => item.checkedAt)
-	const allInCart = inCart.length > 0 && waiting.length === 0
 
 	// Changes reach the server one after another, so a tick sent right after
 	// an add waits for the add to land.
@@ -225,13 +212,6 @@ export function GroceryList({
 		change({ kind: 'clear' }, async () => {
 			await clearCheckedGroceries()
 		})
-	}
-
-	// Done shopping: the cart is cleared, and the kitchen shows again.
-	function done() {
-		if (inCart.length) clear()
-		setEditing(false)
-		onDone()
 	}
 
 	function add(text: string) {
@@ -307,15 +287,14 @@ export function GroceryList({
 		<GroceryRow
 			key={item.id}
 			item={item}
-			big={shopping}
 			note={noteOf?.(item)}
 			fresh={item.id === fresh}
 			onCheck={(checked) => check(item, checked)}
 		/>
 	)
 
-	// Inside the kitchen the aisles sit under the section's own heading.
-	const heading = shopping ? 'h2' : 'h3'
+	// The aisles sit under the list's own heading.
+	const heading = 'h3'
 
 	// Always there, greyed while the list is empty, so the row never shifts.
 	const editButton = (
@@ -366,18 +345,6 @@ export function GroceryList({
 							heading={heading}
 							items={completed}
 							row={row}
-							// Shopping clears it on done; the kitchen, here.
-							action={
-								shopping ? null : (
-									<button
-										type="button"
-										onClick={clear}
-										className="text-muted-foreground hover:text-foreground min-h-10 rounded-md px-2 text-sm font-bold transition-colors"
-									>
-										clear
-									</button>
-								)
-							}
 						/>
 					) : null}
 				</AnimatePresence>
@@ -387,7 +354,7 @@ export function GroceryList({
 
 	// Items are added down the list, at its end: the row the plus opens, or
 	// the add row in its place. One place whatever the list holds, so it keeps
-	// focus as the first item lands. Shopping on a phone, the plus floats.
+	// focus as the first item lands.
 	const adding = (
 		<>
 			{composer.draft}
@@ -395,10 +362,7 @@ export function GroceryList({
 				<button
 					type="button"
 					onClick={composer.start}
-					className={cn(
-						'border-foreground/30 text-muted-foreground hover:text-foreground hover:border-input min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-base transition-colors',
-						shopping ? 'hidden md:flex' : 'flex',
-					)}
+					className="border-foreground/30 text-muted-foreground hover:text-foreground hover:border-input flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-base transition-colors"
 				>
 					<span className="border-foreground/40 grid size-6 shrink-0 place-items-center rounded-full border-2 border-dashed">
 						<PlusIcon size={12} weight="bold" aria-hidden />
@@ -422,36 +386,6 @@ export function GroceryList({
 		/>
 	) : null
 
-	if (shopping)
-		return (
-			<>
-				{/* The page's name and the list's actions, held at the top:
-				    sharing it, editing it, and done. */}
-				<div className="bg-background/90 sticky top-0 z-20 -mx-2 -mt-3 flex min-h-12 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1 backdrop-blur-sm">
-					<h1 className="flex-1 text-lg font-bold">shopping</h1>
-					<ShareList items={waiting.map((item) => item.text)} />
-					{editButton}
-					<button
-						type="button"
-						onClick={done}
-						className={buttonVariants({
-							variant: allInCart ? 'default' : 'outline',
-							className: 'px-3',
-						})}
-					>
-						done
-					</button>
-				</div>
-				{items.length ? composer.button : null}
-				{items.length ? list : null}
-				{items.length || composer.open ? null : (
-					<EmptyList onAdd={composer.start} />
-				)}
-				{adding}
-				{sheet}
-			</>
-		)
-
 	return (
 		<section aria-labelledby="need" className="flex flex-col gap-3">
 			<div className="flex min-h-9 flex-wrap items-center gap-2">
@@ -460,16 +394,17 @@ export function GroceryList({
 					groceries
 				</h2>
 				<div className="flex-1" />
+				{/* The list's actions, always in place so the list never shifts:
+				    changing it, and clearing what is already in the kitchen,
+				    greyed while there is none. */}
 				{editButton}
-				{/* Greyed with nothing to buy, or while the list is being edited. */}
 				<button
 					type="button"
-					disabled={!waiting.length || editing}
-					onClick={onShop}
-					className={buttonVariants({ className: 'gap-1.5 px-3' })}
+					disabled={!inCart.length}
+					onClick={clear}
+					className={buttonVariants({ variant: 'outline', className: 'px-3' })}
 				>
-					<ShoppingCartIcon size={16} weight="bold" aria-hidden />
-					shop
+					clear
 				</button>
 			</div>
 			{items.length ? list : null}
@@ -488,40 +423,6 @@ export function GroceryList({
 			{adding}
 			{children}
 			{sheet}
-		</section>
-	)
-}
-
-// Nothing to buy yet: an empty cart, one line on what adding does, and the
-// way to add.
-function EmptyList({ onAdd }: { onAdd: () => void }) {
-	return (
-		<section
-			aria-labelledby="nothing-to-buy"
-			className="border-foreground/30 flex flex-col items-center gap-4 rounded-xl border border-dashed p-10 text-center"
-		>
-			<ShoppingCartIcon
-				size={56}
-				weight="duotone"
-				aria-hidden
-				className="text-muted-foreground"
-			/>
-			<div className="flex flex-col gap-1">
-				<h2 id="nothing-to-buy" className="text-lg font-bold">
-					nothing to buy yet
-				</h2>
-				<p className="text-muted-foreground max-w-xs text-sm font-semibold">
-					add what you need, and it finds its own aisle
-				</p>
-			</div>
-			<button
-				type="button"
-				onClick={onAdd}
-				className={buttonVariants({ className: 'min-h-11 gap-1.5' })}
-			>
-				<PlusIcon size={16} weight="bold" aria-hidden />
-				add an item
-			</button>
 		</section>
 	)
 }
@@ -652,13 +553,11 @@ function ListBox({
 // it is wanted, when the kitchen knows.
 function GroceryRow({
 	item,
-	big,
 	note,
 	fresh,
 	onCheck,
 }: {
 	item: Item
-	big: boolean
 	note: React.ReactNode
 	fresh: boolean
 	onCheck: (checked: boolean) => void
@@ -689,7 +588,7 @@ function GroceryRow({
 				htmlFor={`tick-${item.id}`}
 				className={cn(
 					'hover:bg-muted/40 flex cursor-pointer items-center transition-colors',
-					big ? 'min-h-15 gap-3.5 px-4' : 'min-h-12 gap-3 px-3',
+					'min-h-15 gap-3.5 px-4',
 				)}
 			>
 				<TickBox
@@ -710,7 +609,7 @@ function GroceryRow({
 				<span
 					className={cn(
 						'min-w-0 flex-1 py-2',
-						big ? 'text-lg' : 'text-base',
+						'text-lg',
 						checked && 'text-muted-foreground line-through',
 					)}
 				>
@@ -962,40 +861,5 @@ function GroceryDetails({
 				</ItemSheetDone>
 			</div>
 		</ItemSheet>
-	)
-}
-
-const noSubscription = () => () => {}
-
-// The list as text, one item a line, to send where the phone can share it.
-function ShareList({ items }: { items: string[] }) {
-	const text = items.join('\n')
-
-	// Known only in the browser; the server renders without it.
-	const canShare = useSyncExternalStore(
-		noSubscription,
-		() => 'share' in navigator,
-		() => false,
-	)
-
-	if (!items.length || !canShare) return null
-
-	return (
-		<button
-			type="button"
-			onClick={async () => {
-				try {
-					await navigator.share({ title: 'groceries', text })
-				} catch (error) {
-					if (error instanceof DOMException && error.name === 'AbortError')
-						return
-					toast.error("couldn't share the list — try again")
-				}
-			}}
-			className={buttonVariants({ variant: 'outline' })}
-		>
-			<ExportIcon size={16} weight="bold" aria-hidden />
-			share
-		</button>
 	)
 }

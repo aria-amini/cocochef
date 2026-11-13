@@ -160,7 +160,7 @@ function Shopping({ shopping }: { shopping: NonNullable<Now['shopping']> }) {
 	return (
 		<Link
 			to="/kitchen"
-			search={{ shop: true }}
+			search={{ view: 'groceries' }}
 			aria-label={`groceries: ${shopping.inCart} of ${shopping.total} in the cart`}
 			className="bg-kitchen-yolk/15 border-kitchen-yolk/60 hover:border-kitchen-yolk flex min-h-14 items-center gap-3 rounded-xl border px-4 transition-colors"
 		>

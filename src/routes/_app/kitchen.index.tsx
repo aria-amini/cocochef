@@ -16,6 +16,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
 	createFileRoute,
 	Link,
+	redirect,
 	useNavigate,
 	useRouter,
 } from '@tanstack/react-router'
@@ -70,12 +71,12 @@ import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 import { cn } from '@/lib/utils/ui'
 
 // The page's place: one spot's jars, the item whose details are open, and
-// whether the kitchen is put away for shopping.
+// which side is open: on hand, or the grocery list. Old links that asked for
+// shopping open the list.
 const pantrySearch = z.object({
 	spot: z.enum(pantrySpots).optional().catch(undefined),
 	item: z.string().optional(),
 	shop: z.boolean().optional().catch(undefined),
-	// Which side is open: on hand, or the grocery list.
 	view: z.enum(['groceries']).optional().catch(undefined),
 })
 
@@ -83,6 +84,10 @@ export const Route = createFileRoute('/_app/kitchen/')({
 	// Adding floats above the tab bar on phones, as on the shelf.
 	staticData: { tabBar: 'own-fab' },
 	validateSearch: pantrySearch,
+	beforeLoad: ({ search }) => {
+		if (search.shop)
+			throw redirect({ to: '/kitchen', search: { view: 'groceries' } })
+	},
 	// What is in the kitchen, and the list of what it needs.
 	loader: async () => {
 		const [pantry, groceries] = await Promise.all([
@@ -165,12 +170,12 @@ function Pantry({
 	const navigate = useNavigate()
 	const router = useRouter()
 
-	const { spot, item: selectedId, shop, view } = Route.useSearch()
+	const { spot, item: selectedId, view } = Route.useSearch()
 
 	// The tab reopens whichever side was open last.
 	useEffect(() => {
-		if (!shop) rememberKitchenView(view)
-	}, [shop, view])
+		rememberKitchenView(view)
+	}, [view])
 
 	// A removed item leaves the list at once, and the pantry only once its
 	// undo has passed.
@@ -276,16 +281,6 @@ function Pantry({
 
 	const selected = items.find((i) => i.id === selectedId) ?? null
 
-	// Shopping, the kitchen steps aside for the list alone.
-	if (shop)
-		return (
-			<main className="flex-1">
-				<div className="flex max-w-3xl flex-col gap-6 p-6 pb-28 md:p-10">
-					<Need list={list} wanting={wanting} shopping />
-				</div>
-			</main>
-		)
-
 	return (
 		<main className="flex-1">
 			<div className="flex max-w-3xl flex-col gap-4 p-6 pb-28 md:p-10">
@@ -297,7 +292,7 @@ function Pantry({
 					buy={list.filter((line) => !line.checkedAt).length}
 				/>
 				{view === 'groceries' ? (
-					<Need list={list} wanting={wanting} shopping={false} />
+					<Need list={list} wanting={wanting} />
 				) : items.length === 0 ? (
 					<>
 						<section className="border-foreground/30 flex flex-col items-center gap-4 rounded-xl border border-dashed p-10 text-center">
@@ -546,13 +541,10 @@ function GoingOff({ items }: { items: PantryItem[] }) {
 function Need({
 	list,
 	wanting,
-	shopping,
 }: {
 	list: GroceryItem[]
 	wanting: PantryItem[]
-	shopping: boolean
 }) {
-	const navigate = useNavigate()
 	const waiting = list.filter((line) => !line.checkedAt)
 
 	const unlisted = wanting.filter(
@@ -562,14 +554,9 @@ function Need({
 	return (
 		<GroceryList
 			saved={list}
-			shopping={shopping}
 			noteOf={(line) => (
 				<NeedNote line={line} kept={findInPantry(line.text, wanting)} />
 			)}
-			onShop={() => void navigate({ to: '/kitchen', search: { shop: true } })}
-			onDone={() =>
-				void navigate({ to: '/kitchen', search: { view: 'groceries' } })
-			}
 		>
 			{unlisted.length ? (
 				<div className="flex flex-wrap items-center gap-2">
