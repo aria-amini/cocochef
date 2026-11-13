@@ -669,8 +669,7 @@ function PlanList({
 					<ul className="bg-card border-border divide-border divide-y rounded-xl border">
 						{group.items.map((item) => (
 							<PlanRow
-								// A rename made elsewhere starts the row's draft over.
-								key={`${item.id}:${item.text}`}
+								key={item.id}
 								item={item}
 								onChange={(text) => onChange(item, text)}
 								onUnits={() => onUnits(item)}
@@ -700,6 +699,15 @@ function PlanRow({
 	const amount = amountOf(item.text)
 	const name = amount ? amount.rest : item.text
 	const [draft, setDraft] = useState(name)
+	// A rename made elsewhere (the sheet) starts the draft over; stepping the
+	// amount leaves the name, and the row's focus, alone.
+	const [seenName, setSeenName] = useState(name)
+
+	if (name !== seenName) {
+		setSeenName(name)
+		setDraft(name)
+	}
+
 	// Escape cancels the edit; the blur it causes must not save it.
 	const cancelled = useRef(false)
 	const look = ingredientItemLook(item.text)
