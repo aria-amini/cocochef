@@ -82,16 +82,6 @@ function Home() {
 				<section aria-label="find a recipe" className="flex flex-col gap-3">
 					<Finder filters={filters} onFilters={setFilters} />
 				</section>
-				{/* A first visit can read what cocochef is for. */}
-				{now.signedIn ? null : (
-					<Link
-						to="/intro"
-						className="border-foreground/30 hover:border-foreground/50 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-dashed px-4 text-sm font-bold transition-colors"
-					>
-						new here? see what cocochef does
-						<ArrowRightIcon size={14} weight="bold" aria-hidden />
-					</Link>
-				)}
 			</div>
 		</main>
 	)

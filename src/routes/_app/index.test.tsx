@@ -258,14 +258,4 @@ describe('home', () => {
 		await screen.getByRole('button', { name: 'show more recipes' }).click()
 		await expect.poll(rows).toBe(72)
 	})
-
-	test('points a visitor at what cocochef is for', async () => {
-		home.now.mockResolvedValue({ ...idle, signedIn: false })
-
-		const { screen } = await renderRoute({ path: '/' })
-
-		await expect
-			.element(screen.getByRole('link', { name: /new here\?/ }))
-			.toHaveAttribute('href', '/intro')
-	})
 })
