@@ -11,6 +11,7 @@ describe('public addresses', () => {
 
 		for (const handle of [
 			'recipes',
+			'kitchen',
 			'sites',
 			'profile',
 			's',
