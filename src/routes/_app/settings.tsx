@@ -1,6 +1,6 @@
 import { CameraIcon } from '@phosphor-icons/react'
 import * as Sentry from '@sentry/tanstackstart-react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -79,7 +79,6 @@ function AccountProfile({
 	email: string
 	image?: string | null | undefined
 }) {
-	const navigate = useNavigate()
 	const [avatar, setAvatar] = useState<string>()
 	const [uploading, setUploading] = useState(false)
 	const [signingOut, setSigningOut] = useState(false)
@@ -146,7 +145,9 @@ function AccountProfile({
 			if (error) throw new Error(error.message)
 			// The next account must not be sent to this one's last recipe.
 			forgetRecipe()
-			await navigate({ to: '/' })
+			// A full load, not a navigation: the router's cached and preloaded
+			// pages and the query cache were read for this account.
+			window.location.assign('/')
 		} catch {
 			toast.error("couldn't sign you out — try again")
 		} finally {

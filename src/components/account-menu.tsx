@@ -5,7 +5,7 @@ import {
 	SignOutIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
-import { Link, useNavigate, useRouter } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import { useEffect, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
@@ -172,7 +172,6 @@ function AccountMenuShell({
 }
 
 function SignOutItem() {
-	const navigate = useNavigate()
 	const [signingOut, setSigningOut] = useState(false)
 
 	const signOut = async () => {
@@ -184,7 +183,9 @@ function SignOutItem() {
 			if (error) throw new Error(error.message)
 			// The next account must not be sent to this one's last recipe.
 			forgetRecipe()
-			await navigate({ to: '/' })
+			// A full load, not a navigation: the router's cached and preloaded
+			// pages and the query cache were read for this account.
+			window.location.assign('/')
 		} catch {
 			toast.error("couldn't sign you out — try again")
 		} finally {
