@@ -11,7 +11,6 @@ import { toast, Toaster } from 'sonner'
 import { render, type RenderResult } from 'vitest-browser-react'
 
 import { pendingOptions } from '@/components/page-pending'
-import { forgetRecipe } from '@/lib/recipes/last-opened'
 
 import { createTestQueryClient } from './component'
 
@@ -68,8 +67,6 @@ export async function renderRoute(
 
 	for (const [key, value] of Object.entries(options.localStorage ?? {}))
 		localStorage.setItem(key, value)
-	// The recipe last opened is remembered for the browser tab's session.
-	forgetRecipe()
 	// Toasts live in a module-level store, so one test's would show in the next.
 	toast.dismiss()
 	document.body.replaceChildren()

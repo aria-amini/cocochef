@@ -79,6 +79,10 @@ function createAuth() {
 			schema: { account, session, user, verification },
 		}),
 		emailAndPassword: { enabled: true, autoSignIn: true },
+		// Every server function reads the session. The cache answers from a
+		// signed cookie instead of two database reads. Signing out clears it;
+		// a session revoked from another device lasts up to five more minutes.
+		session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
 		socialProviders:
 			googleClientId && googleClientSecret
 				? {

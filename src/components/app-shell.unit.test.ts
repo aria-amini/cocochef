@@ -15,7 +15,7 @@ const outsideShell = [
 	'auth/signup.tsx',
 	'api/auth.$.ts',
 	'api/health.ts',
-	'api/ingest.$.ts',
+	'api/oven.ts',
 ]
 
 function routeFiles(dir: string, prefix = ''): string[] {

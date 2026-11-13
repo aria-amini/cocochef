@@ -42,11 +42,13 @@ const unsetChipClassName =
 // no flag emoji and show the country's letters instead.
 const flagClassName = 'border-foreground/15 h-3.5 w-5 border'
 
-// Each flag is its own file, fetched only when its row shows.
+// Each flag is its own file, fetched only when its row shows. Without
+// no-inline, Vite would inline every small SVG as a data URL, and all 250
+// flags would ride in this chunk.
 const flagFiles = new Map(
 	Object.entries(
 		import.meta.glob<string>('/node_modules/country-flag-icons/3x2/*.svg', {
-			query: '?url',
+			query: '?url&no-inline',
 			import: 'default',
 			eager: true,
 		}),

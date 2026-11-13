@@ -18,6 +18,7 @@ import { Route as AppPantryRouteImport } from './routes/_app/pantry'
 import { Route as AppProfileRouteImport } from './routes/_app/profile'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiOvenRouteImport } from './routes/api/oven'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AppHandleSlugRouteImport } from './routes/_app/$handle.$slug'
@@ -30,7 +31,6 @@ import { Route as AppRecipesRecipeIdRouteImport } from './routes/_app/recipes.$r
 import { Route as AppRecipesNewRouteImport } from './routes/_app/recipes.new'
 import { Route as AppSTokenRouteImport } from './routes/_app/s.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
-import { Route as ApiIngestSplatRouteImport } from './routes/api/ingest.$'
 import { Route as AppSitesSiteSlugRouteImport } from './routes/_app/sites.$site.$slug'
 
 const AppRoute = AppRouteImport.update({
@@ -75,6 +75,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOvenRoute = ApiOvenRouteImport.update({
+  id: '/api/oven',
+  path: '/api/oven',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
@@ -137,11 +142,6 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiIngestSplatRoute = ApiIngestSplatRouteImport.update({
-  id: '/api/ingest/$',
-  path: '/api/ingest/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppSitesSiteSlugRoute = AppSitesSiteSlugRouteImport.update({
   id: '/sites/$site/$slug',
   path: '/sites/$site/$slug',
@@ -156,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AppProfileRouteWithChildren
   '/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/$handle/': typeof HandleIndexRoute
@@ -167,7 +168,6 @@ export interface FileRoutesByFullPath {
   '/recipes/new': typeof AppRecipesNewRoute
   '/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/ingest/$': typeof ApiIngestSplatRoute
   '/ingredients/': typeof AppIngredientsIndexRoute
   '/recipes/': typeof AppRecipesIndexRoute
   '/sites/$site/$slug': typeof AppSitesSiteSlugRoute
@@ -179,6 +179,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AppProfileRouteWithChildren
   '/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/$handle': typeof HandleIndexRoute
@@ -191,7 +192,6 @@ export interface FileRoutesByTo {
   '/recipes/new': typeof AppRecipesNewRoute
   '/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/ingest/$': typeof ApiIngestSplatRoute
   '/ingredients': typeof AppIngredientsIndexRoute
   '/recipes': typeof AppRecipesIndexRoute
   '/sites/$site/$slug': typeof AppSitesSiteSlugRoute
@@ -205,6 +205,7 @@ export interface FileRoutesById {
   '/_app/profile': typeof AppProfileRouteWithChildren
   '/_app/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/$handle/': typeof HandleIndexRoute
@@ -217,7 +218,6 @@ export interface FileRoutesById {
   '/_app/recipes/new': typeof AppRecipesNewRoute
   '/_app/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/ingest/$': typeof ApiIngestSplatRoute
   '/_app/ingredients/': typeof AppIngredientsIndexRoute
   '/_app/recipes/': typeof AppRecipesIndexRoute
   '/_app/sites/$site/$slug': typeof AppSitesSiteSlugRoute
@@ -232,6 +232,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/settings'
     | '/api/health'
+    | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
     | '/$handle/'
@@ -243,7 +244,6 @@ export interface FileRouteTypes {
     | '/recipes/new'
     | '/s/$token'
     | '/api/auth/$'
-    | '/api/ingest/$'
     | '/ingredients/'
     | '/recipes/'
     | '/sites/$site/$slug'
@@ -255,6 +255,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/settings'
     | '/api/health'
+    | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
     | '/$handle'
@@ -267,7 +268,6 @@ export interface FileRouteTypes {
     | '/recipes/new'
     | '/s/$token'
     | '/api/auth/$'
-    | '/api/ingest/$'
     | '/ingredients'
     | '/recipes'
     | '/sites/$site/$slug'
@@ -280,6 +280,7 @@ export interface FileRouteTypes {
     | '/_app/profile'
     | '/_app/settings'
     | '/api/health'
+    | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
     | '/$handle/'
@@ -292,7 +293,6 @@ export interface FileRouteTypes {
     | '/_app/recipes/new'
     | '/_app/s/$token'
     | '/api/auth/$'
-    | '/api/ingest/$'
     | '/_app/ingredients/'
     | '/_app/recipes/'
     | '/_app/sites/$site/$slug'
@@ -301,11 +301,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiOvenRoute: typeof ApiOvenRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthSignupRoute: typeof AuthSignupRoute
   HandleIndexRoute: typeof HandleIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
-  ApiIngestSplatRoute: typeof ApiIngestSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -371,6 +371,13 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oven': {
+      id: '/api/oven'
+      path: '/api/oven'
+      fullPath: '/api/oven'
+      preLoaderRoute: typeof ApiOvenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/login': {
@@ -457,13 +464,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/ingest/$': {
-      id: '/api/ingest/$'
-      path: '/api/ingest/$'
-      fullPath: '/api/ingest/$'
-      preLoaderRoute: typeof ApiIngestSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_app/sites/$site/$slug': {
       id: '/_app/sites/$site/$slug'
       path: '/sites/$site/$slug'
@@ -527,11 +527,11 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
+  ApiOvenRoute: ApiOvenRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthSignupRoute: AuthSignupRoute,
   HandleIndexRoute: HandleIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-  ApiIngestSplatRoute: ApiIngestSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -3,6 +3,7 @@ import { createRouter } from '@tanstack/react-router'
 
 import { NotFoundComponent, ServerErrorComponent } from '@/components/errors'
 import { pendingOptions } from '@/components/page-pending'
+import { loadNewCodeAfterDeploys } from '@/lib/utils/new-code'
 import { queryClient } from '@/lib/utils/query'
 
 import { routeTree } from './routeTree.gen'
@@ -12,13 +13,18 @@ export const getRouter = () => {
 		routeTree,
 		...pendingOptions,
 		scrollRestoration: true,
-		defaultPreloadStaleTime: 0,
+		// A page starts loading when a finger touches its link (or a pointer
+		// rests on it), so the tap lands on data already on its way. Loaders
+		// call server functions directly, so a preload is kept for the router's
+		// default 30 seconds and the tap uses it instead of reading again.
+		defaultPreload: 'intent',
 		context: { queryClient },
 		defaultErrorComponent: ServerErrorComponent,
 		defaultNotFoundComponent: NotFoundComponent,
 	})
 
 	if (!router.isServer) {
+		loadNewCodeAfterDeploys(router)
 		Sentry.addIntegration(
 			Sentry.tanstackRouterBrowserTracingIntegration(router),
 		)

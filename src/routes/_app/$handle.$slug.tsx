@@ -3,43 +3,23 @@ import { createFileRoute, notFound } from '@tanstack/react-router'
 import { PublicRecipePage } from '@/components/public-recipes'
 import { RecipeAccessDenied } from '@/components/recipe-access-denied'
 import { RecipeDetail } from '@/components/recipe-detail'
-import { getCurrentSession } from '@/lib/auth/session'
-import { getRecipe } from '@/lib/recipes/server'
-import { readOwnedRecipeAddress, readPublicRecipe } from '@/lib/sharing/server'
+import { recipeHandoff } from '@/lib/recipes/handoff'
+import { readRecipeAt } from '@/lib/sharing/server'
 
 export const Route = createFileRoute('/_app/$handle/$slug')({
 	staticData: { header: 'none' },
-	loader: async ({ params }) => {
-		const [recipe, session] = await Promise.all([
-			readPublicRecipe({ data: params }),
-			getCurrentSession(),
-		])
+	loader: async ({ params, cause }) => {
+		// Opened from its id, which already read it for this cook.
+		const handed = recipeHandoff.get(`/${params.handle}/${params.slug}`, cause)
 
-		if (!recipe) {
-			if (session) {
-				const owned = await readOwnedRecipeAddress({ data: params })
+		if (handed) return { kind: 'app' as const, recipe: handed }
 
-				if (owned) {
-					const full = await getRecipe({ data: { id: owned.id } })
+		const found = await readRecipeAt({ data: params })
 
-					if (full) return { kind: 'app' as const, recipe: full }
-				}
-			}
+		// Missing and private recipes look the same, and both are a real 404.
+		if (!found) throw notFound()
 
-			// Missing and private recipes look the same, and both are a real 404.
-			throw notFound()
-		}
-
-		// Anyone the app already knows gets the recipe in the app, with the
-		// sidebar, cooking, and saving, at this same readable address. Visitors
-		// with no session (readers, crawlers, link previews) get the plain page.
-		if (session) {
-			const full = await getRecipe({ data: { id: recipe.id } })
-
-			if (full) return { kind: 'app' as const, recipe: full }
-		}
-
-		return { kind: 'public' as const, recipe }
+		return found
 	},
 	staleTime: 0,
 	gcTime: 0,

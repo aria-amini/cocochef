@@ -5,13 +5,12 @@ import {
 	SignOutIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
-import { Link, useNavigate, useRouter } from '@tanstack/react-router'
-import { useEffect, useState, type ReactNode } from 'react'
+import { Link } from '@tanstack/react-router'
+import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/avatar'
 import { authClient } from '@/lib/auth/client'
-import { forgetRecipe } from '@/lib/recipes/last-opened'
 import { useAvatarUrl } from '@/lib/use-avatar-url'
 import { cn } from '@/lib/utils/ui'
 
@@ -35,18 +34,12 @@ const itemClassName =
 	'flex w-full cursor-default items-center gap-2.5 px-3 py-2.5 text-xs font-semibold outline-none select-none data-highlighted:bg-kitchen-yolk/40'
 
 export function AccountMenu({ variant }: { variant: Variant }) {
+	// The session refreshes itself when anything signs in or out, so no page
+	// change asks for it again. Asking on every navigation (and every touch,
+	// which preloads) briefly swapped this button for its placeholder while
+	// signed out, and iPhone Safari drops a tap's click when the page changes
+	// under the finger.
 	const session = authClient.useSession()
-	const router = useRouter()
-	const refetchSession = session.refetch
-
-	useEffect(
-		() =>
-			router.subscribe('onResolved', () => {
-				void refetchSession()
-			}),
-		[router, refetchSession],
-	)
-
 	const user = session.data?.user
 	const avatarUrl = useAvatarUrl(user?.image)
 
@@ -172,7 +165,6 @@ function AccountMenuShell({
 }
 
 function SignOutItem() {
-	const navigate = useNavigate()
 	const [signingOut, setSigningOut] = useState(false)
 
 	const signOut = async () => {
@@ -182,9 +174,9 @@ function SignOutItem() {
 			const { error } = await authClient.signOut()
 
 			if (error) throw new Error(error.message)
-			// The next account must not be sent to this one's last recipe.
-			forgetRecipe()
-			await navigate({ to: '/' })
+			// A full load, not a navigation: the router's cached and preloaded
+			// pages and the query cache were read for this account.
+			window.location.assign('/')
 		} catch {
 			toast.error("couldn't sign you out — try again")
 		} finally {

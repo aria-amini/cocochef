@@ -10,7 +10,7 @@ import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { serverEnv as env } from '@/env.server'
-import { getCurrentSession } from '@/lib/auth/session'
+import { readSession } from '@/lib/auth/session'
 import { recipePhotoKey } from '@/lib/recipes/model'
 
 // Storage settings are optional in development and required in production.
@@ -111,7 +111,7 @@ export const getAvatarUploadUrl = createServerFn({ method: 'POST' })
 	.handler(({ data }) => createAvatarUploadUrl(data.key))
 
 export const createAvatarUploadUrl = createServerOnlyFn(async (key: string) => {
-	const session = await getCurrentSession()
+	const session = await readSession()
 
 	if (!session) {
 		throw new Error('Sign in to upload an avatar')
@@ -130,7 +130,7 @@ export const getRecipePhotoUploadUrl = createServerFn({
 }).handler(() => createRecipePhotoUpload())
 
 export const createRecipePhotoUpload = createServerOnlyFn(async () => {
-	const session = await getCurrentSession()
+	const session = await readSession()
 
 	if (!session) {
 		throw new Error('Sign in to upload a recipe photo')

@@ -16,18 +16,33 @@ const api = vi.hoisted(() => ({
 	deleteRecipe: vi.fn(),
 }))
 
-vi.mock('@/lib/sharing/server', () => ({
-	readOwnedRecipeAddress: () => Promise.resolve(null),
-	getMySharingProfile: api.profile,
-	updateSharingProfile: api.updateProfile,
-	getMyRecipeShare: api.share,
-	updateRecipeShare: api.updateShare,
-	createWebSharingLink: vi.fn(),
-	readPublicProfile: api.publicProfile,
-	readPublicRecipe: api.publicRecipe,
-	readUnlistedRecipe: api.unlisted,
-	readWebRecipe: api.web,
-}))
+vi.mock('@/lib/sharing/server', async () => {
+	const { recipeAt } = await import('@/lib/sharing/recipe-at')
+	const { getCurrentSession } = await import('@/lib/auth/session')
+
+	return {
+		// The server's choice, made from this file's mocks.
+		readRecipeAt: async ({
+			data,
+		}: {
+			data: { handle: string; slug: string }
+		}) =>
+			recipeAt({
+				published: await api.publicRecipe({ data }),
+				signedIn: Boolean(await getCurrentSession()),
+				ownedId: async () => null,
+				full: async (id) => (await api.getRecipe({ data: { id } })) ?? null,
+			}),
+		getMySharingProfile: api.profile,
+		updateSharingProfile: api.updateProfile,
+		getMyRecipeShare: api.share,
+		updateRecipeShare: api.updateShare,
+		createWebSharingLink: vi.fn(),
+		readPublicProfile: api.publicProfile,
+		readUnlistedRecipe: api.unlisted,
+		readWebRecipe: api.web,
+	}
+})
 
 vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/recipes/server')>()),
@@ -253,64 +268,6 @@ describe('sharing', () => {
 			.toBeVisible()
 	})
 
-	test('remembers a site recipe for the recipes tab, but not an unlisted one', async () => {
-		const remembered = () => sessionStorage.getItem('cocochef:last-recipe')
-
-		sessionStorage.clear()
-		api.web.mockResolvedValue(recipe)
-
-		const site = await renderRoute({
-			path: '/sites/example.com/pasta',
-			session,
-		})
-
-		await expect
-			.element(site.screen.getByRole('heading', { name: 'Weeknight pasta' }))
-			.toBeVisible()
-		expect(remembered()).toBe('pasta')
-		await site.screen.unmount()
-
-		sessionStorage.clear()
-
-		const unlisted = await renderRoute({
-			path: '/s/00000000-0000-4000-8000-000000000001',
-		})
-
-		await expect
-			.element(
-				unlisted.screen.getByRole('heading', { name: 'Weeknight pasta' }),
-			)
-			.toBeVisible()
-		expect(remembered()).toBeNull()
-	})
-
-	test('keeps the remembered recipe when a published address is unavailable', async () => {
-		api.web.mockResolvedValue(recipe)
-		api.publicRecipe.mockResolvedValue(null)
-
-		const { screen, router } = await renderRoute({
-			path: '/sites/example.com/pasta',
-			session,
-		})
-
-		await expect
-			.element(screen.getByRole('heading', { name: 'Weeknight pasta' }))
-			.toBeVisible()
-		expect(sessionStorage.getItem('cocochef:last-recipe')).toBe('pasta')
-
-		await router.navigate({
-			to: '/$handle/$slug',
-			params: { handle: 'aria-amini', slug: 'gone' },
-		})
-		await expect
-			.element(
-				screen.getByRole('heading', { name: 'you can’t open this recipe' }),
-			)
-			.toBeVisible()
-		// A link with no recipe behind it is no reason to forget this one.
-		expect(sessionStorage.getItem('cocochef:last-recipe')).toBe('pasta')
-	})
-
 	test('lets a signed-out visitor open signup from save', async () => {
 		api.web.mockResolvedValue(recipe)
 
@@ -324,6 +281,44 @@ describe('sharing', () => {
 		await expect
 			.element(screen.getByRole('dialog', { name: 'create an account' }))
 			.toBeVisible()
+	})
+
+	test('drops pages preloaded as a visitor once the visitor signs up', async () => {
+		api.web.mockResolvedValue(recipe)
+		api.publicRecipe.mockResolvedValue(recipe)
+
+		const { screen, router } = await renderRoute({
+			path: '/sites/example.com/pasta',
+		})
+
+		// A visitor's touch preloads a published recipe's plain page.
+		await router.preloadRoute({
+			to: '/$handle/$slug',
+			params: { handle: 'aria-amini', slug: 'weeknight-pasta' },
+		})
+
+		const preloaded = () =>
+			router.stores.cachedMatches
+				.get()
+				.some((match) => match.routeId === '/_app/$handle/$slug')
+
+		expect(preloaded()).toBe(true)
+
+		getAuthMocks().signUpEmail.mockImplementationOnce(async () => {
+			setMockSession(session)
+
+			return { error: null }
+		})
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		const signup = screen.getByRole('dialog', { name: 'create an account' })
+		await signup.getByLabelText('name').fill('Cook')
+		await signup.getByLabelText('email').fill('cook@example.com')
+		await signup.getByLabelText('password').fill('password123')
+		await signup
+			.getByRole('button', { name: 'create account', exact: true })
+			.click()
+
+		await expect.poll(preloaded).toBe(false)
 	})
 
 	test('shows a private or unavailable recipe without exposing its contents', async () => {

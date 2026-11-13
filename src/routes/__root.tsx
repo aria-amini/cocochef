@@ -1,5 +1,4 @@
 import { CheckCircleIcon } from '@phosphor-icons/react'
-import { PostHogProvider } from '@posthog/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
 	HeadContent,
@@ -7,7 +6,6 @@ import {
 	Scripts,
 	createRootRoute,
 } from '@tanstack/react-router'
-import type { PostHogConfig } from 'posthog-js'
 import { Toaster } from 'sonner'
 
 import { useTabBarVisible } from '@/components/app-nav'
@@ -19,22 +17,6 @@ import appCss from '../styles.css?url'
 // offset stops at 600px, so the desktop offset is put back from md up in
 // styles.css.
 const tabBarOffset = 'calc(5rem + env(safe-area-inset-bottom))'
-
-const posthogOptions = {
-	api_host: import.meta.env.VITE_POSTHOG_HOST,
-	ui_host: 'https://us.posthog.com',
-	defaults: '2026-05-30',
-	person_profiles: 'always',
-	capture_exceptions: true,
-	// Sharing tokens grant access; do not send them in pageviews, referrers,
-	// autocaptured link clicks, or other event properties.
-	before_send: (event) => {
-		if (event && /\/s\/[0-9a-f]{8}-[0-9a-f-]{27,}/i.test(JSON.stringify(event)))
-			return null
-
-		return event
-	},
-} satisfies Partial<PostHogConfig>
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -72,7 +54,6 @@ export const Route = createRootRoute({
 })
 
 function RootComponent() {
-	const posthogToken = import.meta.env.VITE_POSTHOG_PROJECT_TOKEN
 	const tabBar = useTabBarVisible()
 
 	return (
@@ -82,13 +63,7 @@ function RootComponent() {
 			</head>
 			<body>
 				<QueryClientProvider client={queryClient}>
-					{posthogToken ? (
-						<PostHogProvider apiKey={posthogToken} options={posthogOptions}>
-							<Outlet />
-						</PostHogProvider>
-					) : (
-						<Outlet />
-					)}
+					<Outlet />
 				</QueryClientProvider>
 				<Toaster
 					position="top-right"

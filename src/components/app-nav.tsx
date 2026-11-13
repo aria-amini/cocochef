@@ -10,7 +10,6 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { AccountMenu, tabClassName } from '@/components/account-menu'
 import { AddRecipeMenu } from '@/components/add-recipe-menu'
 import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
-import { useLastOpenedRecipe } from '@/lib/recipes/last-opened'
 import { cn } from '@/lib/utils/ui'
 
 const navItems = [
@@ -247,30 +246,14 @@ function MobileHeader() {
 	)
 }
 
-function tabTarget(
-	to: (typeof navItems)[number]['to'],
-	lastRecipe: string | undefined,
-) {
-	if (to !== '/recipes') return { to } as const
-
-	return lastRecipe
-		? ({ to: '/recipes/$recipeId', params: { recipeId: lastRecipe } } as const)
-		: ({ to: '/recipes' } as const)
-}
-
 // Thumb-reach navigation on phones: the two places you go. The recipes shelf
 // adds one round action for its one job.
 function TabBar() {
 	const mode = useTabBar()
 	const visible = useTabBarVisible()
-	const lastRecipe = useLastOpenedRecipe()
 	const tab = useActiveTab()
 
 	if (!visible) return null
-
-	// Coming back from another tab reopens the recipe you were reading; from the
-	// recipe itself, the tab goes up to the shelf.
-	const inRecipes = tab === 'recipes'
 
 	return (
 		<>
@@ -284,7 +267,7 @@ function TabBar() {
 					return (
 						<Link
 							key={to}
-							{...tabTarget(to, !inRecipes ? lastRecipe : undefined)}
+							to={to}
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,

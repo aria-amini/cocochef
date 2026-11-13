@@ -34,7 +34,9 @@
 		"import:fetch": "uv run --locked scripts/import-fetch.py",
 		"recipes:index": "vpx scripts/recipe-data.ts index",
 		"recipes:seed": "varlock run -- vpx scripts/recipe-data.ts seed",
-		"recipes:ratings": "varlock run -- vpx scripts/recipe-ratings.ts"
+		"recipes:ratings": "varlock run -- vpx scripts/recipe-ratings.ts",
+		"bench": "node scripts/bench.ts",
+		"bench:seed": "docker compose --env-file .env.workspace.local exec -T postgres sh -c 'psql -q -v ON_ERROR_STOP=1 -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"' < scripts/bench-seed.sql"
 	},
 	"dependencies": {
 		"@varlock/hashicorp-vault-plugin": "^2.1.2",
@@ -56,7 +58,6 @@
 		"@fontsource-variable/open-sans": "^5.3.0",
 		"@phosphor-icons/react": "^2.1.10",
 		"@playwright/test": "^1.61.0",
-		"@posthog/react": "^1.10.3",
 		"@rolldown/plugin-babel": "^0.2.3",
 		"@sentry/tanstackstart-react": "^10.69.0",
 		"@shadcn/lint": "^0.2.1",
@@ -91,8 +92,6 @@
 		"msw": "^2.14.6",
 		"nitro": "3.0.260610-beta",
 		"oxlint-plugin-eslint": "^1.73.0",
-		"posthog-js": "^1.391.2",
-		"posthog-node": "^5.49.0",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
 		"shadcn": "^4.11.0",

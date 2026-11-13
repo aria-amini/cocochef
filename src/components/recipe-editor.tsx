@@ -34,7 +34,6 @@ import { FindRecipe, type StartingPoint } from '@/components/start-from'
 import { StepsField, stepsFrom } from '@/components/steps-field'
 import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
-import { forgetRecipe } from '@/lib/recipes/last-opened'
 import {
 	recipeContentInput,
 	recipeNotesMax,
@@ -534,8 +533,6 @@ export function RecipeEditor({
 		try {
 			if (recipeId.current) {
 				await deleteRecipe({ data: { id: recipeId.current } })
-				// The recipes tab must not send you back to it.
-				forgetRecipe()
 				toast.success(`${name || 'that recipe'} is off your shelf`)
 			}
 

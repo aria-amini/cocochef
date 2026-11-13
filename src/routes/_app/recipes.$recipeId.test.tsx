@@ -256,7 +256,7 @@ describe('recipe detail', () => {
 	})
 
 	phoneOnly(
-		'keeps the tab bar on a phone and returns to the recipe from another tab',
+		'keeps the tab bar on a phone and opens the shelf from another tab',
 		async () => {
 			const { screen, router } = await renderRoute({
 				path: '/recipes/recipe-1',
@@ -285,12 +285,7 @@ describe('recipe detail', () => {
 				)
 				.toBeVisible()
 
-			await nav.getByRole('link', { name: 'recipes' }).click()
-			await vi.waitFor(() =>
-				expect(router.state.location.pathname).toBe('/recipes/recipe-1'),
-			)
-
-			// From the recipe itself, the tab goes up to the shelf.
+			// The tab always leads to the shelf, not back to the last recipe.
 			await nav.getByRole('link', { name: 'recipes' }).click()
 			await vi.waitFor(() =>
 				expect(router.state.location.pathname).toBe('/recipes'),
@@ -1931,8 +1926,6 @@ describe('recipe detail', () => {
 
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
 		expect(updateCalls.deleted).toEqual(['recipe-1'])
-		// The recipes tab must not lead back to a deleted recipe.
-		expect(sessionStorage.getItem('cocochef:last-recipe')).toBeNull()
 	})
 
 	test('adds a shared recipe to the shelf and takes it back off', async () => {
