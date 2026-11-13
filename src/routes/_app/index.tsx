@@ -144,7 +144,7 @@ function StillCooking({
 			{waiting ? (
 				<Link
 					to="/kitchen"
-					hash="need"
+					search={{ view: 'groceries' }}
 					className="border-border hover:border-foreground/30 flex min-h-12 items-center justify-between gap-3 rounded-xl border px-4 text-sm font-bold transition-colors"
 				>
 					{waiting} on your list

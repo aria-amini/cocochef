@@ -3,6 +3,7 @@ import {
 	HourglassMediumIcon,
 	type Icon,
 	JarLabelIcon,
+	ToteSimpleIcon,
 	MagnifyingGlass,
 	Minus,
 	Plus,
@@ -31,6 +32,7 @@ import { SignUpToKeep } from '@/components/sign-up-to-keep'
 import { buttonVariants } from '@/components/ui/button'
 import { undoToast } from '@/components/undo-toast'
 import { addGroceries, listGroceries } from '@/lib/groceries/server'
+import { rememberKitchenView } from '@/lib/kitchen-view'
 import { categorySprites, filterCatalogItems } from '@/lib/pantry/catalog'
 import { findInPantry, foodOf } from '@/lib/pantry/foods'
 import {
@@ -73,6 +75,8 @@ const pantrySearch = z.object({
 	spot: z.enum(pantrySpots).optional().catch(undefined),
 	item: z.string().optional(),
 	shop: z.boolean().optional().catch(undefined),
+	// Which side is open: on hand, or the grocery list.
+	view: z.enum(['groceries']).optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/_app/kitchen/')({
@@ -161,7 +165,12 @@ function Pantry({
 	const navigate = useNavigate()
 	const router = useRouter()
 
-	const { spot, item: selectedId, shop } = Route.useSearch()
+	const { spot, item: selectedId, shop, view } = Route.useSearch()
+
+	// The tab reopens whichever side was open last.
+	useEffect(() => {
+		if (!shop) rememberKitchenView(view)
+	}, [shop, view])
 
 	// A removed item leaves the list at once, and the pantry only once its
 	// undo has passed.
@@ -279,10 +288,17 @@ function Pantry({
 
 	return (
 		<main className="flex-1">
-			<div className="flex max-w-3xl flex-col gap-7 p-6 pb-28 md:p-10">
+			<div className="flex max-w-3xl flex-col gap-4 p-6 pb-28 md:p-10">
 				{/* The sidebar says where you are; the page opens on its own controls. */}
 				<h1 className="sr-only">kitchen</h1>
-				{items.length === 0 ? (
+				<KitchenSwitch
+					view={view}
+					have={kept.length}
+					buy={list.filter((line) => !line.checkedAt).length}
+				/>
+				{view === 'groceries' ? (
+					<Need list={list} wanting={wanting} shopping={false} />
+				) : items.length === 0 ? (
 					<>
 						<section className="border-foreground/30 flex flex-col items-center gap-4 rounded-xl border border-dashed p-10 text-center">
 							<PantryPreview />
@@ -300,10 +316,6 @@ function Pantry({
 								stock up
 							</Link>
 						</section>
-						{/* A list kept before the kitchen is, still shows. */}
-						{list.length ? (
-							<Need list={list} wanting={wanting} shopping={false} />
-						) : null}
 					</>
 				) : (
 					<>
@@ -320,7 +332,6 @@ function Pantry({
 							matches={matches}
 							selectedId={selectedId}
 						/>
-						<Need list={list} wanting={wanting} shopping={false} />
 					</>
 				)}
 			</div>
@@ -356,16 +367,73 @@ function Pantry({
 	)
 }
 
+// The kitchen's two sides, side by side at its top: what it has, and the
+// grocery list of what it needs, each with its count. Each keeps its place,
+// so neither moves when the other grows.
+function KitchenSwitch({
+	view,
+	have,
+	buy,
+}: {
+	view: 'groceries' | undefined
+	have: number
+	buy: number
+}) {
+	const sides = [
+		{
+			key: 'have',
+			label: 'on hand',
+			mark: JarLabelIcon,
+			count: have,
+			picked: !view,
+		},
+		{
+			key: 'buy',
+			label: 'groceries',
+			mark: ToteSimpleIcon,
+			count: buy,
+			picked: view === 'groceries',
+		},
+	] as const
+
+	return (
+		<nav
+			aria-label="kitchen"
+			className="border-input grid grid-cols-2 overflow-hidden rounded-md border"
+		>
+			{sides.map(({ key, label, mark: Mark, count, picked }) => (
+				<Link
+					key={key}
+					to="/kitchen"
+					search={key === 'buy' ? { view: 'groceries' } : {}}
+					aria-current={picked ? 'page' : undefined}
+					className={cn(
+						'border-input flex min-h-11 items-center justify-center gap-2 px-3 text-sm font-bold transition-colors not-first:border-l',
+						picked ? 'bg-kitchen-yolk/30' : 'hover:bg-muted/60',
+					)}
+				>
+					<Mark size={18} weight={picked ? 'fill' : 'bold'} aria-hidden />
+					{label}
+					{count ? <CountPill count={count} /> : null}
+				</Link>
+			))}
+		</nav>
+	)
+}
+
 // A section's name, quiet, over what it holds, with room for one action. Its
 // mark says what kind of section it is at a glance down a long page.
 function SectionHeading({
 	id,
 	icon: Mark,
 	count,
+	named = true,
 	children,
 	action,
 }: {
 	id: string
+	// Said out loud only, where the kitchen's switch already names it.
+	named?: boolean
 	icon?: Icon | undefined
 	count?: number | undefined
 	children: React.ReactNode
@@ -375,12 +443,16 @@ function SectionHeading({
 		<div className="flex min-h-9 items-center justify-between gap-3">
 			<h2
 				id={id}
-				className="inline-flex items-center gap-2 text-base font-bold"
+				className={cn(
+					'inline-flex items-center gap-2 text-base font-bold',
+					named || 'sr-only',
+				)}
 			>
 				{Mark ? <Mark size={18} weight="bold" aria-hidden /> : null}
 				{children}
 				{count ? <CountPill count={count} /> : null}
 			</h2>
+			{named ? null : <div className="flex-1" />}
 			{action}
 		</div>
 	)
@@ -495,7 +567,9 @@ function Need({
 				<NeedNote line={line} kept={findInPantry(line.text, wanting)} />
 			)}
 			onShop={() => void navigate({ to: '/kitchen', search: { shop: true } })}
-			onDone={() => void navigate({ to: '/kitchen' })}
+			onDone={() =>
+				void navigate({ to: '/kitchen', search: { view: 'groceries' } })
+			}
 		>
 			{unlisted.length ? (
 				<div className="flex flex-wrap items-center gap-2">
@@ -602,8 +676,7 @@ function OnHand({
 		<section aria-labelledby="on-hand" className="flex flex-col gap-3">
 			<SectionHeading
 				id="on-hand"
-				icon={JarLabelIcon}
-				count={items.length}
+				named={false}
 				action={
 					<div className="flex items-center gap-2">
 						<button

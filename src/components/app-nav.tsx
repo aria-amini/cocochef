@@ -5,6 +5,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { AccountMenu, tabClassName } from '@/components/account-menu'
 import { AddRecipeMenu } from '@/components/add-recipe-menu'
 import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
+import { type KitchenView, useKitchenView } from '@/lib/kitchen-view'
 import { cn } from '@/lib/utils/ui'
 
 // Each tab's key is its path's name; the name on it says whose recipes the
@@ -157,6 +158,7 @@ export function AppNav() {
 }
 
 function Sidebar() {
+	const kitchenView = useKitchenView()
 	const tab = useActiveTab()
 
 	return (
@@ -182,7 +184,7 @@ function Sidebar() {
 				return (
 					<Link
 						key={to}
-						to={to}
+						{...tabTarget(to, kitchenView)}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
 							navFeedbackClassName,
@@ -247,11 +249,24 @@ function MobileHeader() {
 	)
 }
 
+// The kitchen reopens the side that was open last; every other tab opens
+// its page.
+function tabTarget(
+	to: (typeof navItems)[number]['to'],
+	kitchenView: KitchenView | undefined,
+) {
+	if (to === '/kitchen' && kitchenView)
+		return { to, search: { view: kitchenView } } as const
+
+	return { to } as const
+}
+
 // Thumb-reach navigation on phones: the two places you go. The recipes shelf
 // adds one round action for its one job.
 function TabBar() {
 	const mode = useTabBar()
 	const visible = useTabBarVisible()
+	const kitchenView = useKitchenView()
 	const tab = useActiveTab()
 
 	if (!visible) return null
@@ -268,7 +283,7 @@ function TabBar() {
 					return (
 						<Link
 							key={to}
-							to={to}
+							{...tabTarget(to, kitchenView)}
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,

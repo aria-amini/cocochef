@@ -6,7 +6,6 @@ import {
 	PencilSimpleIcon,
 	PlusIcon,
 	ShoppingCartIcon,
-	ToteSimpleIcon,
 	TrashIcon,
 	XIcon,
 } from '@phosphor-icons/react'
@@ -29,7 +28,6 @@ import {
 import { toast } from 'sonner'
 
 import { AmountBar } from '@/components/amount-bar'
-import { CountPill } from '@/components/count-pill'
 import { groceryCountKey } from '@/components/grocery-badge'
 import { useGroceryComposer } from '@/components/grocery-entry'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
@@ -455,14 +453,11 @@ export function GroceryList({
 	return (
 		<section aria-labelledby="need" className="flex flex-col gap-3">
 			<div className="flex min-h-9 flex-wrap items-center gap-2">
-				<h2
-					id="need"
-					className="inline-flex flex-1 items-center gap-2 text-base font-bold"
-				>
-					<ToteSimpleIcon size={18} weight="bold" aria-hidden />
+				{/* The kitchen's switch names the list; its name is said only. */}
+				<h2 id="need" className="sr-only">
 					groceries
-					{waiting.length ? <CountPill count={waiting.length} /> : null}
 				</h2>
+				<div className="flex-1" />
 				{editButton}
 				{waiting.length && !editing ? (
 					<button
