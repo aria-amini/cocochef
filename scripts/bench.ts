@@ -81,8 +81,8 @@ async function phoneContext(browser: Browser, session: Session) {
 		storageState: session,
 	})
 
-	// Keep runs out of analytics.
-	await context.route(/\/api\/ingest\//, (route) => route.abort())
+	// Keep runs out of error reporting, which goes through Sentry's tunnel.
+	await context.route(/\/api\/oven$/, (route) => route.abort())
 
 	await context.addInitScript(() => {
 		window.bench = { lcp: 0, hydrated: 0, longTasks: [], lastChange: 0 }
@@ -267,26 +267,25 @@ async function tap(
 }
 
 // A cook's loop: the shelf, a recipe and back, groceries, the pantry, home,
-// and the recipes tab again, which reopens the last recipe (a page seen).
+// then the shelf and the same recipe again (pages already seen).
 const tab = (name: string) => (page: Page) =>
 	page.getByRole('link', { name, exact: true }).locator('visible=true').first()
 
+const lentilSoup = (page: Page) =>
+	page
+		.getByRole('link', { name: /lentil soup/ })
+		.locator('visible=true')
+		.first()
+
 const journey: [string, ((page: Page) => Locator) | 'back', RegExp][] = [
 	['→ recipes', tab('recipes'), /\/recipes$/],
-	[
-		'→ a recipe',
-		(page) =>
-			page
-				.getByRole('link', { name: /lentil soup/ })
-				.locator('visible=true')
-				.first(),
-		/\/[^/]+\/lentil-soup$/,
-	],
+	['→ a recipe', lentilSoup, /\/[^/]+\/lentil-soup$/],
 	['← back', 'back', /\/recipes$/],
 	['→ groceries', tab('groceries'), /\/groceries$/],
 	['→ ingredients', tab('ingredients'), /\/ingredients$/],
 	['→ home', tab('home'), /\/$/],
-	['→ recipe again', tab('recipes'), /\/[^/]+\/lentil-soup$/],
+	['→ recipes again', tab('recipes'), /\/recipes$/],
+	['→ recipe again', lentilSoup, /\/[^/]+\/lentil-soup$/],
 ]
 
 function print(title: string, rows: Map<string, Row[]>) {
