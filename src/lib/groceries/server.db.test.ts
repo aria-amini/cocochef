@@ -134,7 +134,7 @@ describe('groceries', () => {
 		const renamed = await renameGroceryForUser(userId, second.id, 'paprika', db)
 		expect(renamed?.category).toBe('spices')
 
-		await clearCheckedGroceriesForUser(userId, db)
+		await clearCheckedGroceriesForUser(userId, [], db)
 		expect(
 			(await listGroceriesForUser(userId, db)).map((item) => item.text),
 		).toEqual(['paprika'])
@@ -143,7 +143,7 @@ describe('groceries', () => {
 		expect(await listGroceriesForUser(userId, db)).toEqual([])
 	})
 
-	describe('ticking puts food in the kitchen', () => {
+	describe('clearing the cart puts away what the cook picked', () => {
 		const levelOf = async (db: Database, userId: string, name: string) =>
 			(await listPantryForUser(userId, db)).find((item) => item.name === name)
 				?.level
@@ -160,11 +160,7 @@ describe('groceries', () => {
 			return added
 		}
 
-		test('fills a food the kitchen keeps, and an untick puts it back', async ({
-			db,
-		}) => {
-			const userId = await seedUser(db)
-
+		async function lowGarlic(db: Database, userId: string) {
 			const [garlic] = await createPantryItemsForUser(
 				userId,
 				[{ name: 'garlic', category: 'vegetables' }],
@@ -173,61 +169,57 @@ describe('groceries', () => {
 
 			if (!garlic) throw new Error('garlic was not kept')
 			await setPantryItemLevelForUser(userId, garlic.id, 'low', db)
-			const [line] = await lines(db, userId, ['garlic'])
+		}
 
-			await setGroceryCheckedForUser(userId, line!.id, true, db)
-			expect(await levelOf(db, userId, 'garlic')).toBe('plenty')
-
-			await setGroceryCheckedForUser(userId, line!.id, false, db)
-			expect(await levelOf(db, userId, 'garlic')).toBe('low')
-		})
-
-		test('keeps a new food, and an untick takes it away again', async ({
+		test('leaves the kitchen alone while things are only ticked', async ({
 			db,
 		}) => {
 			const userId = await seedUser(db)
-			const [line] = await lines(db, userId, ['basil'])
+			await lowGarlic(db, userId)
+			const [garlic, basil] = await lines(db, userId, ['garlic', 'basil'])
 
-			await setGroceryCheckedForUser(userId, line!.id, true, db)
-			expect(await levelOf(db, userId, 'basil')).toBe('plenty')
+			await setGroceryCheckedForUser(userId, garlic!.id, true, db)
+			await setGroceryCheckedForUser(userId, basil!.id, true, db)
 
-			await setGroceryCheckedForUser(userId, line!.id, false, db)
+			expect(await levelOf(db, userId, 'garlic')).toBe('low')
 			expect(await levelOf(db, userId, 'basil')).toBeUndefined()
 		})
 
-		test('keeps food two ticked lines filled until the last is unticked', async ({
+		test('tops up and adds only the picked lines, and clears every ticked one', async ({
 			db,
 		}) => {
 			const userId = await seedUser(db)
+			await lowGarlic(db, userId)
 
-			const [garlic] = await createPantryItemsForUser(
+			const [garlic, basil, parsley, onion] = await lines(db, userId, [
+				'garlic',
+				'basil',
+				'parsley',
+				'onion',
+			])
+
+			for (const line of [garlic, basil, parsley])
+				await setGroceryCheckedForUser(userId, line!.id, true, db)
+
+			const done = await clearCheckedGroceriesForUser(
 				userId,
-				[{ name: 'garlic', category: 'vegetables' }],
+				[garlic!.id, basil!.id, onion!.id],
 				db,
 			)
 
-			if (!garlic) throw new Error('garlic was not kept')
-			await setPantryItemLevelForUser(userId, garlic.id, 'low', db)
-
-			const [plain, cloves] = await lines(db, userId, [
-				'garlic',
-				'2 cloves garlic',
-			])
-
-			await setGroceryCheckedForUser(userId, plain!.id, true, db)
-			await setGroceryCheckedForUser(userId, cloves!.id, true, db)
-
-			// The first ticked comes out of the cart first: the other still fills it.
-			await setGroceryCheckedForUser(userId, plain!.id, false, db)
+			expect(done).toEqual({ cleared: 3, restocked: 1, added: 1 })
 			expect(await levelOf(db, userId, 'garlic')).toBe('plenty')
-
-			await setGroceryCheckedForUser(userId, cloves!.id, false, db)
-			expect(await levelOf(db, userId, 'garlic')).toBe('low')
+			expect(await levelOf(db, userId, 'basil')).toBe('plenty')
+			// Left out, it just leaves the list.
+			expect(await levelOf(db, userId, 'parsley')).toBeUndefined()
+			// Not ticked, so picking it does nothing and it stays to buy.
+			expect(await levelOf(db, userId, 'onion')).toBeUndefined()
+			expect(
+				(await listGroceriesForUser(userId, db)).map((item) => item.text),
+			).toEqual(['onion'])
 		})
 
-		test('keeps a new food two ticked lines made until the last is unticked', async ({
-			db,
-		}) => {
+		test('makes one item of two lines for the same food', async ({ db }) => {
 			const userId = await seedUser(db)
 
 			const [plain, cloves] = await lines(db, userId, [
@@ -237,17 +229,13 @@ describe('groceries', () => {
 
 			await setGroceryCheckedForUser(userId, plain!.id, true, db)
 			await setGroceryCheckedForUser(userId, cloves!.id, true, db)
+			await clearCheckedGroceriesForUser(userId, [plain!.id, cloves!.id], db)
+
 			expect(
 				(await listPantryForUser(userId, db)).filter(
 					(item) => item.name === 'garlic',
 				),
 			).toHaveLength(1)
-
-			await setGroceryCheckedForUser(userId, plain!.id, false, db)
-			expect(await levelOf(db, userId, 'garlic')).toBe('plenty')
-
-			await setGroceryCheckedForUser(userId, cloves!.id, false, db)
-			expect(await levelOf(db, userId, 'garlic')).toBeUndefined()
 		})
 	})
 })

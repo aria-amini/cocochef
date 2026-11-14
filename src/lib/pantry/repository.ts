@@ -297,7 +297,7 @@ export async function deletePantryItemForUser(
 export async function restockPantryForUser(
 	userId: string,
 	bought: { text: string; category: PantryCategory }[],
-	database: Database = getDb(),
+	database: Queryable = getDb(),
 ) {
 	const pantry = await listPantryForUser(userId, database)
 	const restocked = new Set<string>()
@@ -314,7 +314,8 @@ export async function restockPantryForUser(
 		if (findInPantry(line, fresh)) continue
 
 		fresh.push({
-			name: pantryNameOf(line),
+			// A grocery line may run longer than a pantry name can.
+			name: pantryNameOf(line).slice(0, 80).trim(),
 			category: foodOf(line)?.category ?? category,
 		})
 	}

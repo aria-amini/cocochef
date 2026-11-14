@@ -1,13 +1,17 @@
-import { and, asc, count, eq, isNotNull, isNull, ne } from 'drizzle-orm'
+import {
+	and,
+	asc,
+	count,
+	eq,
+	inArray,
+	isNotNull,
+	isNull,
+	ne,
+} from 'drizzle-orm'
 
 import { type Database, getDb, type Queryable } from '@/db/connection'
 import { groceryItems, pantryItems, type StockedWas } from '@/db/schema'
-import { pantryNameOf } from '@/lib/groceries/list'
-import { findInPantry, foodOf } from '@/lib/pantry/foods'
-import {
-	createPantryItemsForUser,
-	listPantryForUser,
-} from '@/lib/pantry/repository'
+import { restockPantryForUser } from '@/lib/pantry/repository'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 
 import {
@@ -107,7 +111,7 @@ export async function setGroceryCheckedForUser(
 		if (!line) return null
 
 		// Ticked twice, or unticked twice, changes nothing more.
-		if (!!line.checkedAt === checked) return { item: line, stocked: null }
+		if (!!line.checkedAt === checked) return { item: line }
 
 		if (!checked) {
 			if (line.stockedId) {
@@ -147,64 +151,24 @@ export async function setGroceryCheckedForUser(
 				.where(eq(groceryItems.id, id))
 				.returning()
 
-			return { item: item ?? line, stocked: null }
+			return { item: item ?? line }
 		}
 
-		const now = new Date()
-		const pantry = await listPantryForUser(userId, tx)
-		const kept = findInPantry(line.text, pantry)
-
-		const stocked = kept
-			? await tx
-					.update(pantryItems)
-					.set({
-						level: 'plenty',
-						quantity: null,
-						confirmedAt: now,
-						boughtAt: now,
-					})
-					.where(eq(pantryItems.id, kept.id))
-					.returning()
-					.then(([row]) => row)
-			: (
-					await createPantryItemsForUser(
-						userId,
-						[
-							{
-								name: pantryNameOf(line.text),
-								category: foodOf(line.text)?.category ?? line.category,
-							},
-						],
-						tx,
-					)
-				)[0]
-
+		// A tick only means it is in the cart; the kitchen hears about it when
+		// the cart is cleared and the cook says what to put away.
 		const [item] = await tx
 			.update(groceryItems)
-			.set({
-				checkedAt: now,
-				stockedId: stocked?.id ?? null,
-				stockedWas: kept
-					? {
-							level: kept.level,
-							quantity: kept.quantity,
-							confirmedAt: kept.confirmedAt.toISOString(),
-							boughtAt: kept.boughtAt.toISOString(),
-						}
-					: null,
-			})
+			.set({ checkedAt: new Date() })
 			.where(eq(groceryItems.id, id))
 			.returning()
 
-		return {
-			item: item ?? line,
-			stocked: stocked ? { name: stocked.name, created: !kept } : null,
-		}
+		return { item: item ?? line }
 	})
 }
 
 // A pantry item back as it stood before a tick filled it, or gone if the
-// tick made it.
+// tick made it. Ticks no longer fill the pantry, but lines ticked before
+// that changed still remember what they filled.
 async function putBack(
 	userId: string,
 	pantryId: string,
@@ -258,13 +222,51 @@ export async function deleteGroceryForUser(
 		.where(and(eq(groceryItems.id, id), eq(groceryItems.userId, userId)))
 }
 
+// The cart put away: the lines the cook picked go into the pantry, topping
+// up what is there or adding what is not, and every ticked line leaves the
+// list. A line that already filled the pantry when it was ticked is not
+// counted twice.
 export async function clearCheckedGroceriesForUser(
 	userId: string,
+	stock: string[],
 	database: Database = getDb(),
 ) {
-	await database
-		.delete(groceryItems)
-		.where(
-			and(eq(groceryItems.userId, userId), isNotNull(groceryItems.checkedAt)),
+	return database.transaction(async (tx) => {
+		const ticked = await tx
+			.select()
+			.from(groceryItems)
+			.where(
+				and(eq(groceryItems.userId, userId), isNotNull(groceryItems.checkedAt)),
+			)
+			// Locked, so two clears at once cannot both put the same line away.
+			.for('update')
+
+		const picked = new Set(stock)
+
+		const bought = ticked.filter(
+			(line) => picked.has(line.id) && !line.stockedId,
 		)
+
+		const stocked = bought.length
+			? await restockPantryForUser(
+					userId,
+					bought.map(({ text, category }) => ({ text, category })),
+					tx,
+				)
+			: { restocked: 0, added: 0 }
+
+		// Only the lines read above: one ticked meanwhile was never offered.
+		if (ticked.length)
+			await tx.delete(groceryItems).where(
+				and(
+					eq(groceryItems.userId, userId),
+					inArray(
+						groceryItems.id,
+						ticked.map((line) => line.id),
+					),
+				),
+			)
+
+		return { cleared: ticked.length, ...stocked }
+	})
 }
