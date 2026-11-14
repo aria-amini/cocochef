@@ -43,6 +43,7 @@ export const Route = createFileRoute('/_app/recipes/')({
 	// The shelf floats its own add button once its add tile scrolls away.
 	staticData: { tabBar: 'own-fab' },
 	loader: () => listShelf(),
+	head: () => ({ meta: [{ title: 'my recipes · cocochef' }] }),
 	component: Shelf,
 })
 

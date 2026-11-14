@@ -94,6 +94,7 @@ export const Route = createFileRoute('/_app/kitchen/')({
 
 		return pantry && groceries ? { pantry, groceries } : null
 	},
+	head: () => ({ meta: [{ title: 'kitchen · cocochef' }] }),
 	component: PantryPage,
 })
 

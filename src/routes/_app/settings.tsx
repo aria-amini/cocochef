@@ -24,6 +24,7 @@ import { getAvatarUploadUrl, getAvatarUrl } from '@/lib/s3'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/settings')({
+	head: () => ({ meta: [{ title: 'settings · cocochef' }] }),
 	component: Profile,
 })
 
