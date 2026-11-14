@@ -173,8 +173,10 @@ function Sidebar() {
 				className="mb-6 flex w-full shrink-0 items-center gap-2 rounded-md border border-transparent py-2 text-sm font-bold whitespace-nowrap"
 			>
 				<img
-					src="/icon-192.png"
+					src="/logo.webp"
 					alt=""
+					width={96}
+					height={96}
 					className="size-7 shrink-0 rounded-md"
 				/>
 				cocochef
@@ -239,8 +241,10 @@ function MobileHeader() {
 				className="flex min-h-11 items-center gap-2 rounded-md text-sm font-bold"
 			>
 				<img
-					src="/icon-192.png"
+					src="/logo.webp"
 					alt=""
+					width={96}
+					height={96}
 					className="size-7 shrink-0 rounded-md"
 				/>
 				cocochef

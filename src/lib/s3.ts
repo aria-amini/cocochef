@@ -63,9 +63,22 @@ export const resolveStoredImage = createServerOnlyFn(
 
 		const command = new GetObjectCommand({ Bucket: bucket, Key: image })
 
-		return getSignedUrl(client, command, { expiresIn: 60 * 60 })
+		return getSignedUrl(client, command, readSigningWindow())
 	},
 )
+
+const hour = 60 * 60 * 1000
+
+// A read URL signed at "now" changes every second, so the browser downloads
+// the same avatar again on every page. Signing from the start of the hour
+// gives one URL for the whole hour; two hours of life keeps the URL that was
+// signed at the hour's last moment good for at least another hour.
+function readSigningWindow(now = Date.now()) {
+	return {
+		signingDate: new Date(Math.floor(now / hour) * hour),
+		expiresIn: (2 * hour) / 1000,
+	}
+}
 
 // An uploaded photo's bytes, or null when there is no such photo.
 export const readStoredPhoto = createServerOnlyFn(async (key: string) => {

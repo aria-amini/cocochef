@@ -55,7 +55,7 @@ function Home() {
 							media="(prefers-reduced-motion: reduce)"
 						/>
 						<img
-							src="/chef-cat.png"
+							src="/chef-cat.webp"
 							alt=""
 							width={310}
 							height={320}
