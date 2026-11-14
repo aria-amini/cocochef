@@ -426,12 +426,20 @@ export function FinderPanel({
 	const popular = useQuery({
 		queryKey: ['popular-recipes'],
 		queryFn: () => popularRecipes(),
-		enabled: trimmed === '' && ratingSort === undefined,
+		enabled: trimmed === '' && ratingSort === undefined && !hasPicks(picks),
 	})
 
-	// Words, or a sort by rating with or without them, search everything.
-	const searching = !url && (trimmed !== '' || ratingSort !== undefined)
-	const online = useOnlineRecipes(searching ? trimmed : undefined, ratingSort)
+	// Words, a sort by rating, or a picked meal part search everything: the
+	// server narrows every recipe by the picks, not only those on screen.
+	const searching =
+		!url && (trimmed !== '' || ratingSort !== undefined || hasPicks(picks))
+
+	const online = useOnlineRecipes(
+		searching ? trimmed : undefined,
+		ratingSort,
+		picks,
+	)
+
 	const shelfRecipes = shelf.data?.recipes ?? []
 
 	const options: Option[] = []
@@ -559,20 +567,31 @@ export function FinderPanel({
 			section('', [{ kind: 'write', title: trimmed }])
 	}
 
-	// Within the picked site, so a part is offered only if picking it leaves
-	// something on that site.
-	const partCounts = countParts(
-		[
-			...new Map(
-				pool.flatMap((recipe): [string, FoundRecipe][] =>
-					onSites(recipe) && ofTypes(recipe) && ofTemps(recipe)
-						? [[recipe.recipeId ?? recipe.url ?? recipe.title, recipe]]
-						: [],
-				),
-			).values(),
-		].flatMap((recipe) => tagsOf(recipe) ?? []),
-		picks,
-	)
+	// What all of cocochef holds, as the server counted it, so a part few
+	// recipes have is still offered. The site, course and temperature filters
+	// work on the list alone, so with one picked, the parts are counted within
+	// the picked site, so a part is offered only if picking it leaves
+	// something there.
+	const serverCounts = searching ? online.counts : popular.data?.counts
+
+	const partCounts =
+		serverCounts &&
+		sites.length === 0 &&
+		types.length === 0 &&
+		temps.length === 0
+			? serverCounts
+			: countParts(
+					[
+						...new Map(
+							pool.flatMap((recipe): [string, FoundRecipe][] =>
+								onSites(recipe) && ofTypes(recipe) && ofTemps(recipe)
+									? [[recipe.recipeId ?? recipe.url ?? recipe.title, recipe]]
+									: [],
+							),
+						).values(),
+					].flatMap((recipe) => tagsOf(recipe) ?? []),
+					picks,
+				)
 
 	// The sites the list holds, with the other picks, most recipes first; the
 	// one picked stays offered so it can be taken off.

@@ -47,6 +47,31 @@ async function savedTags(database: Database) {
 const tagsFor = (tags: Saved, key: string, title: string) =>
 	tags.has(key) ? tags.get(key) : mealTags(title)
 
+// A failed read leaves search working on title words, and the next search
+// tries the table again.
+async function savedTagsOrNone(database: Database): Promise<Saved> {
+	try {
+		return await savedTags(database)
+	} catch (error) {
+		console.error(
+			`meal tags unavailable: ${error instanceof Error ? error.message : 'unknown error'}`,
+		)
+
+		return new Map()
+	}
+}
+
+// The parts each recipe (by meal tag key) was tagged with; undefined for what
+// isn't a meal.
+export async function mealTagsByKey(
+	recipes: readonly { key: string; title: string }[],
+	database: Database = getDb(),
+) {
+	const tags = await savedTagsOrNone(database)
+
+	return recipes.map((recipe) => tagsFor(tags, recipe.key, recipe.title))
+}
+
 // Found recipes with the parts they were tagged with, for the search box's
 // bubbles: null for what isn't a meal.
 export async function withMealTags<
@@ -56,18 +81,7 @@ export async function withMealTags<
 		title: string
 	},
 >(found: T[], database: Database = getDb()) {
-	// A failed read leaves search working on title words, and the next search
-	// tries the table again.
-	let tags: Saved
-
-	try {
-		tags = await savedTags(database)
-	} catch (error) {
-		console.error(
-			`meal tags unavailable: ${error instanceof Error ? error.message : 'unknown error'}`,
-		)
-		tags = new Map()
-	}
+	const tags = await savedTagsOrNone(database)
 
 	return found.map((recipe) => ({
 		...recipe,
