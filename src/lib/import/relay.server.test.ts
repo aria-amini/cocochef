@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vite-plus/test'
+import { afterEach, describe, expect, test, vi } from 'vite-plus/test'
 import { z } from 'zod'
 
 import { fetchViaRelay } from './fetch'
@@ -111,6 +111,7 @@ describe('relay client', () => {
 
 	test('gives up quietly when the relay refuses, is down, or has the wrong token', async () => {
 		const base = await start(async () => null)
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
 		expect(
 			await fetchViaRelay('https://example.com/r', { url: base, token }),
@@ -129,5 +130,11 @@ describe('relay client', () => {
 				token,
 			}),
 		).toBeNull()
+		// A relay that is down is worth a line in the server log, not a throw.
+		expect(warn).toHaveBeenCalledWith(
+			'recipe relay failed:',
+			expect.any(String),
+		)
+		warn.mockRestore()
 	})
 })

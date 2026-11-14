@@ -147,6 +147,29 @@ const kept = (
 	confirmedAt: new Date('2026-03-02T12:00:00Z'),
 })
 
+// A published recipe moves to its public page; these tests check only the
+// address, so that page's loader answers here rather than asking a server.
+vi.mock('@/lib/sharing/server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/sharing/server')>()),
+	readRecipeAt: async () => null,
+	readWebRecipe: async () => ({
+		id: 'recipe-1',
+		title: 'miso butter pasta',
+		imageUrl: null,
+		sourceUrl: null,
+		sourceNotes: null,
+		servings: null,
+		totalMinutes: null,
+		prepMinutes: null,
+		ratingValue: null,
+		ratingCount: null,
+		commentCount: null,
+		ingredients: ['pasta'],
+		steps: ['boil'],
+		publisher: { handle: 'example', displayName: 'Example' },
+	}),
+}))
+
 vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	// Copies, as the server sends, so a change shows up after a refetch.
@@ -183,7 +206,8 @@ vi.mock('@/lib/groceries/server', () => ({
 	clearCheckedGroceries: vi.fn(),
 }))
 
-vi.mock('@/lib/s3', () => ({
+vi.mock('@/lib/s3', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/s3')>()),
 	getRecipePhotoUploadUrl: () =>
 		Promise.resolve({
 			key: 'recipes/user-1-photo',

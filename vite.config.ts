@@ -48,12 +48,20 @@ export default defineToolkit({
 		},
 	},
 	config: {
+		test: {
+			// Outside a terminal (CI, an agent's command view) a reporter that
+			// redraws in place prints each redraw again, so each test gets one
+			// line there instead, as it finishes.
+			reporters: process.stdout.isTTY
+				? ['default']
+				: [['verbose', { summary: false }]],
+			// Browser tests run with reduced motion on purpose, and Framer Motion
+			// says so once per page; nothing to act on.
+			onConsoleLog: (log: string) =>
+				!log.includes('You have Reduced Motion enabled on your device'),
+		},
 		fmt: {
-			ignorePatterns: (preset) => [
-				...preset,
-				'src/db/migrations/**',
-				'src/lib/discover/catalog.json',
-			],
+			ignorePatterns: (preset) => [...preset, 'src/db/migrations/**'],
 		},
 		lint: {
 			rules: {

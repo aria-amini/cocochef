@@ -64,7 +64,10 @@ vi.mock('@/lib/discover/server', () => ({
 	popularRecipes: () => Promise.resolve({ results: [] }),
 }))
 
-vi.mock('@/lib/recipes/server', () => ({
+vi.mock('@/lib/recipes/server', async (importOriginal) => ({
+	// The rest stay real, so a lazy import such as the transfer menu finds its
+	// exports.
+	...(await importOriginal<typeof import('@/lib/recipes/server')>()),
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
