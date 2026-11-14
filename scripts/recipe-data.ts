@@ -10,9 +10,12 @@ import { crawlRecipeSite } from '../src/lib/discover/crawl'
 import { spreadEvenly, validLinks } from '../src/lib/discover/recipe-index'
 import { recipeSites } from '../src/lib/discover/sites'
 
-const command = process.argv[2]
+// `vp run` passes its own `--` along.
+const [command, limitArg, sitesArg] = process.argv
+	.slice(2)
+	.filter((arg) => arg !== '--')
 
-const limit = Number(process.argv[3] ?? (command === 'index' ? 5000 : 200))
+const limit = Number(limitArg ?? (command === 'index' ? 5000 : 200))
 
 if (!Number.isSafeInteger(limit) || limit < 1 || limit > 20000)
 	throw new Error('Limit must be between 1 and 20000.')
@@ -90,8 +93,15 @@ if (command === 'index') {
 	await rename(temp, catalogPath)
 	console.log(`${written.length} recipe links written to ${catalogPath}`)
 } else if (command === 'seed') {
-	// Full recipes are collected only from Good Food, directly, never via the home relay.
-	// Reruns reuse the on-disk cache and existing shared source URLs.
+	// Full recipes are collected directly, never via the home relay: up to the
+	// limit from each named site (Good Food unless sites are named). Reruns
+	// reuse the on-disk cache and existing shared source URLs.
+	const siteIds = (sitesArg ?? 'bbcgoodfood').split(',')
+
+	for (const id of siteIds)
+		if (!recipeSites.some((site) => site.id === id))
+			throw new Error(`Unknown site: ${id}`)
+
 	const { parseRecipe } = await import('../src/lib/import/parse')
 
 	const { clampRecipeTitle, recipeInput } =
@@ -148,19 +158,25 @@ if (command === 'index') {
 		at: new Date().toISOString(),
 	})
 
-	const links = validLinks(
-		JSON.parse(await readFile(catalogPath, 'utf8')),
-	).filter((link) => link.siteId === 'bbcgoodfood')
+	const links = validLinks(JSON.parse(await readFile(catalogPath, 'utf8')))
 
-	const selected = spreadEvenly(links, limit)
+	// A site that says no stops only its own turn.
+	const selected = siteIds.flatMap((id) =>
+		spreadEvenly(
+			links.filter((link) => link.siteId === id),
+			limit,
+		),
+	)
 
 	await mkdir(pagesDir, { recursive: true })
 	let seeded = 0
 	let skipped = 0
-	let blocked: string | undefined
+	const blocked = new Map<string, string>()
 
 	try {
 		for (const link of selected) {
+			if (blocked.has(link.siteId)) continue
+
 			const sourceUrl = canonicalRecipeUrl(link.url)
 
 			try {
@@ -255,8 +271,8 @@ if (command === 'index') {
 				if (error instanceof PersistenceError) throw error
 
 				if (error instanceof BlockedError) {
-					blocked = error.message
-					break
+					blocked.set(link.siteId, error.message)
+					continue
 				}
 
 				skipped++
@@ -267,8 +283,8 @@ if (command === 'index') {
 			`${seeded} recipes ready; ${skipped} unavailable. Cache: ${pagesDir}`,
 		)
 
-		if (blocked) {
-			console.error(`Stopped early: ${blocked}. Wait before running again.`)
+		for (const reason of blocked.values()) {
+			console.error(`Stopped early: ${reason}. Wait before running again.`)
 			process.exitCode = 1
 		}
 	} finally {
@@ -276,6 +292,6 @@ if (command === 'index') {
 	}
 } else {
 	throw new Error(
-		'Usage: vpx scripts/recipe-data.ts index [per-site limit] | seed [recipe count]',
+		'Usage: vpx scripts/recipe-data.ts index [per-site limit] | seed [recipes per site] [site,site…]',
 	)
 }
