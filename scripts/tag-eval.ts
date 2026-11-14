@@ -114,6 +114,19 @@ async function samples(): Promise<Sample[]> {
 		onlyNew ? [model] : [],
 	)
 
+	// With `new`, a sampled page this model already tagged is skipped too, so
+	// its title alone never replaces tags read from its ingredients.
+	const tagged = new Set(
+		onlyNew
+			? (
+					await client.query<{ key: string }>(
+						'select key from meal_tags where model = $1',
+						[model],
+					)
+				).rows.map((row) => row.key)
+			: [],
+	)
+
 	await client.end()
 
 	// A fixed spread through the catalog, so reruns compare the same pages.
@@ -137,12 +150,14 @@ async function samples(): Promise<Sample[]> {
 
 	return [
 		...rows.map((row) => ({ ...row, from: 'read page' })),
-		...picked.map((link) => ({
-			key: link.url,
-			title: link.title,
-			ingredients: [],
-			from: 'title only',
-		})),
+		...picked
+			.filter((link) => !tagged.has(link.url))
+			.map((link) => ({
+				key: link.url,
+				title: link.title,
+				ingredients: [],
+				from: 'title only',
+			})),
 	]
 }
 

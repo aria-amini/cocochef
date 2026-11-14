@@ -122,27 +122,10 @@ const mealPicks = z
 	.object({ cuisine: names, protein: names, form: names })
 	.default({})
 
-// What the bubbles count: every tagged meal among `matches`, not only the
-// part of them a list shows.
-async function countsOf(
-	matches: readonly { key: string; title: string }[],
-	picks: MealPicks,
-) {
-	const tags = await mealTagsByKey(matches)
-
-	return {
-		tags,
-		counts: countParts(
-			tags.flatMap((t) => t ?? []),
-			picks,
-		),
-	}
-}
-
 // The first `limit` recipes a search matches once the meal picks narrow them,
-// and how many of all its matches each bubble would leave. The picks narrow
-// every match, so a cuisine few recipes have is found however far down the
-// list they sit.
+// and the meals among all its matches, for the bubbles to count. The picks
+// narrow every match, so a cuisine few recipes have is found however far down
+// the list they sit.
 async function narrowedSearch(
 	userId: string,
 	search: RecipeSearch,
@@ -150,7 +133,7 @@ async function narrowedSearch(
 	limit: number,
 ) {
 	const matches = await findVisibleRecipeKeys(userId, search)
-	const { tags, counts } = await countsOf(matches, picks)
+	const tags = await mealTagsByKey(matches)
 
 	const kept = hasPicks(picks)
 		? matches.filter((_, index) => {
@@ -166,7 +149,17 @@ async function narrowedSearch(
 		kept.slice(0, limit).map((match) => match.id),
 	)
 
-	return { found, counts }
+	return { found, meals: tags.flatMap((meal) => meal ?? []) }
+}
+
+// The meals among site pages nobody has brought in, by their saved tags or
+// their titles' words, as the list shows them.
+async function mealsOfPages(pages: readonly RecipeLink[]) {
+	const tags = await mealTagsByKey(
+		pages.map((page) => ({ key: page.url, title: page.title })),
+	)
+
+	return tags.flatMap((meal) => meal ?? [])
 }
 
 // Every recipe this user could cook or start from. Recipes in cocochef come
@@ -193,14 +186,26 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 		const asked =
 			data.q !== '' || data.sort !== undefined || hasPicks(data.picks)
 
-		const { found, counts } = asked
+		const { found, meals } = asked
 			? await narrowedSearch(
 					userId,
 					{ query: data.q, sort: data.sort },
 					data.picks,
 					data.sort !== undefined ? 120 : 80,
 				)
-			: { found: [], counts: undefined }
+			: { found: [], meals: [] }
+
+		const { links, warming } = recipeIndex()
+
+		const pages =
+			data.sort === undefined
+				? await notYetShared(searchRecipeLinks(links, data.q, 120))
+				: []
+
+		// Every match the list could show counts, the site pages after it too.
+		const counts = asked
+			? countParts([...meals, ...(await mealsOfPages(pages))], data.picks)
+			: undefined
 
 		// Uploaded photos are stored as bucket keys; clients need a fetchable URL.
 		const images = await Promise.all(
@@ -210,8 +215,6 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 					: Promise.resolve(null),
 			),
 		)
-
-		const { links, warming } = recipeIndex()
 
 		return {
 			warming,
@@ -230,10 +233,7 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 						draft: recipe.owned && !recipe.finalizedAt,
 						ingredientMatches: recipe.ingredientMatches,
 					})),
-					...(data.sort === undefined
-						? await notYetShared(searchRecipeLinks(links, data.q, 120))
-						: []
-					).map(fromLink),
+					...pages.map(fromLink),
 				]),
 			),
 		}
@@ -251,8 +251,10 @@ export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 		const shared = await popularSharedRecipes(userId, popularLimit)
 
 		// The bubbles offer what all of cocochef holds, not only these few.
-		const { counts } = await countsOf(
-			await findVisibleRecipeKeys(userId, { query: '' }),
+		const counts = countParts(
+			(
+				await mealTagsByKey(await findVisibleRecipeKeys(userId, { query: '' }))
+			).flatMap((meal) => meal ?? []),
 			{},
 		)
 

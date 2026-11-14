@@ -568,30 +568,28 @@ export function FinderPanel({
 	}
 
 	// What all of cocochef holds, as the server counted it, so a part few
-	// recipes have is still offered. The site, course and temperature filters
-	// work on the list alone, so with one picked, the parts are counted within
-	// the picked site, so a part is offered only if picking it leaves
-	// something there.
+	// recipes have is still offered. The server knows nothing of the site,
+	// course and temperature filters, which work on the list alone, so its
+	// counts ignore them: a part may then leave nothing on the picked site,
+	// which the list says. The list holds only what the picks kept, so it
+	// can't count the other parts. Until the server answers, the list counts,
+	// within the picked site.
 	const serverCounts = searching ? online.counts : popular.data?.counts
 
 	const partCounts =
-		serverCounts &&
-		sites.length === 0 &&
-		types.length === 0 &&
-		temps.length === 0
-			? serverCounts
-			: countParts(
-					[
-						...new Map(
-							pool.flatMap((recipe): [string, FoundRecipe][] =>
-								onSites(recipe) && ofTypes(recipe) && ofTemps(recipe)
-									? [[recipe.recipeId ?? recipe.url ?? recipe.title, recipe]]
-									: [],
-							),
-						).values(),
-					].flatMap((recipe) => tagsOf(recipe) ?? []),
-					picks,
-				)
+		serverCounts ??
+		countParts(
+			[
+				...new Map(
+					pool.flatMap((recipe): [string, FoundRecipe][] =>
+						onSites(recipe) && ofTypes(recipe) && ofTemps(recipe)
+							? [[recipe.recipeId ?? recipe.url ?? recipe.title, recipe]]
+							: [],
+					),
+				).values(),
+			].flatMap((recipe) => tagsOf(recipe) ?? []),
+			picks,
+		)
 
 	// The sites the list holds, with the other picks, most recipes first; the
 	// one picked stays offered so it can be taken off.
