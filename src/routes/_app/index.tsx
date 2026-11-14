@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { FinderPanel, type FinderFilters } from '@/components/recipe-finder'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { buttonVariants } from '@/components/ui/button'
+import { popularRecipes } from '@/lib/discover/server'
 import { homeNow } from '@/lib/home/server'
 import { cn } from '@/lib/utils/ui'
 
@@ -15,7 +16,21 @@ export const Route = createFileRoute('/_app/')({
 	validateSearch: z.object({
 		q: z.string().max(200).optional().catch(undefined),
 	}),
-	loader: () => homeNow(),
+	loaderDeps: ({ search }) => ({ q: search.q }),
+	// On a first load the list home opens on comes with the page, drawn by the
+	// server. In the app, home opens without waiting for it: the finder reads
+	// it as it always has. A search asked for reads its own results instead.
+	loader: async ({ deps }) => {
+		const [now, popular] = await Promise.all([
+			homeNow(),
+			deps.q || typeof window !== 'undefined'
+				? undefined
+				: // Only a head start: if it fails, the finder asks for it again.
+					popularRecipes().catch(() => undefined),
+		])
+
+		return { now, popular }
+	},
 	component: Home,
 })
 
@@ -31,7 +46,7 @@ function partOfDay(hour: number) {
 // What the cook is in the middle of leads: a recipe still cooking, then a
 // shop under way. Finding something to cook is below.
 function Home() {
-	const now = Route.useLoaderData()
+	const { now } = Route.useLoaderData()
 	// The cook's own clock, read once.
 	const [today] = useState(() => new Date())
 	// What narrows the search: a rating, parts of a meal, a site.
@@ -206,6 +221,8 @@ function Finder({
 	filters: FinderFilters
 	onFilters: (filters: FinderFilters) => void
 }) {
+	const { popular } = Route.useLoaderData()
+
 	const input = useRef<HTMLInputElement>(null)
 	const { q } = Route.useSearch()
 
@@ -217,7 +234,7 @@ function Finder({
 				inputRef={input}
 				defaultQuery={q ?? ''}
 				close={() => undefined}
-				inline={{ filters, onFilters, focus: q !== undefined }}
+				inline={{ filters, onFilters, focus: q !== undefined, popular }}
 			/>
 		</div>
 	)

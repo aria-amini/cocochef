@@ -10,7 +10,12 @@ import {
 	PlusIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import {
+	createFileRoute,
+	Link,
+	useHydrated,
+	useRouter,
+} from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
 	createContext,
@@ -172,16 +177,21 @@ function Shelf() {
 
 	const account = authClient.useSession().data?.user
 	const reduce = useReducedMotion()
+	// Rises in when opened from another page. A first load shows at once:
+	// rendered on the server, it would otherwise stay invisible until the
+	// page's code arrived to start the rise.
+	const hydrated = useHydrated()
 	const [addTile, tileInView] = useInView()
 	const selection = useSelection()
 
-	const enter = reduce
-		? {}
-		: {
-				initial: { opacity: 0, y: 24 },
-				animate: { opacity: 1, y: 0 },
-				transition: { duration: 0.6, ease },
-			}
+	const enter =
+		reduce || !hydrated
+			? {}
+			: {
+					initial: { opacity: 0, y: 24 },
+					animate: { opacity: 1, y: 0 },
+					transition: { duration: 0.6, ease },
+				}
 
 	const mine = (recipe: Recipe) => !!account && recipe.userId === account.id
 

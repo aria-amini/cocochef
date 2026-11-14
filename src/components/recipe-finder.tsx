@@ -273,6 +273,9 @@ export type InlineFinder = {
 	onFilters: (filters: FinderFilters) => void
 	// Whether the search was asked for, and wants the keyboard.
 	focus?: boolean | undefined
+	// The list before anything is asked, read with the page, so it is drawn
+	// on the server instead of fetched once the page's code runs.
+	popular?: Awaited<ReturnType<typeof popularRecipes>> | undefined
 }
 
 export function FinderPanel({
@@ -429,6 +432,9 @@ export function FinderPanel({
 	const popular = useQuery({
 		queryKey: ['popular-recipes'],
 		queryFn: () => popularRecipes(),
+		initialData: inline?.popular,
+		// What the server drew is not asked for again as the page wakes up.
+		staleTime: inline?.popular ? 30_000 : 0,
 		enabled: trimmed === '' && ratingSort === undefined && !hasPicks(picks),
 	})
 

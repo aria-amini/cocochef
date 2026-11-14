@@ -30,6 +30,11 @@ vi.mock('@/lib/home/server', () => ({
 	}),
 }))
 
+vi.mock('@/lib/discover/server', () => ({
+	popularRecipes: async () => ({ warming: false, results: [] }),
+	searchRecipes: async () => ({ warming: false, results: [] }),
+}))
+
 vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	listPantry: async () => [],
