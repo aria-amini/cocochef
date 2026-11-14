@@ -106,8 +106,6 @@ const misoButterPasta: Recipe = {
 	notes: null,
 	createdAt: new Date(),
 	finalizedAt: new Date(),
-	cookCount: 0,
-	lastCookedAt: null,
 	forkedFromId: null,
 	savedAt: new Date(),
 }
@@ -130,8 +128,6 @@ const dal: Recipe = {
 	notes: null,
 	createdAt: new Date(),
 	finalizedAt: new Date(),
-	cookCount: 0,
-	lastCookedAt: null,
 	forkedFromId: null,
 	savedAt: new Date(),
 }

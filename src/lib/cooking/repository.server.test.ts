@@ -4,9 +4,9 @@ import {
 	test,
 	type Database,
 } from '@tests/support/fixtures/db'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
-import { mealLogs, recipes, user } from '@/db/schema'
+import { recipes, user } from '@/db/schema'
 import {
 	createRecipeForUser,
 	updateRecipeForUser,
@@ -101,14 +101,6 @@ describe('server cooking progress', () => {
 			),
 		)
 		expect(await getCookingForUser(userId, recipeId, db)).toBeNull()
-		expect(
-			await db
-				.select()
-				.from(mealLogs)
-				.where(
-					and(eq(mealLogs.userId, userId), eq(mealLogs.recipeId, recipeId)),
-				),
-		).toHaveLength(0)
 	})
 
 	test('counts and ticks the sub-steps of a step, not the step that holds them', async ({

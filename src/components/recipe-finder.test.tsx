@@ -120,8 +120,6 @@ function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 		notes: null,
 		createdAt: new Date(),
 		finalizedAt: new Date(),
-		cookCount: 0,
-		lastCookedAt: null,
 		forkedFromId: null,
 		savedAt: new Date(),
 		visibility: null,
@@ -139,10 +137,7 @@ function found(extra: Partial<FoundRecipe> & { title: string }): FoundRecipe {
 	}
 }
 
-const miso = shelfRecipe('recipe-1', 'miso butter pasta', {
-	cookCount: 3,
-	lastCookedAt: new Date(),
-})
+const miso = shelfRecipe('recipe-1', 'miso butter pasta')
 
 const dal = shelfRecipe('recipe-2', 'dal')
 

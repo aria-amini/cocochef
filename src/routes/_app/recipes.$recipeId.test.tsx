@@ -247,8 +247,6 @@ describe('recipe detail', () => {
 			notes: null,
 			createdAt: new Date(),
 			finalizedAt: new Date(),
-			cookCount: 0,
-			lastCookedAt: null,
 			forkedFromId: null,
 			publicPath: null,
 			savedAt: new Date(),
