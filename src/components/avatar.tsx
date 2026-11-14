@@ -6,6 +6,7 @@ const sizes = {
 	sm: 'size-6 rounded-md text-xs',
 	md: 'size-8 rounded-md text-sm',
 	lg: 'size-10 rounded-md text-base',
+	profile: 'size-16 rounded-xl text-2xl',
 	xl: 'size-24 rounded-xl text-3xl',
 } as const
 

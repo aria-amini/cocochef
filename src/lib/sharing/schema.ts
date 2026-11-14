@@ -40,7 +40,7 @@ export const sharingProfileInput = createInsertSchema(sharingProfiles, {
 		),
 	displayName: z.string().trim().min(1).max(80),
 })
-	.pick({ handle: true, displayName: true, autoPublish: true })
+	.pick({ handle: true, displayName: true })
 	.required()
 
 export const recipeShareInput = createInsertSchema(recipeShares, {

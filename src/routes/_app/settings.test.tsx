@@ -36,7 +36,7 @@ describe('settings account states', () => {
 			)
 			.toBeVisible()
 		await expect
-			.element(screen.getByLabelText('Profile photo'))
+			.element(screen.getByLabelText('change photo'))
 			.not.toBeInTheDocument()
 	})
 	test('offers a retry instead of sign-in when the session lookup fails', async () => {
@@ -78,7 +78,7 @@ describe('settings account states', () => {
 		await expect
 			.element(screen.getByRole('img', { name: 'Profile avatar' }))
 			.toHaveAttribute('src', '/sprites/pantry/apple.png')
-		await expect.element(screen.getByLabelText('Profile photo')).toBeVisible()
+		await expect.element(screen.getByLabelText('change photo')).toBeVisible()
 	})
 
 	test('keeps public sharing settings on the same page as the photo', async () => {
@@ -93,10 +93,44 @@ describe('settings account states', () => {
 		await expect
 			.element(screen.getByRole('heading', { name: 'settings' }))
 			.toBeVisible()
-		await expect.element(screen.getByLabelText('Profile photo')).toBeVisible()
+		await expect.element(screen.getByLabelText('change photo')).toBeVisible()
+		// Without a page yet, it starts from the account's own name.
 		await expect
-			.element(screen.getByRole('textbox', { name: 'public handle' }))
+			.element(screen.getByRole('textbox', { name: 'name on your page' }))
+			.toHaveValue('Cook')
+		await expect
+			.element(screen.getByRole('textbox', { name: 'your link' }))
+			.toHaveValue('cook')
+		await expect
+			.element(screen.getByRole('button', { name: 'set up my page' }))
 			.toBeVisible()
+		await expect
+			.element(screen.getByRole('checkbox', { name: /publish/ }))
+			.not.toBeInTheDocument()
+	})
+
+	test('changes the account name in place', async () => {
+		const { updateUser } = getAuthMocks()
+		updateUser.mockClear()
+
+		const { screen } = await renderRoute({
+			path: '/settings',
+			session: {
+				user: { id: 'cook', name: 'Cook', email: 'cook@example.com' },
+				session: { id: 'cook-session', token: 'token' },
+			},
+		})
+
+		await screen.getByRole('button', { name: 'edit name' }).click()
+		const field = screen.getByRole('textbox', { name: 'your name' })
+
+		await expect.element(field).toHaveFocus()
+		await field.fill('Head Cook')
+		await userEvent.keyboard('{Enter}')
+		await expect
+			.poll(() => updateUser.mock.calls[0])
+			.toEqual([{ name: 'Head Cook' }])
+		await expect.element(field).not.toBeInTheDocument()
 	})
 
 	test('sends the old profile addresses to settings', async () => {
@@ -119,9 +153,18 @@ describe('settings account states', () => {
 			session: { id: 'cook-session', token: 'token' },
 		}
 
+		// Moving recipes is rare, so it waits folded under advanced.
+		async function openSettings() {
+			const rendered = await renderRoute({ path: '/settings', session: cook })
+
+			await rendered.screen.getByText('advanced').click()
+
+			return rendered
+		}
+
 		test('imports a recipe file and says what was new and what was already here', async () => {
 			transfer.imported.mockResolvedValue({ imported: 2, skipped: 1 })
-			const { screen } = await renderRoute({ path: '/settings', session: cook })
+			const { screen } = await openSettings()
 			const text = '{"format":"cocochef/recipes","version":1,"recipes":[]}'
 
 			await userEvent.upload(
@@ -139,7 +182,7 @@ describe('settings account states', () => {
 			transfer.imported.mockRejectedValue(
 				new Error("that isn't a cocochef recipe file"),
 			)
-			const { screen } = await renderRoute({ path: '/settings', session: cook })
+			const { screen } = await openSettings()
 
 			await userEvent.upload(
 				screen.getByLabelText('recipe file'),
@@ -163,7 +206,7 @@ describe('settings account states', () => {
 				.spyOn(HTMLAnchorElement.prototype, 'click')
 				.mockImplementation(() => undefined)
 
-			const { screen } = await renderRoute({ path: '/settings', session: cook })
+			const { screen } = await openSettings()
 
 			await screen.getByRole('button', { name: 'export all recipes' }).click()
 			await expect.element(screen.getByText('exported 1 recipe')).toBeVisible()

@@ -1,10 +1,19 @@
-import { DownloadSimpleIcon, UploadSimpleIcon } from '@phosphor-icons/react'
+import {
+	CaretDownIcon,
+	DownloadSimpleIcon,
+	UploadSimpleIcon,
+} from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-import { Button, buttonVariants } from '@/components/ui/button'
+import {
+	SettingsGroup,
+	settingsActionClassName,
+	settingsRowClassName,
+} from '@/components/settings-group'
+import { Button } from '@/components/ui/button'
 import { exportRecipes, importRecipes } from '@/lib/recipes/server'
 import { transferFilename } from '@/lib/recipes/transfer'
 import { cn } from '@/lib/utils/ui'
@@ -128,56 +137,71 @@ export function RecipeTransfer() {
 		}
 	}
 
+	// Rarely needed, so it waits folded at the foot of settings.
 	return (
-		<section className="space-y-3">
-			<h2 className="text-lg font-bold">move your recipes</h2>
-			<p className="text-muted-foreground text-sm">
-				move your recipes to another kitchen, like a new account or the live
-				site, as a file. notes and ingredient groups come along; uploaded
-				photos, cooking history and sharing don&apos;t.
-			</p>
-			<div className="flex flex-wrap items-center gap-3">
-				<Button
-					variant="outline"
-					disabled={busy !== undefined}
-					onClick={() => void exportAll()}
-				>
-					<DownloadSimpleIcon size={16} aria-hidden />
-					{busy === 'export' ? 'exporting…' : 'export all recipes'}
-				</Button>
-				<label
-					className={cn(
-						buttonVariants({ variant: 'outline' }),
-						'focus-within:outline-kitchen-eggplant cursor-pointer focus-within:outline-2 focus-within:outline-offset-2',
-						busy !== undefined && 'pointer-events-none opacity-50',
-					)}
-				>
-					<UploadSimpleIcon size={16} aria-hidden />
-					{busy === 'import' ? 'importing…' : 'import recipes'}
-					<input
-						type="file"
-						accept="application/json,.json"
-						aria-label="recipe file"
+		<details className="group">
+			<summary className="flex cursor-pointer list-none items-center gap-1.5 px-1 text-sm font-bold [&::-webkit-details-marker]:hidden">
+				advanced
+				<CaretDownIcon
+					size={14}
+					weight="bold"
+					aria-hidden
+					className="transition-transform group-open:rotate-180"
+				/>
+			</summary>
+			<div className="mt-2">
+				<SettingsGroup hint="a file of all your recipes, to bring into another account. photos and cooking history stay behind.">
+					<button
+						type="button"
 						disabled={busy !== undefined}
-						className="sr-only"
-						onChange={(event) => {
-							const file = event.target.files?.[0]
+						onClick={() => void exportAll()}
+						className={settingsActionClassName}
+					>
+						<span className="flex-1">
+							{busy === 'export' ? 'exporting…' : 'export all recipes'}
+						</span>
+						<DownloadSimpleIcon size={16} weight="bold" aria-hidden />
+					</button>
+					<label
+						className={cn(
+							settingsActionClassName,
+							'focus-within:bg-kitchen-yolk/20',
+							busy !== undefined && 'pointer-events-none opacity-50',
+						)}
+					>
+						<span className="flex-1">
+							{busy === 'import' ? 'importing…' : 'import recipes'}
+						</span>
+						<UploadSimpleIcon size={16} weight="bold" aria-hidden />
+						<input
+							type="file"
+							accept="application/json,.json"
+							aria-label="recipe file"
+							disabled={busy !== undefined}
+							className="sr-only"
+							onChange={(event) => {
+								const file = event.target.files?.[0]
 
-							event.target.value = ''
+								event.target.value = ''
 
-							if (file) void importFile(file)
-						}}
-					/>
-				</label>
+								if (file) void importFile(file)
+							}}
+						/>
+					</label>
+					{result ? (
+						<output
+							className={cn(
+								settingsRowClassName,
+								'text-sm',
+								result.failed && 'font-semibold',
+							)}
+							role={result.failed ? 'alert' : undefined}
+						>
+							{result.text}
+						</output>
+					) : null}
+				</SettingsGroup>
 			</div>
-			{result ? (
-				<output
-					className={cn('text-sm', result.failed && 'font-semibold')}
-					role={result.failed ? 'alert' : undefined}
-				>
-					{result.text}
-				</output>
-			) : null}
-		</section>
+		</details>
 	)
 }

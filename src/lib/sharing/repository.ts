@@ -76,7 +76,6 @@ export async function saveSharingProfile(
 				set: {
 					handle: data.handle,
 					displayName: data.displayName,
-					autoPublish: data.autoPublish,
 				},
 			})
 			.returning()
@@ -206,7 +205,6 @@ async function ensureSharingProfile(userId: string, database: SharingDatabase) {
 				userId,
 				handle,
 				displayName: account.name.slice(0, 80) || 'cook',
-				autoPublish: false,
 			})
 			.onConflictDoNothing()
 			.returning()
@@ -289,24 +287,6 @@ export async function setRecipeShare(
 
 		return writeRecipeShare(userId, recipe, data.visibility, tx)
 	})
-}
-
-// Called inside recipe writes. Existing visibility choices always win; preferences
-// apply only when a new recipe is finished, never retroactively or to imports.
-export async function publishFinishedRecipe(
-	userId: string,
-	recipe: typeof recipes.$inferSelect,
-	database: SharingDatabase,
-) {
-	if (!recipe.finalizedAt || recipe.userId !== userId) return
-	const profile = await getSharingProfile(userId, database)
-
-	if (
-		!profile?.autoPublish ||
-		(await getRecipeShare(userId, recipe.id, database))
-	)
-		return
-	await writeRecipeShare(userId, recipe, 'public', database)
 }
 
 const publicFields = {

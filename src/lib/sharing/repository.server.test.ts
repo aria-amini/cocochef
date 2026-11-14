@@ -43,12 +43,12 @@ async function account(db: Database) {
 	return id
 }
 
-async function profile(db: Database, autoPublish = false) {
+async function profile(db: Database) {
 	const userId = await account(db)
 	const handle = `cook-${userId.slice(0, 8)}`
 	await saveSharingProfile(
 		userId,
-		{ handle, displayName: 'A public kitchen', autoPublish },
+		{ handle, displayName: 'A public kitchen' },
 		db,
 	)
 
@@ -132,7 +132,6 @@ describe('recipe publication boundaries', () => {
 			{
 				handle: author.handle,
 				displayName: 'Original cook',
-				autoPublish: false,
 			},
 			db,
 		)
@@ -204,54 +203,12 @@ describe('recipe publication boundaries', () => {
 			await getPublishedRecipe({ handle, slug: share.slug }, db),
 		).toBeNull()
 	})
-	test('auto-publishing applies at finish, never to old finished recipes, imports, or explicit private choices', async ({
-		db,
-	}) => {
-		const { userId, handle } = await profile(db)
-		const old = await recipe(db, userId)
-		await saveSharingProfile(
-			userId,
-			{ handle, displayName: 'A public kitchen', autoPublish: true },
-			db,
-		)
-		await updateRecipeForUser(userId, edits(old.id), db)
-		expect(await getRecipeShare(userId, old.id, db)).toBeNull()
+	test('finishing a recipe never publishes it on its own', async ({ db }) => {
+		const { userId } = await profile(db)
 		const draft = await recipe(db, userId, false)
+
+		await updateRecipeForUser(userId, edits(draft.id), db)
 		expect(await getRecipeShare(userId, draft.id, db)).toBeNull()
-		await updateRecipeForUser(userId, edits(draft.id), db)
-		expect(await getRecipeShare(userId, draft.id, db)).toMatchObject({
-			visibility: 'public',
-		})
-		await setRecipeShare(
-			userId,
-			{ recipeId: draft.id, visibility: 'private' },
-			db,
-		)
-		await updateRecipeForUser(userId, edits(draft.id), db)
-		expect(await getRecipeShare(userId, draft.id, db)).toMatchObject({
-			visibility: 'private',
-		})
-
-		const imported = await createSharedRecipe(
-			{ title: 'Web recipe', sourceUrl: 'https://example.com/recipe' },
-			db,
-		)
-
-		if (!imported) throw new Error('missing import')
-		await saveRecipeForUser(userId, imported.id, db)
-		expect(await getRecipeShare(userId, imported.id, db)).toBeNull()
-		const fresh = await recipe(db, userId)
-		expect(await getRecipeShare(userId, fresh.id, db)).toMatchObject({
-			visibility: 'public',
-		})
-		await saveSharingProfile(
-			userId,
-			{ handle, displayName: 'A public kitchen', autoPublish: false },
-			db,
-		)
-		expect(await getRecipeShare(userId, fresh.id, db)).toMatchObject({
-			visibility: 'public',
-		})
 		expect(
 			await getRecipeShare(userId, (await recipe(db, userId)).id, db),
 		).toBeNull()
@@ -279,16 +236,12 @@ describe('recipe publication boundaries', () => {
 	}) => {
 		const { userId, handle } = await profile(db)
 		await expect(
-			saveSharingProfile(
-				userId,
-				{ handle: 'recipes', displayName: 'No', autoPublish: false },
-				db,
-			),
+			saveSharingProfile(userId, { handle: 'recipes', displayName: 'No' }, db),
 		).rejects.toThrow()
 		await expect(
 			saveSharingProfile(
 				await account(db),
-				{ handle, displayName: 'Duplicate', autoPublish: false },
+				{ handle, displayName: 'Duplicate' },
 				db,
 			),
 		).rejects.toThrow()
@@ -310,7 +263,7 @@ describe('recipe publication boundaries', () => {
 		await expect(
 			saveSharingProfile(
 				userId,
-				{ handle: 'changed-handle', displayName: 'No', autoPublish: false },
+				{ handle: 'changed-handle', displayName: 'No' },
 				db,
 			),
 		).resolves.toMatchObject({ handle: 'changed-handle' })

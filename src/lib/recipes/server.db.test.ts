@@ -55,12 +55,12 @@ describe('recipe shelf', () => {
 		const reader = await seedUser(db)
 		await saveSharingProfile(
 			writer,
-			{ handle: 'writer', displayName: 'Writer', autoPublish: false },
+			{ handle: 'writer', displayName: 'Writer' },
 			db,
 		)
 		await saveSharingProfile(
 			reader,
-			{ handle: 'reader', displayName: 'Reader', autoPublish: false },
+			{ handle: 'reader', displayName: 'Reader' },
 			db,
 		)
 
@@ -939,36 +939,6 @@ describe('shared recipes', () => {
 		).resolves.toMatchObject({ ingredientCategories: {} })
 	})
 
-	test('publishes a taken-over copy when the profile publishes by default', async ({
-		db,
-	}) => {
-		const userId = await seedUser(db)
-		const recipe = await seedShared(db)
-		await saveRecipeForUser(userId, recipe.id, db)
-		await saveSharingProfile(
-			userId,
-			{ handle: 'claim-cook', displayName: 'Claim', autoPublish: true },
-			db,
-		)
-
-		const claimed = await updateRecipeForUser(
-			userId,
-			recipeUpdateInput.parse({
-				id: recipe.id,
-				title: 'shared dal',
-				notes: null,
-				sourceUrl: null,
-				ingredients: ['lentils', 'salt'],
-				steps: ['simmer'],
-			}),
-			db,
-		)
-
-		await expect(
-			getRecipeShare(userId, claimed?.id ?? '', db),
-		).resolves.toMatchObject({ visibility: 'public' })
-	})
-
 	test('a source link can be removed, replaced or added back', async ({
 		db,
 	}) => {
@@ -1145,7 +1115,7 @@ describe('shared recipes', () => {
 
 		await saveSharingProfile(
 			writer,
-			{ handle: 'dal-cook', displayName: 'Dal', autoPublish: false },
+			{ handle: 'dal-cook', displayName: 'Dal' },
 			db,
 		)
 
@@ -1179,7 +1149,7 @@ describe('shared recipes', () => {
 
 		await saveSharingProfile(
 			cook,
-			{ handle: 'web-cook', displayName: 'Web cook', autoPublish: false },
+			{ handle: 'web-cook', displayName: 'Web cook' },
 			db,
 		)
 		await saveRecipeForUser(cook, recipe.id, db)
@@ -1210,7 +1180,7 @@ describe('shared recipes', () => {
 
 		await saveSharingProfile(
 			writer,
-			{ handle: 'credit-cook', displayName: 'Dal Cook', autoPublish: false },
+			{ handle: 'credit-cook', displayName: 'Dal Cook' },
 			db,
 		)
 
