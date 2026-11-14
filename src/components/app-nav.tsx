@@ -95,6 +95,10 @@ function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
 
 	if (pathname === '/settings') return undefined
 
+	// Someone's public page belongs to no tab, yours included.
+	if (matches.some((match) => match.routeId === '/_app/$handle/'))
+		return undefined
+
 	if (pathname === '/') return 'home'
 
 	for (const { label } of navItems) {

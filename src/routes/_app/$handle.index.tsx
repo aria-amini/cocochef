@@ -3,7 +3,7 @@ import { createFileRoute, notFound } from '@tanstack/react-router'
 import { PublicProfile } from '@/components/public-recipes'
 import { readPublicProfile } from '@/lib/sharing/server'
 
-export const Route = createFileRoute('/$handle/')({
+export const Route = createFileRoute('/_app/$handle/')({
 	loader: async ({ params }) => {
 		const profile = await readPublicProfile({ data: { handle: params.handle } })
 
