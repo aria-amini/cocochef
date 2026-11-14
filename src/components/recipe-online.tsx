@@ -95,13 +95,12 @@ export function useOnlineRecipes(
 				if (found.warming) timer = setTimeout(() => void run(q), WARM_POLL_MS)
 			} catch {
 				if (!cancelled)
-					setSettled((now) => ({
+					setSettled({
 						asked: askedOf(q, sort, picks),
 						results: [],
-						counts: now.counts,
 						warming: false,
 						failed: true,
-					}))
+					})
 			}
 		}
 
@@ -114,7 +113,8 @@ export function useOnlineRecipes(
 	}, [query, sort, picks])
 
 	// Results belong to the question that fetched them; a new one starts empty.
-	// The last counts stay while the next ones load, so bubbles don't flicker.
+	// The last counts stay while the next ones load, so bubbles don't flicker;
+	// a failed search has none.
 	const current = asked !== undefined && settled.asked === asked
 
 	return {

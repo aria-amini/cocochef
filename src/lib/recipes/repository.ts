@@ -416,7 +416,9 @@ const asFilter = ({ query, sort }: RecipeSearch): VisibleFilter => ({
 	query,
 	minRating: sort === undefined ? undefined : 0,
 	byVotes: sort === 'votes',
-	everything: true,
+	// Only a blank search means everything; words too short to search find
+	// nothing, as before.
+	everything: query.trim() === '',
 })
 
 // Every recipe a search could show, in its order, keyed as meal tags are
@@ -427,7 +429,15 @@ export async function findVisibleRecipeKeys(
 	search: RecipeSearch,
 	database: Database = getDb(),
 ) {
-	const { where, order } = visibleSearch(userId, asFilter(search), database)
+	const filter = asFilter(search)
+	const { terms, where, order } = visibleSearch(userId, filter, database)
+
+	if (
+		terms.length === 0 &&
+		filter.minRating === undefined &&
+		!filter.everything
+	)
+		return []
 
 	const rows = await database
 		.select({

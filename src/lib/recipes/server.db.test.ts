@@ -781,6 +781,10 @@ describe('shared recipes', () => {
 		await expect(
 			findVisibleRecipesById(userId, { query: '' }, [], db),
 		).resolves.toEqual([])
+		// Words too short to search find nothing, not everything.
+		await expect(
+			findVisibleRecipeKeys(userId, { query: '% _' }, db),
+		).resolves.toEqual([])
 	})
 
 	test('opens unsaved, then saves to the shelf once', async ({ db }) => {
