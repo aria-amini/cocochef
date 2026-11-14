@@ -15,8 +15,8 @@ vi.mock('@/lib/recipes/server', () => ({
 }))
 
 vi.mock('@/lib/discover/server', () => ({
-	searchRecipes: () => Promise.resolve({ warming: false, results: [] }),
-	popularRecipes: () => Promise.resolve({ warming: false, results: [] }),
+	searchRecipes: () => Promise.resolve({ results: [] }),
+	popularRecipes: () => Promise.resolve({ results: [] }),
 }))
 
 const member = {

@@ -100,7 +100,7 @@ const emptyTags: MealTags = {
 	forms: [],
 }
 
-type SearchReply = { warming: boolean; results: FoundRecipe[] }
+type SearchReply = { results: FoundRecipe[] }
 
 function shelfRecipe(id: string, title: string, extra: Partial<Recipe> = {}) {
 	return {
@@ -205,8 +205,8 @@ async function openFilter(
 
 function resetServer() {
 	shelfState.recipes = []
-	server.search.mockReset().mockResolvedValue({ warming: false, results: [] })
-	server.popular.mockReset().mockResolvedValue({ warming: false, results: [] })
+	server.search.mockReset().mockResolvedValue({ results: [] })
+	server.popular.mockReset().mockResolvedValue({ results: [] })
 	server.import
 		.mockReset()
 		.mockRejectedValue(new Error('Import failed. Please retry.'))
@@ -226,7 +226,6 @@ describe('the search on home', () => {
 			miso,
 		]
 		server.popular.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'marry me chicken' })],
 		})
 
@@ -287,7 +286,6 @@ describe('the search on home', () => {
 
 	test('goes on as the list is scrolled, then reveals more a page at a time', async () => {
 		server.popular.mockResolvedValue({
-			warming: false,
 			results: Array.from({ length: 75 }, (_, i) =>
 				found({
 					title: `stew ${i + 1}`,
@@ -416,7 +414,6 @@ describe('the search on home', () => {
 
 	test('opens a recipe on a tap, not on hover, without saving it', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 
@@ -464,7 +461,6 @@ describe('the search on home', () => {
 
 	test('says when a recipe matched on its ingredients', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({
 					recipeId: 'recipe-9',
@@ -488,7 +484,6 @@ describe('the search on home', () => {
 
 	test('shows how found recipes were rated', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ recipeId: 'shared-2', title: 'lemon tart' }),
 				found({
@@ -519,7 +514,6 @@ describe('the search on home', () => {
 
 	test('sorts by rating, from everywhere, without a search', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({
 					recipeId: 'shared-1',
@@ -559,7 +553,6 @@ describe('the search on home', () => {
 
 	test('sorts by the recipes most voted on, from everywhere', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({
 					recipeId: 'shared-1',
@@ -586,7 +579,6 @@ describe('the search on home', () => {
 
 	test('says how a recipe was rated, where it is from, and what it is built on', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({
 					recipeId: 'shared-1',
@@ -630,7 +622,6 @@ describe('the search on home', () => {
 
 	test('tags a row by what matters most, leaving out the usual entree', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({
 					recipeId: 'shared-1',
@@ -686,7 +677,6 @@ describe('the search on home', () => {
 
 	test('saves a recipe from its row, and takes it back off', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ recipeId: 'shared-1', title: 'lemon chicken' }),
 				found({ url: 'https://example.com/dal', title: 'tadka dal' }),
@@ -742,7 +732,6 @@ describe('the search on home', () => {
 
 	test('shows a page saved while it is brought in, and unsaved if that fails', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ url: 'https://example.com/dal', title: 'tadka dal' })],
 		})
 
@@ -777,7 +766,6 @@ describe('the search on home', () => {
 
 	test('asks a visitor to sign in before saving', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 
@@ -794,7 +782,6 @@ describe('the search on home', () => {
 
 	test('reads the pages in view ahead of a tap, to show their stars', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ url: 'https://example.com/lemon-tart', title: 'lemon tart' }),
 				found({ recipeId: 'shared-1', title: 'lemon chicken' }),
@@ -860,7 +847,6 @@ describe('the search on home', () => {
 
 	test('brings in a recipe-site page on pick, and says when it fails', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ url: 'https://example.com/ramen', title: 'online ramen' }),
 			],
@@ -894,7 +880,6 @@ describe('the search on home', () => {
 
 	test('narrows the results to the recipe sites picked', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({
 					url: 'https://www.bbcgoodfood.com/recipes/lemon-chicken',
@@ -947,7 +932,6 @@ describe('the search on home', () => {
 
 	test('narrows to recipes with any of the proteins picked', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ recipeId: 'shared-1', title: 'lemon chicken' }),
 				found({ recipeId: 'shared-2', title: 'pork chops' }),
@@ -985,7 +969,6 @@ describe('the search on home', () => {
 
 	test("narrows to a region's countries when the region is ticked", async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ recipeId: 'shared-1', title: 'korean fried chicken' }),
 				found({ recipeId: 'shared-2', title: 'japanese curry' }),
@@ -1058,11 +1041,10 @@ describe('the search on home', () => {
 
 		// The popular few hold nothing West African, but cocochef does.
 		server.popular.mockResolvedValue({
-			warming: false,
 			counts: countParts([suya.tags ?? emptyTags], {}),
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
-		server.search.mockResolvedValue({ warming: false, results: [suya] })
+		server.search.mockResolvedValue({ results: [suya] })
 
 		const { screen } = await openSearch()
 
@@ -1115,7 +1097,6 @@ describe('the search on home', () => {
 				const picks = data.picks ?? {}
 
 				return {
-					warming: false,
 					counts: countParts(
 						[meal(['west african']), meal(['southern european', 'italian'])],
 						picks,
@@ -1166,7 +1147,6 @@ describe('the search on home', () => {
 
 		server.search.mockImplementation(
 			async ({ data }: { data: { q: string } }) => ({
-				warming: false,
 				results: data.q === 'curry' ? [curry, chicken] : [chicken],
 			}),
 		)
@@ -1220,7 +1200,6 @@ describe('the search on home', () => {
 		await expect.element(mine).toHaveAttribute('aria-selected', 'true')
 
 		arrive({
-			warming: false,
 			results: [
 				found({ recipeId: 'recipe-ramen', title: 'shoyu ramen', saved: true }),
 				found({ url: 'https://example.com/ramen', title: 'online ramen' }),
@@ -1239,7 +1218,6 @@ describe('the search on home', () => {
 		shelfState.recipes = [dal]
 		server.import.mockReturnValue(new Promise(() => {}))
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ recipeId: dal.id, title: 'dal', saved: true }),
 				found({ url: 'https://example.com/dal', title: 'online dal' }),
@@ -1334,7 +1312,6 @@ describe('the box, starting from a recipe found', () => {
 
 	test('lets a keyboard cover the box, and pads the list clear of it', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 
@@ -1370,7 +1347,6 @@ describe('the box, starting from a recipe found', () => {
 		'opens full screen on phones, square, with the bar at the top',
 		async () => {
 			server.search.mockResolvedValue({
-				warming: false,
 				results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 			})
 
@@ -1390,7 +1366,6 @@ describe('the box, starting from a recipe found', () => {
 
 	test('keeps the search bar on screen while a recipe is previewed', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 
@@ -1411,7 +1386,6 @@ describe('the box, starting from a recipe found', () => {
 
 	test('keeps hover previews free of actions until a recipe is selected', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 		server.getRecipe.mockResolvedValue(lemonChicken)
@@ -1440,7 +1414,6 @@ describe('the box, starting from a recipe found', () => {
 
 	test('selects a full-height preview, and goes back to the results', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 		server.getRecipe.mockResolvedValue(lemonChicken)
@@ -1495,7 +1468,6 @@ describe('the box, starting from a recipe found', () => {
 			},
 		]
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ recipeId: 'shared-1', title: 'chicken & spinach skillet' }),
 			],
@@ -1544,7 +1516,6 @@ describe('the box, starting from a recipe found', () => {
 
 	test('keeps the focused action when the previewed recipe finishes loading', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 
@@ -1567,7 +1538,6 @@ describe('the box, starting from a recipe found', () => {
 
 	test('keeps the focused action while a site page is brought in', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ url: 'https://example.com/ramen', title: 'online ramen' }),
 			],
@@ -1599,7 +1569,6 @@ describe('the box, starting from a recipe found', () => {
 
 	test('says so when a previewed recipe can no longer be read', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 		// A recipe made private after the results loaded comes back empty.
@@ -1613,48 +1582,6 @@ describe('the box, starting from a recipe found', () => {
 			.toHaveTextContent("couldn't read this recipe — try opening it.")
 	})
 
-	test('keeps the selected preview when discovery refreshes a URL into a recipe ID', async () => {
-		const chosen = found({
-			url: 'https://example.com/lemon',
-			title: 'lemon chicken',
-		})
-
-		// The search is still warming up, so it looks again.
-		let reply: SearchReply = { warming: true, results: [chosen] }
-
-		server.search.mockImplementation(async () => reply)
-		server.import.mockResolvedValue({ id: 'shared-1', title: chosen.title })
-		server.getRecipe.mockResolvedValue({
-			...lemonChicken,
-			ingredients: ['1 lemon'],
-		})
-
-		const { box } = await openStartFrom()
-
-		await box.getByRole('option', { name: /lemon chicken/ }).click()
-		await expect
-			.element(box.getByRole('region', { name: 'fresh' }).getByText(/lemon/))
-			.toBeVisible()
-
-		// By the next look, the page is a recipe, with another found ahead.
-		reply = {
-			warming: false,
-			results: [
-				found({ recipeId: 'other', title: 'different recipe' }),
-				found({ ...chosen, recipeId: 'shared-1' }),
-			],
-		}
-		await expect
-			.poll(() => box.element().textContent, { timeout: 6000 })
-			.toContain('different recipe')
-		await expect
-			.element(box.getByRole('heading', { name: 'lemon chicken' }))
-			.toBeVisible()
-		await expect
-			.element(box.getByRole('heading', { name: 'different recipe' }))
-			.not.toBeInTheDocument()
-	})
-
 	test.each([
 		'too many imports — wait a minute and try again',
 		'too many imports in flight — try again in a moment',
@@ -1662,7 +1589,6 @@ describe('the box, starting from a recipe found', () => {
 		'keeps the recipe usable after a temporary preview failure: %s',
 		async (message) => {
 			server.search.mockResolvedValue({
-				warming: false,
 				results: [
 					found({ url: 'https://example.com/lemon', title: 'lemon chicken' }),
 				],
@@ -1693,7 +1619,6 @@ describe('the box, starting from a recipe found', () => {
 
 	test('replaces failed preview actions with a link to the source', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ url: 'https://example.com/roundup', title: 'lemon ideas' }),
 			],
@@ -1721,7 +1646,6 @@ describe('the search, captured', () => {
 			miso,
 		]
 		server.popular.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'marry me chicken' })],
 		})
 
@@ -1735,7 +1659,6 @@ describe('the search, captured', () => {
 
 	test('with shelf and online results', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ recipeId: miso.id, title: miso.title, saved: true }),
 				found({
@@ -1806,7 +1729,6 @@ describe('the search, captured', () => {
 
 	test('previewing a recipe in the box', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
 		})
 		server.getRecipe.mockResolvedValue({
@@ -1826,7 +1748,6 @@ describe('the search, captured', () => {
 
 	test('previewing a page it could not read', async () => {
 		server.search.mockResolvedValue({
-			warming: false,
 			results: [
 				found({ url: 'https://example.com/roundup', title: 'lemon ideas' }),
 			],

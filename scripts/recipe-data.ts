@@ -1,13 +1,12 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 
 import { z } from 'zod'
 
-import { crawlRecipeSite } from '../src/lib/discover/crawl'
-import { spreadEvenly, validLinks } from '../src/lib/discover/recipe-index'
+import { crawlRecipeSite, spreadEvenly } from '../src/lib/discover/sitemap'
 import { recipeSites } from '../src/lib/discover/sites'
 
 // `vp run` passes its own `--` along.
@@ -15,12 +14,10 @@ const [command, limitArg, sitesArg] = process.argv
 	.slice(2)
 	.filter((arg) => arg !== '--')
 
-const limit = Number(limitArg ?? (command === 'index' ? 5000 : 200))
+const limit = Number(limitArg ?? 200)
 
 if (!Number.isSafeInteger(limit) || limit < 1 || limit > 20000)
 	throw new Error('Limit must be between 1 and 20000.')
-
-const catalogPath = resolve('src/lib/discover/catalog.json')
 
 // Every workspace shares one page cache outside the checkout, so a page is
 // fetched from this connection once, not once per workspace. Override with
@@ -50,52 +47,11 @@ async function persisted<T>(work: Promise<T>) {
 	}
 }
 
-if (command === 'index') {
-	const existing = validLinks(JSON.parse(await readFile(catalogPath, 'utf8')))
-
-	const groups = await Promise.all(
-		recipeSites.map(async (site) => {
-			try {
-				const { links, complete } = await crawlRecipeSite(site)
-
-				if (!links.length) throw new Error('No recipe URLs returned')
-
-				// A partial crawl must not replace links it could not re-read, so the
-				// site keeps what the catalog holds. With nothing held yet, a partial
-				// crawl is better than none.
-				if (!complete && existing.some((link) => link.siteId === site.id))
-					throw new Error('Incomplete crawl')
-
-				const sampled = spreadEvenly(links, limit)
-
-				console.log(`${site.name}: ${sampled.length} indexed`)
-
-				return sampled
-			} catch {
-				const kept = existing.filter((link) => link.siteId === site.id)
-				console.log(
-					`${site.name}: unavailable; keeping ${kept.length} existing links`,
-				)
-
-				return kept
-			}
-		}),
-	)
-
-	// Only well-formed links reach the committed catalog.
-	const written = validLinks(groups.flat())
-
-	// Replaced in one step, so an interrupted run never leaves a truncated catalog
-	// for the discovery code that imports it.
-	const temp = `${catalogPath}.${process.pid}.tmp`
-
-	await writeFile(temp, `${JSON.stringify(written)}\n`)
-	await rename(temp, catalogPath)
-	console.log(`${written.length} recipe links written to ${catalogPath}`)
-} else if (command === 'seed') {
-	// Full recipes are collected directly, never via the home relay: up to the
-	// limit from each named site (Good Food unless sites are named). Reruns
-	// reuse the on-disk cache and existing shared source URLs.
+if (command === 'seed') {
+	// Full recipes are collected directly, never via the home relay: each named
+	// site's sitemap is read, and up to the limit of its recipes, spread across
+	// the whole of it, come in (Good Food unless sites are named). Reruns reuse
+	// the on-disk cache and existing shared source URLs.
 	const siteIds = (sitesArg ?? 'bbcgoodfood').split(',')
 
 	for (const id of siteIds)
@@ -158,15 +114,26 @@ if (command === 'index') {
 		at: new Date().toISOString(),
 	})
 
-	const links = validLinks(JSON.parse(await readFile(catalogPath, 'utf8')))
+	// A site whose sitemap can't be read is skipped; one that says no to a page
+	// stops only its own turn.
+	const selected = (
+		await Promise.all(
+			recipeSites
+				.filter((site) => siteIds.includes(site.id))
+				.map(async (site) => {
+					try {
+						const { links } = await crawlRecipeSite(site)
+						console.log(`${site.name}: ${links.length} recipes in its sitemap`)
 
-	// A site that says no stops only its own turn.
-	const selected = siteIds.flatMap((id) =>
-		spreadEvenly(
-			links.filter((link) => link.siteId === id),
-			limit,
-		),
-	)
+						return spreadEvenly(links, limit)
+					} catch (error) {
+						console.error(`${site.name}: sitemap unavailable: ${String(error)}`)
+
+						return []
+					}
+				}),
+		)
+	).flat()
 
 	await mkdir(pagesDir, { recursive: true })
 	let seeded = 0
@@ -292,6 +259,6 @@ if (command === 'index') {
 	}
 } else {
 	throw new Error(
-		'Usage: vpx scripts/recipe-data.ts index [per-site limit] | seed [recipes per site] [site,site…]',
+		'Usage: vpx scripts/recipe-data.ts seed [recipes per site] [site,site…]',
 	)
 }

@@ -32,7 +32,6 @@
 		"update-pnpm": "corepack use pnpm@12",
 		"dead-code": "fallow dead-code",
 		"import:fetch": "uv run --locked scripts/import-fetch.py",
-		"recipes:index": "vpx scripts/recipe-data.ts index",
 		"recipes:seed": "varlock run -- vpx scripts/recipe-data.ts seed",
 		"recipes:ratings": "varlock run -- vpx scripts/recipe-ratings.ts",
 		"bench": "node scripts/bench.ts",

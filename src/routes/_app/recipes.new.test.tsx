@@ -54,7 +54,6 @@ const online = vi.hoisted<Online>(() => ({ results: [], recipe: null }))
 vi.mock('@/lib/discover/server', () => ({
 	searchRecipes: () =>
 		Promise.resolve({
-			warming: false,
 			results: online.results.map((recipe) => ({
 				...recipe,
 				saved: false,
@@ -62,7 +61,7 @@ vi.mock('@/lib/discover/server', () => ({
 				ingredientMatches: [],
 			})),
 		}),
-	popularRecipes: () => Promise.resolve({ warming: false, results: [] }),
+	popularRecipes: () => Promise.resolve({ results: [] }),
 }))
 
 vi.mock('@/lib/recipes/server', () => ({

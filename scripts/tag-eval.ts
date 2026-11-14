@@ -2,14 +2,14 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 
-// Tags a sample of recipes with TypeSafe's Jev classifier and compares them
-// with the tags the title words give, to judge Jev before storing its tags.
-// Writes a JSON report and an HTML page side by side.
+// Tags cocochef's recipes with TypeSafe's Jev classifier, stores the tags,
+// and compares them with the tags the title words give. Writes a JSON report
+// and an HTML page side by side.
 //
-//   varlock run -- vpx tsx scripts/tag-eval.ts <out-dir> [catalogSample=74] [new]
+//   varlock run -- vpx tsx scripts/tag-eval.ts <out-dir> [new]
 //
-// With `new`, only recipes this model has not tagged yet are read, and a
-// catalog sample of 0 skips the catalog, to tag a freshly seeded database.
+// With `new`, only recipes this model has not tagged yet are read, to tag a
+// freshly seeded database.
 import {
 	AuthenticationError,
 	choice,
@@ -26,9 +26,8 @@ import {
 	mealTags,
 	proteinParts,
 } from '../src/lib/assistant/meal-parts'
-import catalog from '../src/lib/discover/catalog.json'
 
-const [outDir = '.', sampleArg = '74', mode] = process.argv.slice(2)
+const [outDir = '.', mode] = process.argv.slice(2)
 
 const onlyNew = mode === 'new'
 
@@ -114,51 +113,9 @@ async function samples(): Promise<Sample[]> {
 		onlyNew ? [model] : [],
 	)
 
-	// With `new`, a sampled page this model already tagged is skipped too, so
-	// its title alone never replaces tags read from its ingredients.
-	const tagged = new Set(
-		onlyNew
-			? (
-					await client.query<{ key: string }>(
-						'select key from meal_tags where model = $1',
-						[model],
-					)
-				).rows.map((row) => row.key)
-			: [],
-	)
-
 	await client.end()
 
-	// A fixed spread through the catalog, so reruns compare the same pages.
-	const links: { url: string; title: string }[] = catalog
-	const count = Number(sampleArg)
-
-	if (!Number.isSafeInteger(count) || count < 0)
-		throw new Error('The catalog sample must be a whole number.')
-
-	// Evenly spread by each sample's share of the catalog, so every index is
-	// in range whatever the count.
-	const picked =
-		count === 0
-			? []
-			: links.length <= count
-				? links
-				: Array.from(
-						{ length: count },
-						(_, i) => links[Math.floor((i * links.length) / count)]!,
-					)
-
-	return [
-		...rows.map((row) => ({ ...row, from: 'read page' })),
-		...picked
-			.filter((link) => !tagged.has(link.url))
-			.map((link) => ({
-				key: link.url,
-				title: link.title,
-				ingredients: [],
-				from: 'title only',
-			})),
-	]
+	return rows.map((row) => ({ ...row, from: 'read page' }))
 }
 
 // The loop below retries, paced, so the SDK must not retry on its own.

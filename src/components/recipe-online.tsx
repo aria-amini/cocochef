@@ -11,8 +11,6 @@ import { cn } from '@/lib/utils/ui'
 
 type Result = Awaited<ReturnType<typeof searchRecipes>>['results'][number]
 
-const WARM_POLL_MS = 2000
-
 // A link is anything that starts like one; everything else is a search.
 export function asRecipeUrl(value: string) {
 	if (/^https?:\/\/\S+$/i.test(value)) return value
@@ -29,7 +27,6 @@ type OnlineSearch = {
 	// How many of every match each bubble would leave, when the server counted.
 	counts?: Found['counts']
 	loading: boolean
-	warming: boolean
 	failed: boolean
 }
 
@@ -44,11 +41,9 @@ const askedOf = (
 	picks: MealPicks,
 ) => JSON.stringify([sort ?? '', query, picks])
 
-// Searches the recipe sites for `query` once it settles, or sorted by `sort`,
+// Searches cocochef's recipes for `query` once it settles, or sorted by `sort`,
 // every rated recipe; `picks` (kept in state, so one object while unchanged)
-// narrow every match on the server. Pass
-// `undefined` to stay idle. The first search starts the crawl, so keep asking
-// while sites load.
+// narrow every match on the server. Pass `undefined` to stay idle.
 export function useOnlineRecipes(
 	query: string | undefined,
 	sort?: RecipeSort,
@@ -58,7 +53,6 @@ export function useOnlineRecipes(
 
 	const [settled, setSettled] = useState<Settled>({
 		results: [],
-		warming: false,
 		failed: false,
 	})
 
@@ -90,17 +84,13 @@ export function useOnlineRecipes(
 					asked: askedOf(q, sort, picks),
 					results: found.results,
 					counts: found.counts,
-					warming: found.warming,
 					failed: false,
 				})
-
-				if (found.warming) timer = setTimeout(() => void run(q), WARM_POLL_MS)
 			} catch {
 				if (!cancelled)
 					setSettled({
 						asked: askedOf(q, sort, picks),
 						results: [],
-						warming: false,
 						failed: true,
 					})
 			}
@@ -122,7 +112,6 @@ export function useOnlineRecipes(
 	return {
 		results: current ? settled.results : [],
 		counts: settled.counts,
-		warming: current && settled.warming,
 		failed: current && settled.failed,
 		loading: query !== undefined && !current,
 	}

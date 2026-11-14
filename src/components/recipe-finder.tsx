@@ -1316,15 +1316,13 @@ export function FinderPanel({
 							<Status>
 								{online.loading
 									? 'looking for recipes…'
-									: online.warming
-										? 'finding recipes — more appear as sites load'
-										: online.failed
-											? "couldn't search recipes — try again"
-											: !trimmed
-												? 'no recipes rated that high yet'
-												: options.length === 0 || options[0]?.kind === 'write'
-													? 'no recipes called that yet'
-													: 'no other recipes called that yet'}
+									: online.failed
+										? "couldn't search recipes — try again"
+										: !trimmed
+											? 'no recipes rated that high yet'
+											: options.length === 0 || options[0]?.kind === 'write'
+												? 'no recipes called that yet'
+												: 'no other recipes called that yet'}
 							</Status>
 						) : null}
 						{/* Before anything has come back, rows to come stand in for
