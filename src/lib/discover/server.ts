@@ -1,8 +1,14 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
-import type { MealTags } from '@/lib/assistant/meal-parts'
-import { withMealTags } from '@/lib/assistant/meal-tags.server'
+import {
+	countParts,
+	fitsPicks,
+	hasPicks,
+	type MealPicks,
+	type MealTags,
+} from '@/lib/assistant/meal-parts'
+import { mealTagsByKey, withMealTags } from '@/lib/assistant/meal-tags.server'
 import { getViewerId } from '@/lib/auth/session'
 import { canonicalRecipeUrl } from '@/lib/import/url'
 import { kitchenStock } from '@/lib/pantry/stock.server'
@@ -10,9 +16,10 @@ import type { RecipeEffort } from '@/lib/recipes/effort'
 import { effortFor } from '@/lib/recipes/effort.server'
 import { recipeSorts } from '@/lib/recipes/loved'
 import {
-	findLovedRecipesForUser,
-	findRecipesForUser,
+	findVisibleRecipeKeys,
+	findVisibleRecipesById,
 	popularSharedRecipes,
+	type RecipeSearch,
 	sharedRecipeUrls,
 } from '@/lib/recipes/repository'
 import { resolveStoredImage } from '@/lib/s3'
@@ -109,6 +116,52 @@ async function notYetShared(links: RecipeLink[]) {
 	return links.filter((link) => !known.has(canonical(link.url)))
 }
 
+const names = z.array(z.string().max(60)).max(100).optional()
+
+const mealPicks = z
+	.object({ cuisine: names, protein: names, form: names })
+	.default({})
+
+// The first `limit` recipes a search matches once the meal picks narrow them,
+// and the meals among all its matches, for the bubbles to count. The picks
+// narrow every match, so a cuisine few recipes have is found however far down
+// the list they sit.
+async function narrowedSearch(
+	userId: string,
+	search: RecipeSearch,
+	picks: MealPicks,
+	limit: number,
+) {
+	const matches = await findVisibleRecipeKeys(userId, search)
+	const tags = await mealTagsByKey(matches)
+
+	const kept = hasPicks(picks)
+		? matches.filter((_, index) => {
+				const meal = tags[index]
+
+				return meal !== undefined && fitsPicks(meal, picks)
+			})
+		: matches
+
+	const found = await findVisibleRecipesById(
+		userId,
+		search,
+		kept.slice(0, limit).map((match) => match.id),
+	)
+
+	return { found, meals: tags.flatMap((meal) => meal ?? []) }
+}
+
+// The meals among site pages nobody has brought in, by their saved tags or
+// their titles' words, as the list shows them.
+async function mealsOfPages(pages: readonly RecipeLink[]) {
+	const tags = await mealTagsByKey(
+		pages.map((page) => ({ key: page.url, title: page.title })),
+	)
+
+	return tags.flatMap((meal) => meal ?? [])
+}
+
 // Every recipe this user could cook or start from. Recipes in cocochef come
 // first, matched by name or ingredient: the user's own shelf (`saved`), then
 // shared ones. Pages on the recipe sites that nobody has brought in yet follow,
@@ -116,23 +169,43 @@ async function notYetShared(links: RecipeLink[]) {
 //
 // Sorted by rating, it is every rated recipe instead, with or without words,
 // most loved or most rated first. Site pages nobody has brought in have no
-// rating yet, so they are left out.
+// rating yet, so they are left out. Picked meal parts (cuisine, protein, kind
+// of dish) narrow every recipe in cocochef; with no words or sort, they pick
+// from all of them, most loved first.
 export const searchRecipes = createServerFn({ method: 'GET' })
 	.validator(
 		z.object({
 			q: z.string().trim().max(80),
 			sort: z.enum(recipeSorts).optional(),
+			picks: mealPicks,
 		}),
 	)
 	.handler(async ({ data }) => {
 		const userId = await getViewerId()
 
-		const found =
-			data.sort !== undefined
-				? await findLovedRecipesForUser(userId, data.q, data.sort, 120)
-				: data.q
-					? await findRecipesForUser(userId, data.q, 80)
-					: []
+		const asked =
+			data.q !== '' || data.sort !== undefined || hasPicks(data.picks)
+
+		const { found, meals } = asked
+			? await narrowedSearch(
+					userId,
+					{ query: data.q, sort: data.sort },
+					data.picks,
+					data.sort !== undefined ? 120 : 80,
+				)
+			: { found: [], meals: [] }
+
+		const { links, warming } = recipeIndex()
+
+		const pages =
+			data.sort === undefined
+				? await notYetShared(searchRecipeLinks(links, data.q, 120))
+				: []
+
+		// Every match the list could show counts, the site pages after it too.
+		const counts = asked
+			? countParts([...meals, ...(await mealsOfPages(pages))], data.picks)
+			: undefined
 
 		// Uploaded photos are stored as bucket keys; clients need a fetchable URL.
 		const images = await Promise.all(
@@ -143,10 +216,9 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 			),
 		)
 
-		const { links, warming } = recipeIndex()
-
 		return {
 			warming,
+			counts,
 			results: await withStock(
 				await withMealTags([
 					...found.map((recipe, index): FoundRecipe => ({
@@ -161,10 +233,7 @@ export const searchRecipes = createServerFn({ method: 'GET' })
 						draft: recipe.owned && !recipe.finalizedAt,
 						ingredientMatches: recipe.ingredientMatches,
 					})),
-					...(data.sort === undefined
-						? await notYetShared(searchRecipeLinks(links, data.q, 120))
-						: []
-					).map(fromLink),
+					...pages.map(fromLink),
 				]),
 			),
 		}
@@ -178,7 +247,8 @@ const dayMs = 24 * 60 * 60 * 1000
 // shelf never ends in an empty row while few people use cocochef.
 export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 	async () => {
-		const shared = await popularSharedRecipes(await getViewerId(), popularLimit)
+		const userId = await getViewerId()
+		const shared = await popularSharedRecipes(userId, popularLimit)
 
 		const { links, warming } = recipeIndex()
 		const missing = popularLimit - shared.length
@@ -197,8 +267,23 @@ export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 					).slice(0, missing)
 				: []
 
+		// The bubbles offer what all of cocochef holds, not only these few, and
+		// the site pages shown after them.
+		const counts = countParts(
+			[
+				...(
+					await mealTagsByKey(
+						await findVisibleRecipeKeys(userId, { query: '' }),
+					)
+				).flatMap((meal) => meal ?? []),
+				...(await mealsOfPages(featured)),
+			],
+			{},
+		)
+
 		return {
 			warming,
+			counts,
 			results: await withStock(
 				await withMealTags([
 					...shared.map(fromShared),

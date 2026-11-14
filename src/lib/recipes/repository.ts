@@ -406,23 +406,95 @@ export async function findLovedRecipesForUser(
 	)
 }
 
-async function findVisibleRecipes(
+// What a search asks for: words, a rating sort, or with neither, everything.
+export type RecipeSearch = {
+	query: string
+	sort?: 'loved' | 'votes' | undefined
+}
+
+const asFilter = ({ query, sort }: RecipeSearch): VisibleFilter => ({
+	query,
+	minRating: sort === undefined ? undefined : 0,
+	byVotes: sort === 'votes',
+	// Only a blank search means everything; words too short to search find
+	// nothing, as before.
+	everything: query.trim() === '',
+})
+
+// Every recipe a search could show, in its order, keyed as meal tags are
+// (its page, or `recipe:<id>`): what the meal filters narrow, and count,
+// before the list is cut to size.
+export async function findVisibleRecipeKeys(
 	userId: string,
-	{
-		query,
-		minRating,
-		byVotes = false,
-	}: {
-		query: string
-		minRating?: number | undefined
-		byVotes?: boolean
-	},
-	limit: number,
+	search: RecipeSearch,
+	database: Database = getDb(),
+) {
+	const filter = asFilter(search)
+	const { terms, where, order } = visibleSearch(userId, filter, database)
+
+	if (
+		terms.length === 0 &&
+		filter.minRating === undefined &&
+		!filter.everything
+	)
+		return []
+
+	const rows = await database
+		.select({
+			id: recipes.id,
+			title: recipes.title,
+			sourceUrl: recipes.sourceUrl,
+		})
+		.from(recipes)
+		.leftJoin(
+			shelfRecipes,
+			and(
+				eq(shelfRecipes.recipeId, recipes.id),
+				eq(shelfRecipes.userId, userId),
+			),
+		)
+		.where(where)
+		.orderBy(...order)
+
+	return rows.map((row) => ({
+		id: row.id,
+		title: row.title,
+		key: row.sourceUrl ?? `recipe:${row.id}`,
+	}))
+}
+
+// The recipes with these ids a search would show, in its order.
+export async function findVisibleRecipesById(
+	userId: string,
+	search: RecipeSearch,
+	ids: string[],
+	database: Database = getDb(),
+) {
+	if (ids.length === 0) return []
+
+	return findVisibleRecipes(
+		userId,
+		{ ...asFilter(search), ids },
+		ids.length,
+		database,
+	)
+}
+
+type VisibleFilter = {
+	query: string
+	minRating?: number | undefined
+	byVotes?: boolean
+	// Without words or a rating, every recipe rather than none.
+	everything?: boolean
+	ids?: string[] | undefined
+}
+
+function visibleSearch(
+	userId: string,
+	{ query, minRating, byVotes = false, ids }: VisibleFilter,
 	database: Database,
 ) {
 	const terms = searchTerms(query)
-
-	if (terms.length === 0 && minRating === undefined) return []
 
 	const inTitle = (term: string) => ilike(recipes.title, likePattern(term))
 
@@ -458,27 +530,53 @@ async function findVisibleRecipes(
 			? undefined
 			: and(gte(recipes.ratingValue, minRating), gt(recipes.ratingCount, 0))
 
+	// Without words or a sort, the shelf first, then the most loved.
 	const order =
-		minRating === undefined
+		minRating !== undefined
 			? [
-					...byTitle,
-					sql`${shelfRecipes.addedAt} is null`,
-					desc(recipes.createdAt),
-				]
-			: [
 					desc(byVotes ? recipes.ratingCount : lovedScore()),
 					...byTitle,
 					desc(recipes.createdAt),
 				]
+			: terms.length
+				? [
+						...byTitle,
+						sql`${shelfRecipes.addedAt} is null`,
+						desc(recipes.createdAt),
+					]
+				: [
+						sql`${shelfRecipes.addedAt} is null`,
+						desc(lovedScore()),
+						desc(recipes.createdAt),
+					]
+
+	const where = and(
+		visibleTo(userId, database),
+		rated,
+		ids ? inArray(recipes.id, ids) : undefined,
+		...terms.map((term) => or(inTitle(term), inIngredients(term))),
+	)
+
+	return { terms, where, order }
+}
+
+async function findVisibleRecipes(
+	userId: string,
+	filter: VisibleFilter,
+	limit: number,
+	database: Database,
+) {
+	const { terms, where, order } = visibleSearch(userId, filter, database)
+
+	if (
+		terms.length === 0 &&
+		filter.minRating === undefined &&
+		!filter.everything
+	)
+		return []
 
 	const found = await recipesForUser(database, userId)
-		.where(
-			and(
-				visibleTo(userId, database),
-				rated,
-				...terms.map((term) => or(inTitle(term), inIngredients(term))),
-			),
-		)
+		.where(where)
 		.orderBy(...order)
 		.limit(limit)
 

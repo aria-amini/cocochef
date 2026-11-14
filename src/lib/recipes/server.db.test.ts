@@ -28,6 +28,8 @@ import {
 	findSharedRecipeByUrl,
 	findLovedRecipesForUser,
 	findRecipesForUser,
+	findVisibleRecipeKeys,
+	findVisibleRecipesById,
 	sharedRecipeUrls,
 	updateRecipeForUser,
 } from './repository'
@@ -707,6 +709,82 @@ describe('shared recipes', () => {
 		expect(await ids(tag, 'votes')).toEqual([fine.id, favourite.id, fewFans.id])
 		// Without words, it looks through everything.
 		expect(await ids('', 'loved')).toEqual([favourite.id, fewFans.id, fine.id])
+	})
+
+	test('lists every match keyed for its tags, then reads the ones kept in order', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const tag = crypto.randomUUID().slice(0, 8)
+
+		const shared = (title: string, value: number, count: number) =>
+			createSharedRecipe(
+				{
+					title: `${tag} ${title}`,
+					sourceUrl: `https://example.com/${tag}-${title}`,
+					ingredients: ['1 lemon'],
+					steps: ['cook'],
+					rating: { value, count },
+				},
+				db,
+			)
+
+		// Ahead whatever the catalogue's average: more stars from far more readers.
+		const few = await shared('few', 4, 10)
+		const many = await shared('many', 4.8, 900)
+
+		const mine = await createRecipeForUser(
+			userId,
+			{ title: `${tag} mine`, ingredients: ['lemon'] },
+			db,
+		)
+
+		if (!few || !many || !mine) throw new Error('recipes were not created')
+
+		const ours = [few.id, many.id, mine.id]
+
+		const keys = async (query: string, sort?: 'loved' | 'votes') =>
+			(await findVisibleRecipeKeys(userId, { query, sort }, db)).filter((row) =>
+				ours.includes(row.id),
+			)
+
+		// Without words, every recipe: the shelf first, then the most loved. A
+		// page keys a shared recipe; one with no page is keyed by its id.
+		expect(await keys('')).toEqual([
+			{ id: mine.id, title: `${tag} mine`, key: `recipe:${mine.id}` },
+			{
+				id: many.id,
+				title: `${tag} many`,
+				key: `https://example.com/${tag}-many`,
+			},
+			{
+				id: few.id,
+				title: `${tag} few`,
+				key: `https://example.com/${tag}-few`,
+			},
+		])
+		// A rating sort keeps only what is rated.
+		expect((await keys(tag, 'votes')).map((row) => row.id)).toEqual([
+			many.id,
+			few.id,
+		])
+
+		// The recipes kept are read whole, in the search's order.
+		const read = await findVisibleRecipesById(
+			userId,
+			{ query: tag, sort: 'votes' },
+			[few.id, many.id],
+			db,
+		)
+
+		expect(read.map((recipe) => recipe.id)).toEqual([many.id, few.id])
+		await expect(
+			findVisibleRecipesById(userId, { query: '' }, [], db),
+		).resolves.toEqual([])
+		// Words too short to search find nothing, not everything.
+		await expect(
+			findVisibleRecipeKeys(userId, { query: '% _' }, db),
+		).resolves.toEqual([])
 	})
 
 	test('opens unsaved, then saves to the shelf once', async ({ db }) => {

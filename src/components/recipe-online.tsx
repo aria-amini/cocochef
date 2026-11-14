@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { RecipeGlyph } from '@/components/recipe-glyph'
+import { hasPicks, type MealPicks } from '@/lib/assistant/meal-parts'
 import { searchRecipes } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
 import type { RecipeSort } from '@/lib/recipes/loved'
@@ -19,8 +20,12 @@ export function asRecipeUrl(value: string) {
 	return undefined
 }
 
+type Found = Awaited<ReturnType<typeof searchRecipes>>
+
 type OnlineSearch = {
 	results: Result[]
+	// How many of every match each bubble would leave, when the server counted.
+	counts?: Found['counts']
 	loading: boolean
 	warming: boolean
 	failed: boolean
@@ -28,18 +33,26 @@ type OnlineSearch = {
 
 type Settled = Omit<OnlineSearch, 'loading'> & { asked?: string }
 
+const noPicks: MealPicks = {}
+
 // What was asked, so results answer only the question that fetched them.
-const askedOf = (query: string, sort: RecipeSort | undefined) =>
-	`${sort ?? ''} ${query}`
+const askedOf = (
+	query: string,
+	sort: RecipeSort | undefined,
+	picks: MealPicks,
+) => JSON.stringify([sort ?? '', query, picks])
 
 // Searches the recipe sites for `query` once it settles, or sorted by `sort`,
-// every rated recipe. Pass `undefined` to stay idle. The first search
-// starts the crawl, so keep asking while sites load.
+// every rated recipe; `picks` (kept in state, so one object while unchanged)
+// narrow every match on the server. Pass
+// `undefined` to stay idle. The first search starts the crawl, so keep asking
+// while sites load.
 export function useOnlineRecipes(
 	query: string | undefined,
 	sort?: RecipeSort,
+	picks: MealPicks = noPicks,
 ): OnlineSearch {
-	const asked = query === undefined ? undefined : askedOf(query, sort)
+	const asked = query === undefined ? undefined : askedOf(query, sort, picks)
 
 	const [settled, setSettled] = useState<Settled>({
 		results: [],
@@ -53,16 +66,28 @@ export function useOnlineRecipes(
 		let cancelled = false
 		let timer: ReturnType<typeof setTimeout>
 
+		// Sent only when something is picked.
+		const asking = hasPicks(picks)
+			? {
+					picks: {
+						cuisine: picks.cuisine && [...picks.cuisine],
+						protein: picks.protein && [...picks.protein],
+						form: picks.form && [...picks.form],
+					},
+				}
+			: {}
+
 		async function run(q: string) {
 			try {
 				const found = await searchRecipes({
-					data: { q: q.slice(0, 80), sort },
+					data: { q: q.slice(0, 80), sort, ...asking },
 				})
 
 				if (cancelled) return
 				setSettled({
-					asked: askedOf(q, sort),
+					asked: askedOf(q, sort, picks),
 					results: found.results,
+					counts: found.counts,
 					warming: found.warming,
 					failed: false,
 				})
@@ -71,7 +96,7 @@ export function useOnlineRecipes(
 			} catch {
 				if (!cancelled)
 					setSettled({
-						asked: askedOf(q, sort),
+						asked: askedOf(q, sort, picks),
 						results: [],
 						warming: false,
 						failed: true,
@@ -85,13 +110,16 @@ export function useOnlineRecipes(
 			cancelled = true
 			clearTimeout(timer)
 		}
-	}, [query, sort])
+	}, [query, sort, picks])
 
 	// Results belong to the question that fetched them; a new one starts empty.
+	// The last counts stay while the next ones load, so bubbles don't flicker;
+	// a failed search has none.
 	const current = asked !== undefined && settled.asked === asked
 
 	return {
 		results: current ? settled.results : [],
+		counts: settled.counts,
 		warming: current && settled.warming,
 		failed: current && settled.failed,
 		loading: query !== undefined && !current,

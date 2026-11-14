@@ -4,6 +4,12 @@ import { isPhone, phoneOnly } from '@tests/support/viewport'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
 
+import {
+	countParts,
+	fitsPicks,
+	type MealPicks,
+	type MealTags,
+} from '@/lib/assistant/meal-parts'
 import type { FoundRecipe } from '@/lib/discover/server'
 import type { listShelf } from '@/lib/recipes/server'
 
@@ -83,6 +89,13 @@ vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 const testSession = {
 	user: { id: 'user-1', name: 'Test User', email: 'test@example.com' },
 	session: { id: 'session-1', token: 'token' },
+}
+
+const emptyTags: MealTags = {
+	cuisines: [],
+	flavors: [],
+	proteins: [],
+	forms: [],
 }
 
 type SearchReply = { warming: boolean; results: FoundRecipe[] }
@@ -969,6 +982,113 @@ describe('the search on home', () => {
 		await expect
 			.element(screen.getByRole('option', { name: /japanese curry/ }))
 			.not.toBeInTheDocument()
+	})
+
+	test('offers and finds a cuisine none of the loaded recipes have', async () => {
+		const suya = found({
+			recipeId: 'shared-9',
+			title: 'beef suya',
+			tags: {
+				cuisines: ['west african'],
+				flavors: [],
+				proteins: ['beef'],
+				forms: [],
+			},
+		})
+
+		// The popular few hold nothing West African, but cocochef does.
+		server.popular.mockResolvedValue({
+			warming: false,
+			counts: countParts([suya.tags ?? emptyTags], {}),
+			results: [found({ recipeId: 'shared-1', title: 'lemon chicken' })],
+		})
+		server.search.mockResolvedValue({ warming: false, results: [suya] })
+
+		const { screen } = await openSearch()
+
+		await expect
+			.element(screen.getByRole('option', { name: /lemon chicken/ }))
+			.toBeVisible()
+		await openFilter(screen, 'country')
+		await page.getByRole('checkbox', { name: 'west african' }).click()
+		await userEvent.keyboard('{Escape}')
+
+		// The server narrows every recipe, not only those on screen.
+		await expect
+			.element(screen.getByRole('option', { name: /beef suya/ }))
+			.toBeVisible()
+		expect(server.search).toHaveBeenLastCalledWith({
+			data: expect.objectContaining({
+				q: '',
+				picks: expect.objectContaining({
+					cuisine: expect.arrayContaining(['west african']),
+				}),
+			}),
+		})
+	})
+
+	test('keeps the other cuisines on offer once one is picked within a site', async () => {
+		const meal = (cuisines: string[]): MealTags => ({
+			cuisines,
+			flavors: [],
+			proteins: [],
+			forms: [],
+		})
+
+		const suya = found({
+			recipeId: 'shared-9',
+			title: 'beef suya',
+			siteName: 'BBC Good Food',
+			tags: meal(['west african']),
+		})
+
+		const risotto = found({
+			recipeId: 'shared-8',
+			title: 'mushroom risotto',
+			siteName: 'BBC Good Food',
+			tags: meal(['southern european', 'italian']),
+		})
+
+		// As the server does: the picks narrow the list, and every match counts.
+		server.search.mockImplementation(
+			async ({ data }: { data: { picks?: MealPicks } }) => {
+				const picks = data.picks ?? {}
+
+				return {
+					warming: false,
+					counts: countParts(
+						[meal(['west african']), meal(['southern european', 'italian'])],
+						picks,
+					),
+					results: [suya, risotto].filter((recipe) =>
+						fitsPicks(recipe.tags ?? emptyTags, picks),
+					),
+				}
+			},
+		)
+
+		const { screen, input } = await openSearch()
+
+		await input.fill('dinner')
+		await openFilter(screen, 'country')
+		await page.getByRole('checkbox', { name: 'west african' }).click()
+
+		// The picked search has answered, so its counts are the ones shown.
+		await expect
+			.element(screen.getByRole('option', { name: /beef suya/ }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('option', { name: /mushroom risotto/ }))
+			.not.toBeInTheDocument()
+		await openFilter(screen, 'site')
+		await page.getByRole('checkbox', { name: 'BBC Good Food' }).click()
+		await openFilter(screen, 'country')
+
+		// The risotto is gone from the list, but picking Italian too would
+		// bring it back, so it stays on offer.
+		await expect
+			.element(page.getByRole('checkbox', { name: 'southern european' }))
+			.toBeEnabled()
 	})
 
 	test('greys out what the picked site has none of, and says when filters hide everything', async () => {
