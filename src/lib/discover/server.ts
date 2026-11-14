@@ -250,14 +250,6 @@ export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 		const userId = await getViewerId()
 		const shared = await popularSharedRecipes(userId, popularLimit)
 
-		// The bubbles offer what all of cocochef holds, not only these few.
-		const counts = countParts(
-			(
-				await mealTagsByKey(await findVisibleRecipeKeys(userId, { query: '' }))
-			).flatMap((meal) => meal ?? []),
-			{},
-		)
-
 		const { links, warming } = recipeIndex()
 		const missing = popularLimit - shared.length
 
@@ -274,6 +266,20 @@ export const popularRecipes = createServerFn({ method: 'GET' }).handler(
 						)
 					).slice(0, missing)
 				: []
+
+		// The bubbles offer what all of cocochef holds, not only these few, and
+		// the site pages shown after them.
+		const counts = countParts(
+			[
+				...(
+					await mealTagsByKey(
+						await findVisibleRecipeKeys(userId, { query: '' }),
+					)
+				).flatMap((meal) => meal ?? []),
+				...(await mealsOfPages(featured)),
+			],
+			{},
+		)
 
 		return {
 			warming,

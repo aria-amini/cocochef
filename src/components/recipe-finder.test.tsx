@@ -1072,6 +1072,14 @@ describe('the search on home', () => {
 		await input.fill('dinner')
 		await openFilter(screen, 'country')
 		await page.getByRole('checkbox', { name: 'west african' }).click()
+
+		// The picked search has answered, so its counts are the ones shown.
+		await expect
+			.element(screen.getByRole('option', { name: /beef suya/ }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('option', { name: /mushroom risotto/ }))
+			.not.toBeInTheDocument()
 		await openFilter(screen, 'site')
 		await page.getByRole('checkbox', { name: 'BBC Good Food' }).click()
 		await openFilter(screen, 'country')
