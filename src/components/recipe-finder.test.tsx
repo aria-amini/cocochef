@@ -444,22 +444,27 @@ describe('the search on home', () => {
 
 	test('lets go of a hovered row when the pointer leaves the list', async () => {
 		server.popular.mockResolvedValue({
-			results: [found({ recipeId: 'shared-1', title: 'marry me chicken' })],
+			results: [
+				found({ recipeId: 'shared-1', title: 'marry me chicken' }),
+				found({ recipeId: 'shared-2', title: 'lemon cake' }),
+			],
 		})
 
 		const { screen, input } = await openSearch()
-		const option = screen.getByRole('option', { name: /marry me chicken/ })
+		const first = screen.getByRole('option', { name: /marry me chicken/ })
+		const second = screen.getByRole('option', { name: /lemon cake/ })
 
-		await option.hover()
-		await expect.element(option).toHaveAttribute('aria-selected', 'true')
+		await first.hover()
+		await expect.element(first).toHaveAttribute('aria-selected', 'true')
 		await input.hover()
-		await expect.element(option).toHaveAttribute('aria-selected', 'false')
+		await expect.element(first).toHaveAttribute('aria-selected', 'false')
 
-		// A highlight the keys chose stays where the pointer leaves it.
+		// A highlight the keys chose stays when the pointer then leaves.
+		await first.hover()
 		await userEvent.keyboard('{ArrowDown}')
-		await expect.element(option).toHaveAttribute('aria-selected', 'true')
+		await expect.element(second).toHaveAttribute('aria-selected', 'true')
 		await input.hover()
-		await expect.element(option).toHaveAttribute('aria-selected', 'true')
+		await expect.element(second).toHaveAttribute('aria-selected', 'true')
 	})
 
 	test('says when a recipe matched on its ingredients', async () => {

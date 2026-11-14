@@ -1252,9 +1252,9 @@ export function FinderPanel({
 						id={listboxId}
 						role="listbox"
 						aria-label="Ways to start and recipes"
-						// Laid flat, a row lit by the pointer goes dark once it leaves.
-						// Beside a preview the highlight stays, so the pointer can
-						// cross to it.
+						// Laid flat, a row lit by the pointer lets go once it leaves,
+						// back to the row Enter would open, if any. Beside a preview
+						// the highlight stays, so the pointer can cross to it.
 						onMouseLeave={() => {
 							if (!inline || !pointed.current) return
 							pointed.current = false
