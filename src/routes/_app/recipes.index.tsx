@@ -239,7 +239,7 @@ function Shelf() {
 				)}
 				{/* Last in the column, so it sticks above the tab bar the whole way
 				    down and rests under the last recipe. */}
-				{selection.on ? (
+				{selection.on && account ? (
 					<SelectionDock chosen={chosen} mine={mine} onDone={selection.stop} />
 				) : null}
 			</motion.div>
