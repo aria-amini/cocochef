@@ -3,7 +3,7 @@ import {
 	CopySimpleIcon,
 	PencilSimpleIcon,
 } from '@phosphor-icons/react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useId, useState, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
@@ -20,6 +20,8 @@ import { getMySharingProfile, updateSharingProfile } from '@/lib/sharing/server'
 import { cn } from '@/lib/utils/ui'
 
 type Profile = Awaited<ReturnType<typeof getMySharingProfile>>
+
+type Saved = Awaited<ReturnType<typeof updateSharingProfile>>
 
 // The site's own address, for showing a page's whole link. Empty while
 // rendering on the server, where there is no window to ask.
@@ -50,8 +52,11 @@ export function PublicProfileSettings({
 	accountId: string
 	accountName: string
 }) {
+	const queryClient = useQueryClient()
+	const key = ['sharing-profile', accountId]
+
 	const profile = useQuery({
-		queryKey: ['sharing-profile', accountId],
+		queryKey: key,
 		queryFn: () => getMySharingProfile(),
 	})
 
@@ -86,7 +91,16 @@ export function PublicProfileSettings({
 			<ProfileCard
 				profile={profile.data}
 				accountName={accountName}
-				onSaved={() => void profile.refetch()}
+				onSaved={(saved) => {
+					// The saved handle and name are in place before edit can open
+					// again, so a quick second edit never starts from the old ones.
+					queryClient.setQueryData<Profile>(key, (now) => ({
+						...now,
+						...saved,
+						isPublic: now?.isPublic ?? false,
+					}))
+					void profile.refetch()
+				}}
 			/>
 		</SettingsGroup>
 	)
@@ -99,7 +113,7 @@ function ProfileCard({
 }: {
 	profile: Profile
 	accountName: string
-	onSaved: () => void
+	onSaved: (saved: Saved) => void
 }) {
 	const host = useHost()
 	// Without a page yet, the card opens on setting one up.
@@ -112,9 +126,9 @@ function ProfileCard({
 				accountName={accountName}
 				host={host}
 				onCancel={profile ? () => setEditing(false) : undefined}
-				onSaved={() => {
+				onSaved={(saved) => {
+					onSaved(saved)
 					setEditing(false)
-					onSaved()
 				}}
 			/>
 		)
@@ -181,7 +195,7 @@ function ProfileForm({
 	accountName: string
 	host: string
 	onCancel?: (() => void) | undefined
-	onSaved: () => void
+	onSaved: (saved: Saved) => void
 }) {
 	const [handle, setHandle] = useState(
 		profile?.handle ?? handleFrom(accountName),
@@ -196,9 +210,9 @@ function ProfileForm({
 
 	const update = useMutation({
 		mutationFn: updateSharingProfile,
-		onSuccess: () => {
+		onSuccess: (saved) => {
 			toast.success('profile saved')
-			onSaved()
+			onSaved(saved)
 		},
 	})
 

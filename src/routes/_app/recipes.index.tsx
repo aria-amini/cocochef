@@ -276,7 +276,12 @@ function SelectionDock({
 		setPending(true)
 
 		try {
-			await deleteRecipes({ data: { ids: chosen.map((recipe) => recipe.id) } })
+			const ids = chosen.map((recipe) => recipe.id)
+
+			// The server takes 500 at a time; select all can pick more.
+			for (let start = 0; start < ids.length; start += 500)
+				await deleteRecipes({ data: { ids: ids.slice(start, start + 500) } })
+
 			await router.invalidate()
 			toast.success(
 				`${count(chosen.length, 'recipe', 'recipes')} off your shelf`,

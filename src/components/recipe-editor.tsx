@@ -538,6 +538,8 @@ export function RecipeEditor({
 						? `your own ${latest.title} replaces the saved one`
 						: `your own ${latest.title} is on your shelf`,
 				)
+			// Saved, so leaving loses nothing.
+			leaving.current = true
 			onDone(id)
 		} catch {
 			finishing.current = false
@@ -580,7 +582,8 @@ export function RecipeEditor({
 		? changes.length > 0
 		: changes.some((change) => change !== 'name')
 
-	const unsaved = () => worthKeeping && !finishing.current && !leaving.current
+	// A save still in flight is not saved yet: only a finished one lets go.
+	const unsaved = () => worthKeeping && !leaving.current
 
 	const blocker = useBlocker({
 		shouldBlockFn: ({ current, next }) =>

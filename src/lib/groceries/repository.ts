@@ -1,4 +1,13 @@
-import { and, asc, count, eq, isNotNull, isNull, ne } from 'drizzle-orm'
+import {
+	and,
+	asc,
+	count,
+	eq,
+	inArray,
+	isNotNull,
+	isNull,
+	ne,
+} from 'drizzle-orm'
 
 import { type Database, getDb, type Queryable } from '@/db/connection'
 import { groceryItems, pantryItems, type StockedWas } from '@/db/schema'
@@ -229,6 +238,8 @@ export async function clearCheckedGroceriesForUser(
 			.where(
 				and(eq(groceryItems.userId, userId), isNotNull(groceryItems.checkedAt)),
 			)
+			// Locked, so two clears at once cannot both put the same line away.
+			.for('update')
 
 		const picked = new Set(stock)
 
@@ -244,10 +255,16 @@ export async function clearCheckedGroceriesForUser(
 				)
 			: { restocked: 0, added: 0 }
 
-		await tx
-			.delete(groceryItems)
-			.where(
-				and(eq(groceryItems.userId, userId), isNotNull(groceryItems.checkedAt)),
+		// Only the lines read above: one ticked meanwhile was never offered.
+		if (ticked.length)
+			await tx.delete(groceryItems).where(
+				and(
+					eq(groceryItems.userId, userId),
+					inArray(
+						groceryItems.id,
+						ticked.map((line) => line.id),
+					),
+				),
 			)
 
 		return { cleared: ticked.length, ...stocked }
