@@ -20,6 +20,7 @@ const home = vi.hoisted(() => ({
 const server = vi.hoisted(() => ({
 	search: vi.fn(),
 	popular: vi.fn(),
+	recipe: vi.fn(),
 }))
 
 vi.mock('@/lib/home/server', () => ({
@@ -49,7 +50,7 @@ vi.mock('@/lib/import/server', () => ({
 vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
-	getRecipe: () => Promise.resolve(null),
+	getRecipe: server.recipe,
 }))
 
 const session = {
@@ -70,6 +71,7 @@ describe('home', () => {
 		server.popular
 			.mockReset()
 			.mockResolvedValue({ warming: false, results: [] })
+		server.recipe.mockReset().mockResolvedValue(null)
 	})
 
 	afterEach(() => {
@@ -187,6 +189,61 @@ describe('home', () => {
 			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
 			.toBeVisible()
 		await expectPageScreenshot(screen.container, 'home')
+	})
+
+	test('starts reading a recipe at the touch, before the tap lands', async () => {
+		server.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				{
+					recipeId: 'dal',
+					title: 'red lentil dal',
+					siteName: 'Example',
+					saved: false,
+					draft: false,
+					ingredientMatches: [],
+				},
+			],
+		})
+
+		const { screen } = await renderRoute({ path: '/', session })
+
+		const row = screen.getByRole('option', { name: /red lentil dal/ })
+
+		await expect.element(row).toBeVisible()
+		row
+			.element()
+			.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+		await expect
+			.poll(() => server.recipe.mock.calls[0]?.[0])
+			.toEqual({ data: { id: 'dal' } })
+	})
+
+	test('does not start reading a recipe when its save button is pressed', async () => {
+		server.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				{
+					recipeId: 'dal',
+					title: 'red lentil dal',
+					siteName: 'Example',
+					saved: false,
+					draft: false,
+					ingredientMatches: [],
+				},
+			],
+		})
+
+		const { screen } = await renderRoute({ path: '/', session })
+
+		const save = screen.getByRole('button', { name: 'save red lentil dal' })
+
+		await expect.element(save).toBeVisible()
+		save
+			.element()
+			.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+		await new Promise((resolve) => setTimeout(resolve, 300))
+		expect(server.recipe).not.toHaveBeenCalled()
 	})
 
 	test('goes on as the list is scrolled, with no button to press', async () => {

@@ -45,6 +45,9 @@ export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
 		...shelf,
 		// A visitor keeps nothing, so the shelf asks them to sign up instead.
 		signedIn: viewer !== 'visitor',
+		// Who is asking, so the page tells their own recipes from saved ones
+		// on its first draw, before the browser has read the session.
+		viewerId: viewer === 'visitor' ? null : viewer,
 		recipes: await Promise.all(shelf.recipes.map(withSignedImage)),
 	}
 })

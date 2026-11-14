@@ -14,6 +14,8 @@ type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 type ShelfState = {
 	recipes: Recipe[]
 	signedIn: boolean
+	// Who the shelf says is asking; null leaves it to the browser's session.
+	viewerId: string | null
 	// The shelf never arrives, so the page stays on its skeleton.
 	hang: boolean
 }
@@ -21,6 +23,7 @@ type ShelfState = {
 const shelfState = vi.hoisted<ShelfState>(() => ({
 	recipes: [],
 	signedIn: true,
+	viewerId: null,
 	hang: false,
 }))
 
@@ -58,6 +61,7 @@ vi.mock('@/lib/recipes/server', () => ({
 			: Promise.resolve({
 					recipes: shelfState.recipes,
 					signedIn: shelfState.signedIn,
+					viewerId: shelfState.viewerId,
 				}),
 	getRecipe: ({ data }: { data: { id: string } }) => {
 		const recipe = shelfState.recipes.find((recipe) => recipe.id === data.id)
@@ -128,6 +132,7 @@ describe('recipes shelf', () => {
 	beforeEach(() => {
 		shelfState.recipes = []
 		shelfState.signedIn = true
+		shelfState.viewerId = null
 		shelfState.hang = false
 		saves.remove.mockReset().mockResolvedValue(null)
 		saves.save.mockReset().mockResolvedValue(null)
@@ -153,6 +158,24 @@ describe('recipes shelf', () => {
 		await expect.element(yours.getByText('miso butter pasta')).toBeVisible()
 		await expect.element(saved.getByText('shared soup')).toBeVisible()
 		await expect.element(yours.getByText('shared soup')).not.toBeInTheDocument()
+	})
+
+	test('files your own recipes as yours before the browser reads the session', async () => {
+		shelfState.viewerId = 'user-1'
+		shelfState.recipes = [
+			misoButterPasta,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+
+		// The browser has no session yet; the shelf already says who asked.
+		const { screen } = await renderRoute({ path: '/recipes' })
+
+		const yours = screen.getByRole('region', { name: 'your recipes' })
+		const saved = screen.getByRole('region', { name: 'saved recipes' })
+		await expect.element(yours.getByText('miso butter pasta')).toBeVisible()
+		await expect
+			.element(saved.getByText('miso butter pasta'))
+			.not.toBeInTheDocument()
 	})
 
 	test('opens a blank recipe from the add tile on an empty shelf', async () => {

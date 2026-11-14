@@ -9,7 +9,7 @@ afterEach(() => {
 
 const pasta = { id: 'pasta', publicPath: '/aria/pasta' }
 
-describe('a recipe handed from a preload to the loads behind it', () => {
+describe('a recipe handed from the id route to the loads behind it', () => {
 	test('is found by its id or its readable address', () => {
 		vi.stubGlobal('window', {})
 		const handoff = createRecipeHandoff<typeof pasta>()
@@ -21,14 +21,24 @@ describe('a recipe handed from a preload to the loads behind it', () => {
 		expect(handoff.get('soup', 'enter')).toBeUndefined()
 	})
 
-	test('is only handed on by a preload, never by a visit or a reload', () => {
+	test('hands a visit’s read on only to the address it redirects to', () => {
 		vi.stubGlobal('window', {})
 		const handoff = createRecipeHandoff<typeof pasta>()
 
 		handoff.hand(pasta, 'enter')
+
+		expect(handoff.get('/aria/pasta', 'enter')).toBe(pasta)
+		// A visit by id, as after an edit, reads the recipe again.
+		expect(handoff.get('pasta', 'enter')).toBeUndefined()
+	})
+
+	test('is never handed on by a reload', () => {
+		vi.stubGlobal('window', {})
+		const handoff = createRecipeHandoff<typeof pasta>()
+
 		handoff.hand(pasta, 'stay')
 
-		expect(handoff.get('pasta', 'enter')).toBeUndefined()
+		expect(handoff.get('/aria/pasta', 'enter')).toBeUndefined()
 	})
 
 	test('is not taken by a reload of the page, which reads it as it now is', () => {

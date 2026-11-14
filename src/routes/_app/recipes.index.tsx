@@ -175,7 +175,9 @@ function Shelf() {
 			recipes.filter((recipe) => !ids.has(recipe.id)),
 	)
 
+	const { viewerId } = Route.useLoaderData()
 	const account = authClient.useSession().data?.user
+	const me = viewerId ?? account?.id
 	const reduce = useReducedMotion()
 	// Rises in when opened from another page. A first load shows at once:
 	// rendered on the server, it would otherwise stay invisible until the
@@ -193,7 +195,7 @@ function Shelf() {
 					transition: { duration: 0.6, ease },
 				}
 
-	const mine = (recipe: Recipe) => !!account && recipe.userId === account.id
+	const mine = (recipe: Recipe) => !!me && recipe.userId === me
 
 	const ownRecipes = shelfRecipes.filter(
 		(recipe) => mine(recipe) && recipe.finalizedAt,

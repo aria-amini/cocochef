@@ -1096,6 +1096,22 @@ export function FinderPanel({
 		'aria-selected': index === active,
 		'aria-disabled': busy !== undefined || undefined,
 		onMouseDown: (event: React.MouseEvent) => event.preventDefault(),
+		// Laid flat, a tap opens the recipe, so it starts loading at the touch,
+		// as a link does; the tap a moment later finds it read. Not for a
+		// button in the row, like saving: the read would be from before it,
+		// and the recipe opened right after would say it is not saved.
+		onPointerDown: (event: React.PointerEvent) => {
+			if (event.target instanceof Element && event.target.closest('button'))
+				return
+
+			const id = inline && option.kind === 'recipe' && idOf(option.recipe)
+
+			if (id)
+				void router.preloadRoute({
+					to: '/recipes/$recipeId',
+					params: { recipeId: id },
+				})
+		},
 		// Move, not enter: a list that opens under a resting pointer must not
 		// steal the highlight from the keyboard.
 		onMouseMove: () => {
