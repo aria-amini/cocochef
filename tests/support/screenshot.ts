@@ -31,6 +31,29 @@ function hideAllBut(target: Element) {
 	}
 }
 
+// Turns spellcheck off in the target's fields while it is captured. Chromium
+// underlines words it doesn't know ("miso") on its own schedule, so the
+// squiggle comes and goes between runs. Returns a function that restores it.
+function quietSpellcheck(target: Element) {
+	const fields = [
+		...target.querySelectorAll('input, textarea, [contenteditable]'),
+	]
+
+	const before = fields.map((field) => field.getAttribute('spellcheck'))
+
+	for (const field of fields) field.setAttribute('spellcheck', 'false')
+
+	return () => {
+		fields.forEach((field, index) => {
+			const value = before[index]
+
+			if (value === null || value === undefined)
+				field.removeAttribute('spellcheck')
+			else field.setAttribute('spellcheck', value)
+		})
+	}
+}
+
 function targetElement(target: Locator | HTMLElement) {
 	const element = target instanceof HTMLElement ? target : target.element()
 
@@ -50,10 +73,12 @@ export async function expectIsolatedScreenshot(
 ) {
 	const element = targetElement(target)
 	const show = hideAllBut(element)
+	const restoreSpellcheck = quietSpellcheck(element)
 
 	try {
 		await expectScreenshot(element, name, options)
 	} finally {
+		restoreSpellcheck()
 		show()
 	}
 }
