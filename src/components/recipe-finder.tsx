@@ -939,17 +939,28 @@ export function FinderPanel({
 			return
 		}
 
+		// Saved at the tap: a page can take a few seconds to bring in, and
+		// the row shows it saved meanwhile, unless it fails.
+		const mark = (saved: boolean) =>
+			setSavedHere((current) => new Map(current).set(savedKey(recipe), saved))
+
 		void run(`${optionKey({ kind: 'recipe', recipe })}:save`, async () => {
+			mark(true)
+
 			const known = idOf(recipe)
 
 			let id = known
 
-			if (known) await saveRecipe({ data: { id: known } })
-			else if (recipe.url)
-				id = (await importRecipe({ data: { url: recipe.url, keep: true } })).id
-			else throw new Error("couldn't find that recipe")
-
-			setSavedHere((current) => new Map(current).set(savedKey(recipe), true))
+			try {
+				if (known) await saveRecipe({ data: { id: known } })
+				else if (recipe.url)
+					id = (await importRecipe({ data: { url: recipe.url, keep: true } }))
+						.id
+				else throw new Error("couldn't find that recipe")
+			} catch (error) {
+				mark(false)
+				throw error
+			}
 
 			// A page brought in to be kept is known by its id from here on, so it
 			// can be taken off again even if no background read found it.
@@ -978,9 +989,19 @@ export function FinderPanel({
 
 		if (!known) return
 
+		const mark = (saved: boolean) =>
+			setSavedHere((current) => new Map(current).set(savedKey(recipe), saved))
+
 		void run(`${optionKey({ kind: 'recipe', recipe })}:save`, async () => {
-			await removeSavedRecipe({ data: { id: known } })
-			setSavedHere((current) => new Map(current).set(savedKey(recipe), false))
+			mark(false)
+
+			try {
+				await removeSavedRecipe({ data: { id: known } })
+			} catch (error) {
+				mark(true)
+				throw error
+			}
+
 			await Promise.all([
 				router.invalidate(),
 				client.invalidateQueries({ queryKey: ['shelf'] }),

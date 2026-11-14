@@ -12,7 +12,14 @@ import {
 } from '@phosphor-icons/react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import {
+	createContext,
+	startTransition,
+	useContext,
+	useEffect,
+	useOptimistic,
+	useState,
+} from 'react'
 import { toast } from 'sonner'
 
 import { useTabBarVisible } from '@/components/app-nav'
@@ -64,6 +71,10 @@ type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 // Four even columns from a tablet up, two on a phone.
 const shelfGridClassName =
 	'grid grid-cols-2 gap-4 md:auto-rows-[var(--spacing-tile)] md:grid-cols-4'
+
+// Takes recipes off the shelf on screen, until the server's shelf arrives:
+// for the chip on a saved recipe's tile, as for clearing many at once.
+const ClearOff = createContext<(ids: ReadonlySet<string>) => void>(() => {})
 
 // Each of the shelf's sections opens the same way: its icon, then its name.
 const shelfHeadingClassName = 'flex items-center gap-2 text-xl font-bold'
@@ -149,7 +160,16 @@ function ShelfPreview() {
 }
 
 function Shelf() {
-	const { recipes: shelfRecipes } = Route.useLoaderData()
+	const { recipes: loaded } = Route.useLoaderData()
+
+	// Recipes cleared off leave at once. The shelf the server sends back takes
+	// over once it arrives, and brings them back if clearing failed.
+	const [shelfRecipes, clearOff] = useOptimistic(
+		loaded,
+		(recipes, ids: ReadonlySet<string>) =>
+			recipes.filter((recipe) => !ids.has(recipe.id)),
+	)
+
 	const account = authClient.useSession().data?.user
 	const reduce = useReducedMotion()
 	const [addTile, tileInView] = useInView()
@@ -199,88 +219,99 @@ function Shelf() {
 	const chosen = shelfRecipes.filter((recipe) => selection.has(recipe.id))
 
 	return (
-		<main className="min-w-0 flex-1">
-			<motion.div
-				{...enter}
-				className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
-			>
-				<h1 className="sr-only">my recipes</h1>
-				{/* Choosing waits for the account, which tells the cook's own
-				    recipes (deleted) from saved ones (only taken off). */}
-				{isEmpty || !account ? null : (
-					<div className="-mb-4 flex justify-end">
-						{selection.on ? (
-							<Button
-								variant="ghost"
-								onClick={() =>
-									chosen.length === shelfRecipes.length
-										? selection.clear()
-										: selection.set(shelfRecipes.map((recipe) => recipe.id))
-								}
+		<ClearOff value={clearOff}>
+			<main className="min-w-0 flex-1">
+				<motion.div
+					{...enter}
+					className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
+				>
+					<h1 className="sr-only">my recipes</h1>
+					{/* Choosing waits for the account, which tells the cook's own
+					    recipes (deleted) from saved ones (only taken off). */}
+					{isEmpty || !account ? null : (
+						<div className="-mb-4 flex justify-end">
+							{selection.on ? (
+								<Button
+									variant="ghost"
+									onClick={() =>
+										chosen.length === shelfRecipes.length
+											? selection.clear()
+											: selection.set(shelfRecipes.map((recipe) => recipe.id))
+									}
+								>
+									{chosen.length === shelfRecipes.length
+										? 'select none'
+										: 'select all'}
+								</Button>
+							) : (
+								<Button variant="ghost" onClick={selection.start}>
+									<CheckSquareIcon aria-hidden />
+									select
+								</Button>
+							)}
+						</div>
+					)}
+					{drafts.length ? <Drafts drafts={drafts} pickFor={pickFor} /> : null}
+					{sections.map(({ id, title, recipes }) =>
+						recipes.length || id === ownShelf ? (
+							<section
+								key={id}
+								aria-labelledby={id}
+								className="flex min-w-0 flex-col gap-3"
 							>
-								{chosen.length === shelfRecipes.length
-									? 'select none'
-									: 'select all'}
-							</Button>
-						) : (
-							<Button variant="ghost" onClick={selection.start}>
-								<CheckSquareIcon aria-hidden />
-								select
-							</Button>
-						)}
-					</div>
-				)}
-				{drafts.length ? <Drafts drafts={drafts} pickFor={pickFor} /> : null}
-				{sections.map(({ id, title, recipes }) =>
-					recipes.length || id === ownShelf ? (
-						<section
-							key={id}
-							aria-labelledby={id}
-							className="flex min-w-0 flex-col gap-3"
-						>
-							<h2 id={id} className={shelfHeadingClassName}>
-								{id === 'saved-recipes' ? (
-									<BookmarkSimpleIcon
-										size={20}
-										weight="fill"
-										aria-hidden
-										className="text-kitchen-eggplant"
-									/>
-								) : (
-									<UserIcon size={20} weight="bold" aria-hidden />
-								)}
-								{title}
-							</h2>
-							<div className={shelfGridClassName}>
-								{id === ownShelf && !selection.on ? (
-									<AddTile ref={addTile} />
-								) : null}
-								{recipes.map((recipe) => (
-									<RecipeTile
-										key={recipe.id}
-										recipe={recipe}
-										pick={pickFor(recipe)}
-										saved={id === 'saved-recipes'}
-										color={tileColorFor(recipe.id)}
-										seenBy={
-											mine(recipe)
-												? (recipe.visibility ?? 'private')
-												: undefined
-										}
-									/>
-								))}
-							</div>
-						</section>
-					) : null,
-				)}
-				{/* Last in the column, so it sticks above the tab bar the whole way
+								<h2 id={id} className={shelfHeadingClassName}>
+									{id === 'saved-recipes' ? (
+										<BookmarkSimpleIcon
+											size={20}
+											weight="fill"
+											aria-hidden
+											className="text-kitchen-eggplant"
+										/>
+									) : (
+										<UserIcon size={20} weight="bold" aria-hidden />
+									)}
+									{title}
+								</h2>
+								<div className={shelfGridClassName}>
+									{id === ownShelf && !selection.on ? (
+										<AddTile ref={addTile} />
+									) : null}
+									{recipes.map((recipe) => (
+										<RecipeTile
+											key={recipe.id}
+											recipe={recipe}
+											pick={pickFor(recipe)}
+											saved={id === 'saved-recipes'}
+											color={tileColorFor(recipe.id)}
+											seenBy={
+												mine(recipe)
+													? (recipe.visibility ?? 'private')
+													: undefined
+											}
+										/>
+									))}
+								</div>
+							</section>
+						) : null,
+					)}
+					{/* Last in the column, so it sticks above the tab bar the whole way
 				    down and rests under the last recipe. */}
-				{selection.on && account ? (
-					<SelectionDock chosen={chosen} mine={mine} onDone={selection.stop} />
-				) : null}
-			</motion.div>
-			<AddFab show={!tileInView && !selection.on} />
-		</main>
+					{selection.on && account ? (
+						<SelectionDock
+							chosen={chosen}
+							mine={mine}
+							onClear={clearOff}
+							onDone={selection.stop}
+							onFailed={(ids) => {
+								selection.start()
+								selection.set(ids)
+							}}
+						/>
+					) : null}
+				</motion.div>
+				<AddFab show={!tileInView && !selection.on} />
+			</main>
+		</ClearOff>
 	)
 }
 
@@ -327,44 +358,53 @@ function useSelection() {
 function SelectionDock({
 	chosen,
 	mine,
+	onClear,
 	onDone,
+	onFailed,
 }: {
 	chosen: Recipe[]
 	mine: (recipe: Recipe) => boolean
+	// Takes recipes off the shelf on screen, until the server's shelf arrives.
+	onClear: (ids: ReadonlySet<string>) => void
 	onDone: () => void
+	// Picks them again when clearing failed, so trying again is one tap.
+	onFailed: (ids: string[]) => void
 }) {
 	const router = useRouter()
 	const [confirming, setConfirming] = useState(false)
-	const [pending, setPending] = useState(false)
 
 	const written = chosen.filter(mine).length
 	const saved = chosen.length - written
 	// Only saved ones picked: they come off, nothing is lost.
 	const removing = written === 0
 
-	async function remove() {
-		setPending(true)
+	// The recipes leave the shelf as soon as the cook confirms; the server
+	// catches up behind, and the toast says how it went.
+	function remove() {
+		const ids = chosen.map((recipe) => recipe.id)
+		const done = `${count(ids.length, 'recipe', 'recipes')} off your shelf`
+		const failed = `couldn't ${removing ? 'remove' : 'delete'} those — try again`
 
-		try {
-			const ids = chosen.map((recipe) => recipe.id)
+		setConfirming(false)
+		onDone()
 
-			// The server takes 500 at a time; select all can pick more.
-			for (let start = 0; start < ids.length; start += 500)
-				await deleteRecipes({ data: { ids: ids.slice(start, start + 500) } })
+		startTransition(async () => {
+			onClear(new Set(ids))
 
-			await router.invalidate()
-			toast.success(
-				`${count(chosen.length, 'recipe', 'recipes')} off your shelf`,
-			)
-			setConfirming(false)
-			onDone()
-		} catch {
-			toast.error(
-				`couldn't ${removing ? 'remove' : 'delete'} those — try again`,
-			)
-		} finally {
-			setPending(false)
-		}
+			try {
+				// The server takes 500 at a time; select all can pick more.
+				for (let start = 0; start < ids.length; start += 500)
+					await deleteRecipes({ data: { ids: ids.slice(start, start + 500) } })
+
+				toast.success(done)
+			} catch {
+				toast.error(failed)
+				onFailed(ids)
+			}
+
+			// The change is made; a failed read only leaves the page as it was.
+			await router.invalidate().catch(() => undefined)
+		})
 	}
 
 	return (
@@ -390,10 +430,7 @@ function SelectionDock({
 					{removing && chosen.length ? 'remove' : 'delete'}
 				</button>
 			</FormActions>
-			<Dialog
-				open={confirming}
-				onOpenChange={(open) => !pending && setConfirming(open)}
-			>
+			<Dialog open={confirming} onOpenChange={setConfirming}>
 				<DialogContent showCloseButton={false}>
 					<DialogHeader>
 						<DialogTitle>
@@ -409,25 +446,11 @@ function SelectionDock({
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
-						<Button
-							variant="outline"
-							disabled={pending}
-							onClick={() => setConfirming(false)}
-						>
+						<Button variant="outline" onClick={() => setConfirming(false)}>
 							keep them
 						</Button>
-						<Button
-							variant="destructive"
-							disabled={pending}
-							onClick={() => void remove()}
-						>
-							{pending
-								? removing
-									? 'removing…'
-									: 'deleting…'
-								: removing
-									? 'remove'
-									: 'delete'}
+						<Button variant="destructive" onClick={remove}>
+							{removing ? 'remove' : 'delete'}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
@@ -613,39 +636,36 @@ function RecipeTile({
 // back.
 function UnsaveChip({ recipe }: { recipe: Recipe }) {
 	const router = useRouter()
-	const [saving, setSaving] = useState(false)
+	const clearOff = useContext(ClearOff)
 
-	async function unsave() {
-		setSaving(true)
+	// It leaves the shelf at the tap; the toast and its undo come once the
+	// server has it, and a failure puts it back.
+	function unsave() {
+		startTransition(async () => {
+			clearOff(new Set([recipe.id]))
 
-		try {
-			await removeSavedRecipe({ data: { id: recipe.id } })
-			await router.invalidate()
-			toast.success('taken off your recipes', {
-				position: 'bottom-center',
-				action: {
-					label: 'undo',
-					onClick: () =>
-						void saveRecipe({ data: { id: recipe.id } }).then(() =>
-							router.invalidate(),
-						),
-				},
-			})
-		} catch {
-			toast.error("couldn't take it off — try again")
-		} finally {
-			setSaving(false)
-		}
+			try {
+				await removeSavedRecipe({ data: { id: recipe.id } })
+				toast.success('taken off your recipes', {
+					position: 'bottom-center',
+					action: {
+						label: 'undo',
+						onClick: () =>
+							void saveRecipe({ data: { id: recipe.id } }).then(() =>
+								router.invalidate(),
+							),
+					},
+				})
+			} catch {
+				toast.error("couldn't take it off — try again")
+			}
+
+			// The change is made; a failed read only leaves the page as it was.
+			await router.invalidate().catch(() => undefined)
+		})
 	}
 
-	return (
-		<SaveChip
-			title={recipe.title}
-			saved
-			saving={saving}
-			toggle={() => void unsave()}
-		/>
-	)
+	return <SaveChip title={recipe.title} saved saving={false} toggle={unsave} />
 }
 
 // What a draft has so far, and what it is still missing.

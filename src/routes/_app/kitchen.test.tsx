@@ -26,6 +26,8 @@ const state = vi.hoisted<{
 	signedOut?: boolean
 	// The pantry never arrives, so the page stays on its skeleton.
 	hang?: boolean
+	// A level change waits for this before the server has it.
+	held?: Promise<void> | undefined
 }>(() => ({ items: [] }))
 
 // What was deleted, so undo can put it back.
@@ -86,6 +88,8 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	}: {
 		data: { id: string; level: 'plenty' | 'low' | 'out' }
 	}) => {
+		await state.held
+
 		const item = state.items.find((entry) => entry.id === data.id)
 
 		if (item) Object.assign(item, { level: data.level, quantity: null })
@@ -176,6 +180,7 @@ describe('kitchen', () => {
 		state.items = [item('carrots', 'vegetables'), item('eggs', 'dairy')]
 		state.signedOut = false
 		state.hang = false
+		state.held = undefined
 		bought.calls.length = 0
 	})
 
@@ -372,6 +377,29 @@ describe('kitchen', () => {
 		await expect
 			.element(screen.getByRole('heading', { name: 'add ingredients' }))
 			.toBeVisible()
+	})
+
+	test('shows a new level at the tap, before the server has it', async () => {
+		let answer = () => {}
+
+		state.held = new Promise((resolve) => {
+			answer = resolve
+		})
+
+		const { screen } = await renderRoute({
+			path: '/kitchen?list=recent',
+			session,
+		})
+
+		await screen.getByRole('link', { name: /^carrots, enough/ }).click()
+		await page.getByRole('button', { name: 'out', exact: true }).click()
+		await expect
+			.element(page.getByRole('button', { name: 'out', exact: true }))
+			.toHaveAttribute('aria-pressed', 'true')
+		expect(state.items[0]?.level).not.toBe('out')
+
+		answer()
+		await expect.poll(() => state.items[0]?.level).toBe('out')
 	})
 
 	test('says how much is left, and removes an item', async () => {

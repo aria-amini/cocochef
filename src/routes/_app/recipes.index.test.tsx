@@ -230,10 +230,25 @@ describe('recipes shelf', () => {
 			.element(screen.getByRole('button', { name: 'unsave miso butter pasta' }))
 			.not.toBeInTheDocument()
 
+		// The server is slow to answer, and the tile doesn't wait for it.
+		let answer = () => {}
+
+		saves.remove.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					answer = () => resolve(null)
+				}),
+		)
 		await screen.getByRole('button', { name: 'unsave shared soup' }).click()
 		await expect
 			.poll(() => saves.remove)
 			.toHaveBeenCalledWith({ data: { id: 'shared' } })
+		await expect
+			.element(screen.getByText('shared soup'))
+			.not.toBeInTheDocument()
+
+		shelfState.recipes = [misoButterPasta]
+		answer()
 		await expect
 			.element(screen.getByText('taken off your recipes'))
 			.toBeVisible()
@@ -335,11 +350,59 @@ describe('recipes shelf', () => {
 				),
 			)
 			.toBeVisible()
+		// The server is slow to answer, and the shelf doesn't wait for it.
+		let answer = () => {}
+
+		saves.removeMany.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					answer = () => resolve({ removed: 2 })
+				}),
+		)
 		await dialog.getByRole('button', { name: 'delete', exact: true }).click()
 		await expect
 			.poll(() => saves.removeMany.mock.calls[0]?.[0])
 			.toEqual({ data: { ids: ['recipe-2', 'shared'] } })
 		await expect.element(screen.getByText('2 selected')).not.toBeInTheDocument()
+		await expect.element(screen.getByText('dal')).not.toBeInTheDocument()
+		await expect
+			.element(screen.getByText('shared soup'))
+			.not.toBeInTheDocument()
+		await expect.element(screen.getByText('miso butter pasta')).toBeVisible()
+
+		shelfState.recipes = [misoButterPasta]
+		answer()
+		await expect
+			.element(screen.getByText('2 recipes off your shelf'))
+			.toBeVisible()
+		await expect.element(screen.getByText('dal')).not.toBeInTheDocument()
+	})
+
+	test('puts recipes back when clearing them fails', async () => {
+		saves.removeMany.mockRejectedValue(new Error('offline'))
+		shelfState.recipes = [misoButterPasta, dal]
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await screen.getByRole('button', { name: 'select', exact: true }).click()
+		await screen.getByRole('button', { name: 'dal' }).click()
+		await screen.getByRole('button', { name: 'delete', exact: true }).click()
+		await screen
+			.getByRole('dialog')
+			.getByRole('button', { name: 'delete', exact: true })
+			.click()
+
+		await expect
+			.element(screen.getByText("couldn't delete those — try again"))
+			.toBeVisible()
+		// Back on the shelf, and still picked, so trying again is one tap.
+		await expect
+			.element(screen.getByRole('button', { name: 'dal' }))
+			.toHaveAttribute('aria-pressed', 'true')
+		await expect.element(screen.getByText('1 selected')).toBeVisible()
 	})
 
 	test('puts the title beside a recipe photo, not over it', async () => {

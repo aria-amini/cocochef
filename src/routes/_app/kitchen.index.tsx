@@ -19,7 +19,13 @@ import {
 	useNavigate,
 	useRouter,
 } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import {
+	useEffect,
+	useOptimistic,
+	useRef,
+	useState,
+	useTransition,
+} from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -220,7 +226,18 @@ function Pantry({
 	// A removed item leaves the list at once, and the pantry only once its
 	// undo has passed.
 	const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set())
-	const items = loaded.filter((item) => !hidden.has(item.id))
+
+	// A level or count changed shows at the tap, until the kitchen is read
+	// again.
+	const [shown, patch] = useOptimistic(
+		loaded,
+		(now, change: { id: string; fields: Partial<PantryItem> }) =>
+			now.map((item) =>
+				item.id === change.id ? { ...item, ...change.fields } : item,
+			),
+	)
+
+	const items = shown.filter((item) => !hidden.has(item.id))
 
 	function show(id: string, on: boolean) {
 		setHidden((now) => {
@@ -379,6 +396,7 @@ function Pantry({
 					<DetailPanel
 						key={selected.id}
 						item={selected}
+						onPatch={(fields) => patch({ id: selected.id, fields })}
 						onRemove={() => remove(selected)}
 					/>
 				</ItemSheet>
@@ -1181,14 +1199,17 @@ function LevelIcon({ level }: { level: PantryLevel }) {
 
 function DetailPanel({
 	item,
+	onPatch,
 	onRemove,
 }: {
 	item: PantryItem
+	// Shows a change on the page before the server has it.
+	onPatch: (fields: Partial<PantryItem>) => void
 	onRemove: () => void
 }) {
 	const router = useRouter()
 	const client = useQueryClient()
-	const [pending, setPending] = useState(false)
+	const [pending, startSave] = useTransition()
 
 	// Running low or out put it on the list too; the tab says so.
 	function onListed(listed: boolean) {
@@ -1198,17 +1219,21 @@ function DetailPanel({
 		toast(`${item.name} is on your list`)
 	}
 
-	async function save(send: () => Promise<void>) {
-		setPending(true)
+	// Sends a change, then reads the kitchen again. Given what it changes, the
+	// page shows it at once; a failure shows the kitchen as the server has it.
+	function save(send: () => Promise<void>, fields?: Partial<PantryItem>) {
+		startSave(async () => {
+			if (fields) onPatch(fields)
 
-		try {
-			await send()
-			await router.invalidate()
-		} catch {
-			toast.error("couldn't update how much is left — try again")
-		} finally {
-			setPending(false)
-		}
+			try {
+				await send()
+			} catch {
+				toast.error("couldn't update how much is left — try again")
+			}
+
+			// The change is made; a failed read only leaves the page as it was.
+			await router.invalidate().catch(() => undefined)
+		})
 	}
 
 	const food = foodOf(item.name)
@@ -1235,13 +1260,16 @@ function DetailPanel({
 						disabled={pending}
 						onClick={() => {
 							if (item.level !== level)
-								void save(async () => {
-									const { listed } = await setPantryItemLevel({
-										data: { id: item.id, level },
-									})
+								save(
+									async () => {
+										const { listed } = await setPantryItemLevel({
+											data: { id: item.id, level },
+										})
 
-									onListed(listed)
-								})
+										onListed(listed)
+									},
+									{ level },
+								)
 						}}
 						className={cn(
 							'flex min-h-11 items-center justify-center gap-1.5 px-2 text-sm font-semibold transition-colors not-first:border-l border-input disabled:opacity-60',
@@ -1260,13 +1288,16 @@ function DetailPanel({
 					key={item.quantity ?? 'none'}
 					count={item.quantity}
 					onCount={(count) =>
-						void save(async () => {
-							const { listed } = await setPantryItemCount({
-								data: { id: item.id, count },
-							})
+						save(
+							async () => {
+								const { listed } = await setPantryItemCount({
+									data: { id: item.id, count },
+								})
 
-							onListed(listed)
-						})
+								onListed(listed)
+							},
+							{ quantity: count },
+						)
 					}
 				/>
 			) : null}
@@ -1278,7 +1309,7 @@ function DetailPanel({
 						type="button"
 						disabled={pending}
 						onClick={() =>
-							void save(async () => {
+							save(async () => {
 								await restockPantryItem({
 									data: pack ? { id: item.id, added: pack } : { id: item.id },
 								})
@@ -1302,7 +1333,7 @@ function DetailPanel({
 						onClick={() => {
 							const frozen = !item.frozenAt
 
-							void save(async () => {
+							save(async () => {
 								await setPantryItemFrozen({ data: { id: item.id, frozen } })
 								toast(
 									frozen

@@ -1,7 +1,13 @@
 import { BookmarkSimpleIcon } from '@phosphor-icons/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
-import { useEffect, useEffectEvent, useState } from 'react'
+import {
+	useEffect,
+	useEffectEvent,
+	useOptimistic,
+	useState,
+	useTransition,
+} from 'react'
 import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
@@ -37,7 +43,11 @@ export function SaveRecipeButton({
 		enabled: recipe.saved === undefined && !!account,
 	})
 
-	const saved = query.data?.saved ?? recipe.saved ?? false
+	const known = query.data?.saved ?? recipe.saved ?? false
+	// Saving shows at the tap, and stays until the recipe is read again; a
+	// failure shows what the server still has.
+	const [saved, showSaved] = useOptimistic(known)
+	const [updating, startUpdate] = useTransition()
 	const owned = query.data?.owned ?? false
 	const signedIn = !!account
 
@@ -53,27 +63,29 @@ export function SaveRecipeButton({
 		])
 	}
 
-	async function update() {
-		setPending(true)
+	function update() {
+		if (owned) return
 
-		try {
-			if (owned) return
+		setConfirming(false)
+		startUpdate(async () => {
+			showSaved(!saved)
 
-			if (saved) {
-				const removed = await removeSavedRecipe({ data: { id: recipe.id } })
+			try {
+				if (saved) {
+					const removed = await removeSavedRecipe({ data: { id: recipe.id } })
 
-				if (!removed) throw new Error('recipe could not be removed')
-			} else await saveRecipe({ data: { id: recipe.id } })
-			await refresh()
-			setConfirming(false)
-			toast.success(
-				saved ? 'removed from your recipes' : 'saved to your recipes',
-			)
-		} catch {
-			toast.error("couldn't update your recipes — try again")
-		} finally {
-			setPending(false)
-		}
+					if (!removed) throw new Error('recipe could not be removed')
+				} else await saveRecipe({ data: { id: recipe.id } })
+				toast.success(
+					saved ? 'removed from your recipes' : 'saved to your recipes',
+				)
+			} catch {
+				toast.error("couldn't update your recipes — try again")
+			}
+
+			// The change is made; a failed read only leaves the page as it was.
+			await refresh().catch(() => undefined)
+		})
 	}
 
 	// Finishes the save a visitor asked for before signing in. The account they
@@ -117,6 +129,7 @@ export function SaveRecipeButton({
 				variant={saved ? 'saved' : 'outline'}
 				disabled={
 					pending ||
+					updating ||
 					session.isPending ||
 					(signedIn && recipe.saved === undefined && query.isPending)
 				}
@@ -125,7 +138,7 @@ export function SaveRecipeButton({
 						rememberAfterSignIn({ action: 'save', recipeId: recipe.id })
 						setAuthOpen(true)
 					} else if (saved) setConfirming(true)
-					else void update()
+					else update()
 				}}
 			>
 				<BookmarkSimpleIcon
@@ -149,8 +162,8 @@ export function SaveRecipeButton({
 				onOpenChange={setConfirming}
 				title={recipe.title}
 				shared
-				pending={pending}
-				onConfirm={() => void update()}
+				pending={false}
+				onConfirm={update}
 			/>
 		</>
 	)
