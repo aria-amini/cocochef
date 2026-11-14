@@ -830,9 +830,13 @@ export function RecipeEditor({
 										onClick={() =>
 											savedId ? setConfirmingDelete(true) : void remove()
 										}
-										className="text-destructive data-highlighted:bg-destructive/10 flex cursor-default items-center gap-2.5 px-3 py-2.5 text-sm font-semibold outline-none select-none"
+										className="data-highlighted:bg-destructive/10 flex cursor-default items-center gap-2.5 px-3 py-2.5 text-sm font-semibold outline-none select-none"
 									>
-										<TrashIcon size={16} aria-hidden />
+										<TrashIcon
+											size={16}
+											className="text-destructive"
+											aria-hidden
+										/>
 										{onShared || savedId ? 'delete recipe' : 'discard recipe'}
 									</Menu.Item>
 								</Menu.Popup>
