@@ -1819,11 +1819,12 @@ function RecipeRow({
 				{save ? <SaveChip title={recipe.title} {...save} /> : null}
 			</span>
 			<span className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-x-3 gap-y-1 self-start">
-				<span className="truncate text-base font-bold lowercase md:text-lg">
+				<span className="line-clamp-2 text-base font-bold wrap-anywhere lowercase md:truncate md:text-lg">
 					{recipe.title}
 				</span>
-				{/* The stars lead, at the row's right, lined up down the list. */}
-				<span className="row-span-3 flex flex-col items-end">
+				{/* The stars lead, at the row's right, lined up down the list; the tags
+				    run the full width under them. */}
+				<span className="row-span-2 flex flex-col items-end">
 					{rating ? <RatingBlock rating={rating} /> : <NoRating />}
 				</span>
 				{note ? (
@@ -1837,7 +1838,7 @@ function RecipeRow({
 					vegetarian={recipe.effort?.vegetarian ?? false}
 					vegan={recipe.effort?.vegan}
 					oneLine
-					className="col-start-1"
+					className="col-span-2"
 				/>
 			</span>
 		</>
