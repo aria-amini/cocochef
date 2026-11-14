@@ -10,7 +10,13 @@ import { setTimeout as pause } from 'node:timers/promises'
 //
 // With `new`, only recipes this model has not tagged yet are read, and a
 // catalog sample of 0 skips the catalog, to tag a freshly seeded database.
-import { choice, noul, TypeSafeClient } from '@typesafe-ai/sdk'
+import {
+	AuthenticationError,
+	choice,
+	noul,
+	PermissionDeniedError,
+	TypeSafeClient,
+} from '@typesafe-ai/sdk'
 import pg from 'pg'
 
 import {
@@ -140,7 +146,8 @@ async function samples(): Promise<Sample[]> {
 	]
 }
 
-const client = new TypeSafeClient()
+// The loop below retries, paced, so the SDK must not retry on its own.
+const client = new TypeSafeClient({ retry: { maxRetries: 0 } })
 
 async function tag(sample: Sample) {
 	const state = sample.ingredients.length
@@ -212,8 +219,9 @@ const all = await samples()
 
 console.log(`tagging ${all.length} recipes with ${model}…`)
 
-// Five at a time, each taking at least 300ms, keeps under Jev's 1,200
-// requests a minute. A failure is tried once more after a pause.
+// Five at a time, each attempt taking at least 300ms, keeps under Jev's
+// 1,200 requests a minute. A failure is tried once more after a pause; a
+// key Jev refuses stops the run, since every request would fail the same.
 const results = await pool(all, 5, async (sample) => {
 	for (const attempt of [1, 2]) {
 		const paced = pause(300)
@@ -224,6 +232,12 @@ const results = await pool(all, 5, async (sample) => {
 
 			return result
 		} catch (error) {
+			if (
+				error instanceof AuthenticationError ||
+				error instanceof PermissionDeniedError
+			)
+				throw error
+
 			if (attempt === 2) {
 				console.error(`failed: ${sample.title}: ${String(error)}`)
 
