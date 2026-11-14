@@ -3,8 +3,12 @@ import { Pool } from 'pg'
 
 import { serverEnv as env } from '@/env.server'
 
+// JIT off: the planner overestimates the search query and spends ~250ms
+// compiling it, ten times what running it takes.
 function connect(connectionString: string) {
-	return drizzle({ client: new Pool({ connectionString }) })
+	return drizzle({
+		client: new Pool({ connectionString, options: '-c jit=off' }),
+	})
 }
 
 export type Database = ReturnType<typeof connect>

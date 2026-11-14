@@ -115,6 +115,13 @@ export const recipeIngredients = snakeCase.table(
 	},
 	(table) => [
 		index('recipe_ingredients_recipe_id_index').on(table.recipeId),
+		// Search matches words anywhere in a line (`ilike '%word%'`); trigrams
+		// let it read only the lines that hold them. Names need no index: the
+		// planner scans recipes either way.
+		index('recipe_ingredients_text_trgm_index').using(
+			'gin',
+			table.text.op('gin_trgm_ops'),
+		),
 		foreignKey({
 			columns: [table.recipeId],
 			foreignColumns: [recipes.id],
