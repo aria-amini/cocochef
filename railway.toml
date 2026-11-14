@@ -13,7 +13,9 @@ buildCommand = "vp run build && pnpm exec varlock freeze && pnpm prune --prod --
 # vite-plus is a devDependency and is pruned, so run scripts through pnpm.
 # `vp run` would load the Vite config and resolve the env live again, so these
 # use the frozen env: restarts, crashes and rollbacks never contact OpenBao.
-preDeployCommand = "pnpm exec varlock run --frozen -- node mise-tasks/migrate.ts"
+# Previews then get the recipe fixture when their database has no shared
+# recipes; production skips it (mise-tasks/fixture.ts checks APP_ENV).
+preDeployCommand = "pnpm exec varlock run --frozen -- sh -c 'node mise-tasks/migrate.ts && node mise-tasks/fixture.ts'"
 runtime = "V2"
 numReplicas = 1
 startCommand = "pnpm exec varlock run --frozen -- node --import ./.output/server/instrument.server.mjs .output/server/index.mjs"
