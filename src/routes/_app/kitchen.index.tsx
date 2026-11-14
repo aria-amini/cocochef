@@ -26,10 +26,12 @@ import { z } from 'zod'
 import { groceryCountKey, pulseGroceries } from '@/components/grocery-badge'
 import { GroceryList, type GroceryItem } from '@/components/grocery-list'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
+import { PendingPage } from '@/components/page-pending'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { SignUpToKeep } from '@/components/sign-up-to-keep'
 import { SpotIcon } from '@/components/spot-icon'
 import { buttonVariants } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { undoToast } from '@/components/undo-toast'
 import { addGroceries, listGroceries } from '@/lib/groceries/server'
 import { rememberKitchenView } from '@/lib/kitchen-view'
@@ -95,10 +97,50 @@ export const Route = createFileRoute('/_app/kitchen/')({
 		return pantry && groceries ? { pantry, groceries } : null
 	},
 	head: () => ({ meta: [{ title: 'kitchen · cocochef' }] }),
+	pendingComponent: KitchenPending,
 	component: PantryPage,
 })
 
 type PantryItem = NonNullable<Awaited<ReturnType<typeof listPantry>>>[number]
+
+// The kitchen on its way: its switch, already real, over the panel of the
+// side it opens on, food cards for what it has or rows for what it needs.
+function KitchenPending() {
+	const { view } = Route.useSearch()
+
+	return (
+		<PendingPage className="max-w-3xl gap-4 p-6 pb-28 md:p-10">
+			<KitchenSwitch view={view} buy={0} />
+			<div className="bg-card border-border flex flex-col gap-3 rounded-xl border p-4">
+				<div
+					className={cn(
+						'flex items-center',
+						view === 'groceries' ? 'min-h-9' : '-my-1 min-h-10',
+					)}
+				>
+					<Skeleton kind="line" className="h-5 w-32" />
+				</div>
+				{view === 'groceries' ? (
+					<div className="flex flex-col gap-2">
+						{Array.from({ length: 5 }, (_, i) => (
+							<Skeleton key={i} kind="line" className="h-11 w-full" />
+						))}
+					</div>
+				) : (
+					<div className={foodGridClassName}>
+						{/* Full rows: three of three on a phone, two of five wider. */}
+						{Array.from({ length: 10 }, (_, i) => (
+							<Skeleton
+								key={i}
+								className={cn('h-24', i === 9 && 'max-md:hidden')}
+							/>
+						))}
+					</div>
+				)}
+			</div>
+		</PendingPage>
+	)
+}
 
 // A pantry is kept by an account; signed out, the page says so.
 function PantryPage() {

@@ -3,18 +3,27 @@ import { renderRoute } from '@tests/support/render/route'
 import {
 	expectIsolatedScreenshot,
 	expectPageScreenshot,
+	expectPendingScreenshot,
 } from '@tests/support/screenshot'
 import { phoneOnly } from '@tests/support/viewport'
-import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	test,
+	vi,
+} from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
 
 import type { getRecipe } from '@/lib/recipes/server'
 
 type Recipe = NonNullable<Awaited<ReturnType<typeof getRecipe>>>
 
-const recipeState: { recipe: Recipe | null } = vi.hoisted(() => ({
-	recipe: null,
-}))
+// `hang` keeps the recipe from arriving, so the page stays on its skeleton.
+const recipeState: { recipe: Recipe | null; hang?: boolean } = vi.hoisted(
+	() => ({ recipe: null }),
+)
 
 type RecipeUpdate = Omit<
 	Recipe,
@@ -45,7 +54,10 @@ vi.mock('@/lib/recipes/server', () => ({
 		return { id: data.id }
 	},
 	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
-	getRecipe: () => Promise.resolve(recipeState.recipe),
+	getRecipe: () =>
+		recipeState.hang
+			? new Promise(() => {})
+			: Promise.resolve(recipeState.recipe),
 	updateRecipe: async ({ data }: { data: RecipeUpdate }) => {
 		updateCalls.calls.push(data)
 
@@ -209,6 +221,7 @@ describe('recipe detail', () => {
 		// No kitchen unless a test stocks one.
 		pantryState.items = []
 		groceryWaiting.items = []
+		recipeState.hang = false
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
 		updateCalls.saved.length = 0
@@ -2189,5 +2202,26 @@ describe('recipe detail', () => {
 			expect(updateCalls.saved).toEqual([])
 			expect(updateCalls.calls).toEqual([])
 		})
+	})
+})
+
+describe('slow recipe', () => {
+	afterEach(() => {
+		recipeState.hang = false
+	})
+
+	test('draws a slow recipe as the reader', async () => {
+		const { screen, router } = await renderRoute({
+			path: '/recipes/new',
+			session,
+		})
+
+		recipeState.hang = true
+		void router.navigate({
+			to: '/recipes/$recipeId',
+			params: { recipeId: 'recipe-1' },
+		})
+
+		await expectPendingScreenshot(screen, 'recipe-pending')
 	})
 })

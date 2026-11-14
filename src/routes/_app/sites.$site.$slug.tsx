@@ -1,10 +1,12 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 
+import { RecipePending } from '@/components/page-pending'
 import { PublicRecipePage } from '@/components/public-recipes'
 import { readWebRecipe } from '@/lib/sharing/server'
 
 export const Route = createFileRoute('/_app/sites/$site/$slug')({
 	staticData: { header: 'none' },
+	pendingComponent: RecipePending,
 	loader: async ({ params }) => {
 		const recipe = await readWebRecipe({ data: params })
 

@@ -1,5 +1,6 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 
+import { RecipePending } from '@/components/page-pending'
 import { PublicRecipePage } from '@/components/public-recipes'
 import { RecipeAccessDenied } from '@/components/recipe-access-denied'
 import { RecipeDetail } from '@/components/recipe-detail'
@@ -8,6 +9,7 @@ import { readRecipeAt } from '@/lib/sharing/server'
 
 export const Route = createFileRoute('/_app/$handle/$slug')({
 	staticData: { header: 'none' },
+	pendingComponent: RecipePending,
 	loader: async ({ params, cause }) => {
 		// Opened from its id, which already read it for this cook.
 		const handed = recipeHandoff.get(`/${params.handle}/${params.slug}`, cause)

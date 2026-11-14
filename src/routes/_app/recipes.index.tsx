@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { useTabBarVisible } from '@/components/app-nav'
+import { PendingPage } from '@/components/page-pending'
 import { dockActionClassName, FormActions } from '@/components/recipe-form'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeTileFace, recipeTileClassName } from '@/components/recipe-tile'
@@ -30,6 +31,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import { authClient } from '@/lib/auth/client'
 import {
 	deleteRecipes,
@@ -50,6 +52,7 @@ export const Route = createFileRoute('/_app/recipes/')({
 	staticData: { tabBar: 'own-fab' },
 	loader: () => listShelf(),
 	head: () => ({ meta: [{ title: 'my recipes · cocochef' }] }),
+	pendingComponent: ShelfPending,
 	component: ShelfPage,
 })
 
@@ -64,6 +67,39 @@ const shelfGridClassName =
 
 // Each of the shelf's sections opens the same way: its icon, then its name.
 const shelfHeadingClassName = 'flex items-center gap-2 text-xl font-bold'
+
+// The shelf on its way: its select button, a section's name, then a grid of
+// photo tiles, each a photo over its name.
+function ShelfPending() {
+	return (
+		<PendingPage className="w-full max-w-3xl gap-8 p-6 md:p-10">
+			<div className="-mb-4 flex justify-end">
+				<Skeleton kind="line" className="h-9 w-24" />
+			</div>
+			<div className="flex flex-col gap-3">
+				<Skeleton kind="line" className="h-7 w-40" />
+				<div className={shelfGridClassName}>
+					{Array.from({ length: 8 }, (_, i) => (
+						<div
+							key={i}
+							className={recipeTileClassName({
+								color: 'cream',
+								photo: true,
+								className: 'hover:shadow-none',
+							})}
+						>
+							<Skeleton kind="fill" className="min-h-0 flex-1" />
+							<div className="border-border flex shrink-0 flex-col gap-1.5 border-t px-2.5 py-2">
+								<Skeleton kind="line" className="h-3.5 w-4/5" />
+								<Skeleton kind="line" className="h-3 w-1/2" />
+							</div>
+						</div>
+					))}
+				</div>
+			</div>
+		</PendingPage>
+	)
+}
 
 // Your recipes: the ones you wrote, the ones you saved, and drafts still
 // being written, each saying who can see it. Finding new ones is home's job.

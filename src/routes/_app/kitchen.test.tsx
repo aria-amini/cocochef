@@ -2,6 +2,7 @@ import { renderRoute } from '@tests/support/render/route'
 import {
 	expectIsolatedScreenshot,
 	expectPageScreenshot,
+	expectPendingScreenshot,
 } from '@tests/support/screenshot'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { page, userEvent } from 'vitest/browser'
@@ -23,6 +24,8 @@ type KnownItem = typeof pantryItems.$inferSelect & {
 const state = vi.hoisted<{
 	items: KnownItem[]
 	signedOut?: boolean
+	// The pantry never arrives, so the page stays on its skeleton.
+	hang?: boolean
 }>(() => ({ items: [] }))
 
 // What was deleted, so undo can put it back.
@@ -48,8 +51,12 @@ vi.mock('@/lib/groceries/server', async (importOriginal) => ({
 vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	// Copies, as the server sends, so a change shows up after a reload.
-	listPantry: async () =>
-		state.signedOut ? null : state.items.map((entry) => ({ ...entry })),
+	listPantry: () =>
+		state.hang
+			? new Promise(() => {})
+			: Promise.resolve(
+					state.signedOut ? null : state.items.map((entry) => ({ ...entry })),
+				),
 	createPantryItems: async ({ data }: { data: PantryItemInput[] }) =>
 		data.map((input, index) => {
 			const item = {
@@ -168,6 +175,7 @@ describe('kitchen', () => {
 	beforeEach(() => {
 		state.items = [item('carrots', 'vegetables'), item('eggs', 'dairy')]
 		state.signedOut = false
+		state.hang = false
 		bought.calls.length = 0
 	})
 
@@ -511,5 +519,20 @@ describe('kitchen', () => {
 		await expect
 			.element(screen.getByRole('region', { name: /still there/ }))
 			.not.toBeInTheDocument()
+	})
+
+	test.each([
+		{ view: undefined, name: 'kitchen-pending' },
+		{ view: 'groceries' as const, name: 'kitchen-groceries-pending' },
+	])('draws a slow $name as the side it opens on', async ({ view, name }) => {
+		const { screen, router } = await renderRoute({
+			path: '/recipes/new',
+			session,
+		})
+
+		state.hang = true
+		void router.navigate({ to: '/kitchen', search: view ? { view } : {} })
+
+		await expectPendingScreenshot(screen, name)
 	})
 })

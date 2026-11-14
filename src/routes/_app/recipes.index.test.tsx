@@ -2,6 +2,7 @@ import { renderRoute } from '@tests/support/render/route'
 import {
 	expectIsolatedScreenshot,
 	expectPageScreenshot,
+	expectPendingScreenshot,
 } from '@tests/support/screenshot'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
 import { userEvent } from 'vitest/browser'
@@ -13,11 +14,14 @@ type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 type ShelfState = {
 	recipes: Recipe[]
 	signedIn: boolean
+	// The shelf never arrives, so the page stays on its skeleton.
+	hang: boolean
 }
 
 const shelfState = vi.hoisted<ShelfState>(() => ({
 	recipes: [],
 	signedIn: true,
+	hang: false,
 }))
 
 const discovery = vi.hoisted(() => ({
@@ -49,10 +53,12 @@ vi.mock('@/lib/recipes/server', () => ({
 	removeSavedRecipe: saves.remove,
 	saveRecipe: saves.save,
 	listShelf: () =>
-		Promise.resolve({
-			recipes: shelfState.recipes,
-			signedIn: shelfState.signedIn,
-		}),
+		shelfState.hang
+			? new Promise(() => {})
+			: Promise.resolve({
+					recipes: shelfState.recipes,
+					signedIn: shelfState.signedIn,
+				}),
 	getRecipe: ({ data }: { data: { id: string } }) => {
 		const recipe = shelfState.recipes.find((recipe) => recipe.id === data.id)
 
@@ -122,6 +128,7 @@ describe('recipes shelf', () => {
 	beforeEach(() => {
 		shelfState.recipes = []
 		shelfState.signedIn = true
+		shelfState.hang = false
 		saves.remove.mockReset().mockResolvedValue(null)
 		saves.save.mockReset().mockResolvedValue(null)
 		saves.removeMany.mockReset().mockResolvedValue({ removed: 0 })
@@ -421,5 +428,17 @@ describe('recipes shelf', () => {
 			.element(screen.getByRole('link', { name: /dal/ }))
 			.toBeVisible()
 		await expectPageScreenshot(screen.container, 'shelf', { fullHeight: true })
+	})
+
+	test('draws a slow shelf as its grid of tiles', async () => {
+		const { screen, router } = await renderRoute({
+			path: '/recipes/new',
+			session: testSession,
+		})
+
+		shelfState.hang = true
+		void router.navigate({ to: '/recipes' })
+
+		await expectPendingScreenshot(screen, 'shelf-pending')
 	})
 })
