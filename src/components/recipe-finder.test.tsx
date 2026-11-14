@@ -442,6 +442,26 @@ describe('the search on home', () => {
 		expect(server.save).not.toHaveBeenCalled()
 	})
 
+	test('lets go of a hovered row when the pointer leaves the list', async () => {
+		server.popular.mockResolvedValue({
+			results: [found({ recipeId: 'shared-1', title: 'marry me chicken' })],
+		})
+
+		const { screen, input } = await openSearch()
+		const option = screen.getByRole('option', { name: /marry me chicken/ })
+
+		await option.hover()
+		await expect.element(option).toHaveAttribute('aria-selected', 'true')
+		await input.hover()
+		await expect.element(option).toHaveAttribute('aria-selected', 'false')
+
+		// A highlight the keys chose stays where the pointer leaves it.
+		await userEvent.keyboard('{ArrowDown}')
+		await expect.element(option).toHaveAttribute('aria-selected', 'true')
+		await input.hover()
+		await expect.element(option).toHaveAttribute('aria-selected', 'true')
+	})
+
 	test('says when a recipe matched on its ingredients', async () => {
 		server.search.mockResolvedValue({
 			warming: false,

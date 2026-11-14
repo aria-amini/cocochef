@@ -6,6 +6,7 @@ import {
 	CheckIcon,
 	Plus,
 	SparkleIcon,
+	TrashIcon,
 	WarningCircleIcon,
 	X,
 } from '@phosphor-icons/react'
@@ -1426,8 +1427,9 @@ function PickBar({
 			<button
 				type="button"
 				onClick={onRemove}
-				className="text-kitchen-tomato hover:bg-kitchen-tomato/10 min-h-10 rounded-md px-3 text-sm font-bold transition-colors"
+				className="hover:bg-kitchen-tomato/10 inline-flex min-h-10 items-center gap-1.5 rounded-md px-3 text-sm font-bold transition-colors"
 			>
+				<TrashIcon size={16} className="text-kitchen-tomato" aria-hidden />
 				remove
 			</button>
 			<button

@@ -1,4 +1,4 @@
-import { SparkleIcon } from '@phosphor-icons/react'
+import { CheckIcon, SparkleIcon } from '@phosphor-icons/react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -116,7 +116,13 @@ export function IngredientSuggestions({
 							<li key={ingredient.line} className="flex items-center pr-3">
 								<IngredientLineView line={ingredient.line} className="py-1.5" />
 								{ingredient.inPantry ? (
-									<span className="text-kitchen-basil shrink-0 text-xs font-semibold whitespace-nowrap">
+									<span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold whitespace-nowrap">
+										<CheckIcon
+											size={12}
+											weight="bold"
+											className="text-kitchen-basil"
+											aria-hidden
+										/>
 										in pantry
 									</span>
 								) : null}
