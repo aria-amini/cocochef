@@ -276,6 +276,20 @@ describe('recipes shelf', () => {
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
 	})
 
+	test('offers no choosing until it knows whose recipes are whose', async () => {
+		shelfState.recipes = [misoButterPasta]
+
+		// The shelf loaded, but the account in the browser hasn't.
+		const { screen } = await renderRoute({ path: '/recipes' })
+
+		await expect
+			.element(screen.getByRole('link', { name: 'miso butter pasta' }))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'select', exact: true }))
+			.not.toBeInTheDocument()
+	})
+
 	test('selects recipes and clears them off the shelf together', async () => {
 		saves.removeMany.mockResolvedValue({ removed: 2 })
 		shelfState.recipes = [

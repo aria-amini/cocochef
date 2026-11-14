@@ -169,7 +169,9 @@ function Shelf() {
 				className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
 			>
 				<h1 className="sr-only">my recipes</h1>
-				{isEmpty ? null : (
+				{/* Choosing waits for the account, which tells the cook's own
+				    recipes (deleted) from saved ones (only taken off). */}
+				{isEmpty || !account ? null : (
 					<div className="-mb-4 flex justify-end">
 						{selection.on ? (
 							<Button

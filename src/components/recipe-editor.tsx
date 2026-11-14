@@ -553,13 +553,13 @@ export function RecipeEditor({
 		setPending(true)
 
 		try {
-			leaving.current = true
-
 			if (recipeId.current) {
 				await deleteRecipe({ data: { id: recipeId.current } })
 				toast.success(`${name || 'that recipe'} is off your shelf`)
 			}
 
+			// Only once it is gone: until then, leaving still asks.
+			leaving.current = true
 			await navigate({ to: '/recipes' })
 		} catch {
 			// Still here, so edits still have to be saved.
