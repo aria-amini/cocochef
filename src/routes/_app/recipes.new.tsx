@@ -22,6 +22,7 @@ export const Route = createFileRoute('/_app/recipes/new')({
 	// The form pins its own save bar to the bottom edge.
 	staticData: { tabBar: 'none' },
 	validateSearch: newRecipeSearch,
+	head: () => ({ meta: [{ title: 'write a recipe · cocochef' }] }),
 	component: NewRecipe,
 })
 
@@ -93,8 +94,14 @@ function NewRecipe() {
 						onImportLink={importLink}
 						defaultTitle={title?.slice(0, 120) ?? ''}
 						pasted={pendingPaste}
+						// The saved recipe takes the blank one's place in history, so
+						// going back leaves it rather than opening the editor again.
 						onDone={(recipeId) =>
-							void navigate({ to: '/recipes/$recipeId', params: { recipeId } })
+							void navigate({
+								to: '/recipes/$recipeId',
+								params: { recipeId },
+								replace: true,
+							})
 						}
 					/>
 				)}
