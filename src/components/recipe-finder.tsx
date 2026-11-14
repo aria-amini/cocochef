@@ -1103,7 +1103,7 @@ export function FinderPanel({
 	return (
 		<>
 			{/* Always on screen, so a recipe can be left for another search. */}
-			<div className="border-border flex shrink-0 items-center gap-2.5 border-b px-4 py-3">
+			<div className="border-border has-[input:focus-visible]:outline-kitchen-eggplant flex shrink-0 items-center gap-2.5 rounded-t-xl border-b px-4 py-3 has-[input:focus-visible]:outline-2 has-[input:focus-visible]:-outline-offset-2">
 				{/* While a recipe is open, the bar's icon is the way back to it. */}
 				{previewing ? (
 					<button
