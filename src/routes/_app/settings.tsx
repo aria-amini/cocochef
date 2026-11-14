@@ -1,15 +1,24 @@
-import { CameraIcon } from '@phosphor-icons/react'
+import {
+	CameraIcon,
+	PencilSimpleIcon,
+	SignOutIcon,
+} from '@phosphor-icons/react'
 import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/avatar'
 import { PageTitle } from '@/components/page'
 import { FieldError } from '@/components/recipe-form'
 import { RecipeTransfer } from '@/components/recipe-transfer'
-import { SharingProfileSettings } from '@/components/sharing-profile'
+import {
+	SettingsGroup,
+	settingsActionClassName,
+} from '@/components/settings-group'
+import { PublicProfileSettings } from '@/components/sharing-profile'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import { getAvatarUploadUrl, getAvatarUrl } from '@/lib/s3'
 import { cn } from '@/lib/utils/ui'
@@ -18,9 +27,7 @@ export const Route = createFileRoute('/_app/settings')({
 	component: Profile,
 })
 
-const pageClassName = 'flex w-full max-w-2xl flex-col gap-8 p-6 md:p-10'
-
-const sectionTitleClassName = 'text-lg font-bold'
+const pageClassName = 'flex w-full max-w-xl flex-col gap-8 p-6 md:p-10'
 
 function Profile() {
 	const session = authClient.useSession()
@@ -155,44 +162,133 @@ function AccountProfile({
 	return (
 		<main className={pageClassName}>
 			<PageTitle>settings</PageTitle>
-			<section className="flex items-center gap-5">
-				<Avatar name={name} src={avatar} size="xl" alt="Profile avatar" />
-				<div className="flex min-w-0 flex-col items-start gap-1">
-					<p className="truncate text-lg font-bold">{name}</p>
+			<section aria-label="you" className="flex items-center gap-4">
+				{/* The photo is its own button: a badge says it changes. */}
+				<label
+					className={cn(
+						'focus-within:outline-kitchen-eggplant relative shrink-0 cursor-pointer rounded-xl focus-within:outline-2 focus-within:outline-offset-2',
+						uploading && 'pointer-events-none opacity-50',
+					)}
+				>
+					<Avatar
+						name={name}
+						src={avatar}
+						size="profile"
+						alt="Profile avatar"
+					/>
+					<span className="bg-card border-border absolute -right-1.5 -bottom-1.5 grid size-7 place-items-center rounded-full border">
+						<CameraIcon size={14} weight="bold" aria-hidden />
+					</span>
+					<input
+						aria-label={uploading ? 'uploading photo' : 'change photo'}
+						type="file"
+						accept="image/*"
+						className="sr-only"
+						onChange={upload}
+						disabled={uploading}
+					/>
+				</label>
+				<div className="flex min-w-0 flex-1 flex-col">
+					<AccountName name={name} />
 					<p className="text-muted-foreground truncate text-sm">{email}</p>
-					<label
-						className={cn(
-							buttonVariants({ variant: 'outline' }),
-							'focus-within:outline-kitchen-eggplant mt-2 cursor-pointer focus-within:outline-2 focus-within:outline-offset-2',
-							uploading && 'pointer-events-none opacity-50',
-						)}
-					>
-						<CameraIcon aria-hidden />
-						{uploading ? 'uploading…' : 'change photo'}
-						<input
-							aria-label="Profile photo"
-							type="file"
-							accept="image/*"
-							className="sr-only"
-							onChange={upload}
-							disabled={uploading}
-						/>
-					</label>
 				</div>
 			</section>
-			<section id="public-profile" className="flex scroll-mt-6 flex-col gap-3">
-				<h2 className={sectionTitleClassName}>public profile</h2>
-				<p className="text-muted-foreground text-sm">
-					pick a handle and choose which recipes you pass around.
-				</p>
-				<SharingProfileSettings />
-			</section>
+			<PublicProfileSettings accountId={userId} accountName={name} />
 			<RecipeTransfer />
-			<section className="border-border border-t pt-6">
-				<Button variant="outline" onClick={signOut} disabled={signingOut}>
-					{signingOut ? 'signing out…' : 'sign out'}
-				</Button>
-			</section>
+			<SettingsGroup>
+				<button
+					type="button"
+					onClick={() => void signOut()}
+					disabled={signingOut}
+					className={settingsActionClassName}
+				>
+					<span className="flex-1">
+						{signingOut ? 'signing out…' : 'sign out'}
+					</span>
+					<SignOutIcon size={16} weight="bold" aria-hidden />
+				</button>
+			</SettingsGroup>
 		</main>
+	)
+}
+
+// Your name, changed where it is shown: a pencil opens it as a field, and
+// enter or save keeps it.
+function AccountName({ name }: { name: string }) {
+	const [editing, setEditing] = useState(false)
+	const [value, setValue] = useState(name)
+	const [saving, setSaving] = useState(false)
+	const field = useRef<HTMLInputElement>(null)
+
+	// Opened by the pencil, it is ready to type into.
+	useEffect(() => {
+		if (editing) field.current?.select()
+	}, [editing])
+
+	if (!editing)
+		return (
+			<div className="flex min-w-0 items-center gap-1">
+				<p className="truncate text-lg font-bold">{name}</p>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					aria-label="edit name"
+					onClick={() => {
+						setValue(name)
+						setEditing(true)
+					}}
+				>
+					<PencilSimpleIcon aria-hidden />
+				</Button>
+			</div>
+		)
+
+	const save = async () => {
+		const next = value.trim()
+
+		if (!next || next === name) {
+			setEditing(false)
+
+			return
+		}
+
+		setSaving(true)
+
+		try {
+			const { error } = await authClient.updateUser({ name: next })
+
+			if (error) throw new Error(error.message)
+			setEditing(false)
+		} catch {
+			toast.error("couldn't change your name — try again")
+		} finally {
+			setSaving(false)
+		}
+	}
+
+	return (
+		<form
+			className="flex items-center gap-2"
+			onSubmit={(event) => {
+				event.preventDefault()
+				void save()
+			}}
+		>
+			<Input
+				aria-label="your name"
+				value={value}
+				onChange={(event) => setValue(event.target.value)}
+				onKeyDown={(event) => {
+					if (event.key === 'Escape') setEditing(false)
+				}}
+				maxLength={80}
+				required
+				ref={field}
+				className="min-w-0"
+			/>
+			<Button type="submit" disabled={saving}>
+				{saving ? 'saving…' : 'save'}
+			</Button>
+		</form>
 	)
 }

@@ -4,7 +4,7 @@ import { recipeShareInput, sharingProfileInput, sharingSlug } from './schema'
 
 describe('public addresses', () => {
 	test('normalizes handles and rejects reserved routes and malformed names', () => {
-		const base = { displayName: 'Aria', autoPublish: false }
+		const base = { displayName: 'Aria' }
 		expect(
 			sharingProfileInput.parse({ ...base, handle: '  Aria-Amini ' }).handle,
 		).toBe('aria-amini')

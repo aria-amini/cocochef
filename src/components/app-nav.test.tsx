@@ -11,6 +11,7 @@ type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 const shelf = vi.hoisted<{ recipes: Recipe[] }>(() => ({ recipes: [] }))
 
 vi.mock('@/lib/recipes/server', () => ({
+	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: shelf.recipes }),
@@ -182,58 +183,46 @@ describe('app nav', () => {
 				.toBeVisible()
 			// The round add belongs to the recipes shelf alone.
 			await expect
-				.element(screen.getByRole('button', { name: 'add recipe' }))
+				.element(screen.getByRole('link', { name: 'add recipe' }))
 				.not.toBeInTheDocument()
 		} else {
 			expect(position()).toBe('sticky')
 		}
 	})
 
-	test('keeps the add button beside the empty shelf tile', async () => {
-		const { screen } = await renderRoute({ path: '/recipes', session: member })
-
-		await expect
-			.element(screen.getByRole('button', { name: /save your first recipe/ }))
-			.toBeVisible()
-		// Where adding lives from the first visit on, so it never moves.
-		await expect
-			.element(screen.getByRole('button', { name: 'add recipe' }))
-			.toBeVisible()
-	})
-
 	phoneOnly(
-		'adds a recipe from a round button on the shelf, on phones',
+		'floats a round add button on phones once the add tile scrolls away',
 		async () => {
-			shelf.recipes = [misoButterPasta]
+			shelf.recipes = Array.from({ length: 12 }, (_, index) => ({
+				...misoButterPasta,
+				id: `recipe-${index}`,
+				title: `recipe ${index}`,
+			}))
 
 			const { screen, router } = await renderRoute({
 				path: '/recipes',
 				session: member,
 			})
 
-			const add = screen.getByRole('button', { name: 'add recipe' })
+			// While the tile shows, one way to add is enough.
+			await expect
+				.element(screen.getByRole('link', { name: 'add a recipe' }))
+				.toBeVisible()
+			await expect
+				.element(screen.getByRole('link', { name: 'add recipe' }))
+				.not.toBeInTheDocument()
+
+			window.scrollTo(0, document.documentElement.scrollHeight)
+			const add = screen.getByRole('link', { name: 'add recipe' })
+
+			await expect.element(add).toBeVisible()
 			const box = add.element().getBoundingClientRect()
 
 			expect(box.width).toBe(box.height)
-			expect(getComputedStyle(add.element()).position).toBe('fixed')
 			expect(box.bottom).toBeLessThan(window.innerHeight)
-			await expect
-				.element(
-					screen
-						.getByRole('navigation', { name: 'Primary' })
-						.getByRole('button', { name: 'add recipe' }),
-				)
-				.not.toBeInTheDocument()
 
-			// Every way to add a recipe of your own sits behind it.
+			// One tap opens a blank recipe, which also imports.
 			await add.click()
-
-			for (const name of ['blank recipe', 'import url', 'paste text'])
-				await expect
-					.element(screen.getByRole('menuitem', { name }))
-					.toBeVisible()
-
-			await screen.getByRole('menuitem', { name: 'blank recipe' }).click()
 			await expect
 				.poll(() => router.state.location.pathname)
 				.toBe('/recipes/new')
@@ -296,7 +285,7 @@ describe('app nav', () => {
 		// Hidden elements drop out of the role tree.
 		await expect.element(nav).not.toBeInTheDocument()
 		await expect
-			.element(screen.getByRole('button', { name: 'add recipe' }))
+			.element(screen.getByRole('link', { name: 'add recipe' }))
 			.not.toBeInTheDocument()
 		field.remove()
 	})

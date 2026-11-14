@@ -32,10 +32,7 @@ import {
 	type IngredientCategories,
 	type RecipeUpdate,
 } from '@/lib/recipes/model'
-import {
-	publishFinishedRecipe,
-	reservePrivateRecipeAddress,
-} from '@/lib/sharing/repository'
+import { reservePrivateRecipeAddress } from '@/lib/sharing/repository'
 
 type RecipeDatabase =
 	| Database
@@ -685,8 +682,6 @@ export async function createRecipeForUser(
 		steps?: string[] | undefined
 		// Written recipes pass false and stay drafts until they are finished.
 		finalized?: boolean | undefined
-		// Imported files pass false so they stay private on auto-publish profiles.
-		publish?: boolean | undefined
 	},
 	database: Database = getDb(),
 ) {
@@ -723,8 +718,6 @@ export async function createRecipeForUser(
 			notes: input.notes ?? null,
 			addedAt: recipe.createdAt,
 		})
-
-		if (input.publish !== false) await publishFinishedRecipe(userId, recipe, tx)
 
 		return recipe
 	})
@@ -1021,9 +1014,6 @@ export async function updateRecipeForUser(
 					eq(shelfRecipes.recipeId, recipe.id),
 				),
 			)
-
-		if (!current.finalizedAt || recipe.id !== current.id)
-			await publishFinishedRecipe(userId, recipe, tx)
 
 		return recipe
 	})

@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as HandleIndexRouteImport } from './routes/$handle.index'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppGroceriesRouteImport } from './routes/_app/groceries'
 import { Route as AppHomeRouteImport } from './routes/_app/home'
@@ -21,6 +20,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiOvenRouteImport } from './routes/api/oven'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
+import { Route as AppHandleIndexRouteImport } from './routes/_app/$handle.index'
 import { Route as AppHandleSlugRouteImport } from './routes/_app/$handle.$slug'
 import { Route as AppIngredientsIndexRouteImport } from './routes/_app/ingredients.index'
 import { Route as AppIngredientsBulkRouteImport } from './routes/_app/ingredients.bulk'
@@ -39,11 +39,6 @@ import { Route as AppSitesSiteSlugRouteImport } from './routes/_app/sites.$site.
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HandleIndexRoute = HandleIndexRouteImport.update({
-  id: '/$handle/',
-  path: '/$handle/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -95,6 +90,11 @@ const AuthSignupRoute = AuthSignupRouteImport.update({
   id: '/auth/signup',
   path: '/auth/signup',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppHandleIndexRoute = AppHandleIndexRouteImport.update({
+  id: '/$handle/',
+  path: '/$handle/',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppHandleSlugRoute = AppHandleSlugRouteImport.update({
   id: '/$handle/$slug',
@@ -183,7 +183,6 @@ export interface FileRoutesByFullPath {
   '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/$handle/': typeof HandleIndexRoute
   '/$handle/$slug': typeof AppHandleSlugRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
   '/ingredients/new': typeof AppIngredientsNewRoute
@@ -195,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/photos/$': typeof ApiPhotosSplatRoute
+  '/$handle/': typeof AppHandleIndexRoute
   '/ingredients/': typeof AppIngredientsIndexRoute
   '/kitchen/': typeof AppKitchenIndexRoute
   '/recipes/': typeof AppRecipesIndexRoute
@@ -210,7 +210,6 @@ export interface FileRoutesByTo {
   '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/$handle': typeof HandleIndexRoute
   '/': typeof AppIndexRoute
   '/$handle/$slug': typeof AppHandleSlugRoute
   '/ingredients/bulk': typeof AppIngredientsBulkRoute
@@ -223,6 +222,7 @@ export interface FileRoutesByTo {
   '/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/photos/$': typeof ApiPhotosSplatRoute
+  '/$handle': typeof AppHandleIndexRoute
   '/ingredients': typeof AppIngredientsIndexRoute
   '/kitchen': typeof AppKitchenIndexRoute
   '/recipes': typeof AppRecipesIndexRoute
@@ -240,7 +240,6 @@ export interface FileRoutesById {
   '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
-  '/$handle/': typeof HandleIndexRoute
   '/_app/': typeof AppIndexRoute
   '/_app/$handle/$slug': typeof AppHandleSlugRoute
   '/_app/ingredients/bulk': typeof AppIngredientsBulkRoute
@@ -253,6 +252,7 @@ export interface FileRoutesById {
   '/_app/s/$token': typeof AppSTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/photos/$': typeof ApiPhotosSplatRoute
+  '/_app/$handle/': typeof AppHandleIndexRoute
   '/_app/ingredients/': typeof AppIngredientsIndexRoute
   '/_app/kitchen/': typeof AppKitchenIndexRoute
   '/_app/recipes/': typeof AppRecipesIndexRoute
@@ -271,7 +271,6 @@ export interface FileRouteTypes {
     | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
-    | '/$handle/'
     | '/$handle/$slug'
     | '/ingredients/bulk'
     | '/ingredients/new'
@@ -283,6 +282,7 @@ export interface FileRouteTypes {
     | '/s/$token'
     | '/api/auth/$'
     | '/api/photos/$'
+    | '/$handle/'
     | '/ingredients/'
     | '/kitchen/'
     | '/recipes/'
@@ -298,7 +298,6 @@ export interface FileRouteTypes {
     | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
-    | '/$handle'
     | '/'
     | '/$handle/$slug'
     | '/ingredients/bulk'
@@ -311,6 +310,7 @@ export interface FileRouteTypes {
     | '/s/$token'
     | '/api/auth/$'
     | '/api/photos/$'
+    | '/$handle'
     | '/ingredients'
     | '/kitchen'
     | '/recipes'
@@ -327,7 +327,6 @@ export interface FileRouteTypes {
     | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
-    | '/$handle/'
     | '/_app/'
     | '/_app/$handle/$slug'
     | '/_app/ingredients/bulk'
@@ -340,6 +339,7 @@ export interface FileRouteTypes {
     | '/_app/s/$token'
     | '/api/auth/$'
     | '/api/photos/$'
+    | '/_app/$handle/'
     | '/_app/ingredients/'
     | '/_app/kitchen/'
     | '/_app/recipes/'
@@ -352,7 +352,6 @@ export interface RootRouteChildren {
   ApiOvenRoute: typeof ApiOvenRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthSignupRoute: typeof AuthSignupRoute
-  HandleIndexRoute: typeof HandleIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiPhotosSplatRoute: typeof ApiPhotosSplatRoute
 }
@@ -364,13 +363,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/$handle/': {
-      id: '/$handle/'
-      path: '/$handle'
-      fullPath: '/$handle/'
-      preLoaderRoute: typeof HandleIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -442,6 +434,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/signup'
       preLoaderRoute: typeof AuthSignupRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/$handle/': {
+      id: '/_app/$handle/'
+      path: '/$handle'
+      fullPath: '/$handle/'
+      preLoaderRoute: typeof AppHandleIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/$handle/$slug': {
       id: '/_app/$handle/$slug'
@@ -578,6 +577,7 @@ interface AppRouteChildren {
   AppRecipesRecipeIdRoute: typeof AppRecipesRecipeIdRoute
   AppRecipesNewRoute: typeof AppRecipesNewRoute
   AppSTokenRoute: typeof AppSTokenRoute
+  AppHandleIndexRoute: typeof AppHandleIndexRoute
   AppIngredientsIndexRoute: typeof AppIngredientsIndexRoute
   AppKitchenIndexRoute: typeof AppKitchenIndexRoute
   AppRecipesIndexRoute: typeof AppRecipesIndexRoute
@@ -599,6 +599,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRecipesRecipeIdRoute: AppRecipesRecipeIdRoute,
   AppRecipesNewRoute: AppRecipesNewRoute,
   AppSTokenRoute: AppSTokenRoute,
+  AppHandleIndexRoute: AppHandleIndexRoute,
   AppIngredientsIndexRoute: AppIngredientsIndexRoute,
   AppKitchenIndexRoute: AppKitchenIndexRoute,
   AppRecipesIndexRoute: AppRecipesIndexRoute,
@@ -613,7 +614,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOvenRoute: ApiOvenRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthSignupRoute: AuthSignupRoute,
-  HandleIndexRoute: HandleIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiPhotosSplatRoute: ApiPhotosSplatRoute,
 }

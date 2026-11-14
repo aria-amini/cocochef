@@ -66,6 +66,7 @@ vi.mock('@/lib/discover/server', () => ({
 }))
 
 vi.mock('@/lib/recipes/server', () => ({
+	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
 	listShelf: () => Promise.resolve({ recipes: [] }),
@@ -270,10 +271,9 @@ describe('write a recipe', () => {
 			session: testSession,
 		})
 
+		// The ways to bring one in show on a blank recipe.
 		await expect
-			.element(
-				screen.getByText('or paste a link or a whole recipe into the name'),
-			)
+			.element(screen.getByRole('button', { name: 'paste a recipe' }))
 			.toBeVisible()
 		pasteInto(
 			screen.getByRole('textbox', { name: 'name' }),
@@ -667,23 +667,44 @@ describe('write a recipe', () => {
 		expect(state.created.some((saved) => saved.finalized)).toBe(false)
 	})
 
-	test('asks before cancel throws away changes', async () => {
-		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-
+	test('asks before cancel or back throws away changes', async () => {
 		const { screen, router } = await renderRoute({
-			path: '/recipes/new',
+			path: '/recipes',
 			session: testSession,
 		})
 
-		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
-		await screen.getByRole('button', { name: 'cancel' }).click()
-		expect(confirm).toHaveBeenCalled()
-		expect(router.state.location.pathname).toBe('/recipes/new')
+		await router.navigate({ to: '/recipes/new' })
+		const name = screen.getByRole('textbox', { name: 'name' })
 
-		confirm.mockReturnValue(true)
+		// A name alone is nothing to lose.
+		await name.fill('Toast')
 		await screen.getByRole('button', { name: 'cancel' }).click()
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
-		confirm.mockRestore()
+
+		await router.navigate({ to: '/recipes/new' })
+		await screen.getByRole('textbox', { name: 'name' }).fill('Toast')
+		await screen.getByRole('combobox', { name: 'Ingredient 1' }).fill('bread')
+		const leave = screen.getByRole('dialog', { name: 'leave without saving?' })
+
+		await screen.getByRole('button', { name: 'cancel' }).click()
+		await expect.element(leave).toBeVisible()
+		await leave.getByRole('button', { name: 'keep editing' }).click()
+		await expect.element(leave).not.toBeInTheDocument()
+		expect(router.state.location.pathname).toBe('/recipes/new')
+
+		// Leaving any other way asks the same.
+		void router.navigate({ to: '/kitchen' })
+		await expect.element(leave).toBeVisible()
+		await leave.getByRole('button', { name: 'keep editing' }).click()
+		await expect.element(leave).not.toBeInTheDocument()
+		expect(router.state.location.pathname).toBe('/recipes/new')
+		await expect
+			.element(screen.getByRole('combobox', { name: 'Ingredient 1' }))
+			.toHaveValue('bread')
+
+		await screen.getByRole('button', { name: 'cancel' }).click()
+		await leave.getByRole('button', { name: 'discard changes' }).click()
+		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
 	})
 
 	test('offers recipes to start from only once the name finds some', async () => {

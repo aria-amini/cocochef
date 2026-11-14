@@ -150,15 +150,13 @@ describe('moving recipes between kitchens', () => {
 		).resolves.toEqual({ imported: 0, skipped: 1 })
 	})
 
-	test('keeps imported recipes private on an auto-publish profile', async ({
-		db,
-	}) => {
+	test('keeps imported recipes private', async ({ db }) => {
 		const preview = await seedUser(db)
 		const prod = await seedUser(db)
 		await createRecipeForUser(preview, { title: 'dal' }, db)
 		await saveSharingProfile(
 			prod,
-			{ handle: 'prod-cook', displayName: 'Prod', autoPublish: true },
+			{ handle: 'prod-cook', displayName: 'Prod' },
 			db,
 		)
 
@@ -167,10 +165,6 @@ describe('moving recipes between kitchens', () => {
 		const [imported] = (await listShelfForUser(prod, db)).recipes
 		expect(imported).toBeDefined()
 		await expect(getRecipeShare(prod, imported!.id, db)).resolves.toBeNull()
-
-		// A recipe written here still follows the profile's setting.
-		const written = await createRecipeForUser(prod, { title: 'soup' }, db)
-		await expect(getRecipeShare(prod, written!.id, db)).resolves.not.toBeNull()
 	})
 
 	test('exports one recipe a cook can see, and nothing they cannot', async ({

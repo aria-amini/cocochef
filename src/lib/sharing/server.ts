@@ -110,14 +110,25 @@ export const readPublicProfile = createServerFn({ method: 'GET' })
 	.validator(z.object({ handle: publicRecipeInput.shape.handle }))
 	.handler(async ({ data }) => {
 		preventCaching()
-		const profile = await getPublicProfile(data.handle)
 
-		return profile
-			? {
-					...profile,
-					recipes: await Promise.all(profile.recipes.map(withPublicImage)),
-				}
-			: null
+		const [session, profile] = await Promise.all([
+			readSession(),
+			getPublicProfile(data.handle),
+		])
+
+		if (!profile) return null
+
+		// Whether the one reading it is the one it belongs to, so they can be
+		// pointed to where it is changed.
+		const yours = session
+			? (await getSharingProfile(session.user.id))?.handle === profile.handle
+			: false
+
+		return {
+			...profile,
+			yours,
+			recipes: await Promise.all(profile.recipes.map(withPublicImage)),
+		}
 	})
 
 // A readable address in one round trip: the session, the published recipe,

@@ -69,7 +69,12 @@ export const deleteGrocery = createServerFn({ method: 'POST' })
 		),
 	)
 
-export const clearCheckedGroceries = createServerFn({ method: 'POST' }).handler(
-	async () =>
-		clearCheckedGroceriesForUser(await requireAccountId('keep a grocery list')),
-)
+// Clears the cart, putting away the lines named in `stock`.
+export const clearCheckedGroceries = createServerFn({ method: 'POST' })
+	.validator(z.object({ stock: z.array(z.string().min(1)).max(500) }))
+	.handler(async ({ data }) =>
+		clearCheckedGroceriesForUser(
+			await requireAccountId('keep a grocery list'),
+			data.stock,
+		),
+	)

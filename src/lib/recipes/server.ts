@@ -125,3 +125,17 @@ export const deleteRecipe = createServerFn({ method: 'POST' })
 	.handler(async ({ data }) =>
 		deleteRecipeForUser(await requireAccountId('save recipes'), data.id),
 	)
+
+// Clearing several off the shelf at once: each one the cook wrote is deleted,
+// each one they saved comes off their shelf, the same as one at a time.
+export const deleteRecipes = createServerFn({ method: 'POST' })
+	.validator(z.object({ ids: z.array(recipeIdInput.shape.id).min(1).max(500) }))
+	.handler(async ({ data }) => {
+		const userId = await requireAccountId('save recipes')
+		let removed = 0
+
+		for (const id of new Set(data.ids))
+			if (await deleteRecipeForUser(userId, id)) removed++
+
+		return { removed }
+	})

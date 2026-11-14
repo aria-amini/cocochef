@@ -3,7 +3,6 @@ import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
-import { AddRecipeMenu } from '@/components/add-recipe-menu'
 import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
 import { type KitchenView, useKitchenView } from '@/lib/kitchen-view'
 import { cn } from '@/lib/utils/ui'
@@ -21,7 +20,7 @@ const navItems = [
 	{ label: 'kitchen', name: 'kitchen', icon: CarrotIcon, to: '/kitchen' },
 ] as const
 
-type TabBarMode = 'none' | 'bar' | 'bar-fab' | 'bar-own-fab'
+type TabBarMode = 'none' | 'bar' | 'bar-own-fab'
 
 // What a nav item does between a tap and the next page showing. It answers at
 // once: pressed while the finger is down, then highlighted with a pulsing icon
@@ -58,8 +57,8 @@ export function useHideTabBar(hide: boolean) {
 	}, [hide])
 }
 
-// Every page inside the app shell gets the tab bar. A route opts out, or adds
-// the shelf's round button, with its `tabBar` static data; the deepest match
+// Every page inside the app shell gets the tab bar. A route opts out, or makes
+// room for a round button of its own, with its `tabBar` static data; the deepest match
 // decides. A screen that pins its own bottom actions only while editing calls
 // useHideTabBar.
 export function useTabBar(): TabBarMode {
@@ -73,15 +72,13 @@ export function useTabBar(): TabBarMode {
 
 	if (!matches.some((match) => match.routeId === '/_app')) return 'none'
 
-	let mode: 'none' | 'fab' | 'own-fab' | undefined
+	let mode: 'none' | 'own-fab' | undefined
 
 	for (const match of matches) mode = match.staticData?.tabBar ?? mode
 
 	if (mode === 'none' || hidden) return 'none'
 
-	if (mode === 'own-fab') return 'bar-own-fab'
-
-	return mode === 'fab' ? 'bar-fab' : 'bar'
+	return mode === 'own-fab' ? 'bar-own-fab' : 'bar'
 }
 
 // The tab a page belongs to. Every shell page that is not another tab's (or
@@ -97,6 +94,10 @@ function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
 	if (!matches.some((match) => match.routeId === '/_app')) return undefined
 
 	if (pathname === '/settings') return undefined
+
+	// Someone's public page belongs to no tab, yours included.
+	if (matches.some((match) => match.routeId === '/_app/$handle/'))
+		return undefined
 
 	if (pathname === '/') return 'home'
 
@@ -261,10 +262,8 @@ function tabTarget(
 	return { to } as const
 }
 
-// Thumb-reach navigation on phones: the two places you go. The recipes shelf
-// adds one round action for its one job.
+// Thumb-reach navigation on phones: the two places you go.
 function TabBar() {
-	const mode = useTabBar()
 	const visible = useTabBarVisible()
 	const kitchenView = useKitchenView()
 	const tab = useActiveTab()
@@ -312,13 +311,6 @@ function TabBar() {
 					)
 				})}
 			</nav>
-			{mode === 'bar-fab' ? (
-				<AddRecipeMenu
-					side="top"
-					iconSize={26}
-					className="bg-kitchen-yolk bottom-fab fixed right-4 z-20 grid size-14 place-items-center rounded-full shadow-md transition-colors hover:brightness-95 md:hidden"
-				/>
-			) : null}
 		</>
 	)
 }

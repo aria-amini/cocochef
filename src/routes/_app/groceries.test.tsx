@@ -23,7 +23,10 @@ const list = vi.hoisted(() => {
 	const items: Item[] = []
 
 	// Signed out, the server keeps no list.
-	return { items, signedOut: false }
+	// Lines put away into the kitchen when the cart was cleared.
+	const stocked: string[] = []
+
+	return { items, signedOut: false, stocked }
 })
 
 const make = (text: string, extra: Partial<Item> = {}): Item => ({
@@ -78,14 +81,7 @@ vi.mock('@/lib/groceries/server', () => ({
 				: item,
 		)
 
-		// A ticked item goes into the kitchen, as the server says.
-		const item = list.items.find((each) => each.id === data.id)
-
-		return Promise.resolve(
-			data.checked && item
-				? { stocked: { name: item.text, created: true } }
-				: null,
-		)
+		return Promise.resolve(null)
 	},
 	renameGrocery: ({ data }: { data: { id: string; text: string } }) => {
 		list.items = list.items.map((item) =>
@@ -101,10 +97,12 @@ vi.mock('@/lib/groceries/server', () => ({
 
 		return Promise.resolve()
 	},
-	clearCheckedGroceries: () => {
+	clearCheckedGroceries: ({ data }: { data: { stock: string[] } }) => {
+		list.stocked.push(...data.stock)
+		const cleared = list.items.filter((item) => item.checkedAt).length
 		list.items = list.items.filter((item) => !item.checkedAt)
 
-		return Promise.resolve()
+		return Promise.resolve({ cleared, restocked: 0, added: data.stock.length })
 	},
 }))
 
@@ -113,7 +111,7 @@ vi.mock('@/lib/groceries/server', () => ({
 async function addField(
 	screen: Awaited<ReturnType<typeof renderRoute>>['screen'],
 ) {
-	await screen.getByRole('button', { name: /add an item$/ }).click()
+	await screen.getByRole('button', { name: 'add grocery item' }).click()
 
 	return screen.getByRole('combobox', { name: 'add an item' })
 }
@@ -142,6 +140,7 @@ describe('groceries', () => {
 		list.items = []
 		list.signedOut = false
 		restocked.calls.length = 0
+		list.stocked.length = 0
 		kept.items = []
 	})
 
@@ -163,9 +162,9 @@ describe('groceries', () => {
 			.toBeDisabled()
 		await expectPageScreenshot(screen.container, 'groceries-empty')
 
-		await screen
-			.getByRole('button', { name: 'nothing on your list — add an item' })
-			.click()
+		// Counted even when empty, so the header never sits blank.
+		await expect.element(screen.getByText('0 groceries')).toBeVisible()
+		await screen.getByRole('button', { name: 'add grocery item' }).click()
 		await expect
 			.element(screen.getByRole('combobox', { name: 'add an item' }))
 			.toHaveFocus()
@@ -193,7 +192,7 @@ describe('groceries', () => {
 			name: 'vegetables & herbs',
 		})
 
-		const completed = screen.getByRole('region', { name: 'in your kitchen' })
+		const completed = screen.getByRole('region', { name: 'in your cart' })
 
 		await expect
 			.element(vegetables.getByRole('checkbox', { name: '1 onion' }))
@@ -238,14 +237,15 @@ describe('groceries', () => {
 		await settled()
 		await expectPageScreenshot(screen.container, 'groceries-shopping')
 
-		// Ticked, it is in the kitchen already, said with a way back.
-		await expect
-			.element(screen.getByText('added 2 cloves garlic to your kitchen'))
-			.toBeVisible()
+		// A tick only puts it in the cart, and the header counts it.
+		await expect.element(screen.getByText('1/4')).toBeVisible()
+		expect(list.stocked).toEqual([])
 
-		// What is in the kitchen can leave the list.
+		// Clearing the cart puts it away in the kitchen.
 		await screen.getByRole('button', { name: 'clear' }).click()
+		await screen.getByRole('button', { name: 'clear and add 1' }).click()
 		await expect.element(completed).not.toBeInTheDocument()
+		expect(list.stocked).toHaveLength(1)
 		expect(list.items.map((item) => item.text)).toEqual([
 			'2 tbsp butter',
 			'1 onion',
@@ -296,7 +296,7 @@ describe('groceries', () => {
 
 		// Once the ticking settles it sits in the completed box, and an aisle with
 		// nothing left to find goes.
-		const completed = screen.getByRole('region', { name: 'in your kitchen' })
+		const completed = screen.getByRole('region', { name: 'in your cart' })
 
 		await expect
 			.element(completed.getByRole('checkbox', { name: '1 onion' }), {
@@ -394,8 +394,8 @@ describe('groceries', () => {
 			session,
 		})
 
-		const completed = screen.getByRole('region', { name: 'in your kitchen' })
-		const fold = completed.getByRole('button', { name: /in your kitchen/ })
+		const completed = screen.getByRole('region', { name: 'in your cart' })
+		const fold = completed.getByRole('button', { name: /in your cart/ })
 
 		await expect.element(fold).toHaveAttribute('aria-expanded', 'true')
 		await expect
@@ -428,8 +428,10 @@ describe('groceries', () => {
 		await expectPageScreenshot(screen.container, 'groceries-done')
 	})
 
-	test('clears what is in the kitchen off the list', async () => {
-		list.items = [make('milk', { checkedAt: new Date() }), make('1 onion')]
+	test('clears the cart, putting away only what is picked', async () => {
+		const milk = make('milk', { checkedAt: new Date() })
+		const eggs = make('eggs', { checkedAt: new Date() })
+		list.items = [milk, eggs, make('1 onion')]
 
 		const { screen } = await renderRoute({
 			path: '/kitchen?view=groceries',
@@ -437,10 +439,21 @@ describe('groceries', () => {
 		})
 
 		await screen.getByRole('button', { name: 'clear' }).click()
+
+		const dialog = screen.getByRole('dialog', {
+			name: 'clear 2 items from your list?',
+		})
+
+		// Each line starts picked, saying what it adds to what is on hand.
+		await expect.element(dialog.getByText('new').first()).toBeVisible()
+		await dialog.getByRole('checkbox', { name: /eggs/ }).click()
+		await expect.element(dialog.getByText('leave out')).toBeVisible()
+		await dialog.getByRole('button', { name: 'clear and add 1' }).click()
+
 		await expect
-			.element(screen.getByRole('region', { name: 'in your kitchen' }))
+			.element(screen.getByRole('region', { name: 'in your cart' }))
 			.not.toBeInTheDocument()
-		expect(restocked.calls).toEqual([])
+		expect(list.stocked).toEqual([milk.id])
 		expect(list.items.map((item) => item.text)).toEqual(['1 onion'])
 	})
 
@@ -489,14 +502,7 @@ describe('groceries', () => {
 		await userEvent.keyboard('{Enter}')
 		await expect.element(field).not.toBeInTheDocument()
 		await expect
-			.element(
-				screen.getByRole('button', {
-					name: 'nothing on your list — add an item',
-				}),
-			)
-			.not.toBeInTheDocument()
-		await expect
-			.element(screen.getByRole('button', { name: 'add an item', exact: true }))
+			.element(screen.getByRole('button', { name: 'add grocery item' }))
 			.toBeVisible()
 		expect(list.items.map((item) => item.text)).toEqual(['milk'])
 	})
@@ -532,9 +538,7 @@ describe('groceries', () => {
 			session,
 		})
 
-		await screen
-			.getByRole('button', { name: 'add an item', exact: true })
-			.click()
+		await screen.getByRole('button', { name: 'add grocery item' }).click()
 
 		const field = screen.getByRole('combobox', { name: 'add an item' })
 

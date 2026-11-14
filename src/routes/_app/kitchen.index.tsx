@@ -275,7 +275,7 @@ function Pantry({
 					buy={list.filter((line) => !line.checkedAt).length}
 				/>
 				{view === 'groceries' ? (
-					<Need list={list} wanting={wanting} />
+					<Need list={list} wanting={wanting} kept={kept} />
 				) : items.length === 0 ? (
 					<>
 						<section className="border-foreground/30 flex flex-col items-center gap-4 rounded-xl border border-dashed p-10 text-center">
@@ -543,9 +543,11 @@ function FoodCard({
 function Need({
 	list,
 	wanting,
+	kept,
 }: {
 	list: GroceryItem[]
 	wanting: PantryItem[]
+	kept: PantryItem[]
 }) {
 	const waiting = list.filter((line) => !line.checkedAt)
 
@@ -556,6 +558,7 @@ function Need({
 	return (
 		<GroceryList
 			saved={list}
+			pantry={kept}
 			noteOf={(line) => (
 				<NeedNote line={line} kept={findInPantry(line.text, wanting)} />
 			)}

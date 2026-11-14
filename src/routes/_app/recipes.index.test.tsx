@@ -24,6 +24,7 @@ const discovery = vi.hoisted(() => ({
 
 const saves = vi.hoisted(() => ({
 	remove: vi.fn(),
+	removeMany: vi.fn(),
 	save: vi.fn(),
 }))
 
@@ -42,6 +43,7 @@ vi.mock('@/lib/import/server', () => ({
 }))
 
 vi.mock('@/lib/recipes/server', () => ({
+	deleteRecipes: saves.removeMany,
 	removeSavedRecipe: saves.remove,
 	saveRecipe: saves.save,
 	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
@@ -115,6 +117,7 @@ describe('recipes shelf', () => {
 		shelfState.recipes = []
 		saves.remove.mockReset().mockResolvedValue(null)
 		saves.save.mockReset().mockResolvedValue(null)
+		saves.removeMany.mockReset().mockResolvedValue({ removed: 0 })
 		discovery.import
 			.mockReset()
 			.mockRejectedValue(new Error('Import failed. Please retry.'))
@@ -138,34 +141,29 @@ describe('recipes shelf', () => {
 		await expect.element(yours.getByText('shared soup')).not.toBeInTheDocument()
 	})
 
-	test('invites the first save when the shelf is empty', async () => {
-		const { screen } = await renderRoute({
+	test('opens a blank recipe from the first-recipe card', async () => {
+		const { screen, router } = await renderRoute({
 			path: '/recipes',
 			session: testSession,
 		})
 
-		await expect
-			.element(screen.getByText('save your first recipe', { exact: false }))
-			.toBeVisible()
-		await screen.getByRole('button', { name: /save your first recipe/ }).click()
-		await expect
-			.element(screen.getByRole('combobox', { name: 'find a recipe' }))
-			.toHaveFocus()
+		await screen.getByRole('link', { name: /add your first recipe/ }).click()
+		await expect.poll(() => router.state.location.pathname).toBe('/recipes/new')
 	})
 
-	test('keeps the add button on an empty shelf and a full one', async () => {
+	test('swaps the first-recipe card for the add tile once there is a recipe', async () => {
 		const { screen, router, queryClient } = await renderRoute({
 			path: '/recipes',
 			session: testSession,
 		})
 
 		await expect
-			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.element(screen.getByRole('link', { name: /add your first recipe/ }))
 			.toBeVisible()
-		// Adding stays where it always is.
+		// One way to add at a time.
 		await expect
-			.element(screen.getByRole('button', { name: 'add recipe' }))
-			.toBeVisible()
+			.element(screen.getByRole('link', { name: 'add a recipe' }))
+			.not.toBeInTheDocument()
 
 		shelfState.recipes = [dal]
 		await queryClient.invalidateQueries()
@@ -174,11 +172,12 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('link', { name: 'dal' }))
 			.toBeVisible()
+		// On a phone too: the tile, not only a floating button.
 		await expect
-			.element(screen.getByRole('button', { name: 'add recipe' }))
+			.element(screen.getByRole('link', { name: 'add a recipe' }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.element(screen.getByRole('link', { name: /add your first recipe/ }))
 			.not.toBeInTheDocument()
 	})
 
@@ -243,24 +242,7 @@ describe('recipes shelf', () => {
 			.toHaveBeenCalledWith({ data: { id: 'shared' } })
 	})
 
-	test('shows the ways to add a recipe', async () => {
-		shelfState.recipes = [misoButterPasta, dal]
-
-		const { screen } = await renderRoute({
-			path: '/recipes',
-			session: testSession,
-		})
-
-		await expect.element(screen.getByText('miso butter pasta')).toBeVisible()
-		await expect.element(screen.getByText('dal')).toBeVisible()
-
-		// Every way to add a recipe sits behind one button, desktop and phone.
-		await expect
-			.element(screen.getByRole('button', { name: 'add recipe' }))
-			.toBeVisible()
-	})
-
-	test('imports a link from the add menu', async () => {
+	test('imports a link from a blank recipe, leaving no blank page behind', async () => {
 		discovery.import.mockResolvedValue({ id: dal.id, title: 'dal' })
 		shelfState.recipes = [dal]
 
@@ -269,8 +251,8 @@ describe('recipes shelf', () => {
 			session: testSession,
 		})
 
-		await screen.getByRole('button', { name: 'add recipe' }).click()
-		await screen.getByRole('menuitem', { name: 'import url' }).click()
+		await screen.getByRole('link', { name: 'add a recipe' }).click()
+		await screen.getByRole('button', { name: 'import from a link' }).click()
 		const field = screen.getByRole('textbox', { name: 'recipe link' })
 
 		await expect.element(field).toHaveFocus()
@@ -293,6 +275,55 @@ describe('recipes shelf', () => {
 		expect(discovery.import).toHaveBeenCalledWith({
 			data: { url: 'https://example.com/dal', keep: true },
 		})
+
+		// The import took the blank recipe's place, so back is the shelf.
+		router.history.back()
+		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
+	})
+
+	test('selects recipes and clears them off the shelf together', async () => {
+		saves.removeMany.mockResolvedValue({ removed: 2 })
+		shelfState.recipes = [
+			misoButterPasta,
+			dal,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await screen.getByRole('button', { name: 'select', exact: true }).click()
+		// While picking, a tile toggles rather than opens.
+		await screen.getByRole('button', { name: 'dal' }).click()
+		await screen.getByRole('button', { name: 'shared soup' }).click()
+		await expect
+			.element(screen.getByRole('button', { name: 'dal' }))
+			.toHaveAttribute('aria-pressed', 'true')
+		await expect.element(screen.getByText('2 selected')).toBeVisible()
+		// The tile to add a recipe steps aside.
+		await expect
+			.element(screen.getByRole('link', { name: 'add a recipe' }))
+			.not.toBeInTheDocument()
+
+		await screen.getByRole('button', { name: 'delete', exact: true }).click()
+		const dialog = screen.getByRole('dialog', { name: 'delete 2 recipes?' })
+
+		// Says what happens to each kind before anything is lost.
+		await expect
+			.element(
+				dialog.getByText(
+					'the 1 recipe you wrote is deleted for good, with your notes. the 1 you saved just comes off your shelf.',
+					{ exact: false },
+				),
+			)
+			.toBeVisible()
+		await dialog.getByRole('button', { name: 'delete', exact: true }).click()
+		await expect
+			.poll(() => saves.removeMany.mock.calls[0]?.[0])
+			.toEqual({ data: { ids: ['recipe-2', 'shared'] } })
+		await expect.element(screen.getByText('2 selected')).not.toBeInTheDocument()
 	})
 
 	test('puts the title beside a recipe photo, not over it', async () => {
@@ -354,7 +385,7 @@ describe('recipes shelf', () => {
 		})
 
 		await expect
-			.element(screen.getByRole('button', { name: /save your first recipe/ }))
+			.element(screen.getByRole('link', { name: /add your first recipe/ }))
 			.toBeVisible()
 		await expectPageScreenshot(screen.container, 'shelf-empty', {
 			fullHeight: true,

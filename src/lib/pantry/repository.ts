@@ -297,7 +297,7 @@ export async function deletePantryItemForUser(
 export async function restockPantryForUser(
 	userId: string,
 	bought: { text: string; category: PantryCategory }[],
-	database: Database = getDb(),
+	database: Queryable = getDb(),
 ) {
 	const pantry = await listPantryForUser(userId, database)
 	const restocked = new Set<string>()
