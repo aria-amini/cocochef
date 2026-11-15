@@ -5,6 +5,7 @@ import { RecipeGlyph } from '@/components/recipe-glyph'
 import { hasPicks, type MealPicks } from '@/lib/assistant/meal-parts'
 import { searchRecipes } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
+import { sizedPhoto } from '@/lib/photos/sized'
 import type { RecipeSort } from '@/lib/recipes/loved'
 import { cn } from '@/lib/utils/ui'
 
@@ -215,7 +216,7 @@ export function RecipeThumb({
 
 	return (
 		<img
-			src={imageUrl}
+			src={sizedPhoto(imageUrl, 400)}
 			alt=""
 			loading="lazy"
 			decoding="async"

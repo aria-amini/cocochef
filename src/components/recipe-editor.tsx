@@ -40,6 +40,7 @@ import { StepsField, stepsFrom } from '@/components/steps-field'
 import { buttonVariants } from '@/components/ui/button'
 import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
+import { sizedPhoto } from '@/lib/photos/sized'
 import {
 	recipeContentInput,
 	recipeNotesMax,
@@ -632,7 +633,7 @@ export function RecipeEditor({
 							/>
 						) : recipe?.imageUrl ? (
 							<img
-								src={recipe.imageUrl}
+								src={sizedPhoto(recipe.imageUrl, 400)}
 								alt=""
 								className="border-border size-24 shrink-0 rounded-xl border object-cover"
 							/>

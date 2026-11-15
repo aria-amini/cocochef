@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test'
 
-import { isPrivateIp, pinnedLookup } from './public-fetch'
+import { fetchPublicImage, isPrivateIp, pinnedLookup } from './public-fetch'
 import { isWalled } from './wall'
 
 describe('isPrivateIp', () => {
@@ -104,5 +104,20 @@ describe('pinnedLookup', () => {
 		})
 
 		expect(refused).toBeInstanceOf(Error)
+	})
+})
+
+describe('fetchPublicImage', () => {
+	test.each(['http://127.0.0.1/photo.jpg', 'http://169.254.169.254/latest'])(
+		'refuses a photo at a private address (%s)',
+		async (url) => {
+			await expect(fetchPublicImage(url)).rejects.toThrow('private address')
+		},
+	)
+
+	test('refuses anything but the web', async () => {
+		await expect(fetchPublicImage('file:///etc/passwd')).rejects.toThrow(
+			'unsupported scheme',
+		)
 	})
 })

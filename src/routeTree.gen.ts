@@ -17,6 +17,7 @@ import { Route as AppPantryRouteImport } from './routes/_app/pantry'
 import { Route as AppProfileRouteImport } from './routes/_app/profile'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiImgRouteImport } from './routes/api/img'
 import { Route as ApiOvenRouteImport } from './routes/api/oven'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
@@ -74,6 +75,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImgRoute = ApiImgRouteImport.update({
+  id: '/api/img',
+  path: '/api/img',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOvenRoute = ApiOvenRouteImport.update({
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AppProfileRouteWithChildren
   '/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/img': typeof ApiImgRoute
   '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AppProfileRouteWithChildren
   '/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/img': typeof ApiImgRoute
   '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -237,6 +245,7 @@ export interface FileRoutesById {
   '/_app/profile': typeof AppProfileRouteWithChildren
   '/_app/settings': typeof AppSettingsRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/img': typeof ApiImgRoute
   '/api/oven': typeof ApiOvenRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
@@ -268,6 +277,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/settings'
     | '/api/health'
+    | '/api/img'
     | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/settings'
     | '/api/health'
+    | '/api/img'
     | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/_app/profile'
     | '/_app/settings'
     | '/api/health'
+    | '/api/img'
     | '/api/oven'
     | '/auth/login'
     | '/auth/signup'
@@ -349,6 +361,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiImgRoute: typeof ApiImgRoute
   ApiOvenRoute: typeof ApiOvenRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthSignupRoute: typeof AuthSignupRoute
@@ -412,6 +425,13 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/img': {
+      id: '/api/img'
+      path: '/api/img'
+      fullPath: '/api/img'
+      preLoaderRoute: typeof ApiImgRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/oven': {
@@ -611,6 +631,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
+  ApiImgRoute: ApiImgRoute,
   ApiOvenRoute: ApiOvenRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthSignupRoute: AuthSignupRoute,

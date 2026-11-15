@@ -67,6 +67,7 @@ import {
 import { authClient } from '@/lib/auth/client'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe, peekRecipes } from '@/lib/import/server'
+import { sizedPhoto } from '@/lib/photos/sized'
 import { type RecipeSort, recipeSorts } from '@/lib/recipes/loved'
 import { matchesRecipeQuery } from '@/lib/recipes/model'
 import { isPastedRecipe } from '@/lib/recipes/paste'
@@ -1673,7 +1674,7 @@ function RecipePreview({
 			<div className="flex items-start gap-3">
 				{recipe.imageUrl ? (
 					<img
-						src={recipe.imageUrl}
+						src={sizedPhoto(recipe.imageUrl, 400)}
 						alt=""
 						referrerPolicy="no-referrer"
 						className="border-border size-20 shrink-0 rounded-xl border object-cover md:size-24"
