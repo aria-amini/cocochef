@@ -157,6 +157,22 @@ async function coldLoad(
 ): Promise<Row> {
 	const page = await context.newPage()
 	await throttle(context, page)
+
+	// Image bytes as the network carried them. The page's own timing reports
+	// zero for another site's image, so a photo hotlinked from a recipe site
+	// would count as nothing.
+	const imageSizes: Promise<number>[] = []
+
+	page.on('requestfinished', (request) => {
+		if (request.resourceType() === 'image')
+			imageSizes.push(
+				request.sizes().then(
+					(sizes) => sizes.responseBodySize,
+					() => 0,
+				),
+			)
+	})
+
 	await page.goto(base + path, { waitUntil: 'load', timeout: 60_000 })
 	await page.waitForFunction(() => window.bench.hydrated > 0, null, {
 		timeout: 30_000,
@@ -177,8 +193,6 @@ async function coldLoad(
 
 		const scripts = resources.filter((entry) => entry.name.endsWith('.js'))
 
-		const images = resources.filter((entry) => entry.initiatorType === 'img')
-
 		return {
 			ttfb: nav?.responseStart ?? 0,
 			fcp,
@@ -191,14 +205,17 @@ async function coldLoad(
 				scripts.reduce((sum, entry) => sum + entry.encodedBodySize, 0) / 1024,
 			jsRawKB:
 				scripts.reduce((sum, entry) => sum + entry.decodedBodySize, 0) / 1024,
-			imgKB:
-				images.reduce((sum, entry) => sum + entry.encodedBodySize, 0) / 1024,
 		}
 	})
 
+	const imageBytes = (await Promise.all(imageSizes)).reduce(
+		(sum, bytes) => sum + bytes,
+		0,
+	)
+
 	await page.close()
 
-	return row
+	return { ...row, imgKB: imageBytes / 1024 }
 }
 
 // A finger rests on the glass for about 100ms before it lifts, and the app
@@ -350,6 +367,15 @@ async function clearOff(page: Page): Promise<Row> {
 	)
 
 	const gone = await seen.jsonValue()
+
+	// The tile leaves before the server has the change. A sample only counts
+	// if the clear went through, and waiting for that is outside the timing.
+	const said = page.getByText(/off your shelf|couldn't/)
+
+	await said.first().waitFor({ timeout: 30_000 })
+
+	if (/couldn't/.test((await said.first().textContent()) ?? ''))
+		throw new Error(`clearing ${title} off the shelf failed`)
 
 	return { gone: Math.max(0, gone - start) }
 }
