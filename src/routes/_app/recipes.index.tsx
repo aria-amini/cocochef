@@ -315,7 +315,7 @@ function Shelf() {
 							mine={mine}
 							onClear={clearOff}
 							onDone={selection.stop}
-							onFailed={selection.restore}
+							restoreLater={selection.restoreLater}
 						/>
 					) : null}
 				</motion.div>
@@ -329,12 +329,9 @@ function Shelf() {
 function useSelection() {
 	const [on, setOn] = useState(false)
 	const [ids, setIds] = useState<ReadonlySet<string>>(new Set())
-	// Whether choosing is on now, for a clear that failed after it ended.
-	const onNow = useRef(on)
-
-	useEffect(() => {
-		onNow.current = on
-	}, [on])
+	// Counts each time choosing starts, so a clear that fails later knows
+	// whether the cook has chosen again since.
+	const started = useRef(0)
 
 	useEffect(() => {
 		if (!on) return
@@ -362,16 +359,22 @@ function useSelection() {
 		set: (next: string[]) => setIds(new Set(next)),
 		clear: () => setIds(new Set()),
 		start: () => {
+			started.current += 1
 			setIds(new Set())
 			setOn(true)
 		},
 		stop: () => setOn(false),
-		// Picks recipes again after clearing them failed, unless the cook has
-		// started choosing others since: theirs is the newer choice.
-		restore: (next: string[]) => {
-			if (onNow.current) return
-			setIds(new Set(next))
-			setOn(true)
+		// For a clear as it starts: picks its recipes again if it fails, unless
+		// the cook has started choosing others since, which is the newer
+		// choice, whether still open or itself sent.
+		restoreLater: () => {
+			const choice = started.current
+
+			return (next: string[]) => {
+				if (started.current !== choice) return
+				setIds(new Set(next))
+				setOn(true)
+			}
 		},
 	}
 }
@@ -383,7 +386,7 @@ function SelectionDock({
 	mine,
 	onClear,
 	onDone,
-	onFailed,
+	restoreLater,
 }: {
 	chosen: Recipe[]
 	mine: (recipe: Recipe) => boolean
@@ -391,7 +394,7 @@ function SelectionDock({
 	onClear: (ids: ReadonlySet<string>) => void
 	onDone: () => void
 	// Picks them again when clearing failed, so trying again is one tap.
-	onFailed: (ids: string[]) => void
+	restoreLater: () => (ids: string[]) => void
 }) {
 	const router = useRouter()
 	const [confirming, setConfirming] = useState(false)
@@ -408,6 +411,8 @@ function SelectionDock({
 		const done = `${count(ids.length, 'recipe', 'recipes')} off your shelf`
 		const failed = `couldn't ${removing ? 'remove' : 'delete'} those — try again`
 
+		const restore = restoreLater()
+
 		setConfirming(false)
 		onDone()
 
@@ -422,7 +427,7 @@ function SelectionDock({
 				toast.success(done)
 			} catch {
 				toast.error(failed)
-				onFailed(ids)
+				restore(ids)
 			}
 
 			// A read already on its way started before this change, so it waits

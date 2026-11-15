@@ -513,6 +513,61 @@ describe('recipes shelf', () => {
 		await expect.element(screen.getByText('1 selected')).toBeVisible()
 	})
 
+	test('restores the later clear, not the earlier, when both fail', async () => {
+		const soup = { ...dal, id: 'recipe-3', title: 'lentil soup' }
+
+		shelfState.recipes = [misoButterPasta, dal, soup]
+
+		const failures: (() => void)[] = []
+
+		const failLater = () =>
+			new Promise((_resolve, reject) => {
+				failures.push(() => reject(new Error('offline')))
+			})
+
+		saves.removeMany
+			.mockImplementationOnce(failLater)
+			.mockImplementationOnce(failLater)
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const clear = async (title: string) => {
+			await screen.getByRole('button', { name: 'select', exact: true }).click()
+			await screen.getByRole('button', { name: title }).click()
+			await screen.getByRole('button', { name: 'delete', exact: true }).click()
+			await screen
+				.getByRole('dialog')
+				.getByRole('button', { name: 'delete', exact: true })
+				.click()
+		}
+
+		// Both clears are on their way; the earlier one fails first.
+		await clear('dal')
+		await clear('lentil soup')
+		await expect.poll(() => failures.length).toBe(2)
+
+		failures[0]?.()
+		await expect
+			.element(screen.getByText("couldn't delete those — try again"))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'select', exact: true }))
+			.toBeVisible()
+
+		// The later one fails too: its recipe is the one picked again.
+		failures[1]?.()
+		await expect
+			.element(screen.getByRole('button', { name: 'lentil soup' }))
+			.toHaveAttribute('aria-pressed', 'true')
+		await expect
+			.element(screen.getByRole('button', { name: 'dal' }))
+			.toHaveAttribute('aria-pressed', 'false')
+		await expect.element(screen.getByText('1 selected')).toBeVisible()
+	})
+
 	test('puts recipes back when clearing them fails', async () => {
 		saves.removeMany.mockRejectedValue(new Error('offline'))
 		shelfState.recipes = [misoButterPasta, dal]
