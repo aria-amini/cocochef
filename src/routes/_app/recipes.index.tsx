@@ -414,8 +414,12 @@ function SelectionDock({
 				onFailed(ids)
 			}
 
-			// The change is made; a failed read only leaves the page as it was.
-			await router.invalidate().catch(() => undefined)
+			// A read already on its way started before this change, so it waits
+			// for that one and reads again, and for the fresh read itself
+			// (sync), so the change shown stays until it lands. The change is
+			// made; a failed read leaves the page.
+			await router.latestLoadPromise?.catch(() => undefined)
+			await router.invalidate({ sync: true }).catch(() => undefined)
 		})
 	}
 
@@ -672,8 +676,12 @@ function UnsaveChip({ recipe }: { recipe: Recipe }) {
 				toast.error("couldn't take it off — try again")
 			}
 
-			// The change is made; a failed read only leaves the page as it was.
-			await router.invalidate().catch(() => undefined)
+			// A read already on its way started before this change, so it waits
+			// for that one and reads again, and for the fresh read itself
+			// (sync), so the change shown stays until it lands. The change is
+			// made; a failed read leaves the page.
+			await router.latestLoadPromise?.catch(() => undefined)
+			await router.invalidate({ sync: true }).catch(() => undefined)
 		})
 	}
 

@@ -56,8 +56,10 @@ export function SaveRecipeButton({
 		// before this change, and the router would hand its result to ours too.
 		await router.latestLoadPromise
 
+		// Sync: resolves once the page is read again, not as the read starts,
+		// so a save shown at the tap stays shown until the page agrees.
 		return Promise.all([
-			router.invalidate(),
+			router.invalidate({ sync: true }),
 			client.invalidateQueries({ queryKey: ['shelf'] }),
 			client.invalidateQueries({ queryKey: ['recipe', recipe.id] }),
 		])

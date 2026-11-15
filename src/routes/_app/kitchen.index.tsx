@@ -1231,8 +1231,9 @@ function DetailPanel({
 				toast.error("couldn't update how much is left — try again")
 			}
 
-			// The change is made; a failed read only leaves the page as it was.
-			await router.invalidate().catch(() => undefined)
+			// Waits for the fresh read itself (sync), so the change shown stays
+			// until it lands. The change is made; a failed read leaves the page.
+			await router.invalidate({ sync: true }).catch(() => undefined)
 		})
 	}
 

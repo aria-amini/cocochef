@@ -18,6 +18,8 @@ type ShelfState = {
 	viewerId: string | null
 	// The shelf never arrives, so the page stays on its skeleton.
 	hang: boolean
+	// The next read of the shelf waits for this.
+	read?: Promise<void> | undefined
 }
 
 const shelfState = vi.hoisted<ShelfState>(() => ({
@@ -55,14 +57,20 @@ vi.mock('@/lib/recipes/server', () => ({
 	deleteRecipes: saves.removeMany,
 	removeSavedRecipe: saves.remove,
 	saveRecipe: saves.save,
-	listShelf: () =>
-		shelfState.hang
-			? new Promise(() => {})
-			: Promise.resolve({
-					recipes: shelfState.recipes,
-					signedIn: shelfState.signedIn,
-					viewerId: shelfState.viewerId,
-				}),
+	listShelf: async () => {
+		if (shelfState.hang) return new Promise(() => {})
+
+		// As the server has it when the read starts, however long it takes.
+		const recipes = shelfState.recipes
+
+		await shelfState.read
+
+		return {
+			recipes,
+			signedIn: shelfState.signedIn,
+			viewerId: shelfState.viewerId,
+		}
+	},
 	getRecipe: ({ data }: { data: { id: string } }) => {
 		const recipe = shelfState.recipes.find((recipe) => recipe.id === data.id)
 
@@ -134,6 +142,7 @@ describe('recipes shelf', () => {
 		shelfState.signedIn = true
 		shelfState.viewerId = null
 		shelfState.hang = false
+		shelfState.read = undefined
 		saves.remove.mockReset().mockResolvedValue(null)
 		saves.save.mockReset().mockResolvedValue(null)
 		saves.removeMany.mockReset().mockResolvedValue({ removed: 0 })
@@ -393,12 +402,72 @@ describe('recipes shelf', () => {
 			.not.toBeInTheDocument()
 		await expect.element(screen.getByText('miso butter pasta')).toBeVisible()
 
+		// The shelf is slow to read again too, and the cleared ones stay gone
+		// until it arrives, rather than coming back in the meantime.
+		let arrive = () => {}
+
+		shelfState.read = new Promise((resolve) => {
+			arrive = resolve
+		})
 		shelfState.recipes = [misoButterPasta]
 		answer()
 		await expect
 			.element(screen.getByText('2 recipes off your shelf'))
 			.toBeVisible()
+		await new Promise((resolve) => setTimeout(resolve, 300))
+		expect(screen.getByText('dal').query()).toBeNull()
+
+		arrive()
 		await expect.element(screen.getByText('dal')).not.toBeInTheDocument()
+		expect(screen.getByText('miso butter pasta').query()).not.toBeNull()
+	})
+
+	test('keeps a second clear off the shelf while the first is still being read', async () => {
+		const soup = { ...dal, id: 'recipe-3', title: 'lentil soup' }
+
+		shelfState.recipes = [misoButterPasta, dal, soup]
+		saves.removeMany.mockImplementation(
+			async ({ data }: { data: { ids: string[] } }) => {
+				shelfState.recipes = shelfState.recipes.filter(
+					(recipe) => !data.ids.includes(recipe.id),
+				)
+
+				return { removed: data.ids.length }
+			},
+		)
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const clear = async (title: string) => {
+			await screen.getByRole('button', { name: 'select', exact: true }).click()
+			await screen.getByRole('button', { name: title }).click()
+			await screen.getByRole('button', { name: 'delete', exact: true }).click()
+			await screen
+				.getByRole('dialog')
+				.getByRole('button', { name: 'delete', exact: true })
+				.click()
+		}
+
+		// The first clear's read of the shelf is slow, on a slow connection,
+		// and the cook clears another meanwhile.
+		let arrive = () => {}
+
+		shelfState.read = new Promise((resolve) => {
+			arrive = resolve
+		})
+		await clear('dal')
+		await expect.poll(() => saves.removeMany.mock.calls.length).toBe(1)
+		await clear('lentil soup')
+		await expect.poll(() => saves.removeMany.mock.calls.length).toBe(2)
+
+		arrive()
+		await new Promise((resolve) => setTimeout(resolve, 500))
+		expect(screen.getByText('lentil soup').query()).toBeNull()
+		expect(screen.getByText('dal', { exact: true }).query()).toBeNull()
+		expect(screen.getByText('miso butter pasta').query()).not.toBeNull()
 	})
 
 	test('puts recipes back when clearing them fails', async () => {
