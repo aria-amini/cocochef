@@ -1,10 +1,12 @@
 import { Menu } from '@base-ui/react/menu'
 import {
+	ClipboardTextIcon,
 	DotsThreeIcon,
+	LinkSimpleIcon,
 	TrashIcon,
 	WarningCircleIcon,
 } from '@phosphor-icons/react'
-import { useNavigate, useRouter } from '@tanstack/react-router'
+import { useBlocker, useNavigate, useRouter } from '@tanstack/react-router'
 import {
 	useCallback,
 	useEffect,
@@ -15,7 +17,10 @@ import {
 import { toast } from 'sonner'
 
 import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
+import { linkFrom } from '@/components/import-link'
 import { IngredientListField } from '@/components/ingredient-list-field'
+import { LeaveEditorDialog } from '@/components/leave-editor-dialog'
+import { PasteRecipeDialog } from '@/components/paste-recipe-dialog'
 import {
 	FieldError,
 	sectionLabelClassName,
@@ -32,6 +37,7 @@ import {
 import { SourceLinkField } from '@/components/source-link-field'
 import { FindRecipe, type StartingPoint } from '@/components/start-from'
 import { StepsField, stepsFrom } from '@/components/steps-field'
+import { buttonVariants } from '@/components/ui/button'
 import { fieldClassName, placeholderClassName } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
 import {
@@ -174,6 +180,10 @@ export function RecipeEditor({
 	const [photoBusy, setPhotoBusy] = useState(false)
 	const [changes, setChanges] = useState<string[]>([])
 	const baseline = useRef<ChangeSnapshot | undefined>(undefined)
+	// The recipe the baseline was taken from, by content: the route can load
+	// the same recipe again (going back and staying, say), and that must not
+	// make edits already typed look like where the recipe started.
+	const baselineOf = useRef<string | undefined>(undefined)
 
 	const updateChanges = useCallback(() => {
 		if (!form.current || !baseline.current) return
@@ -201,17 +211,23 @@ export function RecipeEditor({
 
 	useLayoutEffect(() => {
 		if (!form.current) return
+		const source = JSON.stringify(recipe ?? null)
 		const initial = changeSnapshot(form.current, !!recipe?.imageUrl)
-		baseline.current = recipe
-			? initial
-			: {
-					name: '',
-					link: '',
-					photo: undefined,
-					ingredients: JSON.stringify([[], {}]),
-					steps: JSON.stringify([]),
-					notes: '',
-				}
+
+		if (source !== baselineOf.current || !baseline.current) {
+			baselineOf.current = source
+			baseline.current = recipe
+				? initial
+				: {
+						name: '',
+						link: '',
+						photo: undefined,
+						ingredients: JSON.stringify([[], {}]),
+						steps: JSON.stringify([]),
+						notes: '',
+					}
+		}
+
 		updateChanges()
 		const observer = new MutationObserver(scheduleChanges)
 		observer.observe(form.current, {
@@ -227,6 +243,10 @@ export function RecipeEditor({
 	// Finishing keeps the draft, so a paste's undo toast must not take it back.
 	const sortedToast = useRef<string | number>(undefined)
 	const finishing = useRef(false)
+	// Set on the way out once nothing is left to lose: deleted, or discarded.
+	const leaving = useRef(false)
+	const [confirmingCancel, setConfirmingCancel] = useState(false)
+	const [pasting, setPasting] = useState(false)
 
 	// A recipe pasted into the one box starts the page already sorted.
 	const [arrived] = useState(() =>
@@ -518,6 +538,8 @@ export function RecipeEditor({
 						? `your own ${latest.title} replaces the saved one`
 						: `your own ${latest.title} is on your shelf`,
 				)
+			// Saved, so leaving loses nothing.
+			leaving.current = true
 			onDone(id)
 		} catch {
 			finishing.current = false
@@ -536,9 +558,12 @@ export function RecipeEditor({
 				toast.success(`${name || 'that recipe'} is off your shelf`)
 			}
 
+			// Only once it is gone: until then, leaving still asks.
+			leaving.current = true
 			await navigate({ to: '/recipes' })
 		} catch {
 			// Still here, so edits still have to be saved.
+			leaving.current = false
 			setError("couldn't delete that — try again")
 			setPending(false)
 		}
@@ -546,6 +571,31 @@ export function RecipeEditor({
 
 	// Once an edit to a shared recipe saves, the user is editing their own copy.
 	const onShared = shared && savedId === recipe?.id
+
+	// Changes only save with save, so leaving any other way asks first: back,
+	// a tab, a link, and (with the browser's own prompt) a reload or a closed
+	// tab. Saving and deleting leave on purpose, and a move within this page,
+	// like a paste settling into its address, is not leaving.
+	// A new recipe with only a name has nothing worth asking about, so bringing
+	// one in from a link instead just goes.
+	const worthKeeping = recipe
+		? changes.length > 0
+		: changes.some((change) => change !== 'name')
+
+	// A save still in flight is not saved yet: only a finished one lets go.
+	const unsaved = () => worthKeeping && !leaving.current
+
+	const blocker = useBlocker({
+		shouldBlockFn: ({ current, next }) =>
+			unsaved() && current.pathname !== next.pathname,
+		enableBeforeUnload: unsaved,
+		withResolver: true,
+	})
+
+	const cancel = () => {
+		if (recipe) onDone(recipe.id)
+		else void navigate({ to: '/recipes' })
+	}
 
 	return (
 		// Events from child controls and drag handles update the change summary.
@@ -642,18 +692,44 @@ export function RecipeEditor({
 					/>
 				</RecipeIntro>
 				{/* Bringing a recipe in fills an empty one, so the ways to do it
-				    stay until ingredients or steps are written. They live in the
-				    name: a link or a whole recipe pasted there comes in, and a
-				    name typed there may find recipes to start from. */}
+				    stay until ingredients or steps are written: a link, pasted
+				    text, or a recipe found by the name typed. Pasting either
+				    straight into the name works too. */}
 				{(!recipe || isDraft) && !ingredientCount && !stepCount ? (
-					name.trim() ? (
-						<FindRecipe name={name} onStart={startFrom} />
-					) : (
-						<p className="text-muted-foreground text-sm">
-							or paste a link or a whole recipe into the name
-						</p>
-					)
+					<div className="flex flex-wrap items-center gap-2">
+						{onImportLink ? (
+							<button
+								type="button"
+								className={buttonVariants({ variant: 'outline' })}
+								onClick={() => onImportLink()}
+							>
+								<LinkSimpleIcon aria-hidden />
+								import from a link
+							</button>
+						) : null}
+						<button
+							type="button"
+							className={buttonVariants({ variant: 'outline' })}
+							onClick={() => setPasting(true)}
+						>
+							<ClipboardTextIcon aria-hidden />
+							paste a recipe
+						</button>
+						{name.trim() ? (
+							<FindRecipe name={name} onStart={startFrom} />
+						) : null}
+					</div>
 				) : null}
+				<PasteRecipeDialog
+					open={pasting}
+					onOpenChange={setPasting}
+					onAdd={(text) => {
+						const link = linkFrom(text)
+
+						if (link && onImportLink) onImportLink(link)
+						else sortPasted(text)
+					}}
+				/>
 				{unnamed && !name.trim() ? (
 					<FieldError id="edit-title-error">
 						give the recipe a name to finish it
@@ -754,9 +830,13 @@ export function RecipeEditor({
 										onClick={() =>
 											savedId ? setConfirmingDelete(true) : void remove()
 										}
-										className="text-destructive data-highlighted:bg-destructive/10 flex cursor-default items-center gap-2.5 px-3 py-2.5 text-sm font-semibold outline-none select-none"
+										className="data-highlighted:bg-destructive/10 flex cursor-default items-center gap-2.5 px-3 py-2.5 text-sm font-semibold outline-none select-none"
 									>
-										<TrashIcon size={16} aria-hidden />
+										<TrashIcon
+											size={16}
+											className="text-destructive"
+											aria-hidden
+										/>
 										{onShared || savedId ? 'delete recipe' : 'discard recipe'}
 									</Menu.Item>
 								</Menu.Popup>
@@ -769,14 +849,8 @@ export function RecipeEditor({
 					className={dockActionClassName}
 					onClick={() => {
 						// Leaving throws the changes away, so it asks first.
-						if (
-							changes.length &&
-							!window.confirm('leave without saving your changes?')
-						)
-							return
-
-						if (recipe) onDone(recipe.id)
-						else void navigate({ to: '/recipes' })
+						if (worthKeeping) setConfirmingCancel(true)
+						else cancel()
 					}}
 				>
 					cancel
@@ -791,6 +865,20 @@ export function RecipeEditor({
 					{pending ? 'saving…' : 'save'}
 				</button>
 			</FormActions>
+			<LeaveEditorDialog
+				open={confirmingCancel || blocker.status === 'blocked'}
+				onStay={() => {
+					setConfirmingCancel(false)
+					blocker.reset?.()
+				}}
+				onLeave={() => {
+					leaving.current = true
+					setConfirmingCancel(false)
+
+					if (blocker.status === 'blocked') blocker.proceed()
+					else cancel()
+				}}
+			/>
 			<DeleteRecipeDialog
 				open={confirmingDelete}
 				onOpenChange={setConfirmingDelete}

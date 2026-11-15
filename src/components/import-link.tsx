@@ -1,6 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { XIcon } from '@phosphor-icons/react'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -62,6 +62,7 @@ export function ImportLinkForm({
 }) {
 	const id = useId()
 	const navigate = useNavigate()
+	const router = useRouter()
 	const [value, setValue] = useState(defaultValue)
 	const [invalid, setInvalid] = useState(false)
 	const [authOpen, setAuthOpen] = useState(false)
@@ -73,6 +74,9 @@ export function ImportLinkForm({
 		await navigate({
 			to: '/recipes/$recipeId',
 			params: { recipeId: recipe.id },
+			// Brought in from a blank recipe, it takes that page's place, so going
+			// back leaves rather than opening the blank one again.
+			replace: router.state.location.pathname === '/recipes/new',
 		})
 	})
 

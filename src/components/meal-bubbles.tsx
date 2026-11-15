@@ -350,7 +350,7 @@ function PickTree({
 						onChange={(event) => setQuery(event.target.value)}
 						placeholder={`find a ${within === 'countries' ? 'country' : 'kind'}`}
 						aria-label={`find a ${within === 'countries' ? 'country' : 'kind'}`}
-						className="border-input bg-card w-full rounded-md border px-3 py-2 text-sm font-semibold outline-none"
+						className="border-input bg-card w-full rounded-md border px-3 py-2 text-base font-semibold"
 					/>
 				</div>
 			) : null}

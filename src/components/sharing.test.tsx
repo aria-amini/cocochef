@@ -46,9 +46,10 @@ vi.mock('@/lib/sharing/server', async () => {
 
 vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/recipes/server')>()),
-	listShelf: () => Promise.resolve({ recipes: [] }),
+	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
 	getRecipe: api.getRecipe,
 	deleteRecipe: api.deleteRecipe,
+	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: api.deleteRecipe,
 }))
 
@@ -95,44 +96,34 @@ describe('sharing', () => {
 		api.publicRecipe.mockResolvedValue(recipe)
 		api.unlisted.mockResolvedValue(recipe)
 	})
-	test('chooses a handle and explicitly opts into publishing future finished recipes', async () => {
+	test('sets up a public page with a handle and a name, and nothing publishes by default', async () => {
 		api.updateProfile.mockResolvedValue({
 			userId: 'cook-1',
 			handle: 'aria-amini',
 			displayName: 'Aria’s kitchen',
-			autoPublish: true,
 		})
 		const { screen } = await renderRoute({ path: '/settings', session })
+		const link = screen.getByRole('textbox', { name: 'your link' })
+
+		await link.fill('aria-amini')
 		await screen
-			.getByRole('textbox', { name: 'public handle' })
-			.fill('aria-amini')
-		await screen
-			.getByRole('textbox', { name: 'public name' })
+			.getByRole('textbox', { name: 'name on your page' })
 			.fill('Aria’s kitchen')
-		await expect
-			.element(screen.getByRole('checkbox', { name: /automatically publish/ }))
-			.not.toBeChecked()
-		await screen
-			.getByRole('checkbox', { name: /automatically publish/ })
-			.click()
-		await screen.getByRole('button', { name: 'save settings' }).click()
+		// The whole address reads as it is typed.
+		await expect.element(screen.getByText(/\/aria-amini$/)).toBeVisible()
+		await screen.getByRole('button', { name: 'set up my page' }).click()
 		await expect
 			.poll(() => api.updateProfile.mock.calls[0]?.[0]?.data)
-			.toEqual({
-				handle: 'aria-amini',
-				displayName: 'Aria’s kitchen',
-				autoPublish: true,
-			})
+			.toEqual({ handle: 'aria-amini', displayName: 'Aria’s kitchen' })
 		await expect
-			.element(screen.getByText('saved', { exact: true }))
+			.element(screen.getByText('profile saved', { exact: true }))
 			.toBeVisible()
 	})
-	test('offers the public profile link only once it has a public recipe', async () => {
+	test('offers the public page link only once it has a public recipe', async () => {
 		const mine = {
 			userId: 'cook-1',
 			handle: 'aria-amini',
 			displayName: 'Aria’s kitchen',
-			autoPublish: false,
 		}
 
 		api.profile.mockResolvedValue({ ...mine, isPublic: false })
@@ -140,13 +131,13 @@ describe('sharing', () => {
 
 		await expect
 			.element(
-				first.screen.getByText('your profile goes public once you publish', {
+				first.screen.getByText('your page goes live once you publish', {
 					exact: false,
 				}),
 			)
 			.toBeVisible()
 		await expect
-			.element(first.screen.getByRole('link', { name: 'view public profile' }))
+			.element(first.screen.getByRole('link', { name: 'view your page' }))
 			.not.toBeInTheDocument()
 		await first.screen.unmount()
 
@@ -154,7 +145,10 @@ describe('sharing', () => {
 		const second = await renderRoute({ path: '/settings', session })
 
 		await expect
-			.element(second.screen.getByRole('link', { name: 'view public profile' }))
+			.element(second.screen.getByRole('link', { name: 'view your page' }))
+			.toBeVisible()
+		await expect
+			.element(second.screen.getByRole('button', { name: 'copy link' }))
 			.toBeVisible()
 	})
 	test('public profile is readable without signing in and opens a readable recipe address', async () => {
@@ -375,7 +369,6 @@ describe('sharing', () => {
 			userId: 'cook-1',
 			handle: 'aria-amini',
 			displayName: 'Aria’s kitchen',
-			autoPublish: false,
 		})
 		api.share.mockResolvedValue({
 			visibility: 'public',

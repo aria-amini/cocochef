@@ -35,6 +35,7 @@ const updateCalls = vi.hoisted(() => {
 })
 
 vi.mock('@/lib/recipes/server', () => ({
+	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: async ({ data }: { data: { id: string } }) => {
 		updateCalls.deleted.push(data.id)
 
@@ -43,7 +44,7 @@ vi.mock('@/lib/recipes/server', () => ({
 
 		return { id: data.id }
 	},
-	listShelf: () => Promise.resolve({ recipes: [] }),
+	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
 	getRecipe: () => Promise.resolve(recipeState.recipe),
 	updateRecipe: async ({ data }: { data: RecipeUpdate }) => {
 		updateCalls.calls.push(data)

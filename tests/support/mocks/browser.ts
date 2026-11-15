@@ -29,6 +29,7 @@ const authMocks = vi.hoisted(() => ({
 		error: { message: 'stubbed' },
 	})),
 	refetchSession: vi.fn(),
+	updateUser: vi.fn(async () => ({ error: null })),
 }))
 
 export function getAuthMocks() {
@@ -72,7 +73,7 @@ vi.mock('@/lib/auth/client', () => ({
 		requestPasswordReset: vi.fn(),
 		resetPassword: vi.fn(),
 		signOut: vi.fn(async () => ({ error: null })),
-		updateUser: vi.fn(async () => ({ error: null })),
+		updateUser: authMocks.updateUser,
 	},
 }))
 

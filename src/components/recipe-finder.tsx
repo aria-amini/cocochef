@@ -318,6 +318,9 @@ export function FinderPanel({
 
 	const [value, setValue] = useState(defaultQuery)
 	const [picked, setPicked] = useState<string>()
+	// Whether the pointer chose the highlight, so it can let go when the
+	// pointer leaves; one the keys chose stays put.
+	const pointed = useRef(false)
 	// Picking a recipe fills the box; results stay mounted for the way back.
 	const [previewing, setPreviewing] = useState(false)
 	const [selected, setSelected] = useState<FoundRecipe>()
@@ -1050,6 +1053,8 @@ export function FinderPanel({
 
 			const option = options[next]
 
+			pointed.current = false
+
 			if (option) setPicked(optionKey(option))
 		} else if (event.key === 'Enter' && current) {
 			event.preventDefault()
@@ -1066,7 +1071,10 @@ export function FinderPanel({
 		onMouseDown: (event: React.MouseEvent) => event.preventDefault(),
 		// Move, not enter: a list that opens under a resting pointer must not
 		// steal the highlight from the keyboard.
-		onMouseMove: () => setPicked(optionKey(option)),
+		onMouseMove: () => {
+			pointed.current = true
+			setPicked(optionKey(option))
+		},
 		// A recipe is looked at first; saving and opening are explicit actions.
 		onClick: () => {
 			if (option.kind !== 'recipe') return activate(option)
@@ -1120,7 +1128,7 @@ export function FinderPanel({
 	return (
 		<>
 			{/* Always on screen, so a recipe can be left for another search. */}
-			<div className="border-border flex shrink-0 items-center gap-2.5 border-b px-4 py-3">
+			<div className="border-border has-[input:focus-visible]:outline-kitchen-eggplant flex shrink-0 items-center gap-2.5 rounded-t-xl border-b px-4 py-3 has-[input:focus-visible]:outline-2 has-[input:focus-visible]:-outline-offset-2">
 				{/* While a recipe is open, the bar's icon is the way back to it. */}
 				{previewing ? (
 					<button
@@ -1244,6 +1252,14 @@ export function FinderPanel({
 						id={listboxId}
 						role="listbox"
 						aria-label="Ways to start and recipes"
+						// Laid flat, a row lit by the pointer lets go once it leaves,
+						// back to the row Enter would open, if any. Beside a preview
+						// the highlight stays, so the pointer can cross to it.
+						onMouseLeave={() => {
+							if (!inline || !pointed.current) return
+							pointed.current = false
+							setPicked(undefined)
+						}}
 						// Without a heading on top, a little room under the filters.
 						className={cn('pb-3', sections.length < 2 && 'pt-1')}
 					>
@@ -1836,11 +1852,12 @@ function RecipeRow({
 				{save ? <SaveChip title={recipe.title} {...save} /> : null}
 			</span>
 			<span className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-x-3 gap-y-1 self-start">
-				<span className="truncate text-base font-bold lowercase md:text-lg">
+				<span className="line-clamp-2 text-base font-bold wrap-anywhere lowercase md:truncate md:text-lg">
 					{recipe.title}
 				</span>
-				{/* The stars lead, at the row's right, lined up down the list. */}
-				<span className="row-span-3 flex flex-col items-end">
+				{/* The stars lead, at the row's right, lined up down the list; the tags
+				    run the full width under them. */}
+				<span className="row-span-2 flex flex-col items-end">
 					{rating ? <RatingBlock rating={rating} /> : <NoRating />}
 				</span>
 				{note ? (
@@ -1854,7 +1871,7 @@ function RecipeRow({
 					vegetarian={recipe.effort?.vegetarian ?? false}
 					vegan={recipe.effort?.vegan}
 					oneLine
-					className="col-start-1"
+					className="col-span-2"
 				/>
 			</span>
 		</>

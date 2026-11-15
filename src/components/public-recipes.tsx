@@ -1,74 +1,153 @@
+import {
+	BookOpenTextIcon,
+	PencilSimpleIcon,
+	ShareNetworkIcon,
+} from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
+import { Avatar } from '@/components/avatar'
 import { EditSharedButton } from '@/components/edit-shared-button'
 import { BackBar, BackLink, BackToSearch, PageTitle } from '@/components/page'
-import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeReader } from '@/components/recipe-reader'
+import { RecipeTileFace, recipeTileClassName } from '@/components/recipe-tile'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
+import { formatMinutes } from '@/lib/recipes/model'
 import { getRecipe } from '@/lib/recipes/server'
+import { tileColorFor } from '@/lib/recipes/tile-color'
 import type {
 	readPublicProfile,
 	readRecipeAt,
 	readWebRecipe,
 } from '@/lib/sharing/server'
+import { count } from '@/lib/utils/count'
 
-export function PublicHeader() {
+type Profile = NonNullable<Awaited<ReturnType<typeof readPublicProfile>>>
+
+// How long it takes and how many it feeds, as far as the recipe says.
+function detailOf(recipe: Profile['recipes'][number]) {
 	return (
-		<header className="border-border border-b px-6 py-5 md:px-10">
-			<Link to="/" className="text-lg font-bold tracking-tight">
-				cocochef
-			</Link>
-		</header>
+		[
+			recipe.totalMinutes ? formatMinutes(recipe.totalMinutes) : undefined,
+			recipe.servings ? `serves ${recipe.servings}` : undefined,
+		]
+			.filter(Boolean)
+			.join(' · ') || undefined
 	)
 }
 
-export function PublicProfile({
-	profile,
+// Someone's published recipes, in the same app as your own shelf: who they
+// are, a way to pass the page on, and their recipes as the shelf's tiles.
+export function PublicProfile({ profile }: { profile: Profile }) {
+	return (
+		<main className="min-w-0 flex-1">
+			<div className="flex w-full max-w-5xl min-w-0 flex-col gap-8 p-6 md:p-10">
+				<header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+					<div className="flex min-w-0 items-center gap-4">
+						<Avatar name={profile.displayName} size="xl" />
+						<div className="flex min-w-0 flex-col gap-1">
+							<PageTitle>{profile.displayName}</PageTitle>
+							<p className="text-muted-foreground text-sm font-semibold">
+								@{profile.handle} ·{' '}
+								{count(profile.recipes.length, 'recipe', 'recipes')}
+							</p>
+						</div>
+					</div>
+					<div className="flex shrink-0 flex-wrap gap-2">
+						{profile.yours ? (
+							<Link
+								to="/settings"
+								hash="public-profile"
+								className={buttonVariants({ variant: 'outline' })}
+							>
+								<PencilSimpleIcon aria-hidden />
+								edit profile
+							</Link>
+						) : null}
+						<ShareProfileButton name={profile.displayName} />
+					</div>
+				</header>
+				<section aria-labelledby="published" className="flex flex-col gap-3">
+					<h2
+						id="published"
+						className="flex items-center gap-2 text-xl font-bold"
+					>
+						<BookOpenTextIcon size={20} weight="bold" aria-hidden />
+						recipes
+					</h2>
+					<div className="grid grid-cols-2 gap-4 md:auto-rows-[var(--spacing-tile)] md:grid-cols-4">
+						{profile.recipes.map((recipe) => (
+							<ProfileTile
+								key={recipe.slug}
+								handle={profile.handle}
+								recipe={recipe}
+							/>
+						))}
+					</div>
+				</section>
+			</div>
+		</main>
+	)
+}
+
+function ProfileTile({
+	handle,
+	recipe,
 }: {
-	profile: NonNullable<Awaited<ReturnType<typeof readPublicProfile>>>
+	handle: string
+	recipe: Profile['recipes'][number]
 }) {
 	return (
-		<>
-			<PublicHeader />
-			<main className="mx-auto max-w-5xl p-6 md:p-10">
-				<PageTitle>{profile.displayName}</PageTitle>
-				<p className="text-muted-foreground mt-3">
-					recipes to pass around the table.
-				</p>
-				<div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-					{profile.recipes.map((recipe) => (
-						<Link
-							key={recipe.slug}
-							to="/$handle/$slug"
-							params={{ handle: profile.handle, slug: recipe.slug }}
-							className="border-border bg-kitchen-tomato/15 overflow-hidden rounded-xl border"
-						>
-							<div className="bg-kitchen-yolk/15 aspect-[4/3]">
-								{recipe.imageUrl ? (
-									<img
-										src={recipe.imageUrl}
-										alt=""
-										loading="lazy"
-										className="h-full w-full object-cover"
-									/>
-								) : (
-									<span className="text-foreground/60 grid h-full place-items-center">
-										<RecipeGlyph title={recipe.title} size={48} />
-									</span>
-								)}
-							</div>
-							<h2 className="p-4 text-lg leading-snug font-bold break-words">
-								{recipe.title}
-							</h2>
-						</Link>
-					))}
-				</div>
-			</main>
-		</>
+		<Link
+			to="/$handle/$slug"
+			params={{ handle, slug: recipe.slug }}
+			className={recipeTileClassName({
+				color: tileColorFor(recipe.id),
+				photo: !!recipe.imageUrl,
+			})}
+		>
+			<RecipeTileFace
+				title={recipe.title}
+				imageUrl={recipe.imageUrl}
+				detail={detailOf(recipe)}
+			/>
+		</Link>
+	)
+}
+
+// Passes the page on: the phone's share sheet where there is one, otherwise
+// the address copied.
+function ShareProfileButton({ name }: { name: string }) {
+	async function share() {
+		const url = window.location.href
+
+		if (navigator.share) {
+			try {
+				await navigator.share({ title: `${name}’s recipes`, url })
+			} catch {
+				// Closing the share sheet is not a failure.
+			}
+
+			return
+		}
+
+		try {
+			await navigator.clipboard.writeText(url)
+			toast.success('link copied')
+		} catch {
+			toast.error("couldn't copy the link — try again")
+		}
+	}
+
+	return (
+		<Button variant="outline" onClick={() => void share()}>
+			<ShareNetworkIcon aria-hidden />
+			share
+		</Button>
 	)
 }
 

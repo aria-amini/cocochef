@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner'
 
 import { AmountBar } from '@/components/amount-bar'
+import { ClearCartDialog } from '@/components/clear-cart-dialog'
 import { groceryCountKey } from '@/components/grocery-badge'
 import { useGroceryComposer } from '@/components/grocery-entry'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
@@ -47,6 +48,7 @@ import { pantryCategoryLabels, type PantryCategory } from '@/lib/pantry/model'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 import { amountOf, withAmount } from '@/lib/recipes/ingredient-line'
+import { count } from '@/lib/utils/count'
 import { cn } from '@/lib/utils/ui'
 
 export type GroceryItem = NonNullable<
@@ -120,10 +122,13 @@ const draftItem = (text: string): Item => ({
 // kitchen knows, in rows big enough for a thumb in the shop.
 export function GroceryList({
 	saved,
+	pantry = [],
 	noteOf,
 	children,
 }: {
 	saved: Item[]
+	// What is on hand, so clearing the cart can say what it tops up.
+	pantry?: readonly { name: string }[]
 	noteOf?: (item: Item) => React.ReactNode
 	// What the kitchen adds under the list: food running out, not yet on it.
 	children?: React.ReactNode
@@ -190,29 +195,25 @@ export function GroceryList({
 		})
 	}
 
-	// A tick puts the item in the kitchen at once, said with a way back.
+	// A tick only puts the item in the cart. The kitchen hears about it when
+	// the cart is cleared.
 	function check(item: Item, checked: boolean) {
 		hold()
 		change({ kind: 'check', id: item.id, checked }, async () => {
-			const done = await setGroceryChecked({ data: { id: item.id, checked } })
-
-			if (done?.stocked)
-				undoToast(
-					done.stocked.created
-						? `added ${done.stocked.name} to your kitchen`
-						: `${done.stocked.name}: back to enough`,
-					() => check(item, false),
-					'stocked',
-				)
+			await setGroceryChecked({ data: { id: item.id, checked } })
 		})
 	}
 
-	// What is in the cart is already in the kitchen, so it can leave the list.
-	function clear() {
+	// Clearing the cart puts away what the cook picked and empties the rest.
+	const [clearing, setClearing] = useState(false)
+
+	function clear(stock: string[]) {
 		change({ kind: 'clear' }, async () => {
-			await clearCheckedGroceries()
-			// The lines it would untick are gone, so its undo could do nothing.
-			toast.dismiss('stocked')
+			const done = await clearCheckedGroceries({ data: { stock } })
+			const put = done.restocked + done.added
+
+			if (put)
+				toast.success(`put ${count(put, 'item', 'items')} away in on hand`)
 		})
 	}
 
@@ -343,7 +344,7 @@ export function GroceryList({
 					{completed.length ? (
 						<ListBox
 							key="completed"
-							label="in your kitchen"
+							label="in your cart"
 							heading={heading}
 							items={completed}
 							row={row}
@@ -355,12 +356,12 @@ export function GroceryList({
 	)
 
 	// Items are added down the list, at its end: the row the plus opens, or
-	// the add row in its place. One place whatever the list holds, so it keeps
-	// focus as the first item lands.
+	// the add row in its place. One place and one wording whatever the list
+	// holds, so it keeps focus as the first item lands.
 	const adding = (
 		<>
 			{composer.draft}
-			{!items.length || composer.open ? null : (
+			{composer.open ? null : (
 				<button
 					type="button"
 					onClick={composer.start}
@@ -369,7 +370,7 @@ export function GroceryList({
 					<span className="border-foreground/40 grid size-6 shrink-0 place-items-center rounded-full border-2 border-dashed">
 						<PlusIcon size={12} weight="bold" aria-hidden />
 					</span>
-					add an item
+					add grocery item
 				</button>
 			)}
 		</>
@@ -400,7 +401,7 @@ export function GroceryList({
 				<h2 id="need" className="sr-only">
 					groceries
 				</h2>
-				<div className="flex-1" />
+				<GroceryProgress done={inCart.length} total={items.length} />
 				{/* The list's actions, always in place so the list never shifts:
 				    changing it, and clearing what is already in the kitchen,
 				    greyed while there is none. */}
@@ -408,29 +409,61 @@ export function GroceryList({
 				<button
 					type="button"
 					disabled={!inCart.length}
-					onClick={clear}
+					onClick={() => setClearing(true)}
 					className={buttonVariants({ variant: 'outline', className: 'px-3' })}
 				>
 					clear
 				</button>
+				<ClearCartDialog
+					open={clearing}
+					onOpenChange={setClearing}
+					lines={inCart}
+					pantry={pantry}
+					onClear={clear}
+				/>
 			</div>
 			{items.length ? list : null}
-			{items.length || composer.open ? null : (
-				<button
-					type="button"
-					onClick={composer.start}
-					className="border-foreground/30 text-muted-foreground hover:text-foreground flex min-h-12 items-center gap-3 rounded-xl border border-dashed px-3 text-left text-base transition-colors"
-				>
-					<span className="border-foreground/40 grid size-6 shrink-0 place-items-center rounded-full border-2 border-dashed">
-						<PlusIcon size={12} weight="bold" aria-hidden />
-					</span>
-					nothing on your list — add an item
-				</button>
-			)}
 			{adding}
 			{children}
 			{sheet}
 		</section>
+	)
+}
+
+// Where the shop is up to, in the header's left corner: how many items, and
+// once there are any, how many are in the kitchen, with a basil bar filling.
+function GroceryProgress({ done, total }: { done: number; total: number }) {
+	if (!total)
+		return (
+			<p className="text-muted-foreground flex-1 text-sm font-semibold">
+				0 groceries
+			</p>
+		)
+
+	const filled: React.CSSProperties & Record<`--${string}`, string> = {
+		'--done': `${(done / total) * 100}%`,
+	}
+
+	return (
+		<div className="flex flex-1 items-center gap-2.5">
+			<p className="text-sm font-semibold tabular-nums">
+				<span aria-hidden>
+					{done}/{total}
+				</span>
+				<span className="sr-only">
+					{done} of {total} in your cart
+				</span>
+			</p>
+			<span
+				aria-hidden
+				className="bg-foreground/10 h-1.5 w-20 overflow-hidden rounded-full"
+			>
+				<span
+					className="bg-kitchen-basil block h-full w-(--done) rounded-full transition-all duration-300"
+					style={filled}
+				/>
+			</span>
+		</div>
 	)
 }
 

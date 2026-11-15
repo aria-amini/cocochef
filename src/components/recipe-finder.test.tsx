@@ -77,8 +77,10 @@ vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	// The recipe page a search opens, and the editor the box starts a recipe
 	// in, need the rest, which they never call here.
 	...(await importOriginal<object>()),
+	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: server.remove,
-	listShelf: () => Promise.resolve({ recipes: shelfState.recipes }),
+	listShelf: () =>
+		Promise.resolve({ recipes: shelfState.recipes, signedIn: true }),
 	getRecipe: server.getRecipe,
 	saveRecipe: server.save,
 	createRecipe: () => Promise.resolve({ id: 'recipe-new' }),
@@ -253,15 +255,20 @@ describe('the search on home', () => {
 			.not.toBeInTheDocument()
 	})
 
-	test('pastes a recipe from the add menu, or closes on cancel', async () => {
+	test('pastes a recipe into a blank one, or closes on cancel', async () => {
 		const { screen, router } = await renderRoute({
-			path: '/recipes',
+			path: '/recipes/new',
 			session: testSession,
 		})
 
 		const paste = async () => {
-			await screen.getByRole('button', { name: 'add recipe' }).click()
-			await screen.getByRole('menuitem', { name: 'paste text' }).click()
+			// The editor loads on first visit, which can be slow when cold.
+			await expect
+				.element(screen.getByRole('button', { name: 'paste a recipe' }), {
+					timeout: 10_000,
+				})
+				.toBeVisible()
+			await screen.getByRole('button', { name: 'paste a recipe' }).click()
 
 			return screen.getByRole('dialog', { name: 'paste a recipe' })
 		}
@@ -276,13 +283,11 @@ describe('the search on home', () => {
 			.getByRole('textbox', { name: 'recipe text' })
 			.fill('weeknight dal\ningredients\n1 cup lentils\nmethod\n1. simmer')
 		await dialog.getByRole('button', { name: 'add recipe' }).click()
-		await expect.poll(() => router.state.location.pathname).toBe('/recipes/new')
-		// The editor loads on first visit, which can be slow when cold.
+		// Sorted into the page already open.
 		await expect
-			.element(screen.getByRole('textbox', { name: 'name', exact: true }), {
-				timeout: 10_000,
-			})
+			.element(screen.getByRole('textbox', { name: 'name', exact: true }))
 			.toHaveValue('weeknight dal')
+		expect(router.state.location.pathname).toBe('/recipes/new')
 	})
 
 	test('goes on as the list is scrolled, then reveals more a page at a time', async () => {
@@ -435,6 +440,31 @@ describe('the search on home', () => {
 			.toBe('/recipes/shared-1')
 		expect(router.state.location.state.foundBy).toBe('lemon')
 		expect(server.save).not.toHaveBeenCalled()
+	})
+
+	test('lets go of a hovered row when the pointer leaves the list', async () => {
+		server.popular.mockResolvedValue({
+			results: [
+				found({ recipeId: 'shared-1', title: 'marry me chicken' }),
+				found({ recipeId: 'shared-2', title: 'lemon cake' }),
+			],
+		})
+
+		const { screen, input } = await openSearch()
+		const first = screen.getByRole('option', { name: /marry me chicken/ })
+		const second = screen.getByRole('option', { name: /lemon cake/ })
+
+		await first.hover()
+		await expect.element(first).toHaveAttribute('aria-selected', 'true')
+		await input.hover()
+		await expect.element(first).toHaveAttribute('aria-selected', 'false')
+
+		// A highlight the keys chose stays when the pointer then leaves.
+		await first.hover()
+		await userEvent.keyboard('{ArrowDown}')
+		await expect.element(second).toHaveAttribute('aria-selected', 'true')
+		await input.hover()
+		await expect.element(second).toHaveAttribute('aria-selected', 'true')
 	})
 
 	test('says when a recipe matched on its ingredients', async () => {
@@ -1225,12 +1255,11 @@ describe('the search on home', () => {
 
 	test('imports a bare link pasted as recipe text', async () => {
 		const { screen, router } = await renderRoute({
-			path: '/recipes',
+			path: '/recipes/new',
 			session: testSession,
 		})
 
-		await screen.getByRole('button', { name: 'add recipe' }).click()
-		await screen.getByRole('menuitem', { name: 'paste text' }).click()
+		await screen.getByRole('button', { name: 'paste a recipe' }).click()
 
 		const dialog = screen.getByRole('dialog', { name: 'paste a recipe' })
 		await dialog
@@ -1240,17 +1269,16 @@ describe('the search on home', () => {
 		await expect
 			.element(screen.getByRole('textbox', { name: 'recipe link' }))
 			.toHaveValue('https://example.com/dal')
-		expect(router.state.location.pathname).toBe('/recipes')
+		expect(router.state.location.pathname).toBe('/recipes/new')
 	})
 
-	test('imports a link from the add menu', async () => {
+	test('imports a link from a blank recipe', async () => {
 		const { screen } = await renderRoute({
-			path: '/recipes',
+			path: '/recipes/new',
 			session: testSession,
 		})
 
-		await screen.getByRole('button', { name: 'add recipe' }).click()
-		await screen.getByRole('menuitem', { name: 'import url' }).click()
+		await screen.getByRole('button', { name: 'import from a link' }).click()
 		await expect
 			.element(screen.getByRole('textbox', { name: 'recipe link' }))
 			.toHaveFocus()

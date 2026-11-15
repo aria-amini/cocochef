@@ -91,7 +91,6 @@ export async function importRecipesForUser(
 				ingredients,
 				ingredientCategories: recipe.ingredientCategories,
 				steps,
-				publish: false,
 			},
 			database,
 		)
