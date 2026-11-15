@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
+import { RecipePending } from '@/components/page-pending'
 import { RecipeAccessDenied } from '@/components/recipe-access-denied'
 import { RecipeDetail } from '@/components/recipe-detail'
 import { recipeHandoff } from '@/lib/recipes/handoff'
@@ -7,6 +8,7 @@ import { getRecipe } from '@/lib/recipes/server'
 
 export const Route = createFileRoute('/_app/recipes/$recipeId')({
 	staticData: { header: 'none' },
+	pendingComponent: RecipePending,
 	loader: async ({ params, location, cause }) => {
 		// A touch preloads this route, and the tap a moment later runs it again.
 		const recipe =

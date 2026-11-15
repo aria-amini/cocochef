@@ -10,12 +10,26 @@ import {
 	PlusIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import {
+	createFileRoute,
+	Link,
+	useHydrated,
+	useRouter,
+} from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import {
+	createContext,
+	startTransition,
+	useContext,
+	useEffect,
+	useOptimistic,
+	useRef,
+	useState,
+} from 'react'
 import { toast } from 'sonner'
 
 import { useTabBarVisible } from '@/components/app-nav'
+import { PendingPage } from '@/components/page-pending'
 import { dockActionClassName, FormActions } from '@/components/recipe-form'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeTileFace, recipeTileClassName } from '@/components/recipe-tile'
@@ -30,6 +44,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import { authClient } from '@/lib/auth/client'
 import {
 	deleteRecipes,
@@ -50,6 +65,7 @@ export const Route = createFileRoute('/_app/recipes/')({
 	staticData: { tabBar: 'own-fab' },
 	loader: () => listShelf(),
 	head: () => ({ meta: [{ title: 'my recipes · cocochef' }] }),
+	pendingComponent: ShelfPending,
 	component: ShelfPage,
 })
 
@@ -62,8 +78,45 @@ type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 const shelfGridClassName =
 	'grid grid-cols-2 gap-4 md:auto-rows-[var(--spacing-tile)] md:grid-cols-4'
 
+// Takes recipes off the shelf on screen, until the server's shelf arrives:
+// for the chip on a saved recipe's tile, as for clearing many at once.
+const ClearOff = createContext<(ids: ReadonlySet<string>) => void>(() => {})
+
 // Each of the shelf's sections opens the same way: its icon, then its name.
 const shelfHeadingClassName = 'flex items-center gap-2 text-xl font-bold'
+
+// The shelf on its way: its select button, a section's name, then a grid of
+// photo tiles, each a photo over its name.
+function ShelfPending() {
+	return (
+		<PendingPage className="w-full max-w-3xl gap-8 p-6 md:p-10">
+			<div className="-mb-4 flex justify-end">
+				<Skeleton kind="line" className="h-9 w-24" />
+			</div>
+			<div className="flex flex-col gap-3">
+				<Skeleton kind="line" className="h-7 w-40" />
+				<div className={shelfGridClassName}>
+					{Array.from({ length: 8 }, (_, i) => (
+						<div
+							key={i}
+							className={recipeTileClassName({
+								color: 'cream',
+								photo: true,
+								className: 'hover:shadow-none',
+							})}
+						>
+							<Skeleton kind="fill" className="min-h-0 flex-1" />
+							<div className="border-border flex shrink-0 flex-col gap-1.5 border-t px-2.5 py-2">
+								<Skeleton kind="line" className="h-3.5 w-4/5" />
+								<Skeleton kind="line" className="h-3 w-1/2" />
+							</div>
+						</div>
+					))}
+				</div>
+			</div>
+		</PendingPage>
+	)
+}
 
 // Your recipes: the ones you wrote, the ones you saved, and drafts still
 // being written, each saying who can see it. Finding new ones is home's job.
@@ -113,21 +166,37 @@ function ShelfPreview() {
 }
 
 function Shelf() {
-	const { recipes: shelfRecipes } = Route.useLoaderData()
+	const { recipes: loaded } = Route.useLoaderData()
+
+	// Recipes cleared off leave at once. The shelf the server sends back takes
+	// over once it arrives, and brings them back if clearing failed.
+	const [shelfRecipes, clearOff] = useOptimistic(
+		loaded,
+		(recipes, ids: ReadonlySet<string>) =>
+			recipes.filter((recipe) => !ids.has(recipe.id)),
+	)
+
+	const { viewerId } = Route.useLoaderData()
 	const account = authClient.useSession().data?.user
+	const me = viewerId ?? account?.id
 	const reduce = useReducedMotion()
+	// Rises in when opened from another page. A first load shows at once:
+	// rendered on the server, it would otherwise stay invisible until the
+	// page's code arrived to start the rise.
+	const hydrated = useHydrated()
 	const [addTile, tileInView] = useInView()
 	const selection = useSelection()
 
-	const enter = reduce
-		? {}
-		: {
-				initial: { opacity: 0, y: 24 },
-				animate: { opacity: 1, y: 0 },
-				transition: { duration: 0.6, ease },
-			}
+	const enter =
+		reduce || !hydrated
+			? {}
+			: {
+					initial: { opacity: 0, y: 24 },
+					animate: { opacity: 1, y: 0 },
+					transition: { duration: 0.6, ease },
+				}
 
-	const mine = (recipe: Recipe) => !!account && recipe.userId === account.id
+	const mine = (recipe: Recipe) => !!me && recipe.userId === me
 
 	const ownRecipes = shelfRecipes.filter(
 		(recipe) => mine(recipe) && recipe.finalizedAt,
@@ -163,88 +232,96 @@ function Shelf() {
 	const chosen = shelfRecipes.filter((recipe) => selection.has(recipe.id))
 
 	return (
-		<main className="min-w-0 flex-1">
-			<motion.div
-				{...enter}
-				className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
-			>
-				<h1 className="sr-only">my recipes</h1>
-				{/* Choosing waits for the account, which tells the cook's own
-				    recipes (deleted) from saved ones (only taken off). */}
-				{isEmpty || !account ? null : (
-					<div className="-mb-4 flex justify-end">
-						{selection.on ? (
-							<Button
-								variant="ghost"
-								onClick={() =>
-									chosen.length === shelfRecipes.length
-										? selection.clear()
-										: selection.set(shelfRecipes.map((recipe) => recipe.id))
-								}
+		<ClearOff value={clearOff}>
+			<main className="min-w-0 flex-1">
+				<motion.div
+					{...enter}
+					className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
+				>
+					<h1 className="sr-only">my recipes</h1>
+					{/* Choosing waits for the account, which tells the cook's own
+					    recipes (deleted) from saved ones (only taken off). */}
+					{isEmpty || !account ? null : (
+						<div className="-mb-4 flex justify-end">
+							{selection.on ? (
+								<Button
+									variant="ghost"
+									onClick={() =>
+										chosen.length === shelfRecipes.length
+											? selection.clear()
+											: selection.set(shelfRecipes.map((recipe) => recipe.id))
+									}
+								>
+									{chosen.length === shelfRecipes.length
+										? 'select none'
+										: 'select all'}
+								</Button>
+							) : (
+								<Button variant="ghost" onClick={selection.start}>
+									<CheckSquareIcon aria-hidden />
+									select
+								</Button>
+							)}
+						</div>
+					)}
+					{drafts.length ? <Drafts drafts={drafts} pickFor={pickFor} /> : null}
+					{sections.map(({ id, title, recipes }) =>
+						recipes.length || id === ownShelf ? (
+							<section
+								key={id}
+								aria-labelledby={id}
+								className="flex min-w-0 flex-col gap-3"
 							>
-								{chosen.length === shelfRecipes.length
-									? 'select none'
-									: 'select all'}
-							</Button>
-						) : (
-							<Button variant="ghost" onClick={selection.start}>
-								<CheckSquareIcon aria-hidden />
-								select
-							</Button>
-						)}
-					</div>
-				)}
-				{drafts.length ? <Drafts drafts={drafts} pickFor={pickFor} /> : null}
-				{sections.map(({ id, title, recipes }) =>
-					recipes.length || id === ownShelf ? (
-						<section
-							key={id}
-							aria-labelledby={id}
-							className="flex min-w-0 flex-col gap-3"
-						>
-							<h2 id={id} className={shelfHeadingClassName}>
-								{id === 'saved-recipes' ? (
-									<BookmarkSimpleIcon
-										size={20}
-										weight="fill"
-										aria-hidden
-										className="text-kitchen-eggplant"
-									/>
-								) : (
-									<UserIcon size={20} weight="bold" aria-hidden />
-								)}
-								{title}
-							</h2>
-							<div className={shelfGridClassName}>
-								{id === ownShelf && !selection.on ? (
-									<AddTile ref={addTile} />
-								) : null}
-								{recipes.map((recipe) => (
-									<RecipeTile
-										key={recipe.id}
-										recipe={recipe}
-										pick={pickFor(recipe)}
-										saved={id === 'saved-recipes'}
-										color={tileColorFor(recipe.id)}
-										seenBy={
-											mine(recipe)
-												? (recipe.visibility ?? 'private')
-												: undefined
-										}
-									/>
-								))}
-							</div>
-						</section>
-					) : null,
-				)}
-				{/* Last in the column, so it sticks above the tab bar the whole way
+								<h2 id={id} className={shelfHeadingClassName}>
+									{id === 'saved-recipes' ? (
+										<BookmarkSimpleIcon
+											size={20}
+											weight="fill"
+											aria-hidden
+											className="text-kitchen-eggplant"
+										/>
+									) : (
+										<UserIcon size={20} weight="bold" aria-hidden />
+									)}
+									{title}
+								</h2>
+								<div className={shelfGridClassName}>
+									{id === ownShelf && !selection.on ? (
+										<AddTile ref={addTile} />
+									) : null}
+									{recipes.map((recipe) => (
+										<RecipeTile
+											key={recipe.id}
+											recipe={recipe}
+											pick={pickFor(recipe)}
+											saved={id === 'saved-recipes'}
+											color={tileColorFor(recipe.id)}
+											seenBy={
+												mine(recipe)
+													? (recipe.visibility ?? 'private')
+													: undefined
+											}
+										/>
+									))}
+								</div>
+							</section>
+						) : null,
+					)}
+					{/* Last in the column, so it sticks above the tab bar the whole way
 				    down and rests under the last recipe. */}
-				{selection.on && account ? (
-					<SelectionDock chosen={chosen} mine={mine} onDone={selection.stop} />
-				) : null}
-			</motion.div>
-			<AddFab show={!tileInView && !selection.on} />
-		</main>
+					{selection.on && account ? (
+						<SelectionDock
+							chosen={chosen}
+							mine={mine}
+							onClear={clearOff}
+							onDone={selection.stop}
+							restoreLater={selection.restoreLater}
+						/>
+					) : null}
+				</motion.div>
+				<AddFab show={!tileInView && !selection.on} />
+			</main>
+		</ClearOff>
 	)
 }
 
@@ -252,6 +329,9 @@ function Shelf() {
 function useSelection() {
 	const [on, setOn] = useState(false)
 	const [ids, setIds] = useState<ReadonlySet<string>>(new Set())
+	// Counts each time choosing starts, so a clear that fails later knows
+	// whether the cook has chosen again since.
+	const started = useRef(0)
 
 	useEffect(() => {
 		if (!on) return
@@ -279,10 +359,23 @@ function useSelection() {
 		set: (next: string[]) => setIds(new Set(next)),
 		clear: () => setIds(new Set()),
 		start: () => {
+			started.current += 1
 			setIds(new Set())
 			setOn(true)
 		},
 		stop: () => setOn(false),
+		// For a clear as it starts: picks its recipes again if it fails, unless
+		// the cook has started choosing others since, which is the newer
+		// choice, whether still open or itself sent.
+		restoreLater: () => {
+			const choice = started.current
+
+			return (next: string[]) => {
+				if (started.current !== choice) return
+				setIds(new Set(next))
+				setOn(true)
+			}
+		},
 	}
 }
 
@@ -291,44 +384,59 @@ function useSelection() {
 function SelectionDock({
 	chosen,
 	mine,
+	onClear,
 	onDone,
+	restoreLater,
 }: {
 	chosen: Recipe[]
 	mine: (recipe: Recipe) => boolean
+	// Takes recipes off the shelf on screen, until the server's shelf arrives.
+	onClear: (ids: ReadonlySet<string>) => void
 	onDone: () => void
+	// Picks them again when clearing failed, so trying again is one tap.
+	restoreLater: () => (ids: string[]) => void
 }) {
 	const router = useRouter()
 	const [confirming, setConfirming] = useState(false)
-	const [pending, setPending] = useState(false)
 
 	const written = chosen.filter(mine).length
 	const saved = chosen.length - written
 	// Only saved ones picked: they come off, nothing is lost.
 	const removing = written === 0
 
-	async function remove() {
-		setPending(true)
+	// The recipes leave the shelf as soon as the cook confirms; the server
+	// catches up behind, and the toast says how it went.
+	function remove() {
+		const ids = chosen.map((recipe) => recipe.id)
+		const done = `${count(ids.length, 'recipe', 'recipes')} off your shelf`
+		const failed = `couldn't ${removing ? 'remove' : 'delete'} those — try again`
 
-		try {
-			const ids = chosen.map((recipe) => recipe.id)
+		const restore = restoreLater()
 
-			// The server takes 500 at a time; select all can pick more.
-			for (let start = 0; start < ids.length; start += 500)
-				await deleteRecipes({ data: { ids: ids.slice(start, start + 500) } })
+		setConfirming(false)
+		onDone()
 
-			await router.invalidate()
-			toast.success(
-				`${count(chosen.length, 'recipe', 'recipes')} off your shelf`,
-			)
-			setConfirming(false)
-			onDone()
-		} catch {
-			toast.error(
-				`couldn't ${removing ? 'remove' : 'delete'} those — try again`,
-			)
-		} finally {
-			setPending(false)
-		}
+		startTransition(async () => {
+			onClear(new Set(ids))
+
+			try {
+				// The server takes 500 at a time; select all can pick more.
+				for (let start = 0; start < ids.length; start += 500)
+					await deleteRecipes({ data: { ids: ids.slice(start, start + 500) } })
+
+				toast.success(done)
+			} catch {
+				toast.error(failed)
+				restore(ids)
+			}
+
+			// A read already on its way started before this change, so it waits
+			// for that one and reads again, and for the fresh read itself
+			// (sync), so the change shown stays until it lands. The change is
+			// made; a failed read leaves the page.
+			await router.latestLoadPromise?.catch(() => undefined)
+			await router.invalidate({ sync: true }).catch(() => undefined)
+		})
 	}
 
 	return (
@@ -354,10 +462,7 @@ function SelectionDock({
 					{removing && chosen.length ? 'remove' : 'delete'}
 				</button>
 			</FormActions>
-			<Dialog
-				open={confirming}
-				onOpenChange={(open) => !pending && setConfirming(open)}
-			>
+			<Dialog open={confirming} onOpenChange={setConfirming}>
 				<DialogContent showCloseButton={false}>
 					<DialogHeader>
 						<DialogTitle>
@@ -373,25 +478,11 @@ function SelectionDock({
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
-						<Button
-							variant="outline"
-							disabled={pending}
-							onClick={() => setConfirming(false)}
-						>
+						<Button variant="outline" onClick={() => setConfirming(false)}>
 							keep them
 						</Button>
-						<Button
-							variant="destructive"
-							disabled={pending}
-							onClick={() => void remove()}
-						>
-							{pending
-								? removing
-									? 'removing…'
-									: 'deleting…'
-								: removing
-									? 'remove'
-									: 'delete'}
+						<Button variant="destructive" onClick={remove}>
+							{removing ? 'remove' : 'delete'}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
@@ -577,39 +668,40 @@ function RecipeTile({
 // back.
 function UnsaveChip({ recipe }: { recipe: Recipe }) {
 	const router = useRouter()
-	const [saving, setSaving] = useState(false)
+	const clearOff = useContext(ClearOff)
 
-	async function unsave() {
-		setSaving(true)
+	// It leaves the shelf at the tap; the toast and its undo come once the
+	// server has it, and a failure puts it back.
+	function unsave() {
+		startTransition(async () => {
+			clearOff(new Set([recipe.id]))
 
-		try {
-			await removeSavedRecipe({ data: { id: recipe.id } })
-			await router.invalidate()
-			toast.success('taken off your recipes', {
-				position: 'bottom-center',
-				action: {
-					label: 'undo',
-					onClick: () =>
-						void saveRecipe({ data: { id: recipe.id } }).then(() =>
-							router.invalidate(),
-						),
-				},
-			})
-		} catch {
-			toast.error("couldn't take it off — try again")
-		} finally {
-			setSaving(false)
-		}
+			try {
+				await removeSavedRecipe({ data: { id: recipe.id } })
+				toast.success('taken off your recipes', {
+					position: 'bottom-center',
+					action: {
+						label: 'undo',
+						onClick: () =>
+							void saveRecipe({ data: { id: recipe.id } }).then(() =>
+								router.invalidate(),
+							),
+					},
+				})
+			} catch {
+				toast.error("couldn't take it off — try again")
+			}
+
+			// A read already on its way started before this change, so it waits
+			// for that one and reads again, and for the fresh read itself
+			// (sync), so the change shown stays until it lands. The change is
+			// made; a failed read leaves the page.
+			await router.latestLoadPromise?.catch(() => undefined)
+			await router.invalidate({ sync: true }).catch(() => undefined)
+		})
 	}
 
-	return (
-		<SaveChip
-			title={recipe.title}
-			saved
-			saving={saving}
-			toggle={() => void unsave()}
-		/>
-	)
+	return <SaveChip title={recipe.title} saved saving={false} toggle={unsave} />
 }
 
 // What a draft has so far, and what it is still missing.

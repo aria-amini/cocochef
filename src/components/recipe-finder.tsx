@@ -67,6 +67,7 @@ import {
 import { authClient } from '@/lib/auth/client'
 import { popularRecipes, type FoundRecipe } from '@/lib/discover/server'
 import { importRecipe, peekRecipes } from '@/lib/import/server'
+import { sizedPhoto } from '@/lib/photos/sized'
 import { type RecipeSort, recipeSorts } from '@/lib/recipes/loved'
 import { matchesRecipeQuery } from '@/lib/recipes/model'
 import { isPastedRecipe } from '@/lib/recipes/paste'
@@ -273,6 +274,9 @@ export type InlineFinder = {
 	onFilters: (filters: FinderFilters) => void
 	// Whether the search was asked for, and wants the keyboard.
 	focus?: boolean | undefined
+	// The list before anything is asked, read with the page, so it is drawn
+	// on the server instead of fetched once the page's code runs.
+	popular?: Awaited<ReturnType<typeof popularRecipes>> | undefined
 }
 
 export function FinderPanel({
@@ -429,6 +433,9 @@ export function FinderPanel({
 	const popular = useQuery({
 		queryKey: ['popular-recipes'],
 		queryFn: () => popularRecipes(),
+		initialData: inline?.popular,
+		// What the server drew is not asked for again as the page wakes up.
+		staleTime: inline?.popular ? 30_000 : 0,
 		enabled: trimmed === '' && ratingSort === undefined && !hasPicks(picks),
 	})
 
@@ -939,17 +946,28 @@ export function FinderPanel({
 			return
 		}
 
+		// Saved at the tap: a page can take a few seconds to bring in, and
+		// the row shows it saved meanwhile, unless it fails.
+		const mark = (saved: boolean) =>
+			setSavedHere((current) => new Map(current).set(savedKey(recipe), saved))
+
 		void run(`${optionKey({ kind: 'recipe', recipe })}:save`, async () => {
+			mark(true)
+
 			const known = idOf(recipe)
 
 			let id = known
 
-			if (known) await saveRecipe({ data: { id: known } })
-			else if (recipe.url)
-				id = (await importRecipe({ data: { url: recipe.url, keep: true } })).id
-			else throw new Error("couldn't find that recipe")
-
-			setSavedHere((current) => new Map(current).set(savedKey(recipe), true))
+			try {
+				if (known) await saveRecipe({ data: { id: known } })
+				else if (recipe.url)
+					id = (await importRecipe({ data: { url: recipe.url, keep: true } }))
+						.id
+				else throw new Error("couldn't find that recipe")
+			} catch (error) {
+				mark(false)
+				throw error
+			}
 
 			// A page brought in to be kept is known by its id from here on, so it
 			// can be taken off again even if no background read found it.
@@ -978,9 +996,19 @@ export function FinderPanel({
 
 		if (!known) return
 
+		const mark = (saved: boolean) =>
+			setSavedHere((current) => new Map(current).set(savedKey(recipe), saved))
+
 		void run(`${optionKey({ kind: 'recipe', recipe })}:save`, async () => {
-			await removeSavedRecipe({ data: { id: known } })
-			setSavedHere((current) => new Map(current).set(savedKey(recipe), false))
+			mark(false)
+
+			try {
+				await removeSavedRecipe({ data: { id: known } })
+			} catch (error) {
+				mark(true)
+				throw error
+			}
+
 			await Promise.all([
 				router.invalidate(),
 				client.invalidateQueries({ queryKey: ['shelf'] }),
@@ -1069,6 +1097,27 @@ export function FinderPanel({
 		'aria-selected': index === active,
 		'aria-disabled': busy !== undefined || undefined,
 		onMouseDown: (event: React.MouseEvent) => event.preventDefault(),
+		// Laid flat, a tap opens the recipe, so it starts loading at the touch,
+		// as a link does; the tap a moment later finds it read. Not for a
+		// button in the row, like saving: the read would be from before it,
+		// and the recipe opened right after would say it is not saved.
+		onPointerDown: (event: React.PointerEvent) => {
+			// Nor while a save or unsave is still on its way, for the same
+			// reason: the read could be from before it lands.
+			if (
+				busy !== undefined ||
+				(event.target instanceof Element && event.target.closest('button'))
+			)
+				return
+
+			const id = inline && option.kind === 'recipe' && idOf(option.recipe)
+
+			if (id)
+				void router.preloadRoute({
+					to: '/recipes/$recipeId',
+					params: { recipeId: id },
+				})
+		},
 		// Move, not enter: a list that opens under a resting pointer must not
 		// steal the highlight from the keyboard.
 		onMouseMove: () => {
@@ -1630,7 +1679,7 @@ function RecipePreview({
 			<div className="flex items-start gap-3">
 				{recipe.imageUrl ? (
 					<img
-						src={recipe.imageUrl}
+						src={sizedPhoto(recipe.imageUrl, 400)}
 						alt=""
 						referrerPolicy="no-referrer"
 						className="border-border size-20 shrink-0 rounded-xl border object-cover md:size-24"

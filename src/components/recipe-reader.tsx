@@ -29,6 +29,7 @@ import { mealTags } from '@/lib/assistant/meal-parts'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
 import { lineStatus } from '@/lib/pantry/status'
+import { sizedPhoto } from '@/lib/photos/sized'
 import { recipeEffort } from '@/lib/recipes/effort'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
@@ -528,7 +529,7 @@ function PhotoFullScreen({ src, title }: { src: string; title: string }) {
 				className="group relative block w-full cursor-zoom-in"
 			>
 				<img
-					src={src}
+					src={sizedPhoto(src, 800)}
 					alt={title}
 					className="border-border aspect-[4/3] w-full rounded-xl border object-cover"
 				/>

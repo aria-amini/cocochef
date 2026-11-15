@@ -19,6 +19,9 @@ type Item = {
 	createdAt: Date
 }
 
+// A read of the list the test holds back, to play a slow connection.
+type HeldRead = { held?: Promise<void> | undefined }
+
 const list = vi.hoisted(() => {
 	const items: Item[] = []
 
@@ -26,7 +29,10 @@ const list = vi.hoisted(() => {
 	// Lines put away into the kitchen when the cart was cleared.
 	const stocked: string[] = []
 
-	return { items, signedOut: false, stocked }
+	// The next read of the list waits for this.
+	const read: HeldRead = {}
+
+	return { items, signedOut: false, stocked, read }
 })
 
 const make = (text: string, extra: Partial<Item> = {}): Item => ({
@@ -65,7 +71,14 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 }))
 
 vi.mock('@/lib/groceries/server', () => ({
-	listGroceries: () => Promise.resolve(list.signedOut ? null : list.items),
+	// As the server has it when the read starts, however long it takes.
+	listGroceries: async () => {
+		const items = list.signedOut ? null : list.items
+
+		await list.read.held
+
+		return items
+	},
 	countWaitingGroceries: () =>
 		Promise.resolve(list.items.filter((item) => !item.checkedAt).length),
 	addGroceries: ({ data }: { data: { text: string }[] }) => {
@@ -139,6 +152,7 @@ describe('groceries', () => {
 	beforeEach(() => {
 		list.items = []
 		list.signedOut = false
+		list.read.held = undefined
 		restocked.calls.length = 0
 		list.stocked.length = 0
 		kept.items = []
@@ -317,6 +331,41 @@ describe('groceries', () => {
 				{ timeout: 3000 },
 			)
 			.not.toBeChecked()
+	})
+
+	test('keeps ticks shown while the list is slow to read again', async () => {
+		list.items = [make('1 onion'), make('milk')]
+
+		const { screen } = await renderRoute({
+			path: '/kitchen?view=groceries',
+			session,
+		})
+
+		const ticked = (name: string) => {
+			const box = screen.getByRole('checkbox', { name }).element()
+
+			return box instanceof HTMLInputElement && box.checked
+		}
+
+		// On a slow connection the list's read after a tick takes a while, and
+		// the cook ticks the next item meanwhile.
+		let arrive = () => {}
+
+		list.read.held = new Promise((resolve) => {
+			arrive = resolve
+		})
+		await screen.getByText('1 onion').click()
+		await expect.poll(() => list.items[0]?.checkedAt).toBeInstanceOf(Date)
+		await screen.getByText('milk').click()
+		await expect.poll(() => list.items[1]?.checkedAt).toBeInstanceOf(Date)
+		await new Promise((resolve) => setTimeout(resolve, 300))
+		expect(ticked('1 onion')).toBe(true)
+		expect(ticked('milk')).toBe(true)
+
+		arrive()
+		await new Promise((resolve) => setTimeout(resolve, 500))
+		expect(ticked('1 onion')).toBe(true)
+		expect(ticked('milk')).toBe(true)
 	})
 
 	test('editing, changes each item in place', async () => {

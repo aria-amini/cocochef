@@ -4,11 +4,13 @@ import { createRouter } from '@tanstack/react-router'
 import { NotFoundComponent, ServerErrorComponent } from '@/components/errors'
 import { pendingOptions } from '@/components/page-pending'
 import { loadNewCodeAfterDeploys } from '@/lib/utils/new-code'
-import { queryClient } from '@/lib/utils/query'
+import { createQueryClient } from '@/lib/utils/query'
 
 import { routeTree } from './routeTree.gen'
 
 export const getRouter = () => {
+	const queryClient = createQueryClient()
+
 	const router = createRouter({
 		routeTree,
 		...pendingOptions,

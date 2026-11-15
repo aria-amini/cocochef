@@ -101,6 +101,29 @@ the build. Add packages as devDependencies. Keep `dependencies` to what runs
 outside the bundle: Varlock for `start`, and `drizzle-orm` and `pg` for
 migrations.
 
+## Performance
+
+`vp run bench` measures the app on an emulated phone on 4G: cold loads, a
+signed-in tap journey, and clearing a recipe off the shelf (`scripts/bench.ts`).
+Use it to show that a performance change helps. Nothing runs it in CI, so fix it
+when the app's tabs or pages move under it.
+
+Compare two production builds in one sitting, never the dev server, and never
+against numbers from another day:
+
+1. Build each side (`vp run build`): this checkout for the change, and the base
+   in a scratch worktree (`git worktree add --detach <dir> <base>`, copy
+   `.env.workspace.local` into it, then `vp i`). Build one at a time.
+2. Start each on its own port, with `BASE_URL` to match so sign-in accepts it:
+   `PORT=3101 BASE_URL=http://localhost:3101 vp run start`.
+3. `vp run bench:seed` (after the first run creates the bench account, and again
+   before each comparison, since each run clears one spare recipe).
+4. `vp run bench http://localhost:3101 http://localhost:3102 5`. Runs alternate
+   between the builds. A change counts only when it isn't marked `~`, meaning
+   every run of one build beat every run of the other.
+
+Stop both servers and remove the scratch worktree afterwards.
+
 ## PR review follow-through
 
 “Full send” includes publishing, triggering CodeRabbit when automatic reviews

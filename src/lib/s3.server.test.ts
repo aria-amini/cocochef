@@ -124,6 +124,34 @@ describe('stored images', () => {
 		)
 	})
 
+	test('signs an avatar to the same URL within the hour', async () => {
+		const { getSignedUrl } = await vi.importActual<
+			typeof import('@aws-sdk/s3-request-presigner')
+		>('@aws-sdk/s3-request-presigner')
+
+		mocks.sign.mockImplementation(getSignedUrl)
+		vi.useFakeTimers()
+
+		try {
+			vi.setSystemTime(new Date('2026-11-14T15:05:00Z'))
+			const first = await resolveStoredImage('avatars/owner-1234')
+			vi.setSystemTime(new Date('2026-11-14T15:55:00Z'))
+			const second = await resolveStoredImage('avatars/owner-1234')
+			vi.setSystemTime(new Date('2026-11-14T16:05:00Z'))
+			const nextHour = await resolveStoredImage('avatars/owner-1234')
+
+			expect(second).toBe(first)
+			expect(nextHour).not.toBe(first)
+			expect(new URL(first).searchParams.get('X-Amz-Date')).toBe(
+				'20261114T150000Z',
+			)
+			expect(new URL(first).searchParams.get('X-Amz-Expires')).toBe('7200')
+		} finally {
+			vi.useRealTimers()
+			mocks.sign.mockResolvedValue('https://storage.example/upload')
+		}
+	})
+
 	test('reads no photo for a key the bucket does not have', async () => {
 		vi.spyOn(S3Client.prototype, 'send').mockImplementation(async () => {
 			throw new NoSuchKey({ message: 'missing', $metadata: {} })

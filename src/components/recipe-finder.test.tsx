@@ -745,6 +745,41 @@ describe('the search on home', () => {
 		expect(server.remove).toHaveBeenLastCalledWith({ data: { id: 'shared-2' } })
 	})
 
+	test('shows a page saved while it is brought in, and unsaved if that fails', async () => {
+		server.search.mockResolvedValue({
+			warming: false,
+			results: [found({ url: 'https://example.com/dal', title: 'tadka dal' })],
+		})
+
+		let fail = () => {}
+
+		server.import.mockImplementation(
+			() =>
+				new Promise((_resolve, reject) => {
+					fail = () => reject(new Error("couldn't read that page"))
+				}),
+		)
+
+		const { screen, input } = await openSearch()
+
+		await input.fill('dal')
+		await screen
+			.getByRole('button', { name: 'save tadka dal', exact: true })
+			.click()
+		await expect
+			.element(
+				screen.getByRole('button', { name: 'unsave tadka dal', exact: true }),
+			)
+			.toHaveAttribute('aria-pressed', 'true')
+
+		fail()
+		await expect
+			.element(
+				screen.getByRole('button', { name: 'save tadka dal', exact: true }),
+			)
+			.toHaveAttribute('aria-pressed', 'false')
+	})
+
 	test('asks a visitor to sign in before saving', async () => {
 		server.search.mockResolvedValue({
 			warming: false,

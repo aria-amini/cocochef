@@ -2,7 +2,8 @@ import {
 	expectScreenshot,
 	type ScreenshotOptions,
 } from '@aamini/config/vitest/browser'
-import type { Locator } from 'vitest/browser'
+import { expect } from 'vite-plus/test'
+import type { Locator, LocatorSelectors } from 'vitest/browser'
 
 // Hides everything on the page but the target: each sibling of the target and
 // of every element above it. `visibility` keeps their boxes, so the target lays
@@ -95,4 +96,32 @@ export async function expectPageScreenshot(
 	if (!(main instanceof HTMLElement)) throw new Error('no <main> on the page')
 
 	await expectIsolatedScreenshot(main, name, options)
+}
+
+// A page still loading, captured by its skeleton. React keeps the page it
+// left mounted, hidden, until the new one arrives, so the first <main> on the
+// page is not this one. The app's navigation redraws itself while the load
+// runs, pulsing the tab that started it, so it is held hidden by a style
+// rather than once.
+export async function expectPendingScreenshot(
+	screen: LocatorSelectors,
+	name: string,
+	options?: ScreenshotOptions,
+) {
+	const loading = screen.getByRole('status')
+
+	await expect.element(loading).toBeVisible()
+
+	const main = loading.element().closest('main')
+
+	if (!main) throw new Error('no <main> around the skeleton')
+
+	const quiet = document.head.appendChild(document.createElement('style'))
+	quiet.textContent = 'nav:not(main nav) { visibility: hidden !important; }'
+
+	try {
+		await expectIsolatedScreenshot(main, name, options)
+	} finally {
+		quiet.remove()
+	}
 }

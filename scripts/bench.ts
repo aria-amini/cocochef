@@ -2,7 +2,11 @@
 // through the app signed in, on an emulated mid-range phone on 4G, and prints
 // the median of each measure.
 //
-//   vp run bench <base url> [runs]
+//   vp run bench <url> [runs]
+//   vp run bench <before url> <after url> [runs]
+//
+// Given two builds, it takes turns between them, run by run, so a slow
+// stretch of the machine falls on both, and prints both with the change.
 //
 // Signs in as bench@cocochef.test, creating the account the first time;
 // locally, `vp run bench:seed` then gives it a shelf to tap through.
@@ -14,9 +18,15 @@
 import { chromium, devices } from '@playwright/test'
 import type { BrowserContext, Locator, Page } from '@playwright/test'
 
-const [base = 'http://localhost:3000', runsArg = '5'] = process.argv.slice(2)
+const args = process.argv.slice(2)
 
-const runs = Number(runsArg)
+const urls = args.filter((arg) => /^https?:\/\//.test(arg))
+
+const runs = Number(args.find((arg) => /^\d+$/.test(arg)) ?? '5')
+
+if (!urls.length) urls.push('http://localhost:3000')
+
+if (urls.length > 2) throw new Error('give one or two urls')
 
 // The account scripts/bench-seed.sql fills.
 const email = 'bench@cocochef.test'
@@ -25,9 +35,6 @@ const password = 'bench-password-123'
 
 // 4x CPU slowdown, 100ms round trips, ~9 Mbps down: a mid-range phone on 4G.
 const phone = { cpu: 4, latency: 100, down: 9, up: 3 }
-
-const median = (values: number[]) =>
-	[...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
 
 declare global {
 	interface Window {
@@ -46,7 +53,7 @@ type Session = Awaited<ReturnType<BrowserContext['storageState']>>
 
 // Signs in once: sign-in is rate limited, and every run starts a fresh
 // context with this session's cookie.
-async function signIn(browser: Browser) {
+async function signIn(browser: Browser, base: string) {
 	const context = await browser.newContext()
 
 	const response = await context.request.post(
@@ -143,9 +150,29 @@ async function throttle(context: BrowserContext, page: Page) {
 
 type Row = Record<string, number>
 
-async function coldLoad(context: BrowserContext, path: string): Promise<Row> {
+async function coldLoad(
+	context: BrowserContext,
+	base: string,
+	path: string,
+): Promise<Row> {
 	const page = await context.newPage()
 	await throttle(context, page)
+
+	// Image bytes as the network carried them. The page's own timing reports
+	// zero for another site's image, so a photo hotlinked from a recipe site
+	// would count as nothing.
+	const imageSizes: Promise<number>[] = []
+
+	page.on('requestfinished', (request) => {
+		if (request.resourceType() === 'image')
+			imageSizes.push(
+				request.sizes().then(
+					(sizes) => sizes.responseBodySize,
+					() => 0,
+				),
+			)
+	})
+
 	await page.goto(base + path, { waitUntil: 'load', timeout: 60_000 })
 	await page.waitForFunction(() => window.bench.hydrated > 0, null, {
 		timeout: 30_000,
@@ -160,10 +187,11 @@ async function coldLoad(context: BrowserContext, path: string): Promise<Row> {
 		const fcp =
 			performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? 0
 
-		const scripts = performance
+		const resources = performance
 			.getEntriesByType('resource')
 			.filter((entry) => entry instanceof PerformanceResourceTiming)
-			.filter((entry) => entry.name.endsWith('.js'))
+
+		const scripts = resources.filter((entry) => entry.name.endsWith('.js'))
 
 		return {
 			ttfb: nav?.responseStart ?? 0,
@@ -180,9 +208,14 @@ async function coldLoad(context: BrowserContext, path: string): Promise<Row> {
 		}
 	})
 
+	const imageBytes = (await Promise.all(imageSizes)).reduce(
+		(sum, bytes) => sum + bytes,
+		0,
+	)
+
 	await page.close()
 
-	return row
+	return { ...row, imgKB: imageBytes / 1024 }
 }
 
 // A finger rests on the glass for about 100ms before it lifts, and the app
@@ -266,8 +299,8 @@ async function tap(
 	)
 }
 
-// A cook's loop: the shelf, a recipe and back, groceries, the pantry, home,
-// then the shelf and the same recipe again (pages already seen).
+// A cook's loop: the shelf, a recipe and back, the kitchen and its grocery
+// list, home, then the shelf and the same recipe again (pages already seen).
 const tab = (name: string) => (page: Page) =>
 	page.getByRole('link', { name, exact: true }).locator('visible=true').first()
 
@@ -277,73 +310,214 @@ const lentilSoup = (page: Page) =>
 		.locator('visible=true')
 		.first()
 
+const groceries = (page: Page) =>
+	page
+		.getByRole('navigation', { name: 'kitchen' })
+		.getByRole('link', { name: /^groceries/ })
+
 const journey: [string, ((page: Page) => Locator) | 'back', RegExp][] = [
-	['→ recipes', tab('recipes'), /\/recipes$/],
+	['→ my recipes', tab('my recipes'), /\/recipes$/],
 	['→ a recipe', lentilSoup, /\/[^/]+\/lentil-soup$/],
 	['← back', 'back', /\/recipes$/],
-	['→ groceries', tab('groceries'), /\/groceries$/],
-	['→ ingredients', tab('ingredients'), /\/ingredients$/],
+	['→ kitchen', tab('kitchen'), /\/kitchen$/],
+	['→ groceries', groceries, /\/kitchen\?view=groceries$/],
 	['→ home', tab('home'), /\/$/],
-	['→ recipes again', tab('recipes'), /\/recipes$/],
+	['→ my recipes again', tab('my recipes'), /\/recipes$/],
 	['→ recipe again', lentilSoup, /\/[^/]+\/lentil-soup$/],
 ]
 
-function print(title: string, rows: Map<string, Row[]>) {
-	const keys = Object.keys([...rows.values()][0]?.[0] ?? {})
+// Clearing a recipe off the shelf: from the finger lifting off "delete" in
+// the dialog to its tile gone. Each run uses up one of the spare recipes
+// scripts/bench-seed.sql makes, so seed again before each sitting.
+async function clearOff(page: Page): Promise<Row> {
+	await page.goto(new URL('/recipes', page.url()).href, { waitUntil: 'load' })
+	await page.waitForFunction(() => window.bench.hydrated > 0)
+
+	const spare = page.getByRole('link', { name: /^spare \d+/ }).first()
+	const name = await spare.textContent()
+
+	if (!name) throw new Error('no spare recipes left: run `vp run bench:seed`')
+
+	const title = name.match(/spare \d+/)?.[0] ?? name
+
+	await page.getByRole('button', { name: 'select', exact: true }).click()
+
+	await page.getByRole('button', { name: title, exact: true }).click()
+	await page.getByRole('button', { name: 'delete', exact: true }).click()
+
+	const confirm = page
+		.getByRole('dialog')
+		.getByRole('button', { name: 'delete', exact: true })
+
+	await confirm.waitFor()
+
+	// The shelf's read after the clear: a GET, where the delete is a POST.
+	const refreshed = page.waitForResponse(
+		(response) =>
+			response.url().includes('/_serverFn/') &&
+			response.request().method() === 'GET',
+		{ timeout: 30_000 },
+	)
+
+	const start = await fingerTap(page, confirm)
+
+	// By its name, not its role: the open dialog hides the shelf from roles,
+	// and leaving select mode turns the tile back into a link.
+	const seen = await page.waitForFunction(
+		(name) =>
+			[...document.querySelectorAll('main h3')].some(
+				(heading) => heading.textContent === name,
+			)
+				? 0
+				: performance.now(),
+		title,
+		{ timeout: 30_000, polling: 'raf' },
+	)
+
+	const gone = await seen.jsonValue()
+
+	// The tile leaves before the server has the change. A sample only counts
+	// if the clear went through, and waiting for that is outside the timing.
+	const said = page.getByText(/off your shelf|couldn't/)
+
+	await said.first().waitFor({ timeout: 30_000 })
+
+	if (/couldn't/.test((await said.first().textContent()) ?? ''))
+		throw new Error(`clearing ${title} off the shelf failed`)
+
+	// The toast comes before the shelf is read again; let that read land
+	// before the run moves on.
+	await refreshed
+
+	return { gone: Math.max(0, gone - start) }
+}
+
+const median = (values: number[]) =>
+	[...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
+
+type Results = Map<string, Row[]>
+
+// Whether two builds' runs of a measure overlap. With a handful of runs, a
+// change counts only when every run of one build beats every run of the
+// other; anything less is noise.
+function overlap(before: number[], after: number[]) {
+	return (
+		Math.max(...after) >= Math.min(...before) &&
+		Math.max(...before) >= Math.min(...after)
+	)
+}
+
+// One table per measure group. With two builds, each cell is
+// "before → after", and the last column the change in `lead`, marked "~"
+// when the builds' runs overlap.
+function print(title: string, results: Results[], lead: string) {
+	const [first, second] = results
+	const names = [...(first?.keys() ?? [])]
+	const keys = Object.keys(first?.get(names[0] ?? '')?.[0] ?? {})
+
+	const values = (rows: Results | undefined, name: string, key: string) =>
+		(rows?.get(name) ?? []).map((row) => row[key] ?? 0)
+
+	const medians = (rows: Results | undefined, name: string, key: string) =>
+		Math.round(median(values(rows, name, key)))
+
+	const width = Math.max(second ? 16 : 10, ...keys.map((key) => key.length + 2))
+
 	console.log(`\n${title}`)
-	console.log('  '.padEnd(22) + keys.map((key) => key.padStart(12)).join(''))
+	console.log(
+		'  '.padEnd(24) +
+			keys.map((key) => key.padStart(width)).join('') +
+			(second ? `${lead} change`.padStart(22) : ''),
+	)
 
-	for (const [name, results] of rows) {
-		const cells = keys.map((key) =>
-			String(Math.round(median(results.map((row) => row[key] ?? 0)))).padStart(
-				12,
-			),
+	for (const name of names) {
+		const cells = keys.map((key) => {
+			const before = medians(first, name, key)
+
+			return (
+				second ? `${before} → ${medians(second, name, key)}` : String(before)
+			).padStart(width)
+		})
+
+		const before = medians(first, name, lead)
+		const after = medians(second, name, lead)
+		const change = before ? Math.round(((after - before) / before) * 100) : 0
+		const same = overlap(values(first, name, lead), values(second, name, lead))
+		const verdict = `${same ? '~' : ''}${change > 0 ? '+' : ''}${change}%`
+
+		console.log(
+			`  ${name.padEnd(22)}${cells.join('')}` +
+				(second ? verdict.padStart(22) : ''),
 		)
-
-		console.log(`  ${name.padEnd(20)}${cells.join('')}`)
 	}
 }
 
 const browser = await chromium.launch()
 
-const session = await signIn(browser)
+const builds = await Promise.all(
+	urls.map(async (base) => ({
+		base,
+		session: await signIn(browser, base),
+		loads: new Map<string, Row[]>(),
+		taps: new Map<string, Row[]>(),
+		actions: new Map<string, Row[]>(),
+	})),
+)
 
-const loads = new Map<string, Row[]>()
-
-const taps = new Map<string, Row[]>()
+const add = (results: Results, name: string, row: Row) =>
+	results.set(name, [...(results.get(name) ?? []), row])
 
 console.log(
-	`${base}: ${runs} runs, cpu ${phone.cpu}x, ${phone.latency}ms rtt, ${phone.down} Mbps (medians, ms and KB)`,
+	`${urls.join(' vs ')}: ${runs} runs each, cpu ${phone.cpu}x, ${phone.latency}ms rtt, ${phone.down} Mbps (medians, ms and KB)`,
 )
 
 for (let run = 0; run < runs; run++) {
-	for (const path of ['/', '/recipes', '/recipes/bench-recipe-1']) {
+	// Each build goes first on alternate runs.
+	const order = run % 2 ? [...builds].reverse() : builds
+
+	for (const { base, session, loads, taps, actions } of order) {
+		for (const path of ['/', '/recipes', '/recipes/bench-recipe-1']) {
+			const context = await phoneContext(browser, session)
+			add(loads, path, await coldLoad(context, base, path))
+			await context.close()
+		}
+
 		const context = await phoneContext(browser, session)
-		loads.set(path, [...(loads.get(path) ?? []), await coldLoad(context, path)])
+		const page = await context.newPage()
+		await throttle(context, page)
+		await page.goto(`${base}/`, { waitUntil: 'load', timeout: 60_000 })
+		await page.waitForFunction(() => window.bench.hydrated > 0)
+		await page.waitForTimeout(1000)
+
+		for (const [name, target, path] of journey) {
+			try {
+				add(taps, name, await tap(page, target, path))
+			} catch (cause) {
+				throw new Error(`${name} stopped at ${page.url()}`, { cause })
+			}
+		}
+
+		add(actions, 'clear off shelf', await clearOff(page))
 		await context.close()
 	}
-
-	const context = await phoneContext(browser, session)
-	const page = await context.newPage()
-	await throttle(context, page)
-	await page.goto(`${base}/`, { waitUntil: 'load', timeout: 60_000 })
-	await page.waitForFunction(() => window.bench.hydrated > 0)
-	await page.waitForTimeout(1000)
-
-	for (const [name, target, path] of journey) {
-		try {
-			const row = await tap(page, target, path)
-			taps.set(name, [...(taps.get(name) ?? []), row])
-		} catch (cause) {
-			throw new Error(`${name} stopped at ${page.url()}`, { cause })
-		}
-	}
-
-	await context.close()
 }
 
 await browser.close()
 
-print('cold loads', loads)
+print(
+	'cold loads',
+	builds.map((build) => build.loads),
+	'fcp',
+)
 
-print('taps', taps)
+print(
+	'taps',
+	builds.map((build) => build.taps),
+	'settled',
+)
+
+print(
+	'actions',
+	builds.map((build) => build.actions),
+	'gone',
+)

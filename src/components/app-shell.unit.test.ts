@@ -14,6 +14,7 @@ const outsideShell = [
 	'auth/signup.tsx',
 	'api/auth.$.ts',
 	'api/health.ts',
+	'api/img.ts',
 	'api/oven.ts',
 	'api/photos.$.ts',
 ]

@@ -37,13 +37,15 @@ export function pulseGroceries(added: number) {
 	}, pulseMs)
 }
 
-// Kept per account, so signing in or out never shows another's count.
+// Kept per account, so signing in or out never shows another's count. Asked
+// only once the session says who it is: signed out, there is no list.
 const useWaiting = () => {
 	const userId = authClient.useSession().data?.user.id
 
 	return useQuery({
 		queryKey: [...groceryCountKey, userId],
 		queryFn: () => countWaitingGroceries(),
+		enabled: !!userId,
 		staleTime: 30_000,
 	}).data
 }

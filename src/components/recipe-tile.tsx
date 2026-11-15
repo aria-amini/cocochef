@@ -1,4 +1,5 @@
 import { RecipeGlyph } from '@/components/recipe-glyph'
+import { sizedPhoto } from '@/lib/photos/sized'
 import { tileColors, type TileColor } from '@/lib/recipes/tile-color'
 import { cn } from '@/lib/utils/ui'
 
@@ -37,7 +38,7 @@ export function RecipeTileFace({
 			<>
 				<div className="relative min-h-0 flex-1">
 					<img
-						src={imageUrl}
+						src={sizedPhoto(imageUrl, 400)}
 						alt=""
 						loading="lazy"
 						className="absolute inset-0 size-full object-cover"

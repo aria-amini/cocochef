@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
 	web: vi.fn(),
 	getRecipe: vi.fn(),
 	deleteRecipe: vi.fn(),
+	saveRecipe: vi.fn(),
 }))
 
 vi.mock('@/lib/sharing/server', async () => {
@@ -51,6 +52,7 @@ vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	deleteRecipe: api.deleteRecipe,
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: api.deleteRecipe,
+	saveRecipe: api.saveRecipe,
 }))
 
 vi.mock('@/lib/s3', async (importOriginal) => ({
@@ -349,6 +351,43 @@ describe('sharing', () => {
 			.toBeVisible()
 		expect(router.state.location.pathname).toBe('/aria-amini/weeknight-pasta')
 	})
+	test('shows a recipe saved at the tap, before the server answers', async () => {
+		api.getRecipe.mockResolvedValue({
+			...recipe,
+			userId: 'someone',
+			finalizedAt: new Date(),
+			owned: false,
+			saved: false,
+			publicPath: '/aria-amini/weeknight-pasta',
+			ingredientCategories: {},
+		})
+
+		let answer = () => {}
+
+		api.saveRecipe.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					answer = () => resolve(null)
+				}),
+		)
+
+		const { screen } = await renderRoute({
+			path: '/aria-amini/weeknight-pasta',
+			session,
+		})
+
+		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await expect
+			.element(screen.getByRole('button', { name: 'saved', exact: true }))
+			.toBeVisible()
+		expect(api.saveRecipe).toHaveBeenCalledOnce()
+
+		answer()
+		await expect
+			.element(screen.getByText('saved to your recipes'))
+			.toBeVisible()
+	})
+
 	test('keeps the owner at the readable address when made private', async () => {
 		const mine = {
 			...recipe,

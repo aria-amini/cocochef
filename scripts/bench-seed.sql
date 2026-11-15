@@ -1,6 +1,7 @@
 -- A shelf for the benchmark's account (scripts/bench.ts creates it on its
--- first run): twelve finished recipes, each with ten ingredients and six steps.
--- Safe to run again.
+-- first run): twelve finished recipes, each with ten ingredients and six steps,
+-- and thirty bare "spare" recipes for the benchmark to clear off, one a run.
+-- Safe to run again, and running it again puts the spares back.
 do $$
 declare
 	uid text := (select id from "user" where email = 'bench@cocochef.test');
@@ -39,5 +40,18 @@ begin
 				'stir everything together and cook gently until it smells wonderful, about ten minutes.')
 			on conflict do nothing;
 		end loop;
+	end loop;
+
+	-- Oldest, so they sit at the end of the shelf, after the real recipes.
+	for i in 1..30 loop
+		recipe := 'bench-spare-' || i;
+
+		insert into recipes (id, user_id, title, created_at, finalized_at)
+		values (recipe, uid, 'spare ' || i, now() - interval '1 year' - i * interval '1 day', now() - interval '1 year')
+		on conflict do nothing;
+
+		insert into shelf_recipes (id, user_id, recipe_id, added_at)
+		values ('bench-spare-shelf-' || i, uid, recipe, now() - interval '1 year' - i * interval '1 day')
+		on conflict do nothing;
 	end loop;
 end $$;

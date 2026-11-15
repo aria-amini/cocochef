@@ -188,8 +188,12 @@ export function GroceryList({
 				toast.error("couldn't update the list — try again")
 			}
 
+			// A read already on its way started before this change, so it waits
+			// for that one and reads again, and for the fresh read itself
+			// (sync), so the tick shown stays until it lands.
+			await router.latestLoadPromise?.catch(() => undefined)
 			await Promise.all([
-				router.invalidate(),
+				router.invalidate({ sync: true }).catch(() => undefined),
 				client.invalidateQueries({ queryKey: groceryCountKey }),
 			])
 		})

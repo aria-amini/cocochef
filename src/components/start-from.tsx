@@ -1,4 +1,5 @@
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
+import { useEffect } from 'react'
 
 import { useRecipeActions } from '@/components/recipe-actions'
 import { useOnlineRecipes } from '@/components/recipe-online'
@@ -28,7 +29,7 @@ export function FindRecipe({
 	name: string
 	onStart: (start: StartingPoint) => void
 }) {
-	const { find } = useRecipeActions()
+	const { find, prepareFind } = useRecipeActions()
 	const named = name.trim()
 	const settled = useSettled(named, named)
 
@@ -40,8 +41,15 @@ export function FindRecipe({
 		(recipe) => recipe.siteName && !recipe.draft,
 	).length
 
+	const offered = named === settled && found > 0
+
+	// The box gets ready while the offer is read, so a tap opens it at once.
+	useEffect(() => {
+		if (offered) prepareFind()
+	}, [offered, prepareFind])
+
 	// The offer waits for the name to settle, and for something to offer.
-	if (named !== settled || !found) return null
+	if (!offered) return null
 
 	return (
 		<button

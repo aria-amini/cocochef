@@ -1140,7 +1140,7 @@ const warmWords = [
 	'stew',
 ]
 
-export function temperatureOf(title: string) {
+function readTemperature(title: string) {
 	const text = normalize(title)
 
 	if (mentions(text, frozenWords)) return 'frozen'
@@ -1169,7 +1169,7 @@ export const courseNames = [
 
 // What a title is: its one kind (an entree unless it says otherwise), and
 // breakfast too when it says so.
-export function coursesOf(title: string) {
+function readCourses(title: string) {
 	const text = normalize(title)
 
 	const kind =
@@ -1670,10 +1670,25 @@ const normalize = (text: string) =>
 		.replace(/[^\p{L}\p{N}']+/gu, ' ')
 		.trim()} `
 
+// Each vocabulary word in the form titles are matched in, worked out once:
+// the same few hundred words are looked for in every title.
+const phrases = new Map<string, string>()
+
+const phraseOf = (word: string) => {
+	let phrase = phrases.get(word)
+
+	if (phrase === undefined) {
+		phrase = normalize(word).trim()
+		phrases.set(word, phrase)
+	}
+
+	return phrase
+}
+
 // A word or phrase in a title, whole, with a plain plural allowed.
 const mentions = (title: string, words: Words) =>
 	words.some((word) => {
-		const phrase = normalize(word).trim()
+		const phrase = phraseOf(word)
 
 		return (
 			title.includes(` ${phrase} `) ||
@@ -1685,7 +1700,7 @@ const mentions = (title: string, words: Words) =>
 // The parts a recipe's title names. A flavor names its cuisine too.
 const meatProteins = new Set(['fish', 'beef', 'chicken', 'pork'])
 
-export function mealTags(title: string): MealTags | undefined {
+function readMealTags(title: string): MealTags | undefined {
 	const text = normalize(title)
 
 	if (mentions(text, notAMeal)) return undefined
@@ -1830,3 +1845,29 @@ export function countParts(
 		),
 	}
 }
+
+// Remembers each title's answer. The finder asks again for every row on each
+// keystroke and hover, and each answer checks the title against hundreds of
+// words. Forgets everything past 2,000 titles, so it never grows unbounded.
+function byTitle<T>(read: (title: string) => T) {
+	const known = new Map<string, { value: T }>()
+
+	return (title: string) => {
+		const hit = known.get(title)
+
+		if (hit) return hit.value
+
+		const value = read(title)
+
+		if (known.size >= 2000) known.clear()
+		known.set(title, { value })
+
+		return value
+	}
+}
+
+export const temperatureOf = byTitle(readTemperature)
+
+export const coursesOf = byTitle(readCourses)
+
+export const mealTags = byTitle(readMealTags)

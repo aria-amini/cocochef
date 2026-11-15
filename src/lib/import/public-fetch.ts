@@ -203,7 +203,17 @@ function pinnedDispatcher(target: PinnedTarget) {
 }
 
 async function readHtmlBody(response: { body: ReadableStream | null }) {
-	if (!response.body) return ''
+	const bytes = await readBody(response, MAX_HTML_BYTES)
+
+	return bytes && new TextDecoder().decode(bytes)
+}
+
+// The whole body, or null past `max` bytes.
+async function readBody(
+	response: { body: ReadableStream | null },
+	max: number,
+): Promise<Uint8Array | null> {
+	if (!response.body) return new Uint8Array()
 	const reader = response.body.getReader()
 	const chunks: Uint8Array[] = []
 	let received = 0
@@ -214,7 +224,7 @@ async function readHtmlBody(response: { body: ReadableStream | null }) {
 		if (done) break
 		received += value.byteLength
 
-		if (received > MAX_HTML_BYTES) {
+		if (received > max) {
 			await reader.cancel()
 
 			return null
@@ -231,7 +241,7 @@ async function readHtmlBody(response: { body: ReadableStream | null }) {
 		offset += chunk.byteLength
 	}
 
-	return new TextDecoder().decode(bytes)
+	return bytes
 }
 
 export async function fetchPlain(rawUrl: string) {
@@ -275,6 +285,55 @@ export async function fetchPlain(rawUrl: string) {
 			if (!response.ok) return null
 
 			return { html, url: target.url.toString() }
+		} finally {
+			await dispatcher.close()
+		}
+	}
+
+	return null
+}
+
+export const MAX_IMAGE_BYTES = 15 * 1024 * 1024
+
+// A recipe's photo on the open web, by the same rules as a page: every hop
+// public, the connection pinned. Null for anything that isn't an image, is
+// too large, or doesn't answer.
+export async function fetchPublicImage(rawUrl: string) {
+	let url = rawUrl
+
+	for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+		const target = await assertPublicHttpUrl(url)
+		const dispatcher = pinnedDispatcher(target)
+
+		try {
+			const response = await fetch(target.url, {
+				headers: {
+					'user-agent': BROWSER_HEADERS['user-agent'],
+					accept: 'image/avif,image/webp,image/*,*/*;q=0.8',
+				},
+				redirect: 'manual',
+				signal: AbortSignal.timeout(10_000),
+				dispatcher,
+			})
+
+			if (response.status >= 300 && response.status < 400) {
+				const location = response.headers.get('location')
+				await response.body?.cancel()
+
+				if (!location) return null
+				url = new URL(location, target.url).toString()
+				continue
+			}
+
+			const type = response.headers.get('content-type') ?? ''
+
+			if (!response.ok || !/^image\//i.test(type)) {
+				await response.body?.cancel()
+
+				return null
+			}
+
+			return await readBody(response, MAX_IMAGE_BYTES)
 		} finally {
 			await dispatcher.close()
 		}

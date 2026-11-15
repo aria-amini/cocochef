@@ -1,9 +1,11 @@
+import { useHydrated } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { hasPicks, type MealPicks } from '@/lib/assistant/meal-parts'
 import { searchRecipes } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
+import { sizedPhoto } from '@/lib/photos/sized'
 import type { RecipeSort } from '@/lib/recipes/loved'
 import { cn } from '@/lib/utils/ui'
 
@@ -182,6 +184,7 @@ export function RecipeThumb({
 	glyphSize?: number
 }) {
 	const [broken, setBroken] = useState(false)
+	const hydrated = useHydrated()
 
 	if (!imageUrl || broken)
 		return (
@@ -196,11 +199,27 @@ export function RecipeThumb({
 			</span>
 		)
 
+	// A full-size photo from the recipe's site, drawn small. A list drawn by
+	// the server holds its photos' places until the page's code has loaded:
+	// coming from other sites, they would take the bandwidth the code needs,
+	// and keep taps waiting.
+	if (!hydrated)
+		return (
+			<span
+				aria-hidden
+				className={cn(
+					'bg-muted border-border block size-10 shrink-0 rounded-md border',
+					className,
+				)}
+			/>
+		)
+
 	return (
 		<img
-			src={imageUrl}
+			src={sizedPhoto(imageUrl, 400)}
 			alt=""
 			loading="lazy"
+			decoding="async"
 			referrerPolicy="no-referrer"
 			onError={() => setBroken(true)}
 			className={cn(

@@ -1,15 +1,14 @@
 import { CheckCircleIcon } from '@phosphor-icons/react'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import {
 	HeadContent,
 	Outlet,
 	Scripts,
-	createRootRoute,
+	createRootRouteWithContext,
 } from '@tanstack/react-router'
 import { Toaster } from 'sonner'
 
 import { useTabBarVisible } from '@/components/app-nav'
-import { queryClient } from '@/lib/utils/query'
 
 import appCss from '../styles.css?url'
 
@@ -18,7 +17,9 @@ import appCss from '../styles.css?url'
 // styles.css.
 const tabBarOffset = 'calc(5rem + env(safe-area-inset-bottom))'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{
+	queryClient: QueryClient
+}>()({
 	head: () => ({
 		meta: [
 			{ charSet: 'utf-8' },
@@ -55,6 +56,7 @@ export const Route = createRootRoute({
 
 function RootComponent() {
 	const tabBar = useTabBarVisible()
+	const { queryClient } = Route.useRouteContext()
 
 	return (
 		<html lang="en">

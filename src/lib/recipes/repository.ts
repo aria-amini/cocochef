@@ -294,37 +294,44 @@ export async function getRecipeForUser(
 				),
 		)
 
-	const [author] = recipe.userId
-		? await database
-				.select({ name: sharingProfiles.displayName })
-				.from(sharingProfiles)
-				.where(
-					and(
-						eq(sharingProfiles.userId, recipe.userId),
-						publicProfile(sharingProfiles.userId),
-					),
-				)
-		: []
-
-	const [original] = recipe.forkedFromId
-		? await database
-				.select({ name: sharingProfiles.displayName })
-				.from(recipes)
-				.innerJoin(sharingProfiles, eq(sharingProfiles.userId, recipes.userId))
-				.where(
-					and(
-						eq(recipes.id, recipe.forkedFromId),
-						publicProfile(sharingProfiles.userId),
-					),
-				)
-		: []
+	// Each of these needs only the recipe row, so they go out together.
+	const [[author], [original], content, publicPath] = await Promise.all([
+		recipe.userId
+			? database
+					.select({ name: sharingProfiles.displayName })
+					.from(sharingProfiles)
+					.where(
+						and(
+							eq(sharingProfiles.userId, recipe.userId),
+							publicProfile(sharingProfiles.userId),
+						),
+					)
+			: [],
+		recipe.forkedFromId
+			? database
+					.select({ name: sharingProfiles.displayName })
+					.from(recipes)
+					.innerJoin(
+						sharingProfiles,
+						eq(sharingProfiles.userId, recipes.userId),
+					)
+					.where(
+						and(
+							eq(recipes.id, recipe.forkedFromId),
+							publicProfile(sharingProfiles.userId),
+						),
+					)
+			: [],
+		recipeContent(database, recipe.id),
+		publicPathFor(database, userId, recipe),
+	])
 
 	return {
 		...recipe,
 		authorName: author?.name ?? null,
 		originalAuthorName: original?.name ?? null,
-		...(await recipeContent(database, recipe.id)),
-		publicPath: await publicPathFor(database, userId, recipe),
+		...content,
+		publicPath,
 		saved: recipe.savedAt !== null,
 		owned: recipe.userId === userId,
 	}
