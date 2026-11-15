@@ -5,7 +5,7 @@ import {
 	type Database,
 } from '@tests/support/fixtures/db'
 
-import { mealLogs, user } from '@/db/schema'
+import { user } from '@/db/schema'
 import {
 	getOwnedRecipeAtAddress,
 	getRecipeShare,
@@ -30,7 +30,6 @@ import {
 	findRecipesForUser,
 	findVisibleRecipeKeys,
 	findVisibleRecipesById,
-	sharedRecipeUrls,
 	updateRecipeForUser,
 } from './repository'
 
@@ -552,59 +551,43 @@ describe('shared recipes', () => {
 		await expect(
 			findSharedRecipeByUrl('https://example.com/dal', db),
 		).resolves.toMatchObject({ id: first.id })
-		await expect(
-			sharedRecipeUrls(
-				['https://example.com/dal', 'https://example.com/x'],
-				db,
-			),
-		).resolves.toEqual(['https://example.com/dal'])
-		await expect(sharedRecipeUrls([], db)).resolves.toEqual([])
 	})
 
-	test('ranks popular recipes by saves and recent cooks, minus your own shelf', async ({
+	test('ranks popular recipes by their stars weighed by votes, minus your own shelf', async ({
 		db,
 	}) => {
 		const userId = await seedUser(db)
-		const otherId = await seedUser(db)
-		const thirdId = await seedUser(db)
-		const quiet = await seedShared(db, 'https://example.com/quiet')
-		const saved = await seedShared(db, 'https://example.com/saved')
-		const cooked = await seedShared(db, 'https://example.com/cooked')
-		const mine = await seedShared(db, 'https://example.com/mine')
+		const tag = crypto.randomUUID().slice(0, 8)
 
-		await saveRecipeForUser(otherId, saved.id, db)
-		await saveRecipeForUser(thirdId, saved.id, db)
+		const shared = (name: string, rating?: { value: number; count: number }) =>
+			createSharedRecipe(
+				{
+					title: `${tag} ${name}`,
+					sourceUrl: `https://example.com/${tag}-${name}`,
+					ingredients: ['lentils'],
+					steps: ['simmer'],
+					rating,
+				},
+				db,
+			)
+
+		// Near the catalogue's own average, so other tests' order holds.
+		const loved = await shared('loved', { value: 4.6, count: 100_000 })
+		const liked = await shared('liked', { value: 4.5, count: 50_000 })
+		const mine = await shared('mine', { value: 4.6, count: 200_000 })
+
+		if (!loved || !liked || !mine) throw new Error('recipes were not created')
+
 		await saveRecipeForUser(userId, mine.id, db)
-		await saveRecipeForUser(otherId, mine.id, db)
-		await saveRecipeForUser(thirdId, mine.id, db)
-		await db.insert(mealLogs).values(
-			[1, 2, 3].map(() => ({
-				id: crypto.randomUUID(),
-				userId: otherId,
-				recipeId: cooked.id,
-				cookedAt: new Date(),
-			})),
-		)
-		// A cook from long ago no longer counts.
-		await db.insert(mealLogs).values({
-			id: crypto.randomUUID(),
-			userId: otherId,
-			recipeId: quiet.id,
-			cookedAt: new Date('2020-01-01'),
-		})
 
-		const seeded = new Set([quiet.id, saved.id, cooked.id, mine.id])
+		const seeded = new Set([loved.id, liked.id, mine.id])
 
 		// Other tests share the database; only these recipes are compared.
-		const popular = (await popularSharedRecipes(userId, 100, db)).filter(
+		const popular = (await popularSharedRecipes(userId, 10_000, db)).filter(
 			(recipe) => seeded.has(recipe.id),
 		)
 
-		expect(popular.map((recipe) => recipe.id)).toEqual([
-			cooked.id,
-			saved.id,
-			quiet.id,
-		])
+		expect(popular.map((recipe) => recipe.id)).toEqual([loved.id, liked.id])
 		await expect(popularSharedRecipes(userId, 1, db)).resolves.toHaveLength(1)
 	})
 
@@ -842,7 +825,7 @@ describe('shared recipes', () => {
 		).resolves.toMatchObject({ notes: null })
 	})
 
-	test('copies a shared recipe on its first edit and moves the shelf and cooks', async ({
+	test('copies a shared recipe on its first edit and moves the shelf', async ({
 		db,
 	}) => {
 		const userId = await seedUser(db)
@@ -850,12 +833,6 @@ describe('shared recipes', () => {
 		const recipe = await seedShared(db)
 		await saveRecipeForUser(userId, recipe.id, db)
 		await saveRecipeForUser(otherId, recipe.id, db)
-		await db.insert(mealLogs).values({
-			id: crypto.randomUUID(),
-			userId,
-			recipeId: recipe.id,
-			cookedAt: new Date(),
-		})
 
 		const copy = await updateRecipeForUser(
 			userId,
@@ -879,7 +856,6 @@ describe('shared recipes', () => {
 		await expect(getRecipeForUser(userId, copy.id, db)).resolves.toMatchObject({
 			title: 'my dal',
 			ingredients: ['lentils', 'salt', 'lime'],
-			cookCount: 1,
 			owned: true,
 		})
 
@@ -948,13 +924,6 @@ describe('shared recipes', () => {
 		await saveRecipeForUser(userId, recipe.id, db)
 		await saveRecipeForUser(otherId, recipe.id, db)
 
-		await db.insert(mealLogs).values({
-			id: crypto.randomUUID(),
-			userId,
-			recipeId: recipe.id,
-			cookedAt: new Date(),
-		})
-
 		const unlink = (id: string, who: string) =>
 			updateRecipeForUser(
 				who,
@@ -984,7 +953,6 @@ describe('shared recipes', () => {
 		).resolves.toMatchObject({
 			owned: true,
 			ingredients: ['lentils', 'salt'],
-			cookCount: 1,
 		})
 		expect(
 			(await listShelfForUser(userId, db)).recipes.map((item) => item.id),

@@ -54,7 +54,6 @@ const online = vi.hoisted<Online>(() => ({ results: [], recipe: null }))
 vi.mock('@/lib/discover/server', () => ({
 	searchRecipes: () =>
 		Promise.resolve({
-			warming: false,
 			results: online.results.map((recipe) => ({
 				...recipe,
 				saved: false,
@@ -62,10 +61,13 @@ vi.mock('@/lib/discover/server', () => ({
 				ingredientMatches: [],
 			})),
 		}),
-	popularRecipes: () => Promise.resolve({ warming: false, results: [] }),
+	popularRecipes: () => Promise.resolve({ results: [] }),
 }))
 
-vi.mock('@/lib/recipes/server', () => ({
+vi.mock('@/lib/recipes/server', async (importOriginal) => ({
+	// The rest stay real, so a lazy import such as the transfer menu finds its
+	// exports.
+	...(await importOriginal<typeof import('@/lib/recipes/server')>()),
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),

@@ -69,10 +69,8 @@ describe('home', () => {
 		vi.useFakeTimers({ toFake: ['Date'] })
 		vi.setSystemTime(new Date(2026, 10, 12, 9))
 		home.now.mockReset().mockResolvedValue(idle)
-		server.search.mockReset().mockResolvedValue({ warming: false, results: [] })
-		server.popular
-			.mockReset()
-			.mockResolvedValue({ warming: false, results: [] })
+		server.search.mockReset().mockResolvedValue({ results: [] })
+		server.popular.mockReset().mockResolvedValue({ results: [] })
 		server.recipe.mockReset().mockResolvedValue(null)
 		server.save.mockReset().mockResolvedValue(null)
 	})
@@ -196,7 +194,6 @@ describe('home', () => {
 
 	test('starts reading a recipe at the touch, before the tap lands', async () => {
 		server.popular.mockResolvedValue({
-			warming: false,
 			results: [
 				{
 					recipeId: 'dal',
@@ -253,7 +250,6 @@ describe('home', () => {
 
 	test('does not start reading a recipe when its save button is pressed', async () => {
 		server.popular.mockResolvedValue({
-			warming: false,
 			results: [
 				{
 					recipeId: 'dal',
@@ -280,7 +276,6 @@ describe('home', () => {
 
 	test('goes on as the list is scrolled, with no button to press', async () => {
 		server.popular.mockResolvedValue({
-			warming: false,
 			results: Array.from({ length: 30 }, (_, index) => ({
 				recipeId: `popular-${index}`,
 				title: `popular recipe ${index}`,
@@ -308,7 +303,6 @@ describe('home', () => {
 
 	test('stops going on by itself after a while, and asks', async () => {
 		server.popular.mockResolvedValue({
-			warming: false,
 			results: Array.from({ length: 100 }, (_, index) => ({
 				recipeId: `popular-${index}`,
 				title: `popular recipe ${index}`,

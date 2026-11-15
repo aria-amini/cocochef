@@ -2,7 +2,6 @@ import { existsSync } from 'node:fs'
 
 import { describe, expect, it } from 'vite-plus/test'
 
-import catalog from './catalog.json'
 import { recipeSites } from './sites'
 
 describe('recipeSites', () => {
@@ -16,10 +15,6 @@ describe('recipeSites', () => {
 			expect(recipe.source).toContain(host)
 		},
 	)
-
-	it.each(recipeSites)('$name has links in the catalog', ({ id }) => {
-		expect(catalog.some((link) => link.siteId === id)).toBe(true)
-	})
 
 	it.each(recipeSites)('$name has a logo', ({ id }) => {
 		expect(existsSync(`public/import-sites/${id}.png`)).toBe(true)

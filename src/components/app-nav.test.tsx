@@ -31,8 +31,8 @@ vi.mock('@/lib/home/server', () => ({
 }))
 
 vi.mock('@/lib/discover/server', () => ({
-	popularRecipes: async () => ({ warming: false, results: [] }),
-	searchRecipes: async () => ({ warming: false, results: [] }),
+	popularRecipes: async () => ({ results: [] }),
+	searchRecipes: async () => ({ results: [] }),
 }))
 
 vi.mock('@/lib/pantry/server', async (importOriginal) => ({
@@ -75,8 +75,6 @@ const misoButterPasta: Recipe = {
 	notes: null,
 	createdAt: new Date(),
 	finalizedAt: new Date(),
-	cookCount: 0,
-	lastCookedAt: null,
 	forkedFromId: null,
 	savedAt: new Date(),
 }

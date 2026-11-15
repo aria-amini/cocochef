@@ -2,6 +2,16 @@ import { getAuthMocks } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { describe, expect, test, vi } from 'vite-plus/test'
 
+// Signing in lands on home, whose loader asks the server what is going on.
+vi.mock('@/lib/home/server', () => ({
+	homeNow: async () => ({
+		signedIn: true,
+		cooking: null,
+		shopping: null,
+		waiting: 0,
+	}),
+}))
+
 const authMocks = getAuthMocks()
 
 describe('auth forms', () => {

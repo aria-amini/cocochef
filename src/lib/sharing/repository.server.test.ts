@@ -117,8 +117,6 @@ describe('recipe publication boundaries', () => {
 			'Private medical notes',
 			'Private account name',
 			'@example.com',
-			'cookCount',
-			'lastCookedAt',
 			'userId',
 			'token',
 		])

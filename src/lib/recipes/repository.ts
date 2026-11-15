@@ -12,14 +12,12 @@ import {
 	inArray,
 	isNull,
 	isNotNull,
-	max,
 	or,
 	sql,
 } from 'drizzle-orm'
 
 import { type Database, getDb } from '@/db/connection'
 import {
-	mealLogs,
 	recipeIngredients,
 	recipeSteps,
 	recipes,
@@ -61,31 +59,14 @@ function visibleTo(userId: string, database: RecipeDatabase) {
 	)
 }
 
-function cookStatsForUser(database: Database, userId: string) {
-	return database
-		.select({
-			recipeId: mealLogs.recipeId,
-			cookCount: count().as('cook_count'),
-			lastCookedAt: max(mealLogs.cookedAt).as('last_cooked_at'),
-		})
-		.from(mealLogs)
-		.where(eq(mealLogs.userId, userId))
-		.groupBy(mealLogs.recipeId)
-		.as('cook_stats')
-}
-
 // A recipe as one user sees it: the shared content, plus their shelf row (notes,
-// when saved) and how often they cooked it.
+// when saved).
 function recipesForUser(database: Database, userId: string) {
-	const stats = cookStatsForUser(database, userId)
-
 	return database
 		.select({
 			...getColumns(recipes),
 			notes: shelfRecipes.notes,
 			savedAt: shelfRecipes.addedAt,
-			cookCount: sql<number>`coalesce(${stats.cookCount}, 0)`.mapWith(Number),
-			lastCookedAt: stats.lastCookedAt,
 			visibility: recipeShares.visibility,
 		})
 		.from(recipes)
@@ -103,7 +84,6 @@ function recipesForUser(database: Database, userId: string) {
 				eq(recipeShares.userId, userId),
 			),
 		)
-		.leftJoin(stats, eq(stats.recipeId, recipes.id))
 		.$dynamic()
 }
 
@@ -335,21 +315,6 @@ export async function getRecipeForUser(
 		saved: recipe.savedAt !== null,
 		owned: recipe.userId === userId,
 	}
-}
-
-// Which of these pages are already shared recipes.
-export async function sharedRecipeUrls(
-	urls: string[],
-	database: Database = getDb(),
-) {
-	if (urls.length === 0) return []
-
-	const rows = await database
-		.select({ sourceUrl: recipes.sourceUrl })
-		.from(recipes)
-		.where(and(isNull(recipes.userId), inArray(recipes.sourceUrl, urls)))
-
-	return rows.flatMap((row) => row.sourceUrl ?? [])
 }
 
 // Search words: lowercase letters and digits, two or more long, a few at most.
@@ -619,28 +584,13 @@ async function findVisibleRecipes(
 	})
 }
 
-// Shared recipes worth a look, most saved and most cooked lately first, leaving
-// out what this user already keeps.
+// Shared recipes worth a look, the most loved first (stars weighed by how many
+// gave them), leaving out what this user already keeps.
 export async function popularSharedRecipes(
 	userId: string,
 	limit = 12,
 	database: Database = getDb(),
 ) {
-	const saves = database
-		.select({ recipeId: shelfRecipes.recipeId, saves: count().as('saves') })
-		.from(shelfRecipes)
-		.groupBy(shelfRecipes.recipeId)
-		.as('saves')
-
-	const cooks = database
-		.select({ recipeId: mealLogs.recipeId, cooks: count().as('cooks') })
-		.from(mealLogs)
-		.where(gt(mealLogs.cookedAt, sql`now() - interval '30 days'`))
-		.groupBy(mealLogs.recipeId)
-		.as('cooks')
-
-	const score = sql<number>`coalesce(${saves.saves}, 0) + coalesce(${cooks.cooks}, 0)`
-
 	return database
 		.select({
 			id: recipes.id,
@@ -652,8 +602,6 @@ export async function popularSharedRecipes(
 			ratingCount: recipes.ratingCount,
 		})
 		.from(recipes)
-		.leftJoin(saves, eq(saves.recipeId, recipes.id))
-		.leftJoin(cooks, eq(cooks.recipeId, recipes.id))
 		.leftJoin(
 			shelfRecipes,
 			and(
@@ -662,7 +610,7 @@ export async function popularSharedRecipes(
 			),
 		)
 		.where(and(isNull(recipes.userId), isNull(shelfRecipes.id)))
-		.orderBy(desc(score), desc(recipes.createdAt))
+		.orderBy(desc(lovedScore()), desc(recipes.createdAt))
 		.limit(limit)
 }
 
@@ -982,7 +930,7 @@ function sameCategories(a: IngredientCategories, b: IngredientCategories) {
 	)
 }
 
-// The shelf row and cooks follow the user to their copy of a shared recipe.
+// The shelf row follows the user to their copy of a shared recipe.
 async function moveShelfToCopy(
 	database: RecipeDatabase,
 	userId: string,
@@ -999,16 +947,12 @@ async function moveShelfToCopy(
 				eq(shelfRecipes.recipeId, originalId),
 			),
 		)
-	await database
-		.update(mealLogs)
-		.set({ recipeId: copyId })
-		.where(and(eq(mealLogs.userId, userId), eq(mealLogs.recipeId, originalId)))
 }
 
 // Edits land on the user's own recipe. A shared recipe is never changed: the
-// first real edit copies it for them, and their shelf row and cooks move to the
-// copy. Notes are theirs either way and never copy anything. A new or removed
-// source link counts as a change, so it copies a shared recipe too.
+// first real edit copies it for them, and their shelf row moves to the copy.
+// Notes are theirs either way and never copy anything. A new or removed source
+// link counts as a change, so it copies a shared recipe too.
 export async function updateRecipeForUser(
 	userId: string,
 	{

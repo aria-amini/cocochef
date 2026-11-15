@@ -36,7 +36,7 @@ relay on a home connection (`src/lib/import/relay.ts`). Deploys reach it through
 relay. On the VM, `pitchfork start relay` runs it on `127.0.0.1:8790` from one
 checkout, and `tailscale funnel --bg --https=10000 http://127.0.0.1:8790`
 exposes it. The token lives in `~/.config/dutch-oven/import-relay-token`. Never
-route the discovery crawler through it.
+route the recipe seed script (`recipes:seed`) through it.
 
 ## Environment
 

@@ -1,0 +1,1888 @@
+[
+	{
+		"id": "fixture-01",
+		"title": "Easiest-Ever Biscuits",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11334-easiest-ever-biscuits",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Biscuits_8060_mfad0t",
+		"totalMinutes": 40,
+		"commentCount": 673,
+		"rating": {
+			"value": 4.3,
+			"count": 1072
+		},
+		"ingredients": [
+			"425 grams (3 cups) all-purpose flour",
+			"4 teaspoons sugar",
+			"1 tablespoon baking powder",
+			"1/4 teaspoon baking soda",
+			"11/4 teaspoons table salt",
+			"462 grams (2 cups) heavy cream",
+			"2 tablespoons unsalted butter, melted (optional)"
+		],
+		"steps": [
+			"Heat the oven to 450°F and line a baking sheet with parchment. Whisk the flour, sugar, baking powder, baking soda and salt.",
+			"Warm the cream to body temperature, then stir it into the dry mix until a soft, sticky dough forms.",
+			"Scoop the dough into rounds on the sheet, spaced well apart.",
+			"Bake 10 to 12 minutes, until the tops turn light golden. Brush with melted butter if you like."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["north american", "american"],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-02",
+		"title": "Quick Green Chicken Chili",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11116-quick-green-chicken-chili",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/41675-sfs-quickgreenchickenchili-26",
+		"totalMinutes": 40,
+		"commentCount": 125,
+		"rating": {
+			"value": 4.3,
+			"count": 404
+		},
+		"ingredients": [
+			"1 tablespoon vegetable oil",
+			"1 onion, chopped fine",
+			"¾ teaspoon pepper",
+			"½ teaspoon salt",
+			"3 garlic cloves, minced",
+			"2 teaspoons ground cumin",
+			"4 cups chicken broth",
+			"2 (15-ounce) cans cannellini beans, rinsed",
+			"1 cup jarred green salsa",
+			"1 (2½-pound) rotisserie chicken, skin and bones discarded, meat shredded into bite-size pieces (3 cups)",
+			"½ cup chopped fresh cilantro"
+		],
+		"steps": [
+			"Soften the onion in oil with salt and pepper in a large pot, then add the garlic and cumin for a minute.",
+			"Add the broth, beans and green salsa, bring to a boil, then simmer about 10 minutes.",
+			"Mash some of the beans against the pot to thicken the chili.",
+			"Stir in the shredded chicken and cilantro and heat through."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["north american", "american", "latin american", "mexican"],
+			"flavors": ["salsa verde"],
+			"proteins": ["chicken"],
+			"forms": ["bowl", "soup & stew"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-03",
+		"title": "Braised New Mexico–Style Pork in Red Chile Sauce (Carne Adovada)",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11172-braised-new-mexico-style-pork-in-red-chile-sauce-carne-adovada",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/41840-sfs-braised-new-mexico-style-pork-red-chile-sauce-58",
+		"totalMinutes": 285,
+		"commentCount": 379,
+		"rating": {
+			"value": 4.3,
+			"count": 276
+		},
+		"ingredients": [
+			"1 (3½- to 4-pound) boneless pork butt roast, trimmed and cut into 1½-inch pieces",
+			"1 tablespoon plus 1 teaspoon kosher salt, divided",
+			"4 ounces dried New Mexico chiles, wiped clean, stemmed, seeded, and torn into 1-inch pieces",
+			"4 cups boiling water",
+			"2 tablespoons honey",
+			"2 tablespoons distilled white vinegar",
+			"5 garlic cloves, peeled",
+			"2 teaspoons dried Mexican oregano",
+			"2 teaspoons ground cumin",
+			"½ teaspoon cayenne pepper",
+			"⅛ teaspoon ground cloves",
+			"Lime wedges"
+		],
+		"steps": [
+			"Salt the pork pieces and chill them for an hour.",
+			"Soak the torn chiles in boiling water until soft, then blend them with some soaking liquid, the honey, vinegar, garlic and spices into a smooth sauce.",
+			"Coat the pork in the sauce in a Dutch oven, bring to a boil, cover and braise in a 325°F oven until very tender, about 2½ hours.",
+			"Stir the pork and sauce back together, let it stand a few minutes, and serve with lime wedges."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["north american", "american", "latin american", "mexican"],
+			"flavors": ["adobo"],
+			"proteins": ["pork"],
+			"forms": ["soup & stew"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-04",
+		"title": "Roast Whole Turkey Breast with Gravy",
+		"sourceUrl": "https://americastestkitchen.com/recipes/10247-roast-whole-turkey-breast-with-gravy",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/37760_sfs-skillet-roasted-whole-turkey-breast-gravy-39",
+		"totalMinutes": 1590,
+		"commentCount": 234,
+		"rating": {
+			"value": 4.3,
+			"count": 247
+		},
+		"ingredients": [
+			"1 (5- to 7-pound) bone-in turkey breast",
+			"Kosher salt and pepper",
+			"2 tablespoons unsalted butter, melted",
+			"2 teaspoons extra-virgin olive oil, plus extra as needed",
+			"1 small onion, chopped",
+			"1 small carrot, chopped",
+			"1 small celery rib, chopped",
+			"5 cups water",
+			"2 sprigs fresh thyme",
+			"1 bay leaf",
+			"1/4 cup all-purpose flour",
+			"1/4 cup dry white wine"
+		],
+		"steps": [
+			"Cut the back off the turkey breast to use for gravy, rub butter, salt and pepper under and over the skin, and let it rest.",
+			"Roast at 325°F until the thickest part reaches about 130°F.",
+			"Meanwhile, brown the back with the vegetables, add water and herbs, and simmer into a quick stock.",
+			"Turn the oven to 500°F and roast until the skin is deep brown and the meat reaches 160°F, then rest it.",
+			"Make a roux with the pan fat and flour, whisk in the wine and stock, and simmer into gravy."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["north american", "american"],
+			"flavors": [],
+			"proteins": ["turkey"],
+			"forms": ["sheet pan & roast"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-05",
+		"title": "Fish and Chips",
+		"sourceUrl": "https://americastestkitchen.com/recipes/10039-fish-and-chips",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/37243_sfs-fish-and-chips-35",
+		"totalMinutes": 90,
+		"commentCount": 176,
+		"rating": {
+			"value": 4.3,
+			"count": 215
+		},
+		"ingredients": [
+			"1 cup (5 ounces/142 grams) all-purpose flour",
+			"1 cup (4 ounces/113 grams) cornstarch",
+			"Salt and pepper",
+			"1 teaspoon baking powder",
+			"1 1/2 cups beer",
+			"1 (2-pound) skinless cod fillet, about 1 inch thick",
+			"2 1/2 pounds large Yukon Gold potatoes, unpeeled",
+			"8 cups peanut or vegetable oil",
+			"Lemon wedges"
+		],
+		"steps": [
+			"Whisk the flour, cornstarch, salt and baking powder with the beer into a smooth batter, and chill it.",
+			"Cut the cod into eight pieces and the potatoes into thin planks, then into fries.",
+			"Start the fries in cold oil and cook until the oil boils and they turn golden, then drain.",
+			"Heat the oil to 375°F, dip the fish in batter and fry until deep golden, about 4 minutes a side.",
+			"Fry the potatoes once more briefly until crisp, and serve with lemon."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["western european", "british"],
+			"flavors": [],
+			"proteins": ["fish"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-06",
+		"title": "Grilled Jerk Chicken",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11861-grilled-jerk-chicken",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Jerk-Chicken_13_klzwgm",
+		"totalMinutes": 150,
+		"commentCount": 57,
+		"rating": {
+			"value": 4.4,
+			"count": 148
+		},
+		"ingredients": [
+			"4 scallions",
+			"1/4 cup vegetable oil",
+			"1/4 cup soy sauce",
+			"2 tablespoons cider vinegar",
+			"2 tablespoons packed brown sugar",
+			"1-2 habanero chiles, stemmed",
+			"10 sprigs fresh thyme",
+			"5 garlic cloves, peeled",
+			"2 1/2 teaspoons ground allspice",
+			"1 1/2 teaspoons table salt",
+			"1/2 teaspoon ground cinnamon",
+			"1/2 teaspoon ground ginger",
+			"3 pounds bone-in chicken pieces (split breasts cut in half crosswise, drumsticks, and/or thighs), trimmed",
+			"Lime wedge"
+		],
+		"steps": [
+			"Blend the scallions, oil, soy sauce, vinegar, sugar, habanero, thyme, garlic and spices into a marinade, and set some aside.",
+			"Marinate the chicken for at least an hour.",
+			"Cook the chicken on the cooler side of a hot grill, covered, until nearly done.",
+			"Brush with the reserved marinade and char it skin side down over the hot side, then rest and serve with lime."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["caribbean", "jamaican"],
+			"flavors": ["jerk"],
+			"proteins": ["chicken"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-07",
+		"title": "Hot and Sour Soup",
+		"sourceUrl": "https://americastestkitchen.com/recipes/2803-hot-and-sour-soup",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Hot_and_Sour_Soup_113_dzk60g",
+		"totalMinutes": 60,
+		"commentCount": 127,
+		"rating": {
+			"value": 4.4,
+			"count": 259
+		},
+		"ingredients": [
+			"7 ounces extra-firm tofu, drained",
+			"4 tablespoons soy sauce",
+			"1 teaspoon toasted sesame oil",
+			"3 tablespoons cornstarch, plus an additional 1 1/2 teaspoons",
+			"1 boneless, center-cut, pork loin chop (1/2 inch thick, about 6 ounces), trimmed of fat and cut into 1 inch by 1/8-inch matchsticks",
+			"3 tablespoons cold water, plus 1 additional teaspoon",
+			"1 large egg",
+			"6 cups low-sodium chicken broth",
+			"1 cup bamboo shoots (from one 5-ounce can), sliced lengthwise into 1/8-inch-thick strips",
+			"4 ounces fresh shiitake mushrooms, stems removed, caps sliced 1/4 inch thick (about 1 cup)",
+			"5 tablespoons Chinese black vinegar or 1 tablespoon red wine vinegar plus 1 tablespoon balsamic vinegar (see note below)",
+			"2 teaspoons chili oil (see note below)",
+			"1 teaspoon ground white pepper",
+			"3 medium scallions, sliced thin"
+		],
+		"steps": [
+			"Press the tofu, cut it into small cubes, and toss it with soy sauce and sesame oil. Coat the pork strips in soy sauce and a little cornstarch.",
+			"Simmer the bamboo shoots and mushrooms in the broth, then add the tofu and pork until cooked.",
+			"Thicken the soup with cornstarch slurry, then stir in the vinegar, chili oil and white pepper.",
+			"Drizzle in beaten egg in thin streams without stirring, let it set a minute, and top with scallions."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["east asian", "chinese"],
+			"flavors": [],
+			"proteins": ["pork chops"],
+			"forms": ["bowl", "soup & stew"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-08",
+		"title": "Faster Chinese-Style Barbecued Spareribs",
+		"sourceUrl": "https://americastestkitchen.com/recipes/10314-faster-chinese-style-barbecued-spareribs",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/38632_sfs-chinese-style-bbq-spareribs-31",
+		"totalMinutes": 165,
+		"commentCount": 223,
+		"rating": {
+			"value": 4.4,
+			"count": 197
+		},
+		"ingredients": [
+			"1 (6-inch) piece fresh ginger, peeled and sliced thin",
+			"8 garlic cloves, peeled",
+			"1 cup honey",
+			"3/4 cup hoisin sauce",
+			"3/4 cup soy sauce",
+			"1/2 cup Chinese rice wine or dry sherry",
+			"2 teaspoons five-spice powder",
+			"1 teaspoon red food coloring (optional)",
+			"1 teaspoon ground white pepper",
+			"5 - 6 pounds pork spareribs (2 racks, 2 1/2- to 3-pounds each), preferably St. Louis-style, cut into individual ribs",
+			"2 tablespoons toasted sesame oil"
+		],
+		"steps": [
+			"Simmer the ribs with chopped ginger and garlic, honey, hoisin, soy sauce, rice wine, five-spice and white pepper until tender.",
+			"Lift out the ribs, strain the braising liquid and boil it with sesame oil into a thick glaze.",
+			"Toss the ribs in the glaze and roast them on a rack at 425°F, turning once, until lacquered and browned."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["east asian", "chinese", "north american", "american"],
+			"flavors": ["barbecue"],
+			"proteins": ["ribs"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-09",
+		"title": "Marinated Velveted Chicken for Stir-Fry",
+		"sourceUrl": "https://americastestkitchen.com/recipes/1436-marinated-velveted-chicken-for-stir-fry",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/1008_chickenstirfry-lg-article",
+		"totalMinutes": 40,
+		"commentCount": 28,
+		"rating": {
+			"value": 4.3,
+			"count": 164
+		},
+		"ingredients": [
+			"1/4 cup soy sauce",
+			"1/4 cup dry sherry",
+			"1 cup water",
+			"1 pound boneless, skinless chicken breasts trimmed of excess fat and prepared according to illustrations 1 through 3",
+			"2 tablespoons toasted sesame oil",
+			"1 tablespoon cornstarch",
+			"1 tablespoon unbleached all-purpose flour"
+		],
+		"steps": [
+			"Marinate thin strips of chicken breast in soy sauce, sherry and water for at least 20 minutes.",
+			"Drain well, then toss the chicken in a paste of sesame oil, cornstarch and flour so it is lightly coated and ready to stir-fry."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["east asian", "chinese"],
+			"flavors": [],
+			"proteins": ["chicken"],
+			"forms": ["stir fry"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-10",
+		"title": "Easy No-Knead Focaccia",
+		"sourceUrl": "https://bonappetit.com/recipe/easy-no-knead-focaccia",
+		"imageUrl": "https://assets.bonappetit.com/photos/5e5047603995a60008c8d42d/16:9/w_8320,h_4680,c_limit/BBaking_WEEK3_Focaccia_Recipe16x9.jpg",
+		"rating": {
+			"value": 4.7,
+			"count": 1514
+		},
+		"ingredients": [
+			"1 (¼-oz.) envelope active dry yeast (about 2¼ tsp.)",
+			"2 tsp. honey",
+			"5 cups (625 g) all-purpose flour, preferably King Arthur brand",
+			"1 Tbsp. plus 2 tsp. Diamond Crystal or 1 Tbsp. Morton kosher salt",
+			"¼ cup plus 2 Tbsp. extra-virgin olive oil, divided, plus more for your hands",
+			"4 Tbsp. unsalted butter, plus more for pan",
+			"Flaky sea salt",
+			"2–4 garlic cloves"
+		],
+		"steps": [
+			"Mix yeast, honey and lukewarm water, then add the flour and salt and stir into a shaggy dough.",
+			"Turn the dough in olive oil in a large bowl, cover, and let it rise in the fridge overnight.",
+			"Press it into a buttered and oiled pan, let it rise until puffy, then dimple it and sprinkle with flaky salt.",
+			"Bake at 450°F until golden, then brush with warm garlic butter and slice."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": [
+				"southern european",
+				"italian",
+				"western european",
+				"french"
+			],
+			"flavors": ["garlic butter"],
+			"proteins": [],
+			"forms": ["sheet pan & roast"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-11",
+		"title": "Shrimp Scampi Pasta",
+		"sourceUrl": "https://epicurious.com/recipes/food/views/shrimp-scampi-pasta",
+		"imageUrl": "https://assets.epicurious.com/photos/678acdfa5c167ffc8b51d5ee/16:9/w_3488,h_1962,c_limit/20250108_Web_01_Shrimp%20Scampi%20Pasta_051_FINAL.jpg",
+		"rating": {
+			"value": 4.6,
+			"count": 638
+		},
+		"ingredients": [
+			"¼ cup extra-virgin olive oil",
+			"1 lb. peeled and deveined large shrimp (raw; 20–25 per lb.)",
+			"4 large garlic cloves, finely chopped or grated",
+			"½ tsp. crushed red pepper flakes",
+			"1 cup dry white wine",
+			"1 tsp. Diamond Crystal or ½ tsp. Morton kosher salt, plus more",
+			"½ tsp. freshly ground black pepper",
+			"5 Tbsp. unsalted butter",
+			"12 oz. dried spaghetti",
+			"½ cup chopped fresh flat-leaf parsley leaves"
+		],
+		"steps": [
+			"Bring a large pot of salted water to a boil.",
+			"Cook the shrimp quickly in olive oil, then add the garlic and pepper flakes, then the wine, salt and pepper, and simmer to reduce.",
+			"Cook the spaghetti until al dente, then toss it with the shrimp, butter, parsley and a splash of pasta water until glossy."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": [
+				"southern european",
+				"italian",
+				"western european",
+				"french"
+			],
+			"flavors": ["garlic butter"],
+			"proteins": ["shrimp"],
+			"forms": ["pasta", "noodles"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-12",
+		"title": "Creamy Lemon Pasta (Pasta al Limone, 15 Minutes)",
+		"sourceUrl": "https://bonappetit.com/recipe/pasta-al-limone",
+		"imageUrl": "https://assets.bonappetit.com/photos/5b9a901947aaaf7cd9ea90f2/16:9/w_4992,h_2808,c_limit/ba-recipe-pasta-al-limone.jpg",
+		"rating": {
+			"value": 4.7,
+			"count": 419
+		},
+		"ingredients": [
+			"1 lemon",
+			"12 oz. spaghetti or other long pasta",
+			"Kosher salt",
+			"¾ cup heavy cream",
+			"6 Tbsp. unsalted butter",
+			"3 oz. finely grated Parmesan (about ¾ cup)",
+			"Freshly ground black pepper"
+		],
+		"steps": [
+			"Peel a few strips of lemon zest for garnish and finely grate the rest.",
+			"Cook the spaghetti in well-salted water until just short of al dente.",
+			"Warm the cream with the grated zest, then whisk in the butter.",
+			"Add pasta water and the spaghetti to the sauce, toss with Parmesan and lemon juice until creamy, and finish with pepper and the zest strips."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southern european", "italian", "greek"],
+			"flavors": ["lemon herb"],
+			"proteins": ["dairy"],
+			"forms": ["pasta", "noodles"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-13",
+		"title": "Make-Ahead Lentil Salad",
+		"sourceUrl": "https://bonappetit.com/recipe/make-ahead-lentil-salad",
+		"imageUrl": "https://assets.bonappetit.com/photos/65b814766190271c9c847c20/16:9/w_7632,h_4293,c_limit/20240117-BA56-WEB-0224.jpg",
+		"rating": {
+			"value": 4.8,
+			"count": 365
+		},
+		"ingredients": [
+			"1 large bunch Tuscan kale (about 10 oz.)",
+			"Kosher salt",
+			"½ cup raw almonds",
+			"3 scallions",
+			"4 garlic cloves",
+			"1 lemon",
+			"½ cup extra-virgin olive oil",
+			"1½ cups black beluga or French green lentils",
+			"1 Tbsp. cumin seeds",
+			"½ tsp. crushed red pepper flakes",
+			"5 oz. feta",
+			"1 cup Castelvetrano olives"
+		],
+		"steps": [
+			"Slice the kale thinly and massage it with salt and lemon.",
+			"Simmer the lentils in salted water until tender but still firm.",
+			"Gently fry the almonds, scallion whites, garlic, cumin and pepper flakes in olive oil, then strain, keeping the oil for dressing.",
+			"Toss the lentils with the kale, feta, smashed olives, the spiced oil and half the crunchy almond mix, and top with the rest."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southern european", "greek"],
+			"flavors": ["lemon herb"],
+			"proteins": ["beans & lentils"],
+			"forms": ["bowl", "salad"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-14",
+		"title": "Indian-Style Basmati Rice",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11521-indian-style-basmati-rice",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/44210-sfs-indian-style-basmati-rice-5",
+		"totalMinutes": 50,
+		"commentCount": 51,
+		"rating": {
+			"value": 4.4,
+			"count": 236
+		},
+		"ingredients": [
+			"1 1/2 cups basmati rice",
+			"3 tablespoons unsalted butter",
+			"1 teaspoon cumin seeds",
+			"3 green cardamom pods, lightly crushed",
+			"3 whole cloves",
+			"2¼ cups water",
+			"1 cinnamon stick",
+			"1 bay leaf",
+			"1 teaspoon table salt"
+		],
+		"steps": [
+			"Rinse the rice until the water runs clear.",
+			"Toast the cumin, cardamom and cloves in butter, then stir in the rice until coated.",
+			"Add water, cinnamon, bay leaf and salt, bring to a boil, cover and cook on low about 17 minutes. Rest, covered, then fluff."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["south asian", "indian"],
+			"flavors": [],
+			"proteins": [],
+			"forms": ["rice"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-15",
+		"title": "Classic Chicken Curry",
+		"sourceUrl": "https://americastestkitchen.com/recipes/9111-classic-chicken-curry",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Classic_Chicken_Curry-58_ue2o4r",
+		"totalMinutes": 75,
+		"commentCount": 38,
+		"rating": {
+			"value": 4.4,
+			"count": 125
+		},
+		"ingredients": [
+			"3 tablespoons unsalted butter",
+			"2 tablespoons curry powder",
+			"2 onions, chopped",
+			"1 jalapeño chile, stemmed, seeded, and minced",
+			"Salt and pepper",
+			"3 garlic cloves, minced",
+			"1 tablespoon minced fresh ginger",
+			"2 (10- to 12-ounce) bone-in split chicken breasts, trimmed",
+			"1 1/2 cups water",
+			"8 ounces Yukon Gold potatoes, peeled and cut into 1/2-inch chunks",
+			"1/2 head cauliflower (1 pound), cored and cut into 1-inch florets",
+			"1 cup frozen peas",
+			"1/4 cup minced fresh cilantro",
+			"3/4 cup plain whole-milk yogurt"
+		],
+		"steps": [
+			"Bloom the curry powder in butter, then soften the onions and jalapeño with salt and pepper. Add the garlic and ginger.",
+			"Add the chicken and water, cover and simmer until the chicken is cooked, then shred it.",
+			"Simmer the potatoes, then the cauliflower, in the curry until tender.",
+			"Stir in the peas, cilantro and shredded chicken, then the yogurt off the heat."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["south asian", "indian"],
+			"flavors": ["masala"],
+			"proteins": ["chicken"],
+			"forms": ["bowl", "curry"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-16",
+		"title": "Tandoori Chicken",
+		"sourceUrl": "https://americastestkitchen.com/recipes/4590-tandoori-chicken",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/32799_sfs-tandoori-chicken-081",
+		"totalMinutes": 90,
+		"commentCount": 56,
+		"rating": {
+			"value": 4.4,
+			"count": 102
+		},
+		"ingredients": [
+			"2 tablespoons vegetable oil",
+			"6 medium garlic cloves, minced or pressed through garlic press (about 2 tablespoons)",
+			"2 tablespoons grated fresh ginger",
+			"1 tablespoon garam masala (see note)",
+			"2 teaspoons ground cumin",
+			"2 teaspoons chili powder",
+			"1 cup plain whole-milk yogurt (see note)",
+			"4 tablespoons juice from 2 limes, plus 1 lime, cut into wedges",
+			"2 teaspoons table salt",
+			"3 pounds bone-in, skin-on chicken parts (breasts, thighs, and drumsticks, or a mix, with breasts cut in half), trimmed of excess fat and skin removed"
+		],
+		"steps": [
+			"Cook the garlic and ginger in oil, then add the garam masala, cumin and chili powder.",
+			"Mix half the spice paste into the yogurt with lime juice; rub the rest, with salt and lime, into scored, skinless chicken.",
+			"Coat the chicken in the yogurt and bake at 325°F until almost cooked through.",
+			"Broil until charred in spots, and serve with lime wedges."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["south asian", "indian"],
+			"flavors": ["tandoori"],
+			"proteins": ["chicken"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-17",
+		"title": "Lighthouse Inn Potatoes",
+		"sourceUrl": "https://americastestkitchen.com/recipes/9303-lighthouse-inn-potatoes",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Lighthouse_Inn_Potatoes-13_uszmmd",
+		"totalMinutes": 75,
+		"commentCount": 337,
+		"rating": {
+			"value": 4.3,
+			"count": 500
+		},
+		"ingredients": [
+			"2 ounces Parmesan cheese, grated (1 cup)",
+			"1 cup panko bread crumbs",
+			"4 tablespoons unsalted butter, melted, plus 6 tablespoons cut into 6 pieces",
+			"Salt and pepper",
+			"2 1/2 pounds russet potatoes, peeled and cut into 1-inch chunks",
+			"3 cups light cream",
+			"1/8 teaspoon baking soda"
+		],
+		"steps": [
+			"Mix the Parmesan, panko and melted butter for the topping.",
+			"Simmer the potatoes in cream with baking soda, salt and pepper until tender.",
+			"Stir in the remaining cream and butter, spread it in a baking dish, and cover with the topping.",
+			"Bake at 375°F until bubbling and golden."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": [
+				"north american",
+				"american",
+				"southern european",
+				"italian"
+			],
+			"flavors": ["parmesan"],
+			"proteins": ["dairy"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-18",
+		"title": "Burst Cherry Tomato Pasta",
+		"sourceUrl": "https://epicurious.com/recipes/food/views/pasta-with-15-minute-burst-cherry-tomato-sauce-56390060",
+		"imageUrl": "https://assets.epicurious.com/photos/55f72d733c346243461d496e/16:9/w_3759,h_2114,c_limit/09112015_15minute_pastasauce_tomato.jpg",
+		"rating": {
+			"value": 4.6,
+			"count": 285
+		},
+		"ingredients": [
+			"1 lb. pasta",
+			"1 tsp. Diamond Crystal or ½ tsp. plus ⅛ tsp. Morton kosher salt, plus more for pasta pot",
+			"½ cup olive oil",
+			"2 large garlic cloves, finely chopped",
+			"3 pints cherry tomatoes",
+			"½ tsp. freshly ground black pepper",
+			"Pinch of sugar",
+			"1 cup coarsely chopped fresh basil",
+			"Freshly grated Parmesan (for serving)"
+		],
+		"steps": [
+			"Cook the pasta until al dente, keeping some of its water.",
+			"Warm the olive oil with the garlic, then add the cherry tomatoes, salt, pepper and a pinch of sugar, and cook until they burst into a sauce.",
+			"Toss the pasta with the sauce, loosen it with pasta water, and fold in the basil. Serve with Parmesan."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southern european", "italian"],
+			"flavors": [],
+			"proteins": [],
+			"forms": ["bowl", "pasta", "noodles"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-19",
+		"title": "Sautéed Tilapia with Chive-Lemon Miso Butter",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11307-sauteed-tilapia-with-chive-lemon-miso-butter",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/43145-sfs-sauteed-tilapia-miso-butter-chives-lemon-for-two-17",
+		"totalMinutes": 45,
+		"commentCount": 85,
+		"rating": {
+			"value": 4.3,
+			"count": 258
+		},
+		"ingredients": [
+			"4 (5- to 6-ounce) skinless tilapia fillets",
+			"1 teaspoon kosher salt",
+			"2 tablespoon vegetable oil",
+			"2 tablespoon white miso",
+			"1 teaspoon grated lemon zest plus 2 teaspoon juice",
+			"1/8 teaspoon pepper",
+			"4 tablespoons unsalted butter, softened",
+			"2 tablespoon minced fresh chives"
+		],
+		"steps": [
+			"Salt the tilapia and let it sit 15 minutes.",
+			"Mash the miso with lemon zest and juice, pepper, softened butter and chives.",
+			"Split each fillet into a thick and a thin half and pat dry.",
+			"Sear the thick halves, then the thin halves, in very hot oil until golden. Top with the miso butter."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["east asian", "japanese"],
+			"flavors": ["miso"],
+			"proteins": ["fish"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-20",
+		"title": "Stir-Fried Udon Noodles With Pork and Scallions",
+		"sourceUrl": "https://bonappetit.com/recipe/stir-fried-udon-with-pork",
+		"imageUrl": "https://assets.bonappetit.com/photos/58c2c2bcb1bf59134d606c65/16:9/w_3839,h_2160,c_limit/0317-ba-basics-stir-fried-udon-15.jpg",
+		"rating": {
+			"value": 4.7,
+			"count": 230
+		},
+		"ingredients": [
+			"2 tablespoons vegetable oil, divided",
+			"4 cups very coarsely chopped green cabbage (from about ¼ medium head)",
+			"2 7-ounce packages instant udon noodles, flavor packets discarded",
+			"2 teaspoons toasted sesame oil",
+			"8 ounces ground pork",
+			"5 scallions, white and pale-green parts coarsely chopped, dark-green parts thinly sliced",
+			"2 teaspoons finely grated fresh ginger (from a 1-inch knob)",
+			"1 teaspoon crushed red pepper flakes",
+			"⅓ cup mirin",
+			"⅓ cup soy sauce",
+			"1 tablespoon toasted sesame seeds, plus more for serving"
+		],
+		"steps": [
+			"Brown the cabbage in a hot skillet and set it aside.",
+			"Loosen the udon in boiling water, drain and toss with sesame oil.",
+			"Brown the pork, add the scallion whites, ginger and pepper flakes, then the mirin and soy sauce.",
+			"Toss in the noodles, cabbage and sesame seeds, and top with the scallion greens."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["east asian", "japanese"],
+			"flavors": [],
+			"proteins": ["ground pork"],
+			"forms": ["bowl", "noodles", "stir fry"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-21",
+		"title": "Mezzi Rigatoni with Spicy Gochujang Tomato Sauce",
+		"sourceUrl": "https://americastestkitchen.com/recipes/16975-mezzi-rigatoni-with-spicy-gochujang-tomato-sauce",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Mezze_Rigatoni_with_Spicy_Gochujang_Tomato_Sauce_15072_jg08pu",
+		"totalMinutes": 45,
+		"commentCount": 68,
+		"rating": {
+			"value": 4.3,
+			"count": 246
+		},
+		"ingredients": [
+			"1 pound mezzi rigatoni or rigatoni",
+			"½ teaspoon table salt, plus salt for cooking pasta",
+			"5 tablespoons unsalted butter, divided",
+			"2 shallots, minced",
+			"3 garlic cloves, minced, divided",
+			"3 tablespoons gochujang",
+			"1 tablespoon tomato paste",
+			"1 cup passata",
+			"½ cup heavy cream",
+			"⅓ cup panko bread crumbs",
+			"1 tablespoon chopped fresh chives",
+			"Grated or shaved Parmesan cheese"
+		],
+		"steps": [
+			"Cook the pasta until al dente, keeping some water.",
+			"Soften the shallots and most of the garlic in butter, stir in the gochujang and tomato paste, then add the passata and cream and simmer.",
+			"Toast the panko in butter with the last of the garlic.",
+			"Toss the pasta with the sauce and some pasta water, and finish with the crumbs, chives and Parmesan."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["east asian", "korean"],
+			"flavors": ["gochujang"],
+			"proteins": [],
+			"forms": ["pasta", "noodles"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-22",
+		"title": "Gochujang Chicken Tenderloins with Kimchi Coleslaw",
+		"sourceUrl": "https://americastestkitchen.com/recipes/16802-gochujang-chicken-tenderloins-with-kimchi-coleslaw",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_GochujangChickenTenderloinsKimchiColeslaw-29_lfthft",
+		"totalMinutes": 30,
+		"commentCount": 31,
+		"rating": {
+			"value": 4.3,
+			"count": 161
+		},
+		"ingredients": [
+			"1 (14-ounce) bag coleslaw mix",
+			"1 cup cabbage kimchi, drained and chopped",
+			"6 tablespoons mayonnaise",
+			"¼ cup sugar, divided",
+			"1¼ teaspoons table salt, divided",
+			"3 tablespoons gochujang",
+			"1 tablespoon soy sauce",
+			"1 tablespoon toasted sesame oil",
+			"1 garlic clove, minced",
+			"1½ pounds chicken tenderloins, trimmed",
+			"1 tablespoon vegetable oil"
+		],
+		"steps": [
+			"Toss the coleslaw mix with the kimchi, mayonnaise, a little sugar and salt.",
+			"Whisk the gochujang, soy sauce, sesame oil, garlic and remaining sugar into a glaze.",
+			"Sear the salted tenders in oil until browned and cooked through, then set aside.",
+			"Bubble the glaze in the pan, return the chicken and toss until glossy. Serve with the slaw."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["east asian", "korean"],
+			"flavors": ["gochujang"],
+			"proteins": ["chicken"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-23",
+		"title": "Easy Fish Tacos",
+		"sourceUrl": "https://epicurious.com/recipes/food/views/fish-tacos",
+		"imageUrl": "https://assets.epicurious.com/photos/65b177d8e2d2a451cf8cc6ef/16:9/w_6648,h_3740,c_limit/Fish-Tacos_RECIPE.jpg",
+		"rating": {
+			"value": 4.7,
+			"count": 204
+		},
+		"ingredients": [
+			"1 medium red onion, thinly sliced",
+			"1½ cups red wine vinegar",
+			"¼ cup extra-virgin olive oil",
+			"1½ tsp. ancho chile powder",
+			"1½ tsp. dried oregano",
+			"½ tsp. ground cumin",
+			"¼ cup lightly packed fresh cilantro leaves, chopped, plus more for garnish",
+			"1 jalapeño, stemmed, seeded if desired, and finely chopped",
+			"1 lb. flaky white fish fillets (such as mahi-mahi or cod), cut into 4 pieces",
+			"Kosher salt",
+			"8 fresh corn tortillas",
+			"Crema mexicana, fresh salsa, hot sauce, and lime wedges for garnish"
+		],
+		"steps": [
+			"Quick-pickle the sliced red onion in red wine vinegar.",
+			"Marinate the fish in olive oil, ancho, oregano, cumin, cilantro and jalapeño.",
+			"Cook the fish in a hot nonstick pan until it flakes.",
+			"Warm the tortillas and fill them with fish, pickled onion, crema, salsa and lime."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["latin american", "mexican"],
+			"flavors": [],
+			"proteins": ["white fish"],
+			"forms": ["tacos"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-24",
+		"title": "Hummus Bowls with Roasted Chicken and Cauliflower",
+		"sourceUrl": "https://americastestkitchen.com/recipes/16801-hummus-bowls-with-roasted-chicken-and-cauliflower",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_HummusBowlsSpicedChickenCauliflower-14_dkwtyd",
+		"totalMinutes": 45,
+		"commentCount": 48,
+		"rating": {
+			"value": 4.4,
+			"count": 226
+		},
+		"ingredients": [
+			"1½ pounds boneless, skinless chicken thighs, trimmed",
+			"6 tablespoons extra-virgin olive oil, divided, plus extra for drizzling",
+			"1 tablespoon baharat",
+			"2 teaspoons table salt, divided",
+			"1¼ pounds cauliflower florets, cut into 2-inch pieces",
+			"2 cups thinly sliced red cabbage",
+			"1 tablespoon lemon juice",
+			"½ English cucumber, cut into ½-inch dice",
+			"2 plum tomatoes, cut into ½-inch dice",
+			"2 cups hummus",
+			"¼ cup chopped fresh mint"
+		],
+		"steps": [
+			"Toss the chicken with olive oil, baharat and salt, and the cauliflower separately with oil and salt, then broil both on a sheet until charred and cooked.",
+			"Dress the cabbage with lemon, salt and oil, and toss the cucumber and tomatoes together.",
+			"Spread hummus in bowls and top with the sliced chicken, cauliflower and salads, then mint and a drizzle of oil."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["middle eastern"],
+			"flavors": ["tahini"],
+			"proteins": ["chicken"],
+			"forms": ["bowl", "salad", "sheet pan & roast"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-25",
+		"title": "Pita Bread",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11188-pita-bread",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/41874-sfs-pita-bread-92",
+		"totalMinutes": 1080,
+		"commentCount": 389,
+		"rating": {
+			"value": 4.3,
+			"count": 179
+		},
+		"ingredients": [
+			"2⅔ cups (14⅔ ounces/416 grams) King Arthur bread flour",
+			"2¼ teaspoons instant or rapid-rise yeast",
+			"1⅓ cups (10½ ounces) ice water",
+			"¼ cup extra-virgin olive oil",
+			"4 teaspoons honey",
+			"1¼ teaspoons salt",
+			"Vegetable oil spray"
+		],
+		"steps": [
+			"Mix the bread flour, yeast, ice water, oil and honey, then add the salt and knead until smooth and sticky.",
+			"Divide, shape into balls and let the dough rest in the fridge overnight.",
+			"Heat a baking stone at 425°F for an hour.",
+			"Roll each ball into a thin round and bake on the stone until it puffs, a few minutes. Keep warm under a towel."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["middle eastern"],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-26",
+		"title": "Spiced Chicken Thighs with Dates and Carrots",
+		"sourceUrl": "https://americastestkitchen.com/recipes/17134-spiced-chicken-thighs-with-dates-and-carrots",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_SpicedChickenThighsDatesCarrots-56_nvx8kx",
+		"totalMinutes": 45,
+		"commentCount": 57,
+		"rating": {
+			"value": 4.4,
+			"count": 135
+		},
+		"ingredients": [
+			"8 (5- to 7-ounce) bone-in chicken thighs, trimmed",
+			"1 tablespoon ras el hanout",
+			"1½ teaspoons table salt, divided",
+			"1 pound carrots, peeled, quartered lengthwise, and cut into 3-inch pieces",
+			"4 pitted Medjool dates, chopped coarse",
+			"¼ teaspoon pepper",
+			"1 shallot, chopped fine",
+			"1 teaspoon all-purpose flour",
+			"1 cup chicken broth",
+			"1 tablespoon lemon juice",
+			"1 tablespoon unsalted butter"
+		],
+		"steps": [
+			"Season the chicken thighs with ras el hanout and salt, and brown them skin side down in an oven-safe skillet.",
+			"Toss the carrots and dates around the chicken, then roast at 450°F until the chicken is cooked.",
+			"Soften the shallot in a little of the fat, stir in the flour, then the broth, and reduce. Finish with lemon juice and butter, and spoon over the chicken."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["north african", "moroccan"],
+			"flavors": [],
+			"proteins": ["chicken"],
+			"forms": ["soup & stew", "sheet pan & roast"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-27",
+		"title": "Kuku Sabzi",
+		"sourceUrl": "https://bonappetit.com/recipe/kuku-sabzi",
+		"imageUrl": "https://assets.bonappetit.com/photos/589cc2508eefeee4031531fc/16:9/w_3775,h_2123,c_limit/persian-herb-and-leek-frittata.jpg",
+		"rating": {
+			"value": 4.7,
+			"count": 22
+		},
+		"ingredients": [
+			"5 Tbsp. vegetable oil, divided",
+			"1 medium onion, finely chopped",
+			"1 medium leek, white and pale-green parts only, finely chopped",
+			"5 large eggs",
+			"1½ tsp. Diamond Crystal or 1 tsp. Morton kosher salt",
+			"1 tsp. freshly ground black pepper",
+			"1 tsp. baking powder",
+			"½ tsp. ground turmeric",
+			"1½ cups finely chopped cilantro",
+			"1½ cups finely chopped dill",
+			"1½ cups finely chopped flatleaf parsley",
+			"1 Tbsp. dried fenugreek leaves"
+		],
+		"steps": [
+			"Soften the onion and leek in oil and let them cool.",
+			"Whisk the eggs with salt, pepper, baking powder and turmeric, then fold in the herbs, fenugreek and the onion mix.",
+			"Pour into a hot oiled skillet, cook until the edges set, then finish under the broiler until puffed and set. Slice into wedges."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["middle eastern", "persian"],
+			"flavors": [],
+			"proteins": ["egg"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-28",
+		"title": "White Beans and Chorizo with Quick Marinated Tomatoes and Onion",
+		"sourceUrl": "https://americastestkitchen.com/recipes/17026-white-beans-and-chorizo-with-quick-marinated-tomatoes-and-onion",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Warm_White_Beans_with_Chorizo_16525_3_vdqhes",
+		"totalMinutes": 25,
+		"commentCount": 70,
+		"rating": {
+			"value": 4.3,
+			"count": 206
+		},
+		"ingredients": [
+			"3 tablespoons sherry vinegar",
+			"3 tablespoons extra-virgin olive oil plus ¼ cup extra-virgin olive oil, divided",
+			"⅛ teaspoon plus ½ teaspoon table salt, divided",
+			"¼ teaspoon pepper",
+			"12 ounces cherry tomatoes, quartered",
+			"½ red onion, sliced thin",
+			"6 ounces Spanish-style chorizo sausage, cut into ½-inch pieces",
+			"2 (15-ounce) cans cannellini beans, rinsed",
+			"3 garlic cloves, minced",
+			"¼ teaspoon smoked paprika",
+			"¼ cup water",
+			"1 cup coarsely chopped fresh parsley"
+		],
+		"steps": [
+			"Whisk sherry vinegar, a little oil, salt and pepper, and toss with the tomatoes and red onion to marinate.",
+			"Brown the chorizo in oil.",
+			"Add the beans, garlic, smoked paprika, salt and water and simmer until creamy. Stir in the parsley and top with the tomatoes."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southern european", "spanish"],
+			"flavors": ["smoked paprika"],
+			"proteins": ["sausage"],
+			"forms": ["bowl"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-29",
+		"title": "Red Curry–Roasted Salmon and Sweet Potatoes",
+		"sourceUrl": "https://americastestkitchen.com/recipes/16805-red-curry-roasted-salmon-and-sweet-potatoes",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_RedCurryRoastedSalmonSweetPotatoes-19_usotd8",
+		"totalMinutes": 50,
+		"commentCount": 32,
+		"rating": {
+			"value": 4.3,
+			"count": 169
+		},
+		"ingredients": [
+			"2 pounds sweet potatoes, unpeeled, cut into ¾-inch-thick rounds",
+			"3 tablespoons vegetable oil, divided",
+			"1½ teaspoons table salt, divided",
+			"1 teaspoon pepper, divided",
+			"4 (6- to 8-ounce) skinless center-cut salmon fillets, 1 to 1½ inches thick",
+			"1 (14-ounce) can coconut milk, divided",
+			"3 tablespoons red curry paste, divided",
+			"1 tablespoon sugar",
+			"1 tablespoon fish sauce",
+			"1½ tablespoons lime juice, plus lime wedges for serving",
+			"½ cup cilantro leaves, basil leaves, and/or thinly sliced scallions"
+		],
+		"steps": [
+			"Toss the sweet potato rounds with oil, salt and pepper and roast at 450°F.",
+			"Fry some curry paste in oil, add most of the coconut milk with the sugar and fish sauce, and simmer into a sauce; finish with lime.",
+			"Brush the salmon with the rest of the curry paste and coconut milk, roast it beside the potatoes until just cooked, and serve with the sauce and herbs."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southeast asian", "thai"],
+			"flavors": ["red curry"],
+			"proteins": ["salmon"],
+			"forms": ["curry", "sheet pan & roast"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-30",
+		"title": "Panang Beef Curry",
+		"sourceUrl": "https://americastestkitchen.com/recipes/9628-panang-beef-curry",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/34898_sfs-panang-beef-curry-31",
+		"totalMinutes": 120,
+		"commentCount": 171,
+		"rating": {
+			"value": 4.4,
+			"count": 121
+		},
+		"ingredients": [
+			"2 pounds boneless beef short ribs, trimmed",
+			"2 tablespoons vegetable oil",
+			"2—4 tablespoons Thai red curry paste",
+			"1 (14-ounce) can unsweetened coconut milk",
+			"4 teaspoons fish sauce",
+			"2 teaspoons sugar",
+			"1 Thai red chile, halved lengthwise (optional)",
+			"6 makrut lime leaves, middle vein removed, sliced thin",
+			"1/3 cup unsalted dry-roasted peanuts, chopped fine"
+		],
+		"steps": [
+			"Slice the short ribs thinly and simmer them in water until tender.",
+			"Fry the curry paste in oil, then add the coconut milk, fish sauce, sugar, chile and the beef.",
+			"Simmer briskly until the sauce thickens and coats the beef. Top with lime leaves and peanuts."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southeast asian", "thai"],
+			"flavors": ["red curry"],
+			"proteins": ["beef"],
+			"forms": ["bowl", "curry"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-31",
+		"title": "Gà Kho Gừng (Vietnamese Caramel-Braised Chicken with Ginger)",
+		"sourceUrl": "https://americastestkitchen.com/recipes/16625-ga-kho-g-ng-vietnamese-caramel-braised-chicken-with-ginger",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Vietnamese_Ginger_Braised_Chicken_3_dt46ab",
+		"totalMinutes": 60,
+		"commentCount": 54,
+		"rating": {
+			"value": 4.3,
+			"count": 82
+		},
+		"ingredients": [
+			"1 (2¾-inch) piece ginger, peeled, divided",
+			"1 shallot, sliced thin",
+			"2 garlic cloves, sliced thin",
+			"2 pounds bone-in chicken thighs",
+			"4 teaspoons sugar",
+			"2 teaspoons vegetable oil",
+			"1½ cups unsweetened coconut water",
+			"2 tablespoons fish sauce",
+			"Coarsely chopped fresh cilantro (optional)"
+		],
+		"steps": [
+			"Cut most of the ginger into matchsticks and smash the rest; slice the shallot and garlic.",
+			"Trim the chicken thighs.",
+			"Cook the sugar and oil to a dark caramel, then add the ginger mix, then the chicken, and turn to coat.",
+			"Add the coconut water and fish sauce and simmer until the chicken is tender and the sauce reduces. Top with cilantro."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southeast asian", "vietnamese"],
+			"flavors": [],
+			"proteins": ["chicken"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-32",
+		"title": "Tofu Banh Mi",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11698-tofu-banh-mi",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Tofu_Banh_Mi-15_u1lcse",
+		"totalMinutes": 80,
+		"commentCount": 19,
+		"rating": {
+			"value": 4.4,
+			"count": 76
+		},
+		"ingredients": [
+			"14 ounces firm tofu, sliced crosswise into ½-inch-thick slabs",
+			"Salt and pepper",
+			"1/3 cup cornstarch",
+			"2 carrots, peeled and shredded",
+			"1/2 cucumber, peeled, halved lengthwise, seeded, and sliced thin",
+			"1 teaspoon grated lime zest plus 1 tablespoon juice",
+			"1 tablespoon fish sauce substitute (see note)",
+			"1/4 cup mayonnaise",
+			"1 tablespoon sriracha",
+			"3 tablespoons vegetable oil",
+			"4 (8-inch) Italian sub roll, split lengthwise and toasted",
+			"1/3 cup fresh cilantro leaves"
+		],
+		"steps": [
+			"Drain and pat the tofu dry, season it, and coat in cornstarch.",
+			"Quick-pickle the carrot and cucumber with lime juice and fish sauce substitute; mix the mayonnaise with sriracha and lime zest.",
+			"Fry the tofu in hot oil until crisp on both sides.",
+			"Spread the toasted rolls with spicy mayo and fill with tofu, pickles and cilantro."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southeast asian", "vietnamese"],
+			"flavors": [],
+			"proteins": ["tofu"],
+			"forms": ["sandwich"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-33",
+		"title": "Jollof-Inspired Fonio",
+		"sourceUrl": "https://americastestkitchen.com/recipes/15877-joloff-inspired-fonio",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Joloff-Inspired_Fonio_2707_zg83gh",
+		"totalMinutes": 45,
+		"commentCount": 8,
+		"rating": {
+			"value": 4.3,
+			"count": 27
+		},
+		"ingredients": [
+			"3 cups chicken broth, divided",
+			"1 (14.5-ounce) can whole peeled tomatoes",
+			"1 red onion (½ onion quartered, ½ onion sliced thin)",
+			"4 garlic cloves, peeled",
+			"1 teaspoon table salt",
+			"1 teaspoon packed brown sugar",
+			"½ teaspoon red pepper flakes",
+			"¼ cup vegetable oil, divided",
+			"1 cup fonio",
+			"2 bay leaves",
+			"2 tablespoons unsalted butter",
+			"2 tablespoons chopped fresh parsley"
+		],
+		"steps": [
+			"Blend some broth with the tomatoes, part of the onion, the garlic, salt, sugar and pepper flakes.",
+			"Cook the tomato mixture in oil until thick and darker.",
+			"Stir in the fonio, bay leaves and remaining broth, cook until absorbed, then cover and let it stand off the heat.",
+			"Caramelize the sliced onion in oil, then fluff the fonio with butter and top with the onions and parsley."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["west african"],
+			"flavors": [],
+			"proteins": [],
+			"forms": ["bowl", "rice"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-34",
+		"title": "Creamy Mushroom Pasta",
+		"sourceUrl": "https://bonappetit.com/recipe/creamy-pasta-with-crispy-mushrooms",
+		"imageUrl": "https://assets.bonappetit.com/photos/5d4ddd602c815a00080f9771/16:9/w_3543,h_1993,c_limit/BA-0919-Creamy-Pasta-Crispy-Mushroom-Playbook.jpg",
+		"rating": {
+			"value": 4.4,
+			"count": 316
+		},
+		"ingredients": [
+			"1 lb. spaghetti or bucatini",
+			"Kosher salt",
+			"4 Tbsp. extra-virgin olive oil",
+			"1 lb. mixed mushrooms (such as maitake, oyster, crimini, and/or shiitake), torn into bite-size pieces",
+			"2 medium shallots, finely chopped",
+			"½ cup heavy cream",
+			"Zest and juice of ½ lemon",
+			"½ oz. Parmesan, finely grated (about ½ cup), plus more for serving",
+			"⅓ cup finely chopped parsley",
+			"2 Tbsp. unsalted butter, cut into pieces",
+			"Freshly ground black pepper"
+		],
+		"steps": [
+			"Cook the pasta until very al dente, keeping some water.",
+			"Brown the mushrooms in olive oil in batches, then soften the shallots with them.",
+			"Add the pasta, cream and pasta water and toss over the heat until the sauce clings.",
+			"Off the heat, stir in lemon, Parmesan, parsley and butter, and season with pepper."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southern european", "italian"],
+			"flavors": [],
+			"proteins": ["mushrooms"],
+			"forms": ["pasta", "noodles"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-35",
+		"title": "Curried Lentil Soup With Coconut and Tomatoes",
+		"sourceUrl": "https://bonappetit.com/recipe/curried-lentil-tomato-and-coconut-soup",
+		"imageUrl": "https://assets.bonappetit.com/photos/5a05c9df3388d32a6ed54e97/16:9/w_4992,h_2808,c_limit/curried-lentil-tomato-and-coconut-soup.jpg",
+		"rating": {
+			"value": 4.9,
+			"count": 268
+		},
+		"ingredients": [
+			"2 Tbsp. virgin coconut oil or extra-virgin olive oil",
+			"1 medium onion, finely chopped",
+			"2 garlic cloves, finely chopped",
+			"1 (2½\") piece fresh ginger, peeled, finely grated",
+			"1 Tbsp. curry powder (such as S&B)",
+			"¼ tsp. crushed red pepper flakes",
+			"¾ cup red lentils",
+			"1 (14.5-oz.) can crushed tomatoes",
+			"½ cup finely chopped cilantro, plus leaves with tender stems for serving",
+			"Kosher salt and freshly ground black pepper",
+			"1 (13.5-oz.) can unsweetened coconut milk, shaken well",
+			"Lime wedges (for serving)"
+		],
+		"steps": [
+			"Soften the onion, garlic and ginger in coconut oil, then add the curry powder and pepper flakes.",
+			"Add the lentils, tomatoes, cilantro and most of the coconut milk with water, and simmer until the lentils break down.",
+			"Season, ladle into bowls and drizzle with the rest of the coconut milk. Serve with lime."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": ["beans & lentils"],
+			"forms": ["bowl", "soup & stew", "curry"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-36",
+		"title": "Vegetarian Black Bean Chili",
+		"sourceUrl": "https://epicurious.com/recipes/food/views/vegetarian-black-bean-chili-230632",
+		"imageUrl": "https://assets.epicurious.com/photos/630386da5bda14734e4502a7/16:9/w_5662,h_3184,c_limit/BlackBeanChili_RECIPE_081722_38556.jpg",
+		"rating": {
+			"value": 4.6,
+			"count": 235
+		},
+		"ingredients": [
+			"¼ cup extra-virgin olive oil",
+			"6 garlic cloves, chopped",
+			"2 medium onions, chopped (about 2 cups)",
+			"2 medium red bell peppers, chopped (about 1⅔ cups)",
+			"2 Tbsp. chili powder",
+			"2 tsp. dried oregano",
+			"1½ tsp. ground cumin",
+			"½ tsp. cayenne pepper",
+			"3 15-oz. cans black beans, drained, ½ cup liquid reserved",
+			"1 15-oz. can tomato sauce",
+			"Kosher salt, freshly ground pepper",
+			"Grated Monterey Jack, sour cream, chopped cilantro, and chopped scallions (for serving, optional)"
+		],
+		"steps": [
+			"Cook the garlic, onions and peppers in olive oil, then stir in the chili powder, oregano, cumin and cayenne.",
+			"Add the black beans, some of their liquid and the tomato sauce, and simmer until thick.",
+			"Season and serve with cheese, sour cream, cilantro and scallions."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["north american", "american", "east asian", "chinese"],
+			"flavors": ["black bean"],
+			"proteins": ["vegetarian"],
+			"forms": ["bowl", "soup & stew"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-37",
+		"title": "Vegan Chickpea Noodle Soup",
+		"sourceUrl": "https://americastestkitchen.com/recipes/12072-vegan-chickpea-noodle-soup",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Chickpea_Noodle_Soup_012_cstpuw",
+		"totalMinutes": 60,
+		"commentCount": 61,
+		"rating": {
+			"value": 4.4,
+			"count": 184
+		},
+		"ingredients": [
+			"2 tablespoons vegetable oil",
+			"1 onion, chopped fine",
+			"3 carrots, peeled and sliced ¼ inch thick",
+			"2 celery ribs, sliced ¼ inch thick",
+			"Salt and pepper",
+			"3 tablespoons nutritional yeast",
+			"2 teaspoons minced fresh thyme or ¾ teaspoon dried",
+			"2 bay leaves",
+			"6 cups vegetable broth",
+			"2 (15-ounce) cans chickpeas, rinsed",
+			"2 ounces (½ cup) ditalini pasta",
+			"2 tablespoons minced fresh parsley"
+		],
+		"steps": [
+			"Soften the onion, carrots and celery in oil, then add the nutritional yeast, thyme and bay leaves.",
+			"Add the broth and chickpeas and simmer until the vegetables are tender.",
+			"Boil the ditalini in the soup until just tender, then stir in the parsley and season."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": ["beans & lentils"],
+			"forms": ["bowl", "pasta", "noodles", "soup & stew"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-38",
+		"title": "Classic Hummus",
+		"sourceUrl": "https://americastestkitchen.com/recipes/6873-classic-hummus",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/9757_sfs-hummus-10",
+		"totalMinutes": 45,
+		"commentCount": 31,
+		"rating": {
+			"value": 4.4,
+			"count": 176
+		},
+		"ingredients": [
+			"1/4 cup water",
+			"2 tablespoons lemon juice",
+			"1/4 cup tahini, stirred well",
+			"2 tablespoons extra-virgin olive oil",
+			"1 (15-ounce) can chickpeas, rinsed",
+			"1 garlic clove, minced",
+			"1/2 teaspoon salt",
+			"1/4 teaspoon ground cumin",
+			"Pinch cayenne"
+		],
+		"steps": [
+			"Mix the water and lemon juice, and separately the tahini and olive oil.",
+			"Grind the chickpeas, garlic, salt, cumin and cayenne in a food processor.",
+			"With the machine running, add the lemon water, then the tahini mixture, and blend until smooth.",
+			"Let it sit 30 minutes before serving."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["middle eastern"],
+			"flavors": ["tahini"],
+			"proteins": ["beans & lentils"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-39",
+		"title": "Sweet Potato Salad with Cumin, Smoked Paprika, and Almonds",
+		"sourceUrl": "https://americastestkitchen.com/recipes/13269-sweet-potato-salad-with-cumin-smoked-paprika-and-almonds",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_SweetPotatoSalad_0038_ecgfla",
+		"totalMinutes": 90,
+		"commentCount": 43,
+		"rating": {
+			"value": 4.4,
+			"count": 193
+		},
+		"ingredients": [
+			"3 pounds sweet potatoes, peeled and cut into ¾-inch pieces",
+			"3 tablespoons plus ¼ cup extra-virgin olive oil, divided",
+			"2 teaspoons table salt",
+			"3 scallions, sliced thin",
+			"3 tablespoons lime juice (2 limes)",
+			"1 jalapeño chile, stemmed, seeded, and minced",
+			"1 teaspoon ground cumin",
+			"1 teaspoon smoked paprika",
+			"1 teaspoon pepper",
+			"1 garlic clove, minced",
+			"1/2 teaspoon ground allspice",
+			"1/2 cup fresh cilantro leaves and stems, chopped coarse",
+			"1/2 cup whole almonds, toasted and chopped"
+		],
+		"steps": [
+			"Toss the sweet potatoes with oil and salt and roast at 450°F until browned and tender.",
+			"Whisk the scallions, lime juice, jalapeño, spices, garlic and olive oil into a dressing.",
+			"Toss the warm potatoes with the dressing, cilantro and toasted almonds."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southern european", "spanish"],
+			"flavors": ["smoked paprika"],
+			"proteins": ["vegetarian"],
+			"forms": ["bowl", "salad", "sheet pan & roast"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-40",
+		"title": "Upside-Down Tomato Tart",
+		"sourceUrl": "https://americastestkitchen.com/recipes/13985-upside-down-tomato-tart",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Tomato_Tart_290_ycwalt",
+		"totalMinutes": 135,
+		"commentCount": 131,
+		"rating": {
+			"value": 4.3,
+			"count": 187
+		},
+		"ingredients": [
+			"⅓ cup sherry vinegar",
+			"2½ tablespoons sugar",
+			"¾ teaspoon table salt, divided",
+			"½ teaspoon pepper, divided",
+			"1 shallot, chopped fine",
+			"1 tablespoon unsalted butter",
+			"2½ teaspoons minced fresh thyme, divided",
+			"2 pounds plum tomatoes (about 10), cored, halved lengthwise, seeds and gel removed",
+			"1 sheet puff pastry, thawed but still cool"
+		],
+		"steps": [
+			"Simmer the sherry vinegar with sugar, salt, pepper, shallot, butter and thyme into a syrup in an oven-safe skillet.",
+			"Toss the halved tomatoes in the syrup and arrange them cut side up.",
+			"Cover with a round of puff pastry and bake at 400°F until the pastry is puffed and deep golden.",
+			"Cool a few minutes, then invert onto a plate."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["western european", "french"],
+			"flavors": [],
+			"proteins": ["vegetarian"],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-41",
+		"title": "Pasta e Fagioli for Two",
+		"sourceUrl": "https://americastestkitchen.com/recipes/15900-pasta-e-fagioli-for-two",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_PastaEFagioloForTwo-49_ux1t9h",
+		"totalMinutes": 60,
+		"commentCount": 45,
+		"rating": {
+			"value": 4.4,
+			"count": 178
+		},
+		"ingredients": [
+			"1 tablespoon extra-virgin olive oil, plus extra for drizzling",
+			"1 onion, chopped fine",
+			"1 carrot, peeled and chopped fine",
+			"1 ounce pancetta, chopped fine",
+			"½ teaspoon table salt",
+			"¼ teaspoon pepper",
+			"1 tablespoon tomato paste",
+			"2 garlic cloves, minced",
+			"⅛ teaspoon red pepper flakes",
+			"2 cups chicken broth",
+			"1 (15-ounce) can cannellini beans, undrained",
+			"½ cup ditalini",
+			"¼ cup grated Parmesan cheese, plus extra for serving",
+			"¼ cup finely chopped fresh basil"
+		],
+		"steps": [
+			"Cook the onion, carrot and pancetta in oil until soft.",
+			"Add the tomato paste, garlic and pepper flakes, then the broth and beans with their liquid, and simmer.",
+			"Boil the ditalini in the soup until al dente, then stir in the Parmesan and basil."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["southern european", "italian"],
+			"flavors": [],
+			"proteins": ["beans & lentils"],
+			"forms": ["bowl", "pasta", "noodles", "soup & stew"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-42",
+		"title": "Butternut Squash Soup",
+		"sourceUrl": "https://epicurious.com/recipes/food/views/butternut-squash-soup",
+		"imageUrl": "https://assets.epicurious.com/photos/64e3dc5e2b2b52d7cfe90da8/16:9/w_5482,h_3084,c_limit/Butternut-Squash-Soup_Recipe_081723_1599.jpg",
+		"rating": {
+			"value": 4.4,
+			"count": 224
+		},
+		"ingredients": [
+			"2 Tbsp. vegetable oil, plus more for greasing",
+			"2 butternut squash (about 4¾ lb. total), halved lengthwise, seeds removed",
+			"2 cups thinly sliced white or yellow onion",
+			"1 Tbsp. light brown sugar",
+			"2 tsp. minced fresh ginger",
+			"2 garlic cloves, coarsely chopped",
+			"½ cinnamon stick",
+			"5 cups (or more) low-sodium chicken broth or vegetable broth",
+			"Kosher salt, freshly ground black pepper",
+			"Chopped fresh parsley for serving"
+		],
+		"steps": [
+			"Roast the halved squash at 375°F until soft, then scoop out the flesh.",
+			"Soften the onion with brown sugar, ginger, garlic and cinnamon in oil.",
+			"Add the squash and broth and simmer, then remove the cinnamon and purée until smooth.",
+			"Season and top with parsley."
+		],
+		"tags": {
+			"meal": true,
+			"cuisines": ["north american", "american"],
+			"flavors": [],
+			"proteins": ["vegetarian"],
+			"forms": ["bowl", "soup & stew"],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-43",
+		"title": "BA’s Best Chocolate Chip Cookies",
+		"sourceUrl": "https://bonappetit.com/recipe/bas-best-chocolate-chip-cookies",
+		"imageUrl": "https://assets.bonappetit.com/photos/5ca534485e96521ff23b382b/16:9/w_4800,h_2700,c_limit/chocolate-chip-cookie.jpg",
+		"rating": {
+			"value": 4.5,
+			"count": 1441
+		},
+		"ingredients": [
+			"1½ cups plus 1 Tbsp. (200 g) all-purpose flour (spooning into measuring cups, then leveling)",
+			"1¼ tsp. (4 g) Diamond Crystal or ¾ tsp. (4 g) Morton kosher salt",
+			"¾ tsp. (4 g) baking soda",
+			"¾ cup (1½ sticks; 169 g) unsalted butter, divided",
+			"1 cup (200 g) (packed) dark brown sugar",
+			"¼ cup (50 g) granulated sugar",
+			"1 large egg",
+			"2 large egg yolks",
+			"2 tsp. vanilla extract",
+			"6 oz. (170 g) bittersweet chocolate (60%–70% cacao), coarsely chopped, or semisweet chocolate chips"
+		],
+		"steps": [
+			"Heat the oven to 375°F and whisk the flour, salt and baking soda.",
+			"Brown part of the butter, then melt in the rest and whisk in both sugars.",
+			"Beat in the egg, yolks and vanilla, then fold in the dry mix and chocolate.",
+			"Scoop onto lined sheets and bake until golden at the edges but soft in the middle."
+		],
+		"tags": {
+			"meal": false,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-44",
+		"title": "Olive Oil Cake",
+		"sourceUrl": "https://americastestkitchen.com/recipes/9648-olive-oil-cake",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/34928_sfs-olive-oil-cake-91",
+		"totalMinutes": 180,
+		"commentCount": 605,
+		"rating": {
+			"value": 4.3,
+			"count": 699
+		},
+		"ingredients": [
+			"1 3/4 cups (8 3/4 ounces/248 grams) all-purpose flour",
+			"1 teaspoon baking powder",
+			"3/4 teaspoon salt",
+			"3 large eggs",
+			"1 1/4 cups (8 3/4 ounces/248 grams) plus 2 tablespoons sugar",
+			"1/4 teaspoon grated lemon zest",
+			"3/4 cup extra-virgin olive oil",
+			"3/4 cup milk"
+		],
+		"steps": [
+			"Heat the oven to 350°F and grease a springform pan. Whisk the flour, baking powder and salt.",
+			"Whip the eggs until foamy, then add the sugar and lemon zest and whip until thick and pale.",
+			"Slowly stream in the olive oil, then fold in the dry mix alternately with the milk.",
+			"Pour into the pan, sprinkle with sugar, and bake until golden and set."
+		],
+		"tags": {
+			"meal": false,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-45",
+		"title": "Basque Cheesecake",
+		"sourceUrl": "https://bonappetit.com/recipe/basque-burnt-cheesecake",
+		"imageUrl": "https://assets.bonappetit.com/photos/5c48972f52d8785eddd4a72c/16:9/w_4800,h_2700,c_limit/burnt-basque-cheesecake-1.jpg",
+		"rating": {
+			"value": 4.7,
+			"count": 574
+		},
+		"ingredients": [
+			"Unsalted butter (for pan)",
+			"2 lb. cream cheese, room temperature",
+			"1½ cups (300 g) sugar",
+			"6 large eggs",
+			"2 cups heavy cream",
+			"1 tsp. Diamond Crystal or ½ tsp. Morton kosher salt",
+			"1 tsp. vanilla extract",
+			"⅓ cup (42 g) all-purpose flour",
+			"Sherry (for serving; optional)",
+			"A 10\"-diameter springform pan"
+		],
+		"steps": [
+			"Heat the oven to 400°F and line a buttered springform pan with parchment that stands above the rim.",
+			"Beat the cream cheese and sugar until smooth, then add the eggs one at a time.",
+			"Mix in the cream, salt and vanilla, then sift in the flour and stir just to combine.",
+			"Bake until deeply browned on top and still very wobbly in the middle. Cool completely before slicing."
+		],
+		"tags": {
+			"meal": false,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-46",
+		"title": "Chocolate Chip Banana Bread With Walnuts",
+		"sourceUrl": "https://epicurious.com/recipes/food/views/chocolate-chip-banana-bread-with-walnuts",
+		"imageUrl": "https://assets.epicurious.com/photos/675225373ab56307de5401f0/16:9/w_3488,h_1962,c_limit/20241119_01_Banana%20Bread_024.jpg",
+		"rating": {
+			"value": 4.3,
+			"count": 554
+		},
+		"ingredients": [
+			"Nonstick cooking spray",
+			"½ cup chopped walnuts",
+			"1½ cups (188 g) all-purpose flour",
+			"1 tsp. baking soda",
+			"1 tsp. baking powder",
+			"1 tsp. Diamond Crystal or ½ tsp. Morton kosher salt",
+			"½ cup semisweet chocolate chips",
+			"½ cup (1 stick) unsalted butter, room temperature",
+			"1 cup (200 g) granulated sugar",
+			"2 large eggs",
+			"1 cup mashed ripe bananas (from about 2 large bananas)",
+			"2 Tbsp. fresh lemon juice",
+			"2 tsp. vanilla extract"
+		],
+		"steps": [
+			"Heat the oven to 350°F and grease a loaf pan.",
+			"Whisk the flour, baking soda, baking powder and salt, and toss in the chocolate chips and walnuts.",
+			"Beat the butter and sugar, add the eggs, then the banana, lemon juice and vanilla, and fold in the dry mix.",
+			"Bake about an hour, until a toothpick comes out clean, and cool before slicing."
+		],
+		"tags": {
+			"meal": false,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-47",
+		"title": "Flourless Chocolate Cake",
+		"sourceUrl": "https://epicurious.com/recipes/food/views/flourless-chocolate-cake-14478",
+		"imageUrl": "https://assets.epicurious.com/photos/61f42406ef9a92089e2349a9/16:9/w_6463,h_3635,c_limit/FlourlessChocolateCake_RECIPE_20220125_1814_final.jpg",
+		"rating": {
+			"value": 4.6,
+			"count": 506
+		},
+		"ingredients": [
+			"8 Tbsp. (1 stick) unsalted butter, plus more for pan",
+			"½ cup (4 oz.) fine-quality bittersweet chocolate, chopped",
+			"¾ cup (149g) sugar",
+			"3 large eggs",
+			"½ cup (42 g) unsweetened cocoa powder (not Dutch-process) plus more for garnish",
+			"Coconut Lime Sorbet for serving (optional)"
+		],
+		"steps": [
+			"Heat the oven to 375°F and butter and line an 8-inch cake pan.",
+			"Melt the chocolate and butter together.",
+			"Whisk in the sugar, then the eggs, then sift in the cocoa and whisk until smooth.",
+			"Bake until the top forms a thin crust, cool, and dust with more cocoa."
+		],
+		"tags": {
+			"meal": false,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-48",
+		"title": "Torta Caprese",
+		"sourceUrl": "https://americastestkitchen.com/recipes/11241-torta-caprese",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/42709-sfs-torte-caprese-43",
+		"totalMinutes": 230,
+		"commentCount": 454,
+		"rating": {
+			"value": 4.3,
+			"count": 324
+		},
+		"ingredients": [
+			"171 grams (12 tablespoons) unsalted butter, cut into 12 pieces",
+			"170 grams (6 ounces) bittersweet chocolate, chopped",
+			"1 teaspoon vanilla extract",
+			"4 large eggs, separated",
+			"198 grams (1 cup) granulated sugar, divided",
+			"198 grams (2 cups) almond flour",
+			"2 tablespoons Dutch-processed cocoa powder",
+			"1/2 teaspoon table salt",
+			"Confectioners’ sugar (optional)"
+		],
+		"steps": [
+			"Heat the oven to 325°F and grease a springform pan. Melt the butter and chocolate with the vanilla.",
+			"Whip the egg whites with half the sugar to soft peaks.",
+			"Whip the yolks with the rest of the sugar until thick, then mix in the chocolate, almond flour, cocoa and salt.",
+			"Fold in the whites and bake about 50 minutes, until a toothpick shows a few moist crumbs. Cool and dust with powdered sugar."
+		],
+		"tags": {
+			"meal": false,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-49",
+		"title": "Cottage Cheese Pancakes",
+		"sourceUrl": "https://americastestkitchen.com/recipes/16856-cottage-cheese-pancakes",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/SFS_Cottage_Cheese_Pancakes_with_Greek_Yogurt_and_Raspberry_Jam_3_g9ortw",
+		"totalMinutes": 40,
+		"commentCount": 188,
+		"rating": {
+			"value": 4.3,
+			"count": 329
+		},
+		"ingredients": [
+			"⅔ cup (3⅔ ounces/104 grams) whole-wheat flour",
+			"1 tablespoon baking powder",
+			"12 ounces (1½ cups) cottage cheese",
+			"1 cup (3 ounces/85 grams) old-fashioned rolled oats",
+			"4 large eggs",
+			"6 tablespoons unsalted butter, melted",
+			"3 tablespoons sugar",
+			"1 teaspoon vanilla extract",
+			"½ teaspoon table salt",
+			"2 teaspoons vegetable oil, divided"
+		],
+		"steps": [
+			"Whisk the flour and baking powder. Blend the cottage cheese, oats, eggs, melted butter, sugar, vanilla and salt until smooth.",
+			"Stir the wet mix into the dry just until combined.",
+			"Cook scoops of batter in a lightly oiled skillet over medium heat until golden on both sides.",
+			"Serve with jam, yogurt or fruit."
+		],
+		"tags": {
+			"meal": false,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	},
+	{
+		"id": "fixture-50",
+		"title": "Cream Scones",
+		"sourceUrl": "https://americastestkitchen.com/recipes/1914-cream-scones",
+		"imageUrl": "https://res.cloudinary.com/hksqkdlah/image/upload/c_fill,dpr_2.0,f_auto,fl_lossy.progressive.strip_profile,g_faces:auto,q_auto:low/35092_sfs-cream-scones-008",
+		"totalMinutes": 45,
+		"commentCount": 120,
+		"rating": {
+			"value": 4.3,
+			"count": 253
+		},
+		"ingredients": [
+			"2 cups (10 ounces/283 grams) unbleached all-purpose flour",
+			"1 tablespoon baking powder",
+			"3 tablespoons sugar",
+			"1/2 teaspoon table salt",
+			"5 tablespoons unsalted butter, chilled and cut into 1/4-inch pieces",
+			"1/2 cup currants",
+			"1 cup heavy cream"
+		],
+		"steps": [
+			"Heat the oven to 425°F.",
+			"Mix the flour, baking powder, sugar and salt, then cut in the cold butter until it looks like coarse crumbs. Stir in the currants.",
+			"Stir in the cream until a dough forms, then knead briefly and pat into a round.",
+			"Cut into wedges and bake 12 to 15 minutes, until lightly browned."
+		],
+		"tags": {
+			"meal": false,
+			"cuisines": [],
+			"flavors": [],
+			"proteins": [],
+			"forms": [],
+			"model": "jev-1.13.0"
+		}
+	}
+]
