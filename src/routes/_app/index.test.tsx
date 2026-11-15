@@ -21,6 +21,7 @@ const server = vi.hoisted(() => ({
 	search: vi.fn(),
 	popular: vi.fn(),
 	recipe: vi.fn(),
+	save: vi.fn(),
 }))
 
 vi.mock('@/lib/home/server', () => ({
@@ -51,6 +52,7 @@ vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
 	getRecipe: server.recipe,
+	saveRecipe: server.save,
 }))
 
 const session = {
@@ -72,6 +74,7 @@ describe('home', () => {
 			.mockReset()
 			.mockResolvedValue({ warming: false, results: [] })
 		server.recipe.mockReset().mockResolvedValue(null)
+		server.save.mockReset().mockResolvedValue(null)
 	})
 
 	afterEach(() => {
@@ -217,6 +220,35 @@ describe('home', () => {
 		await expect
 			.poll(() => server.recipe.mock.calls[0]?.[0])
 			.toEqual({ data: { id: 'dal' } })
+	})
+
+	test('does not start reading a recipe while its save is on its way', async () => {
+		server.popular.mockResolvedValue({
+			warming: false,
+			results: [
+				{
+					recipeId: 'dal',
+					title: 'red lentil dal',
+					siteName: 'Example',
+					saved: false,
+					draft: false,
+					ingredientMatches: [],
+				},
+			],
+		})
+		server.save.mockImplementation(() => new Promise(() => {}))
+
+		const { screen } = await renderRoute({ path: '/', session })
+
+		await screen.getByRole('button', { name: 'save red lentil dal' }).click()
+		await expect.poll(() => server.save.mock.calls.length).toBe(1)
+
+		screen
+			.getByRole('option', { name: /red lentil dal/ })
+			.element()
+			.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+		await new Promise((resolve) => setTimeout(resolve, 300))
+		expect(server.recipe).not.toHaveBeenCalled()
 	})
 
 	test('does not start reading a recipe when its save button is pressed', async () => {

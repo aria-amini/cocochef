@@ -1102,7 +1102,12 @@ export function FinderPanel({
 		// button in the row, like saving: the read would be from before it,
 		// and the recipe opened right after would say it is not saved.
 		onPointerDown: (event: React.PointerEvent) => {
-			if (event.target instanceof Element && event.target.closest('button'))
+			// Nor while a save or unsave is still on its way, for the same
+			// reason: the read could be from before it lands.
+			if (
+				busy !== undefined ||
+				(event.target instanceof Element && event.target.closest('button'))
+			)
 				return
 
 			const id = inline && option.kind === 'recipe' && idOf(option.recipe)
