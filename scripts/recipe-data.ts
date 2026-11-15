@@ -122,7 +122,7 @@ if (command === 'seed') {
 				.filter((site) => siteIds.includes(site.id))
 				.map(async (site) => {
 					try {
-						const { links } = await crawlRecipeSite(site)
+						const links = await crawlRecipeSite(site)
 						console.log(`${site.name}: ${links.length} recipes in its sitemap`)
 
 						return spreadEvenly(links, limit)

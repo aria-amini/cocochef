@@ -115,27 +115,23 @@ async function fetchSitemap(url: string, site: RecipeSite) {
 	return parseSitemap(await response.text())
 }
 
-// `complete` is false when a child sitemap failed or was past the cap, so what
-// came back is only part of the site and must not replace links already held
-// for it.
+// The site's recipe pages, from its sitemap and up to MAX_SITEMAPS_PER_SITE of
+// its child sitemaps. A child that fails is skipped.
 export async function crawlRecipeSite(site: RecipeSite) {
 	const root = await fetchSitemap(site.sitemap, site)
 
-	if (!root) return { links: [], complete: true }
+	if (!root) return []
 
-	const matching = root.sitemaps.filter(
-		(url) => !site.children || site.children.test(url),
-	)
+	const children = root.sitemaps
+		.filter((url) => !site.children || site.children.test(url))
+		.slice(0, MAX_SITEMAPS_PER_SITE)
 
-	const children = matching.slice(0, MAX_SITEMAPS_PER_SITE)
 	const pages = [...root.pages]
-	let complete = matching.length <= MAX_SITEMAPS_PER_SITE
 
 	for (const child of children) {
 		try {
 			pages.push(...((await fetchSitemap(child, site))?.pages ?? []))
 		} catch (error) {
-			complete = false
 			// A site that blocks datacenter crawlers (402, 403, 429) is expected;
 			// the message is enough without a stack trace.
 			console.warn(`[discover] skipped ${child}: ${String(error)}`)
@@ -144,7 +140,7 @@ export async function crawlRecipeSite(site: RecipeSite) {
 
 	const seen = new Set<string>()
 
-	const links = pages.flatMap((page) => {
+	return pages.flatMap((page) => {
 		if (!site.recipe.test(page.url) || seen.has(page.url)) return []
 		seen.add(page.url)
 		const title = titleFromUrl(page.url)
@@ -153,6 +149,4 @@ export async function crawlRecipeSite(site: RecipeSite) {
 			? [{ url: page.url, title, siteId: site.id, imageUrl: page.imageUrl }]
 			: []
 	})
-
-	return { links, complete }
 }

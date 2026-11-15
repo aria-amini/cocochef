@@ -23,9 +23,10 @@ async function isShown(source: string) {
 }
 
 // A recipe's photo from its site, made small enough for where it is drawn:
-// /api/img?w=400&u=<the photo's address>. Only a photo a recipe already shows is fetched, so this is no proxy for anything else,
-// and only from a public address (src/lib/import/public-fetch.ts). When the site won't hand it
-// over, as some refuse servers, the browser is sent to the original instead.
+// /api/img?w=400&u=<the photo's address>. Only a photo a recipe already shows
+// is fetched, so this is no proxy for anything else, and only from a public
+// address (src/lib/import/public-fetch.ts). When the site won't hand it over,
+// as some refuse servers, the browser is sent to the original instead.
 export const Route = createFileRoute('/api/img')({
 	server: {
 		handlers: {

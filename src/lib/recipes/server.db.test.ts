@@ -30,7 +30,6 @@ import {
 	findRecipesForUser,
 	findVisibleRecipeKeys,
 	findVisibleRecipesById,
-	sharedRecipeUrls,
 	updateRecipeForUser,
 } from './repository'
 
@@ -552,13 +551,6 @@ describe('shared recipes', () => {
 		await expect(
 			findSharedRecipeByUrl('https://example.com/dal', db),
 		).resolves.toMatchObject({ id: first.id })
-		await expect(
-			sharedRecipeUrls(
-				['https://example.com/dal', 'https://example.com/x'],
-				db,
-			),
-		).resolves.toEqual(['https://example.com/dal'])
-		await expect(sharedRecipeUrls([], db)).resolves.toEqual([])
 	})
 
 	test('ranks popular recipes by their stars weighed by votes, minus your own shelf', async ({

@@ -317,21 +317,6 @@ export async function getRecipeForUser(
 	}
 }
 
-// Which of these pages are already shared recipes.
-export async function sharedRecipeUrls(
-	urls: string[],
-	database: Database = getDb(),
-) {
-	if (urls.length === 0) return []
-
-	const rows = await database
-		.select({ sourceUrl: recipes.sourceUrl })
-		.from(recipes)
-		.where(and(isNull(recipes.userId), inArray(recipes.sourceUrl, urls)))
-
-	return rows.flatMap((row) => row.sourceUrl ?? [])
-}
-
 // Search words: lowercase letters and digits, two or more long, a few at most.
 function searchTerms(query: string) {
 	const terms = query
@@ -965,8 +950,9 @@ async function moveShelfToCopy(
 }
 
 // Edits land on the user's own recipe. A shared recipe is never changed: the
-// first real edit copies it for them, and their shelf row moves to the copy. Notes are theirs either way and never copy anything. A new or removed
-// source link counts as a change, so it copies a shared recipe too.
+// first real edit copies it for them, and their shelf row moves to the copy.
+// Notes are theirs either way and never copy anything. A new or removed source
+// link counts as a change, so it copies a shared recipe too.
 export async function updateRecipeForUser(
 	userId: string,
 	{

@@ -74,7 +74,6 @@ export const recipes = snakeCase.table(
 )
 
 // A recipe on someone's shelf, with what is theirs about it: their notes.
-// Cooking counts come from meal logs.
 export const shelfRecipes = snakeCase.table(
 	'shelf_recipes',
 	{
