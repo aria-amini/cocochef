@@ -1,6 +1,6 @@
 import { expect, test } from 'vite-plus/test'
 
-import { photoSlot } from './resize.server'
+import { photoSlot, resizePhoto } from './resize.server'
 
 test('makes two photos at a time, keeps a few waiting, and turns the rest away', async () => {
 	const releases: (() => void)[] = []
@@ -66,4 +66,8 @@ test('never makes more than two at once, even when one arrives as a slot is hand
 	}
 
 	expect(most).toBeLessThanOrEqual(2)
+})
+
+test('fails an empty photo as a rejection, for the caller to fall back on', async () => {
+	await expect(resizePhoto(new Uint8Array(), 400)).rejects.toThrow()
 })

@@ -7,7 +7,9 @@ sharp.concurrency(1)
 sharp.cache(false)
 
 // A photo as WebP, no wider than `width`, turned the way its camera held it.
-export function resizePhoto(bytes: Uint8Array, width: number) {
+// Async, so a photo sharp refuses at once (an empty one) rejects like any
+// other failure instead of throwing past the caller's catch.
+export async function resizePhoto(bytes: Uint8Array, width: number) {
 	return sharp(bytes, { limitInputPixels: 50_000_000 })
 		.rotate()
 		.resize({ width, withoutEnlargement: true })
