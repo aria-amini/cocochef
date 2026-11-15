@@ -50,6 +50,16 @@ describe('a recipe handed from the id route to the loads behind it', () => {
 		expect(handoff.get('pasta', 'stay')).toBeUndefined()
 	})
 
+	test('is dropped by a reload, so nothing older is handed on after it', () => {
+		vi.stubGlobal('window', {})
+		const handoff = createRecipeHandoff<typeof pasta>()
+
+		handoff.hand(pasta, 'enter')
+		handoff.get('/aria/pasta', 'stay')
+
+		expect(handoff.get('/aria/pasta', 'enter')).toBeUndefined()
+	})
+
 	test('is gone after a moment', () => {
 		vi.stubGlobal('window', {})
 		vi.useFakeTimers()

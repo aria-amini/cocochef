@@ -28,8 +28,11 @@ export function createRecipeHandoff<
 		// By id or by readable address. `stay` reloads the page the router is
 		// on, which reads the recipe as it now is.
 		get(key: string, cause: Cause) {
-			if (!handed || cause === 'stay' || Date.now() - handed.at >= fresh)
-				return undefined
+			// A reload reads the recipe as it now is, so nothing read before it
+			// is handed on after it.
+			if (cause === 'stay') handed = undefined
+
+			if (!handed || Date.now() - handed.at >= fresh) return undefined
 
 			const { recipe } = handed
 			const byId = handed.cause === 'preload' && recipe.id === key
