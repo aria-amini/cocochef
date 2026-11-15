@@ -72,8 +72,8 @@ function Home() {
 						<img
 							src="/chef-cat.webp"
 							alt=""
-							width={310}
-							height={320}
+							width={186}
+							height={192}
 							className="h-16 w-auto [image-rendering:pixelated] md:h-24"
 						/>
 					</picture>
