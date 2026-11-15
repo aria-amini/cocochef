@@ -351,6 +351,14 @@ async function clearOff(page: Page): Promise<Row> {
 
 	await confirm.waitFor()
 
+	// The shelf's read after the clear: a GET, where the delete is a POST.
+	const refreshed = page.waitForResponse(
+		(response) =>
+			response.url().includes('/_serverFn/') &&
+			response.request().method() === 'GET',
+		{ timeout: 30_000 },
+	)
+
 	const start = await fingerTap(page, confirm)
 
 	// By its name, not its role: the open dialog hides the shelf from roles,
@@ -376,6 +384,10 @@ async function clearOff(page: Page): Promise<Row> {
 
 	if (/couldn't/.test((await said.first().textContent()) ?? ''))
 		throw new Error(`clearing ${title} off the shelf failed`)
+
+	// The toast comes before the shelf is read again; let that read land
+	// before the run moves on.
+	await refreshed
 
 	return { gone: Math.max(0, gone - start) }
 }
