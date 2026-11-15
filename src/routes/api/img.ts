@@ -5,7 +5,7 @@ import { getDb } from '@/db/connection'
 import { recipes } from '@/db/schema'
 import { recipeIndex } from '@/lib/discover/crawl'
 import { fetchPublicImage } from '@/lib/import/public-fetch'
-import { resizePhoto } from '@/lib/photos/resize.server'
+import { photoSlot, resizePhoto } from '@/lib/photos/resize.server'
 import { photoWidths, type PhotoWidth } from '@/lib/photos/sized'
 
 const isPhotoWidth = (value: number): value is PhotoWidth =>
@@ -62,10 +62,11 @@ export const Route = createFileRoute('/api/img')({
 
 				if (!(await isShown(source))) return new Response(null, { status: 404 })
 
-				const original = await fetchPublicImage(source).catch(() => null)
+				const resized = await photoSlot(async () => {
+					const original = await fetchPublicImage(source).catch(() => null)
 
-				const resized =
-					original && (await resizePhoto(original, width).catch(() => null))
+					return original && resizePhoto(original, width).catch(() => null)
+				})
 
 				if (!resized)
 					return new Response(null, {
