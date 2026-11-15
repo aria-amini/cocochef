@@ -23,6 +23,7 @@ import {
 	useContext,
 	useEffect,
 	useOptimistic,
+	useRef,
 	useState,
 } from 'react'
 import { toast } from 'sonner'
@@ -314,10 +315,7 @@ function Shelf() {
 							mine={mine}
 							onClear={clearOff}
 							onDone={selection.stop}
-							onFailed={(ids) => {
-								selection.start()
-								selection.set(ids)
-							}}
+							onFailed={selection.restore}
 						/>
 					) : null}
 				</motion.div>
@@ -331,6 +329,12 @@ function Shelf() {
 function useSelection() {
 	const [on, setOn] = useState(false)
 	const [ids, setIds] = useState<ReadonlySet<string>>(new Set())
+	// Whether choosing is on now, for a clear that failed after it ended.
+	const onNow = useRef(on)
+
+	useEffect(() => {
+		onNow.current = on
+	}, [on])
 
 	useEffect(() => {
 		if (!on) return
@@ -362,6 +366,13 @@ function useSelection() {
 			setOn(true)
 		},
 		stop: () => setOn(false),
+		// Picks recipes again after clearing them failed, unless the cook has
+		// started choosing others since: theirs is the newer choice.
+		restore: (next: string[]) => {
+			if (onNow.current) return
+			setIds(new Set(next))
+			setOn(true)
+		},
 	}
 }
 

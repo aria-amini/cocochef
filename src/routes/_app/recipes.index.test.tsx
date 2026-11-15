@@ -470,6 +470,49 @@ describe('recipes shelf', () => {
 		expect(screen.getByText('miso butter pasta').query()).not.toBeNull()
 	})
 
+	test('keeps a newer selection when an earlier clear fails', async () => {
+		const soup = { ...dal, id: 'recipe-3', title: 'lentil soup' }
+
+		shelfState.recipes = [misoButterPasta, dal, soup]
+
+		let fail = () => {}
+
+		saves.removeMany.mockImplementationOnce(
+			() =>
+				new Promise((_resolve, reject) => {
+					fail = () => reject(new Error('offline'))
+				}),
+		)
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		// Clearing dal is still on its way when the cook starts choosing again.
+		await screen.getByRole('button', { name: 'select', exact: true }).click()
+		await screen.getByRole('button', { name: 'dal' }).click()
+		await screen.getByRole('button', { name: 'delete', exact: true }).click()
+		await screen
+			.getByRole('dialog')
+			.getByRole('button', { name: 'delete', exact: true })
+			.click()
+		await screen.getByRole('button', { name: 'select', exact: true }).click()
+		await screen.getByRole('button', { name: 'lentil soup' }).click()
+
+		fail()
+		await expect
+			.element(screen.getByText("couldn't delete those — try again"))
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'lentil soup' }))
+			.toHaveAttribute('aria-pressed', 'true')
+		await expect
+			.element(screen.getByRole('button', { name: 'dal' }))
+			.toHaveAttribute('aria-pressed', 'false')
+		await expect.element(screen.getByText('1 selected')).toBeVisible()
+	})
+
 	test('puts recipes back when clearing them fails', async () => {
 		saves.removeMany.mockRejectedValue(new Error('offline'))
 		shelfState.recipes = [misoButterPasta, dal]
