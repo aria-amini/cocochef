@@ -27,17 +27,18 @@ let busy = 0
 const queue: (() => void)[] = []
 
 export async function photoSlot<T>(job: () => Promise<T>): Promise<T | null> {
-	if (busy >= running) {
-		if (queue.length >= waiting) return null
-		await new Promise<void>((resolve) => queue.push(resolve))
-	}
-
-	busy += 1
+	if (busy < running) busy += 1
+	else if (queue.length >= waiting) return null
+	// Woken with a slot already its own: the one finishing hands it over
+	// rather than freeing it, so nothing arriving meanwhile can take it.
+	else await new Promise<void>((resolve) => queue.push(resolve))
 
 	try {
 		return await job()
 	} finally {
-		busy -= 1
-		queue.shift()?.()
+		const next = queue.shift()
+
+		if (next) next()
+		else busy -= 1
 	}
 }
