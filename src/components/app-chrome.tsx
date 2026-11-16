@@ -1,5 +1,7 @@
+import { AccountMenu } from '@/components/account-menu'
 import { AppNav, useTabBar } from '@/components/app-nav'
 import { NavigationProgress } from '@/components/navigation-progress'
+import { BarAccount } from '@/components/page'
 import { RecipeActionsProvider } from '@/components/recipe-actions'
 import { cn } from '@/lib/utils/ui'
 
@@ -19,7 +21,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
 			>
 				<NavigationProgress />
 				<AppNav />
-				{children}
+				<BarAccount value={<AccountMenu variant="avatar" />}>
+					{children}
+				</BarAccount>
 			</div>
 		</RecipeActionsProvider>
 	)

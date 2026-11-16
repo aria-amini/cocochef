@@ -36,6 +36,8 @@ vi.mock('@/lib/groceries/server', () => ({
 	renameGrocery: vi.fn(),
 	deleteGrocery: vi.fn(),
 	clearCheckedGroceries: vi.fn(),
+	restoreCart: vi.fn(),
+	leaveGrocery: vi.fn(),
 }))
 
 vi.mock('@/lib/discover/server', () => ({
@@ -154,7 +156,7 @@ describe('home', () => {
 			.element(
 				screen.getByRole('link', { name: 'groceries: 4 of 9 in the cart' }),
 			)
-			.toHaveAttribute('href', '/kitchen?view=groceries')
+			.toHaveAttribute('href', '/groceries')
 		await expectPageScreenshot(screen.container, 'home-shopping')
 	})
 

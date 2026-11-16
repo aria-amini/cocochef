@@ -1,10 +1,16 @@
-import { CarrotIcon, CookingPotIcon, HouseIcon } from '@phosphor-icons/react'
+import {
+	CookingPotIcon,
+	HouseIcon,
+	JarLabelIcon,
+	ShoppingCartIcon,
+} from '@phosphor-icons/react'
 import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
-import { GroceryBadge, GroceryCount } from '@/components/grocery-badge'
-import { type KitchenView, useKitchenView } from '@/lib/kitchen-view'
+import { GroceryCount } from '@/components/grocery-badge'
+import { markTabJump } from '@/lib/kept-match'
+import { useScrollHidden } from '@/lib/use-scroll-reveal'
 import { cn } from '@/lib/utils/ui'
 
 // Each tab's key is its path's name; the name on it says whose recipes the
@@ -17,7 +23,13 @@ const navItems = [
 		icon: CookingPotIcon,
 		to: '/recipes',
 	},
-	{ label: 'kitchen', name: 'kitchen', icon: CarrotIcon, to: '/kitchen' },
+	{
+		label: 'groceries',
+		name: 'groceries',
+		icon: ShoppingCartIcon,
+		to: '/groceries',
+	},
+	{ label: 'pantry', name: 'pantry', icon: JarLabelIcon, to: '/pantry' },
 ] as const
 
 type TabBarMode = 'none' | 'bar' | 'bar-own-fab'
@@ -81,15 +93,25 @@ export function useTabBar(): TabBarMode {
 	return mode === 'own-fab' ? 'bar-own-fab' : 'bar'
 }
 
-// The tab a page belongs to. Every shell page that is not another tab's (or
-// settings) is a recipe's: a recipe from a site, a shared link or a published
-// address lights up recipes like one on the shelf.
+// The tab a recipe's page was opened from: home for one found there, my
+// recipes for one off the shelf. A web recipe has one address however it was
+// reached, so its address alone can't say. Kept in the browser only.
+let openedFrom: 'home' | 'recipes' | undefined
+
+// The tab a page belongs to. A recipe's page, wherever its address, lights
+// the tab it was opened from; reached straight from a link, a recipe of the
+// shelf's own (/recipes/…) lights my recipes and any other home.
 function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
 	const matches = useMatches()
 
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	})
+
+	useEffect(() => {
+		if (pathname === '/') openedFrom = 'home'
+		else if (pathname === '/recipes') openedFrom = 'recipes'
+	}, [pathname])
 
 	if (!matches.some((match) => match.routeId === '/_app')) return undefined
 
@@ -101,14 +123,13 @@ function useActiveTab(): (typeof navItems)[number]['label'] | undefined {
 
 	if (pathname === '/') return 'home'
 
-	for (const { label } of navItems) {
-		if (label === 'recipes' || label === 'home') continue
+	if (pathname === '/groceries') return 'groceries'
 
-		if (pathname === `/${label}` || pathname.startsWith(`/${label}/`))
-			return label
-	}
+	if (pathname === '/pantry' || pathname.startsWith('/pantry/')) return 'pantry'
 
-	return 'recipes'
+	if (pathname === '/recipes') return 'recipes'
+
+	return openedFrom ?? (pathname.startsWith('/recipes/') ? 'recipes' : 'home')
 }
 
 // The on-screen keyboard shoves fixed bars up over the field being typed in,
@@ -159,7 +180,6 @@ export function AppNav() {
 }
 
 function Sidebar() {
-	const kitchenView = useKitchenView()
 	const tab = useActiveTab()
 
 	return (
@@ -187,7 +207,7 @@ function Sidebar() {
 				return (
 					<Link
 						key={to}
-						{...tabTarget(to, kitchenView)}
+						{...tabTarget(to, active)}
 						aria-current={active ? 'page' : undefined}
 						className={cn(
 							navFeedbackClassName,
@@ -204,12 +224,7 @@ function Sidebar() {
 							className={navIconFeedbackClassName}
 						/>
 						{name}
-						{label === 'kitchen' ? (
-							<>
-								<GroceryCount />
-								<GroceryBadge className="ml-auto" />
-							</>
-						) : null}
+						{label === 'groceries' ? <GroceryCount /> : null}
 					</Link>
 				)
 			})}
@@ -225,6 +240,7 @@ function Sidebar() {
 function MobileHeader() {
 	const mode = useTabBar()
 	const matches = useMatches()
+	const hidden = useScrollHidden()
 
 	// A page that leads with its own back bar has no use for the header.
 	if (
@@ -234,7 +250,14 @@ function MobileHeader() {
 		return null
 
 	return (
-		<header className="flex items-center justify-between px-6 pt-3 md:hidden">
+		// The same bar as a page's way back: the account in the same corner,
+		// out of the way while reading down, back on the way up.
+		<header
+			className={cn(
+				'border-border bg-background sticky top-[env(safe-area-inset-top,0px)] z-20 flex min-h-14 items-center justify-between border-b px-6 motion-safe:transition-transform md:hidden',
+				hidden && '-translate-y-full',
+			)}
+		>
 			<Link
 				to="/"
 				aria-label="cocochef"
@@ -254,22 +277,22 @@ function MobileHeader() {
 	)
 }
 
-// The kitchen reopens the side that was open last; every other tab opens
-// its page.
-function tabTarget(
-	to: (typeof navItems)[number]['to'],
-	kitchenView: KitchenView | undefined,
-) {
-	if (to === '/kitchen' && kitchenView)
-		return { to, search: { view: kitchenView } } as const
-
-	return { to } as const
+// A tab returns to where it was left, as a phone's tab bar does; tapped while
+// it is already shown, it goes back to its top.
+function tabTarget(to: (typeof navItems)[number]['to'], active: boolean) {
+	return {
+		to,
+		resetScroll: false,
+		onClick: () => {
+			if (active) window.scrollTo({ top: 0, behavior: 'smooth' })
+			else markTabJump()
+		},
+	} as const
 }
 
 // Thumb-reach navigation on phones: the two places you go.
 function TabBar() {
 	const visible = useTabBarVisible()
-	const kitchenView = useKitchenView()
 	const tab = useActiveTab()
 
 	if (!visible) return null
@@ -286,7 +309,7 @@ function TabBar() {
 					return (
 						<Link
 							key={to}
-							{...tabTarget(to, kitchenView)}
+							{...tabTarget(to, active)}
 							aria-current={active ? 'page' : undefined}
 							className={cn(
 								tabClassName,
@@ -305,12 +328,9 @@ function TabBar() {
 									weight={active ? 'fill' : 'regular'}
 									aria-hidden
 								/>
-								{label === 'kitchen' ? (
-									<GroceryBadge className="bg-background absolute -top-1.5 -right-3" />
-								) : null}
 							</span>
 							{name}
-							{label === 'kitchen' ? <GroceryCount /> : null}
+							{label === 'groceries' ? <GroceryCount /> : null}
 						</Link>
 					)
 				})}

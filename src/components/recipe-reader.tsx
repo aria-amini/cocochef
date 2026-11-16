@@ -2,39 +2,34 @@ import { Dialog } from '@base-ui/react/dialog'
 import {
 	ArrowsOutSimpleIcon,
 	BookmarkSimpleIcon,
-	ChatCircleIcon,
 	GlobeHemisphereWestIcon,
 	LinkSimpleIcon,
 	LockSimpleIcon,
 	XIcon,
 	YoutubeLogoIcon,
 } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
-import { EffortCard, effortShown } from '@/components/effort-card'
-import { AddToGroceries } from '@/components/grocery-send'
+import { RecipeFacts } from '@/components/effort-card'
 import { IngredientText } from '@/components/ingredient-text'
-import { KitchenTag } from '@/components/kitchen-tag'
 import { PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
 import { RecipeGlyph } from '@/components/recipe-glyph'
-import { compactCount, RecipeRating } from '@/components/recipe-rating'
-import { RecipeTags } from '@/components/recipe-tags'
+import { RecipeRating } from '@/components/recipe-rating'
 import {
-	useMarkHave,
-	usePantry,
-	useWaitingGroceries,
-} from '@/components/use-pantry'
-import { mealTags } from '@/lib/assistant/meal-parts'
+	IngredientsSteps,
+	shopStatusOf,
+	ShopList,
+	useIngredientsStep,
+	useRecipeShop,
+} from '@/components/recipe-shop'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
-import { lineStatus } from '@/lib/pantry/status'
 import { sizedPhoto } from '@/lib/photos/sized'
 import { recipeEffort } from '@/lib/recipes/effort'
 import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import type { IngredientCategories } from '@/lib/recipes/model'
-import { formatMinutes } from '@/lib/recipes/model'
 import { hostOf, isYouTube } from '@/lib/recipes/source'
 import { stepRows } from '@/lib/recipes/step-groups'
 import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
@@ -70,6 +65,7 @@ export function RecipeReader({
 	authorship,
 	status,
 	heading = 'h1',
+	corner,
 	shop = false,
 	ingredientsView,
 	ingredientsAction,
@@ -82,7 +78,9 @@ export function RecipeReader({
 		| { saved: boolean; visibility?: 'public' | 'private' | undefined }
 		| undefined
 	heading?: 'h1' | 'h2'
-	// Whether the ingredients can go on the groceries list.
+	// An action that floats on the photo's corner, as saving it does.
+	corner?: React.ReactNode
+	// Whether the ingredients can be shopped for, as well as cooked.
 	shop?: boolean
 	// Another way to show the ingredients, in place of the list as written,
 	// and a control beside their heading.
@@ -90,6 +88,12 @@ export function RecipeReader({
 	ingredientsAction?: React.ReactNode
 }) {
 	const [checked, setChecked] = useState<Set<string>>(() => new Set())
+	const shopFor = useRecipeShop(recipe.id, recipe.ingredients, shop)
+	const { step, choose, auth } = useIngredientsStep(shopFor)
+	// Shop, then cook: two steps, unless another view of the ingredients
+	// takes their place.
+	const stepped = shop && !ingredientsView
+	const ingredientsId = useId()
 
 	const toggle = (item: string) =>
 		setChecked((current) => {
@@ -109,26 +113,21 @@ export function RecipeReader({
 
 	const RowBody = 'label'
 
-	// What the kitchen has of each line, for a reader who keeps a pantry or a
-	// list. A reader with neither sees no marks: "need" on every line would
-	// say nothing.
-	const pantry = usePantry(shop).data ?? []
-	const waiting = useWaitingGroceries(shop).data ?? []
-	const knows = pantry.length > 0 || waiting.length > 0
-	const markHave = useMarkHave()
-
-	const statusOf = (line: string) =>
-		knows ? lineStatus(line, pantry, waiting) : undefined
-
 	// The foods it takes, without its section names.
 	const foods = recipe.ingredients.filter(
 		(line) => line.trim() && ingredientHeading(line) === undefined,
 	)
 
+	// What the page it came from says its readers thought of it.
+	const rating =
+		recipe.ratingValue !== null &&
+		recipe.ratingValue !== undefined &&
+		recipe.ratingCount
+			? { value: recipe.ratingValue, count: recipe.ratingCount }
+			: undefined
+
 	// What it asks of the cook: its time, the meals it makes, how they keep.
 	const effort = recipeEffort({ ...recipe, foods })
-
-	const carded = effortShown(effort)
 
 	const stepBox = (
 		text: string,
@@ -192,7 +191,9 @@ export function RecipeReader({
 							<RecipeGlyph title={recipe.title} className="size-9 md:size-14" />
 						</span>
 					)}
-					{status?.saved || status?.visibility ? (
+					{corner}
+					{/* With a bookmark to press, the saved mark would say it twice. */}
+					{corner ? null : status?.saved || status?.visibility ? (
 						<span className="absolute -top-1 -right-1 flex gap-1">
 							{status.saved && !status.visibility ? (
 								<span
@@ -239,41 +240,46 @@ export function RecipeReader({
 					{authorship ? (
 						<p className="text-muted-foreground mt-2 text-sm">{authorship}</p>
 					) : null}
-					{/* With the card to say them, its time and servings aren't said
-					    twice. */}
-					<RecipeMeta recipe={recipe} brief={carded} />
-					<EffortCard
+					<RecipeFacts
 						effort={effort}
-						tags={
-							<RecipeTags
-								title={recipe.title}
-								// Read from its name, as a list does before it is tagged.
-								tags={mealTags(recipe.title)}
-								vegetarian={effort.vegetarian}
-								vegan={effort.vegan}
-								withTemperature
-							/>
+						rating={rating ? <RecipeRating rating={rating} /> : undefined}
+						// Under the rating, a line each, so the three fit across a
+						// phone.
+						from={
+							recipe.sourceUrl || recipe.links?.length ? (
+								<RecipeFrom recipe={recipe} stacked={!!rating} />
+							) : undefined
 						}
 					/>
 				</div>
 			</div>
 			{actions}
 			<div className="mt-8 grid gap-10 @2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] @2xl:items-start @2xl:gap-12">
-				<section>
+				<section aria-labelledby={ingredientsId}>
 					<div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
-						<h2 className={sectionLabelClassName}>ingredients</h2>
-						{shop ? (
-							<AddToGroceries
-								recipeId={recipe.id}
-								title={recipe.title}
-								lines={recipe.ingredients}
-							/>
-						) : null}
+						<h2 id={ingredientsId} className={sectionLabelClassName}>
+							ingredients
+						</h2>
 						{ingredientsAction}
+						{stepped ? (
+							// Held in its place, unseen, until the step is known.
+							<div className={cn(!step && 'invisible')}>
+								<IngredientsSteps
+									step={step ?? 'cook'}
+									onStep={choose}
+									shop={shopFor}
+								/>
+							</div>
+						) : null}
 					</div>
+					{auth}
 
 					{ingredientsView ? (
 						<div className="mt-2">{ingredientsView}</div>
+					) : stepped && step !== 'cook' ? (
+						<div className="mt-1">
+							<ShopList recipeId={recipe.id} shop={shopFor} />
+						</div>
 					) : (
 						<div className="mt-2">
 							<table aria-label="ingredients" className="w-full">
@@ -326,10 +332,13 @@ export function RecipeReader({
 																) : null}
 															</span>
 															<IngredientText text={row.text} done={done} />
-															<KitchenTag
-																status={statusOf(row.text)}
-																onHave={() => void markHave(row.text)}
-																className="mt-1.5"
+															{/* While cooking, what isn't home yet says so. */}
+															<ShopStatus
+																status={
+																	stepped
+																		? shopStatusOf(shopFor, row.text)
+																		: undefined
+																}
 															/>
 														</label>
 													</td>
@@ -416,14 +425,15 @@ export function RecipeReader({
 	)
 }
 
-// Servings, time, and the page or video the recipe came from, if it has one.
-function RecipeMeta({
+// Where the recipe came from, quietly: its page or video, and any other
+// links, run together with dots.
+function RecipeFrom({
 	recipe,
-	brief = false,
+	stacked = false,
 }: {
 	recipe: ReadableRecipe
-	// Without its time and servings, which a card beside it says.
-	brief?: boolean
+	// One under another, without dots.
+	stacked?: boolean
 }) {
 	const source = recipe.sourceUrl
 		? importSiteForUrl(recipe.sourceUrl)
@@ -431,41 +441,17 @@ function RecipeMeta({
 
 	const video = recipe.sourceUrl ? isYouTube(recipe.sourceUrl) : false
 
+	const link =
+		'hover:text-foreground inline-flex items-center gap-1.5 underline'
+
 	const items = [
-		recipe.ratingValue !== null &&
-		recipe.ratingValue !== undefined &&
-		recipe.ratingCount ? (
-			<RecipeRating
-				key="rating"
-				rating={{ value: recipe.ratingValue, count: recipe.ratingCount }}
-			/>
-		) : null,
-		recipe.commentCount && recipe.sourceUrl ? (
-			<a
-				key="comments"
-				href={recipe.sourceUrl}
-				target="_blank"
-				rel="noreferrer"
-				className="hover:text-foreground inline-flex items-center gap-1 underline"
-			>
-				<ChatCircleIcon size={14} aria-hidden />
-				{compactCount(recipe.commentCount)}{' '}
-				{recipe.commentCount === 1 ? 'comment' : 'comments'}
-			</a>
-		) : null,
-		recipe.servings && !brief ? (
-			<span key="servings">serves {recipe.servings}</span>
-		) : null,
-		recipe.totalMinutes && !brief ? (
-			<span key="minutes">{formatMinutes(recipe.totalMinutes)}</span>
-		) : null,
 		recipe.sourceUrl ? (
 			<a
 				key="source"
 				href={recipe.sourceUrl}
 				target="_blank"
 				rel="noreferrer"
-				className="hover:text-foreground inline-flex items-center gap-1.5 underline"
+				className={link}
 			>
 				{video ? (
 					<YoutubeLogoIcon size={16} weight="fill" aria-hidden />
@@ -476,46 +462,53 @@ function RecipeMeta({
 						className="size-4 shrink-0 no-underline"
 					/>
 				) : null}
-				{video ? 'watch on youtube' : `from ${hostOf(recipe.sourceUrl)}`}
+				{video ? 'watch on youtube' : hostOf(recipe.sourceUrl)}
 			</a>
 		) : null,
-		...(recipe.links ?? []).map((link, index) => (
+		...(recipe.links ?? []).map((extra, index) => (
 			<a
 				// The same page can be linked twice; its place tells them apart.
 				// oxlint-disable-next-line react/no-array-index-key
 				key={`link-${index}`}
-				href={link}
+				href={extra}
 				target="_blank"
 				rel="noreferrer"
-				className="hover:text-foreground inline-flex items-center gap-1.5 underline"
+				className={link}
 			>
-				{isYouTube(link) ? (
+				{isYouTube(extra) ? (
 					<YoutubeLogoIcon size={16} weight="fill" aria-hidden />
 				) : (
 					<LinkSimpleIcon size={16} aria-hidden />
 				)}
-				{isYouTube(link) ? 'youtube video' : hostOf(link)}
+				{isYouTube(extra) ? 'youtube video' : hostOf(extra)}
 			</a>
 		)),
 	].filter((item) => item !== null)
 
 	if (!items.length) return null
 
+	if (stacked)
+		return items.map((item) => (
+			<span key={item.key} className="truncate">
+				{item}
+			</span>
+		))
+
 	return (
 		// Every item leads with a dot; the one that starts a line hangs past the
 		// left edge and is cut off, so no line starts or ends on a dot.
-		<div className="text-muted-foreground mt-3 overflow-hidden text-sm font-semibold">
-			<p className="-ml-6 flex flex-wrap items-center gap-y-1">
+		<span className="block overflow-hidden">
+			<span className="-ml-4 flex flex-wrap items-center gap-y-1">
 				{items.map((item) => (
 					<span
 						key={item.key}
-						className="inline-flex items-center pl-2 before:mr-2 before:w-2 before:text-center before:content-['·']"
+						className="inline-flex items-center pl-1.5 before:mr-1.5 before:w-1 before:text-center before:content-['·']"
 					>
 						{item}
 					</span>
 				))}
-			</p>
-		</div>
+			</span>
+		</span>
 	)
 }
 
@@ -563,5 +556,20 @@ function PhotoFullScreen({ src, title }: { src: string; title: string }) {
 				</Dialog.Popup>
 			</Dialog.Portal>
 		</Dialog.Root>
+	)
+}
+
+// A cooking line's word from the shop: still to buy, or on the list.
+function ShopStatus({ status }: { status: 'buy' | 'listed' | undefined }) {
+	if (!status) return null
+
+	return status === 'buy' ? (
+		<span className="bg-kitchen-tomato/15 mt-1.5 shrink-0 rounded-md px-1.5 text-xs leading-5 font-bold">
+			to buy
+		</span>
+	) : (
+		<span className="text-muted-foreground mt-1.5 shrink-0 text-xs leading-5 font-semibold">
+			on list
+		</span>
 	)
 }

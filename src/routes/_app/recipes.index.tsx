@@ -2,7 +2,6 @@ import {
 	ArrowRightIcon,
 	BookmarkSimpleIcon,
 	CheckIcon,
-	CheckSquareIcon,
 	GlobeHemisphereWestIcon,
 	LinkSimpleIcon,
 	LockSimpleIcon,
@@ -10,12 +9,7 @@ import {
 	PlusIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
-import {
-	createFileRoute,
-	Link,
-	useHydrated,
-	useRouter,
-} from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
 	createContext,
@@ -46,6 +40,7 @@ import {
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { authClient } from '@/lib/auth/client'
+import { useKeptMatch } from '@/lib/kept-match'
 import {
 	deleteRecipes,
 	listShelf,
@@ -83,16 +78,14 @@ const shelfGridClassName =
 const ClearOff = createContext<(ids: ReadonlySet<string>) => void>(() => {})
 
 // Each of the shelf's sections opens the same way: its icon, then its name.
-const shelfHeadingClassName = 'flex items-center gap-2 text-xl font-bold'
+const shelfHeadingClassName =
+	'flex min-h-10 items-center gap-2 text-lg font-bold'
 
-// The shelf on its way: its select button, a section's name, then a grid of
-// photo tiles, each a photo over its name.
+// The shelf on its way: a section's name, then a grid of photo tiles, each a
+// photo over its name.
 function ShelfPending() {
 	return (
 		<PendingPage className="w-full max-w-3xl gap-8 p-6 md:p-10">
-			<div className="-mb-4 flex justify-end">
-				<Skeleton kind="line" className="h-9 w-24" />
-			</div>
 			<div className="flex flex-col gap-3">
 				<Skeleton kind="line" className="h-7 w-40" />
 				<div className={shelfGridClassName}>
@@ -122,7 +115,7 @@ function ShelfPending() {
 // being written, each saying who can see it. Finding new ones is home's job.
 // The shelf is kept by an account; signed out, the page says so.
 function ShelfPage() {
-	const { signedIn } = Route.useLoaderData()
+	const { signedIn } = useKeptMatch(Route.id).loaderData
 
 	if (signedIn) return <Shelf />
 
@@ -166,7 +159,7 @@ function ShelfPreview() {
 }
 
 function Shelf() {
-	const { recipes: loaded } = Route.useLoaderData()
+	const { recipes: loaded } = useKeptMatch(Route.id).loaderData
 
 	// Recipes cleared off leave at once. The shelf the server sends back takes
 	// over once it arrives, and brings them back if clearing failed.
@@ -176,25 +169,11 @@ function Shelf() {
 			recipes.filter((recipe) => !ids.has(recipe.id)),
 	)
 
-	const { viewerId } = Route.useLoaderData()
+	const { viewerId } = useKeptMatch(Route.id).loaderData
 	const account = authClient.useSession().data?.user
 	const me = viewerId ?? account?.id
-	const reduce = useReducedMotion()
-	// Rises in when opened from another page. A first load shows at once:
-	// rendered on the server, it would otherwise stay invisible until the
-	// page's code arrived to start the rise.
-	const hydrated = useHydrated()
 	const [addTile, tileInView] = useInView()
 	const selection = useSelection()
-
-	const enter =
-		reduce || !hydrated
-			? {}
-			: {
-					initial: { opacity: 0, y: 24 },
-					animate: { opacity: 1, y: 0 },
-					transition: { duration: 0.6, ease },
-				}
 
 	const mine = (recipe: Recipe) => !!me && recipe.userId === me
 
@@ -208,8 +187,6 @@ function Shelf() {
 	)
 
 	const savedRecipes = shelfRecipes.filter((recipe) => !mine(recipe))
-
-	const isEmpty = shelfRecipes.length === 0
 
 	const sections = [
 		{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes },
@@ -234,36 +211,8 @@ function Shelf() {
 	return (
 		<ClearOff value={clearOff}>
 			<main className="min-w-0 flex-1">
-				<motion.div
-					{...enter}
-					className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10"
-				>
+				<div className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10">
 					<h1 className="sr-only">my recipes</h1>
-					{/* Choosing waits for the account, which tells the cook's own
-					    recipes (deleted) from saved ones (only taken off). */}
-					{isEmpty || !account ? null : (
-						<div className="-mb-4 flex justify-end">
-							{selection.on ? (
-								<Button
-									variant="ghost"
-									onClick={() =>
-										chosen.length === shelfRecipes.length
-											? selection.clear()
-											: selection.set(shelfRecipes.map((recipe) => recipe.id))
-									}
-								>
-									{chosen.length === shelfRecipes.length
-										? 'select none'
-										: 'select all'}
-								</Button>
-							) : (
-								<Button variant="ghost" onClick={selection.start}>
-									<CheckSquareIcon aria-hidden />
-									select
-								</Button>
-							)}
-						</div>
-					)}
 					{drafts.length ? <Drafts drafts={drafts} pickFor={pickFor} /> : null}
 					{sections.map(({ id, title, recipes }) =>
 						recipes.length || id === ownShelf ? (
@@ -318,7 +267,7 @@ function Shelf() {
 							restoreLater={selection.restoreLater}
 						/>
 					) : null}
-				</motion.div>
+				</div>
 				<AddFab show={!tileInView && !selection.on} />
 			</main>
 		</ClearOff>

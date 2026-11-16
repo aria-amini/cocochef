@@ -4,16 +4,9 @@ import type { PantryCategory } from './model'
 // Where food lives in a kitchen, which is how a cook looks for it: the cold
 // first, the fridge and the freezer, then the counter and the pantry, whose
 // shelves hold the spices too.
-export const pantrySpots = ['fridge', 'freezer', 'counter', 'pantry'] as const
+const pantrySpots = ['fridge', 'freezer', 'counter', 'pantry'] as const
 
 export type PantrySpot = (typeof pantrySpots)[number]
-
-export const pantrySpotLabels: Record<PantrySpot, string> = {
-	fridge: 'fridge',
-	counter: 'counter',
-	pantry: 'pantry',
-	freezer: 'freezer',
-}
 
 type Food = {
 	name: string

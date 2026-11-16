@@ -1,8 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useHydrated } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { hasPicks, type MealPicks } from '@/lib/assistant/meal-parts'
+import { authClient } from '@/lib/auth/client'
 import { searchRecipes } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
 import { sizedPhoto } from '@/lib/photos/sized'
@@ -34,12 +36,19 @@ type Settled = Omit<OnlineSearch, 'loading'> & { asked?: string }
 
 const noPicks: MealPicks = {}
 
-// What was asked, so results answer only the question that fetched them.
+// What was asked, and by whom, so results answer only the question that
+// fetched them: what a search finds depends on who asks.
 const askedOf = (
+	viewer: string,
 	query: string,
 	sort: RecipeSort | undefined,
 	picks: MealPicks,
-) => JSON.stringify([sort ?? '', query, picks])
+) => JSON.stringify([viewer, sort ?? '', query, picks])
+
+// A question answered lately, kept in the query client (one per visit, and
+// one per test), so a search come back to (back from a recipe, or retyped)
+// shows its results at once while it is asked again.
+const answerKey = (asked: string) => ['search-answer', asked] as const
 
 // Searches cocochef's recipes for `query` once it settles, or sorted by `sort`,
 // every rated recipe; `picks` (kept in state, so one object while unchanged)
@@ -49,7 +58,12 @@ export function useOnlineRecipes(
 	sort?: RecipeSort,
 	picks: MealPicks = noPicks,
 ): OnlineSearch {
-	const asked = query === undefined ? undefined : askedOf(query, sort, picks)
+	const viewer = authClient.useSession().data?.user.id ?? ''
+
+	const asked =
+		query === undefined ? undefined : askedOf(viewer, query, sort, picks)
+
+	const client = useQueryClient()
 
 	const [settled, setSettled] = useState<Settled>({
 		results: [],
@@ -80,16 +94,20 @@ export function useOnlineRecipes(
 				})
 
 				if (cancelled) return
-				setSettled({
-					asked: askedOf(q, sort, picks),
+
+				const done = {
+					asked: askedOf(viewer, q, sort, picks),
 					results: found.results,
 					counts: found.counts,
 					failed: false,
-				})
+				}
+
+				client.setQueryData(answerKey(done.asked), done)
+				setSettled(done)
 			} catch {
 				if (!cancelled)
 					setSettled({
-						asked: askedOf(q, sort, picks),
+						asked: askedOf(viewer, q, sort, picks),
 						results: [],
 						failed: true,
 					})
@@ -102,18 +120,25 @@ export function useOnlineRecipes(
 			cancelled = true
 			clearTimeout(timer)
 		}
-	}, [query, sort, picks])
+	}, [client, viewer, query, sort, picks])
 
 	// Results belong to the question that fetched them; a new one starts empty.
 	// The last counts stay while the next ones load, so bubbles don't flicker;
 	// a failed search has none.
-	const current = asked !== undefined && settled.asked === asked
+	// What answers the question now: this search's own, or the same question
+	// answered before.
+	const shown =
+		asked === undefined
+			? undefined
+			: settled.asked === asked
+				? settled
+				: client.getQueryData<Settled>(answerKey(asked))
 
 	return {
-		results: current ? settled.results : [],
-		counts: settled.counts,
-		failed: current && settled.failed,
-		loading: query !== undefined && !current,
+		results: shown ? shown.results : [],
+		counts: shown?.counts ?? settled.counts,
+		failed: shown?.failed ?? false,
+		loading: query !== undefined && !shown,
 	}
 }
 

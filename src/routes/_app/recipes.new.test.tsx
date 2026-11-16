@@ -695,7 +695,7 @@ describe('write a recipe', () => {
 		expect(router.state.location.pathname).toBe('/recipes/new')
 
 		// Leaving any other way asks the same.
-		void router.navigate({ to: '/kitchen' })
+		void router.navigate({ to: '/pantry' })
 		await expect.element(leave).toBeVisible()
 		await leave.getByRole('button', { name: 'keep editing' }).click()
 		await expect.element(leave).not.toBeInTheDocument()

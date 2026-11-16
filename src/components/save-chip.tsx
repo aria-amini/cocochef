@@ -11,12 +11,15 @@ export function SaveChip({
 	saved,
 	saving,
 	toggle,
+	large = false,
 	className,
 }: {
 	title: string
 	saved: boolean
 	saving: boolean
 	toggle: () => void
+	// On a full photo: bigger, and set inside its corner rather than over it.
+	large?: boolean
 	className?: string | undefined
 }) {
 	return (
@@ -33,7 +36,8 @@ export function SaveChip({
 				toggle()
 			}}
 			className={cn(
-				'bg-card border-border absolute -top-2 -left-2 z-10 grid size-8 place-items-center rounded-full border shadow-md transition before:absolute before:-inset-1.5 hover:scale-110 active:scale-95 md:size-9',
+				'bg-card border-border absolute z-10 grid place-items-center rounded-full border shadow-md transition before:absolute before:-inset-1.5 hover:scale-110 active:scale-95',
+				large ? 'top-3 left-3 size-11' : '-top-2 -left-2 size-8 md:size-9',
 				saved
 					? 'text-kitchen-eggplant border-kitchen-eggplant/40'
 					: 'text-foreground hover:border-foreground/40',
@@ -42,14 +46,14 @@ export function SaveChip({
 		>
 			{saving ? (
 				<CircleNotchIcon
-					size={16}
+					size={large ? 20 : 16}
 					weight="bold"
 					aria-hidden
 					className="animate-spin"
 				/>
 			) : (
 				<BookmarkSimpleIcon
-					size={16}
+					size={large ? 20 : 16}
 					weight={saved ? 'fill' : 'bold'}
 					aria-hidden
 				/>

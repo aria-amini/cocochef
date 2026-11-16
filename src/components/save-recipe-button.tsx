@@ -1,4 +1,3 @@
-import { BookmarkSimpleIcon } from '@phosphor-icons/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import {
@@ -12,7 +11,7 @@ import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
 import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
-import { Button } from '@/components/ui/button'
+import { SaveChip } from '@/components/save-chip'
 import { rememberAfterSignIn, takeAfterSignIn } from '@/lib/auth/after-sign-in'
 import { authClient } from '@/lib/auth/client'
 import { getRecipe, removeSavedRecipe, saveRecipe } from '@/lib/recipes/server'
@@ -20,8 +19,11 @@ import { getRecipe, removeSavedRecipe, saveRecipe } from '@/lib/recipes/server'
 export function SaveRecipeButton({
 	recipe,
 	onAuthenticated,
+	large = false,
 }: {
 	onAuthenticated?: () => void
+	// On a full photo rather than a thumbnail.
+	large?: boolean
 	recipe: { id: string; title: string; saved?: boolean | undefined }
 }) {
 	const session = authClient.useSession()
@@ -124,32 +126,30 @@ export function SaveRecipeButton({
 
 	if (owned) return null
 
+	const disabled =
+		pending ||
+		updating ||
+		session.isPending ||
+		(signedIn && recipe.saved === undefined && query.isPending)
+
+	const press = () => {
+		if (!signedIn) {
+			rememberAfterSignIn({ action: 'save', recipeId: recipe.id })
+			setAuthOpen(true)
+		} else if (saved) setConfirming(true)
+		else update()
+	}
+
 	return (
 		<>
-			<Button
-				// Light, not the page's one solid: saving is offered, not pressed on.
-				variant={saved ? 'saved' : 'outline'}
-				disabled={
-					pending ||
-					updating ||
-					session.isPending ||
-					(signedIn && recipe.saved === undefined && query.isPending)
-				}
-				onClick={() => {
-					if (!signedIn) {
-						rememberAfterSignIn({ action: 'save', recipeId: recipe.id })
-						setAuthOpen(true)
-					} else if (saved) setConfirming(true)
-					else update()
-				}}
-			>
-				<BookmarkSimpleIcon
-					size={14}
-					weight={saved ? 'fill' : 'bold'}
-					aria-hidden
-				/>
-				{saved ? 'saved' : 'save'}
-			</Button>
+			{/* The same bookmark as on a found recipe, on the photo's corner. */}
+			<SaveChip
+				title={recipe.title}
+				saved={saved}
+				saving={disabled}
+				toggle={press}
+				large={large}
+			/>
 			<AuthDialog
 				open={authOpen}
 				onOpenChange={setAuthOpen}

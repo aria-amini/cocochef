@@ -4,7 +4,7 @@ test('a signed-out visitor is asked for an account before keeping a pantry', asy
 	page,
 }) => {
 	test.setTimeout(30_000)
-	await page.goto('/kitchen')
+	await page.goto('/pantry')
 	await expect(
 		page.getByRole('heading', { name: 'keep track of your kitchen' }),
 	).toBeVisible({ timeout: 15_000 })
@@ -15,7 +15,8 @@ test('a signed-out visitor is asked for an account before keeping a pantry', asy
 		page.getByRole('dialog', { name: 'create an account' }),
 	).toBeVisible()
 
-	// There is no pantry to add to yet: adding leads back to the ask.
+	// There is no pantry to add to yet: adding, even by an old link, leads
+	// back to the ask.
 	await page.goto('/kitchen/bulk?cat=fruit')
-	await expect(page).toHaveURL(/\/kitchen$/)
+	await expect(page).toHaveURL(/\/pantry$/)
 })

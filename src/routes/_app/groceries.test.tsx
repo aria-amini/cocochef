@@ -13,8 +13,7 @@ type Item = {
 	userId: string
 	text: string
 	category: ReturnType<typeof ingredientCategory>
-	recipeId: string | null
-	recipeTitle: string | null
+	recipes: { id: string; title: string }[]
 	checkedAt: Date | null
 	createdAt: Date
 }
@@ -40,17 +39,10 @@ const make = (text: string, extra: Partial<Item> = {}): Item => ({
 	userId: 'user-1',
 	text,
 	category: ingredientCategory(text),
-	recipeId: null,
-	recipeTitle: null,
+	recipes: [],
 	checkedAt: null,
 	createdAt: new Date(),
 	...extra,
-})
-
-const restocked = vi.hoisted(() => {
-	const calls: { text: string; category: string }[][] = []
-
-	return { calls }
 })
 
 // What the cook already keeps, for the finish dialog to say what saving does.
@@ -63,11 +55,6 @@ const kept = vi.hoisted(() => {
 vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	listPantry: () => Promise.resolve(kept.items),
-	restockPantry: ({ data }: { data: { text: string; category: string }[] }) => {
-		restocked.calls.push(data)
-
-		return Promise.resolve({ restocked: 0, added: data.length })
-	},
 }))
 
 vi.mock('@/lib/groceries/server', () => ({
@@ -110,13 +97,20 @@ vi.mock('@/lib/groceries/server', () => ({
 
 		return Promise.resolve()
 	},
-	clearCheckedGroceries: ({ data }: { data: { stock: string[] } }) => {
-		list.stocked.push(...data.stock)
-		const cleared = list.items.filter((item) => item.checkedAt).length
+	clearCheckedGroceries: () => {
+		const ticked = list.items.filter((item) => item.checkedAt)
+		list.stocked.push(...ticked.map((item) => item.id))
 		list.items = list.items.filter((item) => !item.checkedAt)
 
-		return Promise.resolve({ cleared, restocked: 0, added: data.stock.length })
+		return Promise.resolve({
+			cleared: ticked.length,
+			restocked: 0,
+			added: ticked.length,
+			undo: { lines: [], topped: [], made: [] },
+		})
 	},
+	restoreCart: () => Promise.resolve([]),
+	leaveGrocery: vi.fn(),
 }))
 
 // The row items are added in, at the end of the list: opened by the add row,
@@ -153,31 +147,29 @@ describe('groceries', () => {
 		list.items = []
 		list.signedOut = false
 		list.read.held = undefined
-		restocked.calls.length = 0
 		list.stocked.length = 0
 		kept.items = []
 	})
 
 	test('invites an empty list to add, not to go elsewhere', async () => {
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
 		await expect
 			.element(screen.getByRole('region', { name: 'groceries' }))
 			.toBeVisible()
-		// Its actions stay in place, greyed while there is nothing to act on.
+		// Nothing to change, so no menu to change it by.
 		await expect
-			.element(screen.getByRole('button', { name: 'edit' }))
-			.toBeDisabled()
+			.element(screen.getByRole('button', { name: 'list options' }))
+			.not.toBeInTheDocument()
+		// Nothing in the cart, so nothing to put away.
 		await expect
-			.element(screen.getByRole('button', { name: 'clear' }))
-			.toBeDisabled()
+			.element(screen.getByRole('button', { name: 'put away' }))
+			.not.toBeInTheDocument()
 		await expectPageScreenshot(screen.container, 'groceries-empty')
 
-		// Counted even when empty, so the header never sits blank.
-		await expect.element(screen.getByText('0 groceries')).toBeVisible()
 		await screen.getByRole('button', { name: 'add grocery item' }).click()
 		await expect
 			.element(screen.getByRole('combobox', { name: 'add an item' }))
@@ -187,18 +179,16 @@ describe('groceries', () => {
 	test('shelves the list by aisle, and moves what is ticked into the kitchen', async () => {
 		list.items = [
 			make('2 cloves garlic', {
-				recipeId: 'recipe-1',
-				recipeTitle: 'miso butter pasta',
+				recipes: [{ id: 'recipe-1', title: 'miso butter pasta' }],
 			}),
 			make('2 tbsp butter', {
-				recipeId: 'recipe-1',
-				recipeTitle: 'miso butter pasta',
+				recipes: [{ id: 'recipe-1', title: 'miso butter pasta' }],
 			}),
 			make('1 onion'),
 		]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
@@ -211,11 +201,11 @@ describe('groceries', () => {
 		await expect
 			.element(vegetables.getByRole('checkbox', { name: '1 onion' }))
 			.toBeVisible()
-		// Nothing is ticked yet: nothing in the kitchen, and nothing to clear.
+		// Nothing is ticked yet: nothing in the kitchen, and nothing to put away.
 		await expect.element(completed).not.toBeInTheDocument()
 		await expect
-			.element(screen.getByRole('button', { name: 'clear' }))
-			.toBeDisabled()
+			.element(screen.getByRole('button', { name: 'put away' }))
+			.not.toBeInTheDocument()
 		await expectPageScreenshot(screen.container, 'groceries')
 
 		// Typed items go in one after another and find their own aisle.
@@ -251,13 +241,15 @@ describe('groceries', () => {
 		await settled()
 		await expectPageScreenshot(screen.container, 'groceries-shopping')
 
-		// A tick only puts it in the cart, and the header counts it.
-		await expect.element(screen.getByText('1/4')).toBeVisible()
+		// A tick only puts it in the cart, and the header says how far along.
+		await expect
+			.element(screen.getByText(', 1 of 4 in your cart'))
+			.toBeInTheDocument()
 		expect(list.stocked).toEqual([])
 
-		// Clearing the cart puts it away in the kitchen.
-		await screen.getByRole('button', { name: 'clear' }).click()
-		await screen.getByRole('button', { name: 'clear and add 1' }).click()
+		// One tap on the bar puts the cart away in the kitchen.
+		await expect.element(screen.getByText('1 in your cart')).toBeVisible()
+		await screen.getByRole('button', { name: 'put away' }).click()
 		await expect.element(completed).not.toBeInTheDocument()
 		expect(list.stocked).toHaveLength(1)
 		expect(list.items.map((item) => item.text)).toEqual([
@@ -271,7 +263,7 @@ describe('groceries', () => {
 		list.items = [make('milk'), make('eggs', { checkedAt: new Date() })]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
@@ -297,7 +289,7 @@ describe('groceries', () => {
 		list.items = [make('1 onion'), make('milk')]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
@@ -337,7 +329,7 @@ describe('groceries', () => {
 		list.items = [make('1 onion'), make('milk')]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
@@ -370,20 +362,42 @@ describe('groceries', () => {
 
 	test('editing, changes each item in place', async () => {
 		list.items = [
-			make('1 onion', { recipeTitle: 'french onion soup' }),
+			make('1 onion', {
+				recipes: [
+					{ id: 'recipe-2', title: 'french onion soup' },
+					{ id: 'recipe-1', title: 'miso butter pasta' },
+				],
+			}),
 			make('milk'),
 		]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
-		await screen.getByRole('button', { name: 'edit' }).click()
-		// The same button turns to done while the list is being changed.
+		// In the shop a row is the food's name alone: the recipes it is for are
+		// said where the list is changed.
+		await expect
+			.element(screen.getByText('french onion soup'))
+			.not.toBeInTheDocument()
+
+		await screen.getByRole('button', { name: 'list options' }).click()
+		await page.getByRole('menuitem', { name: 'edit list' }).click()
+		// Each recipe it is for is a way back to it.
+		await expect
+			.element(screen.getByRole('link', { name: 'french onion soup' }))
+			.toHaveAttribute('href', '/recipes/recipe-2')
+		await expect
+			.element(screen.getByRole('link', { name: 'miso butter pasta' }))
+			.toHaveAttribute('href', '/recipes/recipe-1')
+		// Done takes the menu's place while the list is being changed.
 		await expect
 			.element(screen.getByRole('button', { name: 'done' }))
-			.toHaveAttribute('aria-pressed', 'true')
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('button', { name: 'list options' }))
+			.not.toBeInTheDocument()
 
 		// The amount steps in a shop's units, right on the row.
 		const more = screen.getByRole('button', { name: 'more onion' })
@@ -416,7 +430,12 @@ describe('groceries', () => {
 			.click()
 		const sheet = page.getByRole('dialog', { name: '2 red onion' })
 
-		await expect.element(sheet.getByText('for french onion soup')).toBeVisible()
+		await expect
+			.element(sheet.getByRole('link', { name: 'french onion soup' }))
+			.toHaveAttribute('href', '/recipes/recipe-2')
+		await expect
+			.element(sheet.getByRole('link', { name: 'miso butter pasta' }))
+			.toBeVisible()
 		await sheet.getByRole('button', { name: 'lb' }).click()
 		await expect
 			.element(sheet.getByRole('textbox'))
@@ -439,7 +458,7 @@ describe('groceries', () => {
 		list.items = [make('1 onion'), make('soy sauce', { checkedAt: new Date() })]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
@@ -477,38 +496,35 @@ describe('groceries', () => {
 		await expectPageScreenshot(screen.container, 'groceries-done')
 	})
 
-	test('clears the cart, putting away only what is picked', async () => {
+	test('puts the whole cart away in one tap, and says so', async () => {
 		const milk = make('milk', { checkedAt: new Date() })
 		const eggs = make('eggs', { checkedAt: new Date() })
 		list.items = [milk, eggs, make('1 onion')]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
-		await screen.getByRole('button', { name: 'clear' }).click()
-
-		const dialog = screen.getByRole('dialog', {
-			name: 'clear 2 items from your list?',
-		})
-
-		// Each line starts picked, saying what it adds to what is on hand.
-		await expect.element(dialog.getByText('new').first()).toBeVisible()
-		await dialog.getByRole('checkbox', { name: /eggs/ }).click()
-		await expect.element(dialog.getByText('leave out')).toBeVisible()
-		await dialog.getByRole('button', { name: 'clear and add 1' }).click()
+		await expect.element(screen.getByText('2 in your cart')).toBeVisible()
+		await screen.getByRole('button', { name: 'put away' }).click()
 
 		await expect
 			.element(screen.getByRole('region', { name: 'in your cart' }))
 			.not.toBeInTheDocument()
-		expect(list.stocked).toEqual([milk.id])
+		await expect
+			.element(screen.getByRole('button', { name: 'put away' }))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByText('put 2 items away in on hand'))
+			.toBeVisible()
+		expect(list.stocked).toEqual([milk.id, eggs.id])
 		expect(list.items.map((item) => item.text)).toEqual(['1 onion'])
 	})
 
 	test('finishes a food from its first letters, and steps its amount', async () => {
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
@@ -532,7 +548,7 @@ describe('groceries', () => {
 		if (window.innerWidth >= 768) return
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
@@ -556,15 +572,60 @@ describe('groceries', () => {
 		expect(list.items.map((item) => item.text)).toEqual(['milk'])
 	})
 
+	test('in the shop, a swipe left takes a row off the list, untouched by the pantry', async () => {
+		list.items = [make('milk'), make('eggs')]
+
+		const { screen } = await renderRoute({ path: '/groceries', session })
+		const milk = screen.getByRole('checkbox', { name: 'milk' })
+
+		await expect.element(milk).toBeVisible()
+
+		// A finger on the row, dragged well to the left and let go.
+		const row = milk.element().closest('label')
+
+		if (!row) throw new Error('missing row')
+
+		const box = row.getBoundingClientRect()
+		const y = box.top + box.height / 2
+
+		const at = (type: string, x: number) =>
+			new PointerEvent(type, {
+				bubbles: true,
+				clientX: x,
+				clientY: y,
+				pointerId: 1,
+				isPrimary: true,
+				pointerType: 'touch',
+				buttons: type === 'pointerup' ? 0 : 1,
+			})
+
+		row.dispatchEvent(at('pointerdown', box.right - 20))
+
+		for (let step = 1; step <= 8; step++) {
+			window.dispatchEvent(at('pointermove', box.right - 20 - step * 25))
+			await new Promise((done) => requestAnimationFrame(done))
+		}
+
+		window.dispatchEvent(at('pointerup', box.right - 220))
+
+		await expect
+			.poll(() => list.items.map((item) => item.text))
+			.toEqual(['eggs'])
+		// Gone, not ticked: nothing for putting away to stock.
+		expect(list.stocked).toEqual([])
+		await expect.element(page.getByText('removed milk')).toBeVisible()
+	})
+
 	test('editing, takes an item off with undo', async () => {
 		list.items = [make('1 onion')]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 
-		await screen.getByRole('button', { name: 'edit' }).click()
+		await screen.getByRole('button', { name: 'list options' }).click()
+		await page.getByRole('menuitem', { name: 'edit list' }).click()
 		await screen.getByRole('button', { name: 'remove 1 onion' }).click()
 		await expect
 			.element(screen.getByRole('textbox', { name: 'name of 1 onion' }))
@@ -583,7 +644,7 @@ describe('groceries', () => {
 		list.items = [make('1 onion')]
 
 		const { screen } = await renderRoute({
-			path: '/kitchen?view=groceries',
+			path: '/groceries',
 			session,
 		})
 

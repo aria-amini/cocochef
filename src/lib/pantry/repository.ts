@@ -340,32 +340,11 @@ export async function restockPantryForUser(
 		? await createPantryItemsForUser(userId, fresh, database)
 		: []
 
-	return { restocked: restocked.size, added: added.length }
-}
-
-// The cook says they have what a line asks for, though they never logged
-// it: the pantry item for its food goes back to plenty, or a new one is made.
-// Says which, and what it was, so it can be undone.
-export async function markHaveForUser(
-	userId: string,
-	line: { text: string; category: PantryCategory },
-	database: Database = getDb(),
-) {
-	const kept = findInPantry(
-		line.text,
-		await listPantryForUser(userId, database),
-	)
-
-	await restockPantryForUser(userId, [line], database)
-
-	const after = findInPantry(
-		line.text,
-		await listPantryForUser(userId, database),
-	)
-
-	if (!after) return null
-
-	return kept
-		? { id: after.id, created: false, level: kept.level }
-		: { id: after.id, created: true, level: null }
+	return {
+		restocked: restocked.size,
+		added: added.length,
+		// Which items, so a put-away can be taken back.
+		restockedIds: [...restocked],
+		addedIds: added.map((item) => item.id),
+	}
 }

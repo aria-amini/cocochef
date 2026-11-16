@@ -326,7 +326,8 @@ describe('recipes shelf', () => {
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
 	})
 
-	test('offers no choosing until it knows whose recipes are whose', async () => {
+	// The select button is off the shelf for now; these come back with it.
+	test.skip('offers no choosing until it knows whose recipes are whose', async () => {
 		shelfState.recipes = [misoButterPasta]
 
 		// The shelf loaded, but the account in the browser hasn't.
@@ -340,7 +341,7 @@ describe('recipes shelf', () => {
 			.not.toBeInTheDocument()
 	})
 
-	test('selects recipes and clears them off the shelf together', async () => {
+	test.skip('selects recipes and clears them off the shelf together', async () => {
 		saves.removeMany.mockResolvedValue({ removed: 2 })
 		shelfState.recipes = [
 			misoButterPasta,
@@ -418,7 +419,7 @@ describe('recipes shelf', () => {
 		expect(screen.getByText('miso butter pasta').query()).not.toBeNull()
 	})
 
-	test('keeps a second clear off the shelf while the first is still being read', async () => {
+	test.skip('keeps a second clear off the shelf while the first is still being read', async () => {
 		const soup = { ...dal, id: 'recipe-3', title: 'lentil soup' }
 
 		shelfState.recipes = [misoButterPasta, dal, soup]
@@ -466,7 +467,7 @@ describe('recipes shelf', () => {
 		expect(screen.getByText('miso butter pasta').query()).not.toBeNull()
 	})
 
-	test('keeps a newer selection when an earlier clear fails', async () => {
+	test.skip('keeps a newer selection when an earlier clear fails', async () => {
 		const soup = { ...dal, id: 'recipe-3', title: 'lentil soup' }
 
 		shelfState.recipes = [misoButterPasta, dal, soup]
@@ -509,7 +510,7 @@ describe('recipes shelf', () => {
 		await expect.element(screen.getByText('1 selected')).toBeVisible()
 	})
 
-	test('restores the later clear, not the earlier, when both fail', async () => {
+	test.skip('restores the later clear, not the earlier, when both fail', async () => {
 		const soup = { ...dal, id: 'recipe-3', title: 'lentil soup' }
 
 		shelfState.recipes = [misoButterPasta, dal, soup]
@@ -564,7 +565,7 @@ describe('recipes shelf', () => {
 		await expect.element(screen.getByText('1 selected')).toBeVisible()
 	})
 
-	test('puts recipes back when clearing them fails', async () => {
+	test.skip('puts recipes back when clearing them fails', async () => {
 		saves.removeMany.mockRejectedValue(new Error('offline'))
 		shelfState.recipes = [misoButterPasta, dal]
 

@@ -3,6 +3,7 @@ import {
 	asc,
 	count,
 	eq,
+	getTableColumns,
 	inArray,
 	isNotNull,
 	isNull,
@@ -10,9 +11,19 @@ import {
 } from 'drizzle-orm'
 
 import { type Database, getDb, type Queryable } from '@/db/connection'
-import { groceryItems, pantryItems, type StockedWas } from '@/db/schema'
-import { restockPantryForUser } from '@/lib/pantry/repository'
+import {
+	groceryItemRecipes,
+	groceryItems,
+	pantryItems,
+	recipes,
+	type StockedWas,
+} from '@/db/schema'
+import {
+	listPantryForUser,
+	restockPantryForUser,
+} from '@/lib/pantry/repository'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
+import { visibleTo } from '@/lib/recipes/repository'
 
 import {
 	type GroceryInput,
@@ -21,15 +32,47 @@ import {
 	sameItem,
 } from './model'
 
+// A line's columns, without the retired recipe ones it still carries.
+const {
+	recipeId: _recipeId,
+	recipeTitle: _recipeTitle,
+	...listed
+} = getTableColumns(groceryItems)
+
+// The list, each line with the recipes that are asking for it.
 export async function listGroceriesForUser(
 	userId: string,
 	database: Database = getDb(),
 ) {
-	return database
-		.select()
+	const items = await database
+		.select(listed)
 		.from(groceryItems)
 		.where(eq(groceryItems.userId, userId))
 		.orderBy(asc(groceryItems.createdAt))
+
+	if (!items.length) return items.map((item) => ({ ...item, recipes: [] }))
+
+	const marks = await database
+		.select({
+			itemId: groceryItemRecipes.itemId,
+			id: recipes.id,
+			title: recipes.title,
+		})
+		.from(groceryItemRecipes)
+		.innerJoin(recipes, eq(recipes.id, groceryItemRecipes.recipeId))
+		.where(
+			inArray(
+				groceryItemRecipes.itemId,
+				items.map((item) => item.id),
+			),
+		)
+
+	return items.map((item) => ({
+		...item,
+		recipes: marks
+			.filter((mark) => mark.itemId === item.id)
+			.map(({ id, title }) => ({ id, title })),
+	}))
 }
 
 // How many items are still to buy.
@@ -46,7 +89,9 @@ export async function countWaitingGroceriesForUser(
 }
 
 // Adds what is not already waiting on the list, each shelved in its aisle.
-// A line already in the cart goes back on: it is needed again.
+// A food already waiting is not added twice, but the recipe that asked for it
+// again is kept with it. A line already in the cart goes back on: it is
+// needed again.
 export async function addGroceriesForUser(
 	userId: string,
 	inputs: GroceryInput[],
@@ -54,40 +99,60 @@ export async function addGroceriesForUser(
 ) {
 	const rows = groceryInputs.parse(inputs)
 
-	const waiting = await database
-		.select({ text: groceryItems.text })
-		.from(groceryItems)
-		.where(and(eq(groceryItems.userId, userId), isNull(groceryItems.checkedAt)))
+	return database.transaction(async (tx) => {
+		const waiting = await tx
+			.select({ id: groceryItems.id, text: groceryItems.text })
+			.from(groceryItems)
+			.where(
+				and(eq(groceryItems.userId, userId), isNull(groceryItems.checkedAt)),
+			)
 
-	const seen = new Set(waiting.map((item) => sameItem(item.text)))
+		const seen = new Map(waiting.map((item) => [sameItem(item.text), item.id]))
+		const fresh: (GroceryInput & { id: string })[] = []
+		const marks: { itemId: string; recipeId: string }[] = []
 
-	const fresh = rows.filter((row) => {
-		const key = sameItem(row.text)
+		for (const row of rows) {
+			const key = sameItem(row.text)
+			const kept = seen.get(key)
 
-		if (seen.has(key)) return false
-		seen.add(key)
+			if (kept) {
+				for (const recipeId of row.recipeIds ?? [])
+					marks.push({ itemId: kept, recipeId })
 
-		return true
+				continue
+			}
+
+			const id = row.id ?? crypto.randomUUID()
+
+			seen.set(key, id)
+			fresh.push({ ...row, id })
+
+			for (const recipeId of row.recipeIds ?? [])
+				marks.push({ itemId: id, recipeId })
+		}
+
+		const now = Date.now()
+
+		const added = fresh.length
+			? await tx
+					.insert(groceryItems)
+					.values(
+						fresh.map((row, index) => ({
+							id: row.id,
+							userId,
+							text: row.text,
+							category: ingredientCategory(row.text),
+							// One millisecond apart, so the list keeps the order they came in.
+							createdAt: new Date(now + index),
+						})),
+					)
+					.returning()
+			: []
+
+		await markRecipes(tx, userId, marks)
+
+		return added
 	})
-
-	if (!fresh.length) return []
-	const now = Date.now()
-
-	return database
-		.insert(groceryItems)
-		.values(
-			fresh.map((row, index) => ({
-				id: row.id ?? crypto.randomUUID(),
-				userId,
-				text: row.text,
-				category: ingredientCategory(row.text),
-				recipeId: row.recipeId ?? null,
-				recipeTitle: row.recipeTitle ?? null,
-				// One millisecond apart, so the list keeps the order they came in.
-				createdAt: new Date(now + index),
-			})),
-		)
-		.returning()
 }
 
 // Into the cart is into the kitchen. A tick tops up the pantry item for the
@@ -212,6 +277,39 @@ export async function renameGroceryForUser(
 	return item ?? null
 }
 
+// One recipe gives up its share of a line two recipes have: the line keeps
+// the rest of the amount, and no longer says it's for that recipe.
+export async function leaveGroceryForUser(
+	userId: string,
+	id: string,
+	recipeId: string,
+	text: string,
+	database: Database = getDb(),
+) {
+	return database.transaction(async (tx) => {
+		const name = groceryFields.text.parse(text)
+
+		const [item] = await tx
+			.update(groceryItems)
+			.set({ text: name, category: ingredientCategory(name) })
+			.where(and(eq(groceryItems.id, id), eq(groceryItems.userId, userId)))
+			.returning()
+
+		if (!item) return null
+
+		await tx
+			.delete(groceryItemRecipes)
+			.where(
+				and(
+					eq(groceryItemRecipes.itemId, id),
+					eq(groceryItemRecipes.recipeId, recipeId),
+				),
+			)
+
+		return item
+	})
+}
+
 export async function deleteGroceryForUser(
 	userId: string,
 	id: string,
@@ -222,13 +320,27 @@ export async function deleteGroceryForUser(
 		.where(and(eq(groceryItems.id, id), eq(groceryItems.userId, userId)))
 }
 
-// The cart put away: the lines the cook picked go into the pantry, topping
-// up what is there or adding what is not, and every ticked line leaves the
-// list. A line that already filled the pantry when it was ticked is not
-// counted twice.
+// What a put-away did, kept for a moment so it can be taken back: the lines
+// that left the list, the pantry items it topped up and how they stood, and
+// the ones it made. Dates are ISO strings, since it travels to the cook and
+// back.
+export type PutAway = {
+	lines: {
+		id: string
+		text: string
+		recipes: string[]
+		checkedAt: string
+		createdAt: string
+	}[]
+	topped: { id: string; was: StockedWas }[]
+	made: string[]
+}
+
+// The cart put away: every ticked line goes into the pantry, topping up what
+// is there or adding what is not, and leaves the list. A line that already
+// filled the pantry when it was ticked is not counted twice.
 export async function clearCheckedGroceriesForUser(
 	userId: string,
-	stock: string[],
 	database: Database = getDb(),
 ) {
 	return database.transaction(async (tx) => {
@@ -241,11 +353,20 @@ export async function clearCheckedGroceriesForUser(
 			// Locked, so two clears at once cannot both put the same line away.
 			.for('update')
 
-		const picked = new Set(stock)
+		const marks = ticked.length
+			? await tx
+					.select()
+					.from(groceryItemRecipes)
+					.where(
+						inArray(
+							groceryItemRecipes.itemId,
+							ticked.map((line) => line.id),
+						),
+					)
+			: []
 
-		const bought = ticked.filter(
-			(line) => picked.has(line.id) && !line.stockedId,
-		)
+		const bought = ticked.filter((line) => !line.stockedId)
+		const before = bought.length ? await listPantryForUser(userId, tx) : []
 
 		const stocked = bought.length
 			? await restockPantryForUser(
@@ -253,7 +374,7 @@ export async function clearCheckedGroceriesForUser(
 					bought.map(({ text, category }) => ({ text, category })),
 					tx,
 				)
-			: { restocked: 0, added: 0 }
+			: { restocked: 0, added: 0, restockedIds: [], addedIds: [] }
 
 		// Only the lines read above: one ticked meanwhile was never offered.
 		if (ticked.length)
@@ -267,6 +388,119 @@ export async function clearCheckedGroceriesForUser(
 				),
 			)
 
-		return { cleared: ticked.length, ...stocked }
+		const undo: PutAway = {
+			lines: ticked.map((line) => ({
+				id: line.id,
+				text: line.text,
+				recipes: marks
+					.filter((mark) => mark.itemId === line.id)
+					.map((mark) => mark.recipeId),
+				checkedAt: (line.checkedAt ?? new Date()).toISOString(),
+				createdAt: line.createdAt.toISOString(),
+			})),
+			topped: stocked.restockedIds.flatMap((id) => {
+				const was = before.find((item) => item.id === id)
+
+				return was
+					? [
+							{
+								id,
+								was: {
+									level: was.level,
+									quantity: was.quantity,
+									confirmedAt: was.confirmedAt.toISOString(),
+									boughtAt: was.boughtAt.toISOString(),
+								},
+							},
+						]
+					: []
+			}),
+			made: stocked.addedIds,
+		}
+
+		return {
+			cleared: ticked.length,
+			restocked: stocked.restocked,
+			added: stocked.added,
+			undo,
+		}
 	})
+}
+
+// A put-away taken back: the pantry items it topped up stand as they did and
+// the ones it made go, and the lines return to the cart as they were.
+export async function restoreCartForUser(
+	userId: string,
+	undo: PutAway,
+	database: Database = getDb(),
+) {
+	return database.transaction(async (tx) => {
+		for (const { id, was } of undo.topped) await putBack(userId, id, was, tx)
+
+		if (undo.made.length)
+			await tx
+				.delete(pantryItems)
+				.where(
+					and(
+						eq(pantryItems.userId, userId),
+						inArray(pantryItems.id, undo.made),
+					),
+				)
+
+		if (!undo.lines.length) return []
+
+		const back = await tx
+			.insert(groceryItems)
+			.values(
+				undo.lines.map((line) => ({
+					id: line.id,
+					userId,
+					text: line.text,
+					category: ingredientCategory(line.text),
+					checkedAt: new Date(line.checkedAt),
+					createdAt: new Date(line.createdAt),
+				})),
+			)
+			.onConflictDoNothing()
+			.returning()
+
+		// Only the recipes still there, and only for the lines that came back.
+		const came = new Set(back.map((line) => line.id))
+
+		const wanted = undo.lines
+			.filter((line) => came.has(line.id))
+			.flatMap((line) =>
+				line.recipes.map((recipeId) => ({ itemId: line.id, recipeId })),
+			)
+
+		await markRecipes(tx, userId, wanted)
+
+		return back
+	})
+}
+
+// Marks lines with the recipes they're for, only those still there that the
+// cook can see: one deleted since, or another's private recipe, is left off.
+async function markRecipes(
+	tx: Parameters<Parameters<Database['transaction']>[0]>[0],
+	userId: string,
+	marks: { itemId: string; recipeId: string }[],
+) {
+	if (!marks.length) return
+
+	const seen = await tx
+		.select({ id: recipes.id })
+		.from(recipes)
+		.where(
+			and(
+				inArray(recipes.id, [...new Set(marks.map((mark) => mark.recipeId))]),
+				visibleTo(userId, tx),
+			),
+		)
+
+	const kept = new Set(seen.map((recipe) => recipe.id))
+	const allowed = marks.filter((mark) => kept.has(mark.recipeId))
+
+	if (allowed.length)
+		await tx.insert(groceryItemRecipes).values(allowed).onConflictDoNothing()
 }

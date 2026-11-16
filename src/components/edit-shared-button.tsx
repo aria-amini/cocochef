@@ -1,9 +1,7 @@
-import { PencilSimpleIcon } from '@phosphor-icons/react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useState } from 'react'
 
 import { AuthDialog } from '@/components/auth-dialog'
-import { Button } from '@/components/ui/button'
 import { rememberAfterSignIn, takeAfterSignIn } from '@/lib/auth/after-sign-in'
 import { authClient } from '@/lib/auth/client'
 
@@ -11,12 +9,12 @@ import { authClient } from '@/lib/auth/client'
 // opens on it, and only saving a change makes the cook's own copy, which then
 // takes the shared one's place on their shelf. Opened here when `onEdit` is
 // given, otherwise on the recipe's own page.
-export function EditSharedButton({
+export function useEditShared({
 	recipeId,
 	onEdit,
 }: {
 	recipeId: string
-	onEdit?: () => void
+	onEdit?: (() => void) | undefined
 }) {
 	const session = authClient.useSession()
 	const navigate = useNavigate()
@@ -55,22 +53,15 @@ export function EditSharedButton({
 		if (signedIn && takeAfterSignIn({ action: 'edit', recipeId })) finishEdit()
 	}, [signedIn, recipeId])
 
-	return (
-		<>
-			<Button
-				variant="ghost"
-				title="saving a change makes it your own copy"
-				disabled={session.isPending}
-				onClick={edit}
-			>
-				<PencilSimpleIcon size={14} weight="bold" aria-hidden />
-				edit
-			</Button>
+	return {
+		edit,
+		pending: session.isPending,
+		dialog: (
 			<AuthDialog
 				open={authOpen}
 				onOpenChange={setAuthOpen}
 				redirect={pathname}
 			/>
-		</>
-	)
+		),
+	}
 }
