@@ -1,8 +1,11 @@
+import type { IncomingMessage, ServerResponse } from 'node:http'
+
 import { defineToolkit } from '@aamini/config/tanstack'
 import { sentryTanstackStart } from '@sentry/tanstackstart-react/vite'
 // Loading the Varlock plugin resolves the env into process.env, so the
 // SENTRY_AUTH_TOKEN read below sees deployed secrets.
 import '@varlock/vite-integration'
+import type { Plugin } from 'vite-plus'
 import { playwright } from 'vite-plus/test/browser-playwright'
 
 // Class strings live in className, cn() and cva().
@@ -20,6 +23,32 @@ const designClassRules = [
 		message: 'No gradients: ingredient colors are flat tints (DESIGN.md).',
 	},
 ]
+
+// In dev, Nitro takes any request a browser marks as an image load for a
+// static file unless Nitro itself owns the route, so /api/img (a Start route)
+// answers 404 and recipe photos never show. Its API routes are never static
+// files: say so before Nitro looks. It goes at the very front of the
+// middleware stack, not in plugin order: after Vite restarts itself on a
+// change, Nitro's own middleware can land ahead of a plugin's. Builds don't
+// use this middleware.
+const apiRoutesAreNotAssets: Plugin = {
+	name: 'cocochef:api-routes-are-not-assets',
+	apply: 'serve',
+	configureServer(server) {
+		server.middlewares.stack.unshift({
+			route: '',
+			handle: (
+				req: IncomingMessage,
+				_res: ServerResponse,
+				next: () => void,
+			) => {
+				if (req.url?.startsWith('/api/'))
+					req.headers['sec-fetch-dest'] = 'empty'
+				next()
+			},
+		})
+	},
+}
 
 export default defineToolkit({
 	root: import.meta.dirname,
@@ -77,6 +106,7 @@ export default defineToolkit({
 			},
 		},
 		plugins: [
+			apiRoutesAreNotAssets,
 			sentryTanstackStart({
 				org: 'aamini-stack',
 				project: 'dutch-oven',
