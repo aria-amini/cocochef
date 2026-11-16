@@ -472,6 +472,10 @@ export function ShopList({
 			})
 			.catch(() => {
 				toast.error("couldn't change that — try again")
+
+				// A newer tap on its way keeps its amount.
+				if (saves.current.get(id) !== saved) return
+
 				setTexts((now) => {
 					const back = new Map(now)
 

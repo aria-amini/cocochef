@@ -36,19 +36,19 @@ type Settled = Omit<OnlineSearch, 'loading'> & { asked?: string }
 
 const noPicks: MealPicks = {}
 
-// What was asked, so results answer only the question that fetched them.
+// What was asked, and by whom, so results answer only the question that
+// fetched them: what a search finds depends on who asks.
 const askedOf = (
+	viewer: string,
 	query: string,
 	sort: RecipeSort | undefined,
 	picks: MealPicks,
-) => JSON.stringify([sort ?? '', query, picks])
+) => JSON.stringify([viewer, sort ?? '', query, picks])
 
 // A question answered lately, kept in the query client (one per visit, and
 // one per test), so a search come back to (back from a recipe, or retyped)
 // shows its results at once while it is asked again.
-// Kept per account, since what a search finds depends on who asks.
-const answerKey = (viewer: string, asked: string) =>
-	['search-answer', viewer, asked] as const
+const answerKey = (asked: string) => ['search-answer', asked] as const
 
 // Searches cocochef's recipes for `query` once it settles, or sorted by `sort`,
 // every rated recipe; `picks` (kept in state, so one object while unchanged)
@@ -58,9 +58,12 @@ export function useOnlineRecipes(
 	sort?: RecipeSort,
 	picks: MealPicks = noPicks,
 ): OnlineSearch {
-	const asked = query === undefined ? undefined : askedOf(query, sort, picks)
-	const client = useQueryClient()
 	const viewer = authClient.useSession().data?.user.id ?? ''
+
+	const asked =
+		query === undefined ? undefined : askedOf(viewer, query, sort, picks)
+
+	const client = useQueryClient()
 
 	const [settled, setSettled] = useState<Settled>({
 		results: [],
@@ -93,18 +96,18 @@ export function useOnlineRecipes(
 				if (cancelled) return
 
 				const done = {
-					asked: askedOf(q, sort, picks),
+					asked: askedOf(viewer, q, sort, picks),
 					results: found.results,
 					counts: found.counts,
 					failed: false,
 				}
 
-				client.setQueryData(answerKey(viewer, done.asked), done)
+				client.setQueryData(answerKey(done.asked), done)
 				setSettled(done)
 			} catch {
 				if (!cancelled)
 					setSettled({
-						asked: askedOf(q, sort, picks),
+						asked: askedOf(viewer, q, sort, picks),
 						results: [],
 						failed: true,
 					})
@@ -129,7 +132,7 @@ export function useOnlineRecipes(
 			? undefined
 			: settled.asked === asked
 				? settled
-				: client.getQueryData<Settled>(answerKey(viewer, asked))
+				: client.getQueryData<Settled>(answerKey(asked))
 
 	return {
 		results: shown ? shown.results : [],
