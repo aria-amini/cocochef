@@ -2,6 +2,7 @@ import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { createLink, useCanGoBack, useRouter } from '@tanstack/react-router'
 import * as React from 'react'
 
+import { useScrollHidden } from '@/lib/use-scroll-reveal'
 import { cn } from '@/lib/utils/ui'
 
 // The one page heading: plain, lowercase, large, and balanced when it wraps.
@@ -34,13 +35,19 @@ const BackAnchor = React.forwardRef<
 		<a
 			ref={ref}
 			className={cn(
-				'text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold ',
+				'text-muted-foreground hover:text-foreground inline-flex min-h-11 min-w-11 items-center gap-1.5 md:self-start text-sm font-semibold',
 				className,
 			)}
 			{...props}
 		>
-			<ArrowLeftIcon size={14} weight="bold" aria-hidden />
-			{children}
+			<ArrowLeftIcon
+				size={18}
+				weight="bold"
+				aria-hidden
+				className="md:size-3.5"
+			/>
+			{/* On a phone the arrow says it; the words stay for a screen reader. */}
+			<span className="max-md:sr-only">{children}</span>
 		</a>
 	)
 })
@@ -59,10 +66,16 @@ export function BackButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold"
+			className="text-muted-foreground hover:text-foreground inline-flex min-h-11 min-w-11 items-center gap-1.5 text-sm font-semibold md:self-start"
 		>
-			<ArrowLeftIcon size={14} weight="bold" aria-hidden />
-			{children}
+			<ArrowLeftIcon
+				size={18}
+				weight="bold"
+				aria-hidden
+				className="md:size-3.5"
+			/>
+			{/* On a phone the arrow says it; the words stay for a screen reader. */}
+			<span className="max-md:sr-only">{children}</span>
 		</button>
 	)
 }
@@ -87,13 +100,40 @@ export function BackToSearch({ query }: { query: string }) {
 	)
 }
 
-// The way back on phones is a bar that stays put while the page scrolls; on
-// desktop it is just the link above the title. It sits inside a page's padded
+// The account, as the app's shell draws it, for a bar that stands in for the
+// phone's header. Handed down rather than imported, so this module stays
+// below the app's chrome.
+export const BarAccount = React.createContext<React.ReactNode>(null)
+
+// The way back on phones is a bar at the top, the same as the header it
+// stands in for: it steps aside as the page scrolls down, and back on the
+// way up. On desktop it is just the link above the title. It sits inside a page's padded
 // <main>, so it pulls out to the edges.
-export function BackBar({ children }: { children: React.ReactNode }) {
+export function BackBar({
+	children,
+	end,
+}: {
+	children: React.ReactNode
+	// What the page offers, quietly, across from the way back.
+	end?: React.ReactNode
+}) {
+	const hidden = useScrollHidden()
+	const account = React.useContext(BarAccount)
+
 	return (
-		<div className="border-border bg-background sticky top-[env(safe-area-inset-top,0px)] z-10 -mx-6 -mt-6 mb-4 border-b px-6 md:static md:m-0 md:mb-2 md:border-0 md:p-0">
+		<div
+			className={cn(
+				'border-border bg-background sticky top-[env(safe-area-inset-top,0px)] z-20 -mx-6 -mt-6 mb-4 flex min-h-14 items-center justify-between gap-3 border-b px-6 motion-safe:transition-transform md:static md:m-0 md:mb-2 md:min-h-0 md:border-0 md:p-0',
+				hidden && 'max-md:-translate-y-full',
+			)}
+		>
 			{children}
+			<div className="flex items-center gap-2">
+				{end ? <div className="flex items-center gap-1">{end}</div> : null}
+				{/* A phone's header gives way to this bar, so the account comes
+				    along; on desktop it lives in the sidebar. */}
+				{account ? <div className="md:hidden">{account}</div> : null}
+			</div>
 		</div>
 	)
 }

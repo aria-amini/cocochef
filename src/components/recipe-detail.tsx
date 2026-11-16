@@ -1,16 +1,16 @@
-import { PencilSimple } from '@phosphor-icons/react'
+import { GlobeHemisphereWest, PencilSimple } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { useHideTabBar } from '@/components/app-nav'
-import { EditSharedButton } from '@/components/edit-shared-button'
+import { useEditShared } from '@/components/edit-shared-button'
 import { BackBar, BackLink, BackToSearch } from '@/components/page'
 import { RecipeEditor } from '@/components/recipe-editor'
+import { RecipeMenu } from '@/components/recipe-menu'
 import { RecipeReader } from '@/components/recipe-reader'
 import { RecipeSharing } from '@/components/recipe-sharing'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
-import { buttonVariants } from '@/components/ui/button'
 import { authClient } from '@/lib/auth/client'
 import { getRecipe } from '@/lib/recipes/server'
 import { getMyRecipeShare } from '@/lib/sharing/server'
@@ -47,7 +47,13 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 			)}
 		>
 			<div className={cn(editing ? 'max-w-2xl' : 'max-w-5xl')}>
-				<BackBar>
+				<BackBar
+					end={
+						editing ? undefined : (
+							<RecipeTools recipe={recipe} onEdit={() => setEditing(true)} />
+						)
+					}
+				>
 					{foundBy === undefined ? (
 						<BackLink to="/recipes">back to my recipes</BackLink>
 					) : (
@@ -77,13 +83,7 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 					</>
 				) : (
 					<>
-						<RecipeView
-							key={recipe.id}
-							recipe={recipe}
-							onEdit={() => {
-								setEditing(true)
-							}}
-						/>
+						<RecipeView key={recipe.id} recipe={recipe} />
 					</>
 				)}
 			</div>
@@ -91,13 +91,7 @@ export function RecipeDetail({ recipe }: { recipe: Recipe }) {
 	)
 }
 
-function RecipeView({
-	recipe,
-	onEdit,
-}: {
-	recipe: Recipe
-	onEdit: () => void
-}) {
+function RecipeView({ recipe }: { recipe: Recipe }) {
 	const account = authClient.useSession().data?.user
 
 	const share = useQuery({
@@ -110,6 +104,11 @@ function RecipeView({
 		<RecipeReader
 			recipe={recipe}
 			shop
+			corner={
+				recipe.owned ? undefined : (
+					<SaveRecipeButton recipe={recipe} large={!!recipe.imageUrl} />
+				)
+			}
 			status={{
 				saved: recipe.saved && !recipe.owned,
 				visibility: recipe.owned
@@ -125,31 +124,61 @@ function RecipeView({
 						? `created by ${recipe.authorName}`
 						: undefined
 			}
-			actions={
-				<>
-					<div className="mt-6 flex flex-wrap items-center gap-2">
-						{!recipe.owned ? <SaveRecipeButton recipe={recipe} /> : null}
-						{recipe.owned ? (
-							<button
-								type="button"
-								className={buttonVariants({ variant: 'outline' })}
-								onClick={onEdit}
-							>
-								<PencilSimple size={14} weight="bold" aria-hidden /> edit
-							</button>
-						) : (
-							<EditSharedButton recipeId={recipe.id} onEdit={onEdit} />
-						)}
-
-						{recipe.owned && recipe.finalizedAt ? (
-							<RecipeSharing
-								recipe={recipe}
-								imported={!recipe.owned && !!recipe.sourceUrl}
-							/>
-						) : null}
-					</div>
-				</>
-			}
 		/>
+	)
+}
+
+// Across from the way back, folded behind "⋯": changing the recipe, and
+// sharing one's own.
+function RecipeTools({
+	recipe,
+	onEdit,
+}: {
+	recipe: Recipe
+	onEdit: () => void
+}) {
+	const [sharing, setSharing] = useState(false)
+	const shared = useEditShared({ recipeId: recipe.id, onEdit })
+
+	return (
+		<>
+			<RecipeMenu
+				items={[
+					recipe.owned
+						? {
+								key: 'edit',
+								label: 'edit',
+								icon: PencilSimple,
+								onSelect: onEdit,
+							}
+						: {
+								key: 'edit',
+								label: 'edit a copy',
+								icon: PencilSimple,
+								onSelect: shared.edit,
+								disabled: shared.pending,
+							},
+					...(recipe.owned && recipe.finalizedAt
+						? [
+								{
+									key: 'share',
+									label: 'share',
+									icon: GlobeHemisphereWest,
+									onSelect: () => setSharing(true),
+								},
+							]
+						: []),
+				]}
+			/>
+			{recipe.owned ? null : shared.dialog}
+			{recipe.owned && recipe.finalizedAt ? (
+				<RecipeSharing
+					recipe={recipe}
+					imported={false}
+					open={sharing}
+					onOpenChange={setSharing}
+				/>
+			) : null}
+		</>
 	)
 }

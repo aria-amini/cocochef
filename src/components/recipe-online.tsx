@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useHydrated } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
@@ -41,6 +42,11 @@ const askedOf = (
 	picks: MealPicks,
 ) => JSON.stringify([sort ?? '', query, picks])
 
+// A question answered lately, kept in the query client (one per visit, and
+// one per test), so a search come back to (back from a recipe, or retyped)
+// shows its results at once while it is asked again.
+const answerKey = (asked: string) => ['search-answer', asked] as const
+
 // Searches cocochef's recipes for `query` once it settles, or sorted by `sort`,
 // every rated recipe; `picks` (kept in state, so one object while unchanged)
 // narrow every match on the server. Pass `undefined` to stay idle.
@@ -50,6 +56,7 @@ export function useOnlineRecipes(
 	picks: MealPicks = noPicks,
 ): OnlineSearch {
 	const asked = query === undefined ? undefined : askedOf(query, sort, picks)
+	const client = useQueryClient()
 
 	const [settled, setSettled] = useState<Settled>({
 		results: [],
@@ -80,12 +87,16 @@ export function useOnlineRecipes(
 				})
 
 				if (cancelled) return
-				setSettled({
+
+				const done = {
 					asked: askedOf(q, sort, picks),
 					results: found.results,
 					counts: found.counts,
 					failed: false,
-				})
+				}
+
+				client.setQueryData(answerKey(done.asked), done)
+				setSettled(done)
 			} catch {
 				if (!cancelled)
 					setSettled({
@@ -102,18 +113,25 @@ export function useOnlineRecipes(
 			cancelled = true
 			clearTimeout(timer)
 		}
-	}, [query, sort, picks])
+	}, [client, query, sort, picks])
 
 	// Results belong to the question that fetched them; a new one starts empty.
 	// The last counts stay while the next ones load, so bubbles don't flicker;
 	// a failed search has none.
-	const current = asked !== undefined && settled.asked === asked
+	// What answers the question now: this search's own, or the same question
+	// answered before.
+	const shown =
+		asked === undefined
+			? undefined
+			: settled.asked === asked
+				? settled
+				: client.getQueryData<Settled>(answerKey(asked))
 
 	return {
-		results: current ? settled.results : [],
-		counts: settled.counts,
-		failed: current && settled.failed,
-		loading: query !== undefined && !current,
+		results: shown ? shown.results : [],
+		counts: shown?.counts ?? settled.counts,
+		failed: shown?.failed ?? false,
+		loading: query !== undefined && !shown,
 	}
 }
 

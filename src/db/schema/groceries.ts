@@ -2,6 +2,7 @@ import {
 	foreignKey,
 	index,
 	jsonb,
+	primaryKey,
 	snakeCase,
 	text,
 	timestamp,
@@ -14,7 +15,8 @@ import { pantryItems } from './pantry'
 import { recipes } from './recipes'
 
 // One line of a cook's grocery list: what to buy, the aisle it is shelved
-// under, the recipe that asked for it, and when it went in the cart.
+// under, and when it went in the cart. The recipes that asked for it are
+// kept beside it, in `groceryItemRecipes`.
 // Into the cart is into the kitchen: the tick tops up the pantry item for its
 // food or makes one, and keeps what that item was so an untick puts it back.
 // A pantry item as it stood before a tick filled it, dates as ISO strings.
@@ -32,7 +34,9 @@ export const groceryItems = snakeCase.table(
 		userId: text().notNull(),
 		text: text().notNull(),
 		category: text({ enum: pantryCategories }).notNull(),
-		// The recipe it came from, and its name as the cook saw it then.
+		// Retired: the recipes a line is for live in `groceryItemRecipes` now.
+		// Kept, unread and unwritten, so the build before it still runs while a
+		// deploy swaps over; a later migration drops them.
 		recipeId: text(),
 		recipeTitle: text(),
 		checkedAt: timestamp({ withTimezone: true }),
@@ -59,5 +63,30 @@ export const groceryItems = snakeCase.table(
 			foreignColumns: [pantryItems.id],
 			name: 'grocery_items_stocked_id_fk',
 		}).onDelete('set null'),
+	],
+)
+
+// The recipes a line is for: one food can be wanted by several, and it stays
+// on the list for as long as any of them does. A recipe that goes takes its
+// mark with it, so a mark never points at nothing.
+export const groceryItemRecipes = snakeCase.table(
+	'grocery_item_recipes',
+	{
+		itemId: text().notNull(),
+		recipeId: text().notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.itemId, table.recipeId] }),
+		index('grocery_item_recipes_recipe_id_index').on(table.recipeId),
+		foreignKey({
+			columns: [table.itemId],
+			foreignColumns: [groceryItems.id],
+			name: 'grocery_item_recipes_item_id_fk',
+		}).onDelete('cascade'),
+		foreignKey({
+			columns: [table.recipeId],
+			foreignColumns: [recipes.id],
+			name: 'grocery_item_recipes_recipe_id_fk',
+		}).onDelete('cascade'),
 	],
 )

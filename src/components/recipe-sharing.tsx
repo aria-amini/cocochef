@@ -1,11 +1,10 @@
-import { GlobeHemisphereWestIcon } from '@phosphor-icons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { FieldError } from '@/components/recipe-form'
 import { ExportRecipeButton } from '@/components/recipe-transfer'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import {
 	Dialog,
 	DialogContent,
@@ -22,33 +21,21 @@ import {
 import { cn } from '@/lib/utils/ui'
 
 // The one place for getting a recipe out of the app: a link to it, or a file.
+// Opened from the recipe's menu.
 export function RecipeSharing({
 	recipe,
 	imported,
+	open,
+	onOpenChange,
 }: {
 	recipe: { id: string; title: string }
 	imported: boolean
+	open: boolean
+	onOpenChange: (open: boolean) => void
 }) {
-	const [open, setOpen] = useState(false)
-	const session = authClient.useSession()
-
-	const share = useQuery({
-		queryKey: ['recipe-share', session.data?.user.id, recipe.id],
-		queryFn: () => getMyRecipeShare({ data: { id: recipe.id } }),
-		enabled: !!session.data?.user,
-	})
-
 	return (
 		<>
-			<button
-				type="button"
-				className={buttonVariants({ variant: 'ghost' })}
-				onClick={() => setOpen(true)}
-			>
-				<GlobeHemisphereWestIcon size={14} weight="bold" aria-hidden />
-				{share.data?.visibility === 'public' ? 'share · public' : 'share'}
-			</button>
-			<Dialog open={open} onOpenChange={setOpen}>
+			<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent>
 					<DialogTitle>share recipe</DialogTitle>
 					<DialogDescription>

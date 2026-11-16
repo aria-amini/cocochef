@@ -4,16 +4,14 @@ import {
 	test,
 	type Database,
 } from '@tests/support/fixtures/db'
-import { eq } from 'drizzle-orm'
 
-import { pantryItems, user } from '@/db/schema'
+import { user } from '@/db/schema'
 
 import {
 	createPantryItemForUser,
 	createPantryItemsForUser,
 	deletePantryItemForUser,
 	listPantryForUser,
-	markHaveForUser,
 	restockPantryForUser,
 	restorePantryItemForUser,
 	setPantryItemCountForUser,
@@ -220,7 +218,7 @@ describe('pantry', () => {
 				],
 				db,
 			),
-		).toEqual({ restocked: 1, added: 2 })
+		).toMatchObject({ restocked: 1, added: 2 })
 
 		const items = await listPantryForUser(userId, db)
 
@@ -230,45 +228,5 @@ describe('pantry', () => {
 			['short ribs', 'meat'],
 			['chickpeas', 'cans'],
 		])
-	})
-
-	test('marks a line as had, saying how to undo it', async ({ db }) => {
-		const userId = await seedUser(db)
-		const old = new Date('2026-01-01T00:00:00Z')
-
-		const eggs = await createPantryItemForUser(
-			userId,
-			{ name: 'eggs', category: 'dairy', level: 'out' },
-			db,
-		)
-
-		if (!eggs) throw new Error('item was not created')
-		await db
-			.update(pantryItems)
-			.set({ confirmedAt: old })
-			.where(eq(pantryItems.id, eggs.id))
-
-		expect(
-			await markHaveForUser(
-				userId,
-				{ text: '3 large eggs', category: 'dairy' },
-				db,
-			),
-		).toEqual({ id: eggs.id, created: false, level: 'out' })
-
-		const avocado = await markHaveForUser(
-			userId,
-			{ text: '1 ripe avocado', category: 'vegetables' },
-			db,
-		)
-
-		expect(avocado).toMatchObject({ created: true, level: null })
-
-		const items = await listPantryForUser(userId, db)
-		const kept = items.find((item) => item.id === eggs.id)
-
-		expect(kept?.level).toBe('plenty')
-		expect(kept?.confirmedAt.getTime()).toBeGreaterThan(old.getTime())
-		expect(items.map((item) => item.name)).toEqual(['eggs', 'avocados'])
 	})
 })

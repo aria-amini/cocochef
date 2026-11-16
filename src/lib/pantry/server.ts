@@ -2,25 +2,15 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { getAccountId, requireAccountId } from '@/lib/auth/session'
-import {
-	addGroceriesForUser,
-	listGroceriesForUser,
-} from '@/lib/groceries/repository'
+import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 
-import { findInPantry, shelfState } from './foods'
-import {
-	pantryCategories,
-	pantryCount,
-	pantryItemInput,
-	pantryLevels,
-	type PantryLevel,
-} from './model'
+import { shelfState } from './foods'
+import { pantryCount, pantryItemInput, pantryLevels } from './model'
 import {
 	createPantryItemsForUser,
 	deletePantryItemForUser,
 	keepPantryItemForUser,
 	listPantryForUser,
-	markHaveForUser,
 	restockPantryForUser,
 	restockPantryItemForUser,
 	restorePantryItemForUser,
@@ -80,42 +70,19 @@ export const createPantryItems = createServerFn({ method: 'POST' })
 		createPantryItemsForUser(await requireAccountId('keep ingredients'), data),
 	)
 
-// Food that runs low or out goes on the list in the same tap, unless a line
-// for it is already waiting there. Says whether it went on.
-async function listIfWanting(
-	userId: string,
-	item: { name: string; level: PantryLevel } | null,
-) {
-	if (!item || item.level === 'plenty') return false
-
-	const waiting = (await listGroceriesForUser(userId)).filter(
-		(line) => !line.checkedAt,
-	)
-
-	if (waiting.some((line) => findInPantry(line.text, [item]))) return false
-
-	return (await addGroceriesForUser(userId, [{ text: item.name }])).length > 0
-}
-
+// A level or count says what's home; it never puts food on the list. Low
+// or out food is offered there, and the cook says yes.
 export const setPantryItemLevel = createServerFn({ method: 'POST' })
 	.validator(
 		z.object({
 			id: z.string().min(1),
 			level: z.enum(pantryLevels),
-			// False when an undo puts a level back: that is no ask to buy it.
-			list: z.boolean().optional(),
 		}),
 	)
 	.handler(async ({ data }) => {
 		const accountId = await requireAccountId('keep ingredients')
 
-		const item = await setPantryItemLevelForUser(accountId, data.id, data.level)
-
-		return {
-			item,
-			listed:
-				data.list === false ? false : await listIfWanting(accountId, item),
-		}
+		return setPantryItemLevelForUser(accountId, data.id, data.level)
 	})
 
 export const setPantryItemCount = createServerFn({ method: 'POST' })
@@ -123,9 +90,7 @@ export const setPantryItemCount = createServerFn({ method: 'POST' })
 	.handler(async ({ data }) => {
 		const accountId = await requireAccountId('keep ingredients')
 
-		const item = await setPantryItemCountForUser(accountId, data.id, data.count)
-
-		return { item, listed: await listIfWanting(accountId, item) }
+		return setPantryItemCountForUser(accountId, data.id, data.count)
 	})
 
 // Bought more: back to plenty, dated today, with how many if counted.
@@ -180,29 +145,12 @@ export const deletePantryItem = createServerFn({ method: 'POST' })
 		),
 	)
 
-export const markHave = createServerFn({ method: 'POST' })
-	.validator(
-		z.object({
-			text: z.string().trim().min(1).max(500),
-			category: z.enum(pantryCategories),
-		}),
-	)
+// The cook says a food is home: the pantry item for it is topped up, or one
+// is made, as putting shopping away does. "2 lb short ribs" is short ribs.
+export const haveFood = createServerFn({ method: 'POST' })
+	.validator(z.object({ text: z.string().trim().min(1).max(200) }))
 	.handler(async ({ data }) =>
-		markHaveForUser(await requireAccountId('keep ingredients'), data),
-	)
-
-export const restockPantry = createServerFn({ method: 'POST' })
-	.validator(
-		z
-			.array(
-				z.object({
-					text: z.string().trim().min(1).max(200),
-					category: z.enum(pantryCategories),
-				}),
-			)
-			.min(1)
-			.max(100),
-	)
-	.handler(async ({ data }) =>
-		restockPantryForUser(await requireAccountId('keep ingredients'), data),
+		restockPantryForUser(await requireAccountId('keep ingredients'), [
+			{ text: data.text, category: ingredientCategory(data.text) },
+		]),
 	)

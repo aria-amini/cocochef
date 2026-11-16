@@ -42,7 +42,7 @@ describe('page loading', () => {
 			.element(screen.getByRole('heading', { name: 'my recipes', level: 1 }))
 			.toBeInTheDocument()
 
-		void router.navigate({ to: '/kitchen' })
+		void router.navigate({ to: '/pantry' })
 
 		await expect
 			.element(page.getByRole('progressbar', { name: 'loading page' }))
@@ -57,7 +57,7 @@ describe('page loading', () => {
 
 	test('stays quiet when the next page loads quickly', async () => {
 		const { router, screen } = await renderRoute({
-			path: '/kitchen',
+			path: '/pantry',
 			session,
 		})
 

@@ -1,105 +1,85 @@
-import {
-	ClockIcon,
-	type Icon,
-	MoonIcon,
-	SnowflakeIcon,
-	BowlFoodIcon,
-} from '@phosphor-icons/react'
-
 import { shortDuration } from '@/lib/recipes/duration'
 import { mealsOf, type RecipeEffort } from '@/lib/recipes/effort'
 
-// Whether the card has anything to say: a time, or how many it serves.
-export const effortShown = (effort: RecipeEffort) =>
-	effort.totalMinutes !== undefined ||
-	effort.activeMinutes !== undefined ||
-	mealsOf(effort) !== undefined
-
-// What a recipe asks of the cook, beside its photo under its title, as the
-// facts a week of cooking is planned by: its time and how much of it is hands
-// on, how many meals it makes, and how long they keep. At its foot, what kind
-// of recipe it is.
-export function EffortCard({
+// What a recipe asks and what others made of it, under its title, as up to
+// three numbers with the detail under each, quieter: its time and how much
+// of it is hands on, how many meals and how long they keep, and its rating
+// with the page it came from. No box: the numbers carry it.
+export function RecipeFacts({
 	effort,
-	tags,
+	rating,
+	from,
 }: {
 	effort: RecipeEffort
-	// What kind of recipe it is, as the list's tags say it, at the card's foot.
-	tags?: React.ReactNode
+	// The stars, from the page it came from.
+	rating?: React.ReactNode
+	// Where it came from: the page, its comments, any other links.
+	from?: React.ReactNode
 }) {
-	if (!effortShown(effort)) return null
-
 	const meals = mealsOf(effort)
 	const hands = effort.activeMinutes ?? effort.totalMinutes
 	const waiting = effort.waitingMinutes ?? 0
 
+	const facts = [
+		hands === undefined ? null : (
+			<Fact
+				key="time"
+				head={shortDuration(effort.totalMinutes ?? hands + waiting)}
+			>
+				{waiting > 0 ? `${shortDuration(hands)} hands on` : 'all hands on'}
+			</Fact>
+		),
+		meals ? (
+			<Fact key="meals" head={`${meals} ${meals === 1 ? 'meal' : 'meals'}`}>
+				keeps {effort.keeps.days}
+				{effort.keeps.freezes ? <span>freezes well</span> : null}
+			</Fact>
+		) : null,
+		rating ? (
+			<Fact key="rating" head={rating}>
+				{from}
+			</Fact>
+		) : null,
+	].filter((fact) => fact !== null)
+
+	if (!facts.length && !from) return null
+
 	return (
-		<section
-			aria-label="what it takes"
-			className="border-border mt-4 flex max-w-md flex-col gap-2.5 rounded-xl border px-3.5 py-3 lowercase"
-		>
-			<div className="grid grid-cols-2 gap-3 text-sm">
-				{hands === undefined ? null : (
-					<Part icon={ClockIcon}>
-						<b>{shortDuration(effort.totalMinutes ?? hands + waiting)}</b>
-						{waiting > 0 ? (
-							<>
-								<span>{shortDuration(hands)} hands on</span>
-								<span>
-									{shortDuration(waiting)}{' '}
-									{effort.waits.slice(0, 2).join(', ') || 'waiting'}
-								</span>
-							</>
-						) : (
-							<span>all hands on</span>
-						)}
-					</Part>
-				)}
-				<Part icon={BowlFoodIcon}>
-					{meals ? (
-						<b>
-							{meals} {meals === 1 ? 'meal' : 'meals'}
-						</b>
-					) : null}
-					<span>keeps {effort.keeps.days}</span>
-					{effort.keeps.freezes ? (
-						<span className="inline-flex items-center gap-1">
-							<SnowflakeIcon size={12} weight="bold" aria-hidden />
-							freezes well
-						</span>
-					) : null}
-				</Part>
-			</div>
+		<section aria-label="what it takes" className="mt-4 flex flex-col gap-3">
+			{facts.length ? (
+				<div className="flex flex-wrap gap-x-4 gap-y-3 sm:gap-x-8">{facts}</div>
+			) : null}
 			{effort.dayBefore ? (
-				<p className="flex items-center gap-1.5 text-sm font-semibold">
-					<MoonIcon size={14} weight="bold" aria-hidden />
+				<p className="text-muted-foreground text-sm font-semibold">
 					start the day before
 				</p>
 			) : null}
-			{tags ? (
-				<div className="border-border flex flex-col gap-2 border-t pt-2.5">
-					{tags}
+			{/* Unrated, where it came from has a line of its own. */}
+			{rating ? null : from ? (
+				<div className="text-muted-foreground text-sm font-semibold">
+					{from}
 				</div>
 			) : null}
 		</section>
 	)
 }
 
-// One of the card's halves: its mark, then what it says, the first line in
-// ink and the rest quieter.
-function Part({
-	icon: Mark,
+// One number, in ink, and what it means, quieter under it.
+function Fact({
+	head,
 	children,
 }: {
-	icon: Icon
-	children: React.ReactNode
+	head: React.ReactNode
+	children?: React.ReactNode
 }) {
 	return (
-		<div className="flex gap-2">
-			<Mark size={16} weight="bold" aria-hidden className="mt-0.5 shrink-0" />
-			<div className="text-muted-foreground [&>b]:text-foreground flex min-w-0 flex-col font-semibold">
+		// The time and the meals keep their width; the rating takes what's left,
+		// or, beside a thumbnail with too little left, a row of its own.
+		<div className="flex min-w-0 flex-col whitespace-nowrap not-last:shrink-0 last:min-w-24 last:flex-1">
+			<span className="truncate text-base font-bold tabular-nums">{head}</span>
+			<span className="text-muted-foreground flex min-w-0 flex-col text-xs font-semibold *:truncate sm:text-sm">
 				{children}
-			</div>
+			</span>
 		</div>
 	)
 }

@@ -1,16 +1,18 @@
 import {
+	ArrowSquareOutIcon,
 	BookOpenTextIcon,
 	PencilSimpleIcon,
 	ShareNetworkIcon,
 } from '@phosphor-icons/react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useRouterState } from '@tanstack/react-router'
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { Avatar } from '@/components/avatar'
-import { EditSharedButton } from '@/components/edit-shared-button'
+import { useEditShared } from '@/components/edit-shared-button'
 import { BackBar, BackLink, BackToSearch, PageTitle } from '@/components/page'
+import { RecipeMenu } from '@/components/recipe-menu'
 import { RecipeReader } from '@/components/recipe-reader'
 import { RecipeTileFace, recipeTileClassName } from '@/components/recipe-tile'
 import { SaveRecipeButton } from '@/components/save-recipe-button'
@@ -182,7 +184,16 @@ export function PublicRecipePage({
 	return (
 		<main className="bg-background text-foreground min-h-dvh min-w-0 flex-1 p-6 md:p-10">
 			<div className="max-w-5xl">
-				<BackBar>
+				<BackBar
+					end={
+						unlisted ? undefined : (
+							<PublicRecipeTools
+								recipeId={recipe.id}
+								owned={!!saved.data?.owned}
+							/>
+						)
+					}
+				>
 					{foundBy !== undefined ? (
 						<BackToSearch query={foundBy} />
 					) : 'publisher' in recipe ? (
@@ -199,6 +210,15 @@ export function PublicRecipePage({
 				<RecipeReader
 					recipe={recipe}
 					shop
+					corner={
+						!unlisted && !saved.data?.owned ? (
+							<SaveRecipeButton
+								recipe={recipe}
+								large={!!recipe.imageUrl}
+								onAuthenticated={() => refreshSession((value) => value + 1)}
+							/>
+						) : undefined
+					}
 					status={{
 						saved: !!saved.data?.saved && !saved.data?.owned,
 						visibility: saved.data?.owned
@@ -215,36 +235,55 @@ export function PublicRecipePage({
 							: undefined
 					}
 					actions={
-						!unlisted ? (
-							<div className="mt-6 flex flex-wrap gap-2">
-								{saved.data?.owned ? (
-									<Link
-										to="/recipes/$recipeId"
-										params={{ recipeId: recipe.id }}
-										className={buttonVariants({ variant: 'outline' })}
-									>
-										open your recipe
-									</Link>
-								) : (
-									<>
-										<SaveRecipeButton
-											recipe={recipe}
-											onAuthenticated={() =>
-												refreshSession((value) => value + 1)
-											}
-										/>
-										<EditSharedButton recipeId={recipe.id} />
-									</>
-								)}
-							</div>
-						) : (
+						unlisted ? (
 							<p className="text-muted-foreground border-border mt-6 border-t pt-5 text-sm">
 								shared by link. anyone with this address can read this recipe.
 							</p>
-						)
+						) : undefined
 					}
 				/>
 			</div>
 		</main>
+	)
+}
+
+// Someone else's recipe, behind "⋯": edit a copy of it, or, once it's the
+// cook's own, go to theirs.
+function PublicRecipeTools({
+	recipeId,
+	owned,
+}: {
+	recipeId: string
+	owned: boolean
+}) {
+	const navigate = useNavigate()
+	const shared = useEditShared({ recipeId })
+
+	return (
+		<>
+			<RecipeMenu
+				items={[
+					owned
+						? {
+								key: 'open',
+								label: 'open your recipe',
+								icon: ArrowSquareOutIcon,
+								onSelect: () =>
+									void navigate({
+										to: '/recipes/$recipeId',
+										params: { recipeId },
+									}),
+							}
+						: {
+								key: 'edit',
+								label: 'edit a copy',
+								icon: PencilSimpleIcon,
+								onSelect: shared.edit,
+								disabled: shared.pending,
+							},
+				]}
+			/>
+			{shared.dialog}
+		</>
 	)
 }

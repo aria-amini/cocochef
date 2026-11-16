@@ -15,6 +15,10 @@ export const getRouter = () => {
 		routeTree,
 		...pendingOptions,
 		scrollRestoration: true,
+		// Back lands where it left off, and a new page at its top, at once:
+		// the page's smooth scrolling is for links within a page, and a glide
+		// down a long list on the way back reads as the page loading again.
+		scrollRestorationBehavior: 'instant',
 		// A page starts loading when a finger touches its link (or a pointer
 		// rests on it), so the tap lands on data already on its way. Loaders
 		// call server functions directly, so a preload is kept for the router's

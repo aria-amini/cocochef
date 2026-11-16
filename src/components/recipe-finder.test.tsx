@@ -44,6 +44,8 @@ vi.mock('@/lib/groceries/server', () => ({
 	renameGrocery: vi.fn(),
 	deleteGrocery: vi.fn(),
 	clearCheckedGroceries: vi.fn(),
+	restoreCart: vi.fn(),
+	leaveGrocery: vi.fn(),
 }))
 
 // What the reader's kitchen holds, for the preview's have and need.
@@ -322,6 +324,47 @@ describe('the search on home', () => {
 		await more.click()
 		await expect.poll(shown).toBe(75)
 		await expect.element(more).not.toBeInTheDocument()
+	})
+
+	test('comes back from another page as long as it was left', async () => {
+		server.popular.mockResolvedValue({
+			results: Array.from({ length: 75 }, (_, i) =>
+				found({
+					title: `stew ${i + 1}`,
+					url: `https://example.com/stew-${i + 1}`,
+				}),
+			),
+		})
+
+		const { screen, router } = await openSearch()
+
+		const shown = () =>
+			screen.getByRole('option', { name: /stew \d+/ }).elements().length
+
+		await expect.poll(shown).toBe(12)
+		// Scrolled down, the list goes on.
+		await expect
+			.poll(
+				() => {
+					screen.getByText('more recipes…').query()?.scrollIntoView()
+
+					return shown()
+				},
+				{ timeout: 15_000 },
+			)
+			.toBeGreaterThan(12)
+
+		const grown = shown()
+
+		// Off to another page and back: the list is as long as it was, at
+		// once, so the scroll can land where it left off.
+		await router.navigate({ to: '/recipes' })
+		await expect.poll(shown).toBe(0)
+		router.history.back()
+		await expect.poll(() => router.state.location.pathname).toBe('/')
+		// Its first drawing, not one grown again as it scrolls.
+		await expect.poll(shown).toBeGreaterThan(0)
+		expect(shown()).toBe(grown)
 	})
 
 	test("names a shelf recipe's site only while its source link is set", async () => {
@@ -1446,7 +1489,7 @@ describe('the box, starting from a recipe found', () => {
 		await expect.element(input).toHaveFocus()
 	})
 
-	test('reads a previewed recipe for the shop: what is home, by where it comes from', async () => {
+	test('reads a recipe picked to start from as written, with no shopping', async () => {
 		const now = new Date()
 
 		kitchen.items = [
@@ -1489,29 +1532,13 @@ describe('the box, starting from a recipe found', () => {
 
 		await box.getByRole('option', { name: /chicken & spinach skillet/ }).click()
 
-		await expect
-			.element(box.getByText('you have 2 of 4 · need 2'))
-			.toBeVisible()
-		await expect
-			.element(box.getByText(/uses your spinach before it goes/))
-			.toBeVisible()
-		await expect
-			.element(box.getByRole('region', { name: 'fresh' }).getByText('use soon'))
-			.toBeVisible()
-		await expect
-			.element(
-				box.getByRole('region', { name: 'spices' }).getByText(/cumin \(need\)/),
-			)
-			.toBeVisible()
-
-		// As written, the recipe's own order.
-		await box.getByRole('button', { name: 'as written' }).click()
-		await expect
-			.element(box.getByRole('region', { name: 'fresh' }))
-			.not.toBeInTheDocument()
+		// Picked to start a recipe from, it reads as written: nothing to shop.
 		await expect
 			.element(box.getByRole('table', { name: 'ingredients' }))
 			.toBeVisible()
+		await expect
+			.element(box.getByRole('tablist', { name: 'ingredients for' }))
+			.not.toBeInTheDocument()
 	})
 
 	test('keeps the focused action when the previewed recipe finishes loading', async () => {

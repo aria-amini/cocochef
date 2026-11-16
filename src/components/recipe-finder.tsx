@@ -47,7 +47,6 @@ import { compactCount, RecipeRating } from '@/components/recipe-rating'
 import { RecipeReader } from '@/components/recipe-reader'
 import { RecipeTags } from '@/components/recipe-tags'
 import { SaveChip } from '@/components/save-chip'
-import { ShopView } from '@/components/shop-view'
 import { SiteIcon } from '@/components/site-icon'
 import type { StartingPoint } from '@/components/start-from'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -78,6 +77,7 @@ import {
 	saveRecipe,
 } from '@/lib/recipes/server'
 import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
+import { entryMemory, useEntryState } from '@/lib/use-entry-state'
 import { cn } from '@/lib/utils/ui'
 import { useKeyboardInset } from '@/lib/utils/viewport'
 
@@ -279,6 +279,13 @@ export type InlineFinder = {
 	popular?: Awaited<ReturnType<typeof popularRecipes>> | undefined
 }
 
+// What a finder laid flat in a page keeps for each point in history.
+const keptWords = entryMemory<string>()
+
+const keptFilters = entryMemory<FinderFilters>()
+
+const keptShown = entryMemory<number>()
+
 export function FinderPanel({
 	inputRef,
 	defaultQuery,
@@ -320,7 +327,9 @@ export function FinderPanel({
 
 	const listboxId = useId()
 
-	const [value, setValue] = useState(defaultQuery)
+	// Laid flat in a page, the finder comes back as it was left: its words,
+	// its filters and how far down the list it had grown.
+	const [value, setValue] = useEntryState(inline && keptWords, defaultQuery)
 	const [picked, setPicked] = useState<string>()
 	// Whether the pointer chose the highlight, so it can let go when the
 	// pointer leaves; one the keys chose stays put.
@@ -363,7 +372,10 @@ export function FinderPanel({
 	// Parts of a meal picked in the bubbles, which narrow every list, and the
 	// recipe site picked in its bubble, by name. Laid flat in a page, these are
 	// the page's.
-	const [ownFilters, setOwnFilters] = useState<FinderFilters>({ picks: {} })
+	const [ownFilters, setOwnFilters] = useEntryState<FinderFilters>(
+		inline && keptFilters,
+		{ picks: {} },
+	)
 
 	// The filter panel, and the kind of filter it shows.
 	const [panelOpen, setPanelOpen] = useState(false)
@@ -428,7 +440,10 @@ export function FinderPanel({
 		queryFn: () => listShelf(),
 	})
 
-	const [visibleRecipes, setVisibleRecipes] = useState(foundLimit)
+	const [visibleRecipes, setVisibleRecipes] = useEntryState(
+		inline && keptShown,
+		foundLimit,
+	)
 
 	const popular = useQuery({
 		queryKey: ['popular-recipes'],
@@ -886,20 +901,9 @@ export function FinderPanel({
 	const go = async (recipeId: string) => {
 		close()
 
-		// Home keeps the search's words in its address, so the way back finds
-		// them again.
-		if (
-			inline &&
-			!url &&
-			router.state.location.pathname === '/' &&
-			(router.state.location.search.q ?? '') !== trimmed
-		)
-			await navigate({
-				to: '/',
-				search: trimmed ? { q: trimmed } : {},
-				replace: true,
-			})
-
+		// Home's own entry is left as it is: it keeps its words in memory
+		// for the way back, and rewriting it would make Safari drop the
+		// picture it shows of home while a swipe goes back.
 		await navigate({
 			to: '/recipes/$recipeId',
 			params: { recipeId },
@@ -1112,10 +1116,15 @@ export function FinderPanel({
 
 			const id = inline && option.kind === 'recipe' && idOf(option.recipe)
 
+			// With the search it was found by, as the tap will send it: a
+			// recipe with a public address redirects there, and the tap
+			// reuses this preload's redirect, so without it the recipe's way
+			// back would forget the search and go to the shelf.
 			if (id)
 				void router.preloadRoute({
 					to: '/recipes/$recipeId',
 					params: { recipeId: id },
+					state: { foundBy: trimmed },
 				})
 		},
 		// Move, not enter: a list that opens under a resting pointer must not
@@ -1409,6 +1418,8 @@ export function FinderPanel({
 							<Preview
 								option={current}
 								idOf={idOf}
+								// Picking a recipe to start one from isn't shopping.
+								shop={!onUse}
 								actions={previewing ? actions : undefined}
 								looking={
 									current?.kind === 'recipe' && looking === current.recipe.url
@@ -1537,12 +1548,14 @@ function SectionRows({
 function Preview({
 	option,
 	idOf,
+	shop,
 	actions,
 	looking,
 	lookError,
 }: {
 	option: Option | undefined
 	idOf: (recipe: FoundRecipe) => string | undefined
+	shop: boolean
 	actions: React.ReactNode
 	looking: boolean
 	lookError: string | undefined
@@ -1573,6 +1586,7 @@ function Preview({
 			key={recipe.url ?? id}
 			recipe={recipe}
 			recipeId={id}
+			shop={shop}
 			actions={actions}
 			looking={looking}
 			lookError={lookError}
@@ -1599,12 +1613,14 @@ function IngredientsLoading({ label }: { label: string }) {
 function RecipePreview({
 	recipe,
 	recipeId,
+	shop,
 	actions,
 	looking,
 	lookError,
 }: {
 	recipe: FoundRecipe
 	recipeId: string | undefined
+	shop: boolean
 	actions: React.ReactNode
 	looking: boolean
 	lookError: string | undefined
@@ -1622,7 +1638,6 @@ function RecipePreview({
 	const focusedAction = useRef<string>(undefined)
 
 	const loaded = !!full.data
-	const [byKitchen, setByKitchen] = useState(true)
 
 	useLayoutEffect(() => {
 		const name = focusedAction.current
@@ -1648,26 +1663,8 @@ function RecipePreview({
 					recipe={full.data}
 					heading="h2"
 					actions={actions ? <div className="mt-5">{actions}</div> : null}
-					// Looked at from a search, a recipe is read for the shop first:
-					// what is home, what it needs, by where it comes from.
-					ingredientsView={
-						byKitchen ? (
-							<ShopView
-								recipeId={full.data.id}
-								title={full.data.title}
-								lines={full.data.ingredients}
-							/>
-						) : undefined
-					}
-					ingredientsAction={
-						<button
-							type="button"
-							onClick={() => setByKitchen((now) => !now)}
-							className="text-muted-foreground hover:text-foreground text-sm font-bold underline underline-offset-4 transition-colors"
-						>
-							{byKitchen ? 'as written' : 'by kitchen'}
-						</button>
-					}
+					// Looked at from a search, a recipe can be shopped for too.
+					shop={shop}
 				/>
 			</div>
 		)

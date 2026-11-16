@@ -8,6 +8,8 @@ import { RecipeGlyph } from '@/components/recipe-glyph'
 import { buttonVariants } from '@/components/ui/button'
 import { popularRecipes } from '@/lib/discover/server'
 import { homeNow } from '@/lib/home/server'
+import { useKeptMatch } from '@/lib/kept-match'
+import { entryMemory, useEntryState } from '@/lib/use-entry-state'
 import { cn } from '@/lib/utils/ui'
 
 export const Route = createFileRoute('/_app/')({
@@ -36,6 +38,9 @@ export const Route = createFileRoute('/_app/')({
 
 type Now = Awaited<ReturnType<typeof homeNow>>
 
+// The filters home had on at each point in history.
+const keptFilters = entryMemory<FinderFilters>()
+
 const weekday = new Intl.DateTimeFormat('en', { weekday: 'long' })
 
 // The part of the day, as a cook says it.
@@ -46,11 +51,13 @@ function partOfDay(hour: number) {
 // What the cook is in the middle of leads: a recipe still cooking, then a
 // shop under way. Finding something to cook is below.
 function Home() {
-	const { now } = Route.useLoaderData()
+	const { now } = useKeptMatch(Route.id).loaderData
 	// The cook's own clock, read once.
 	const [today] = useState(() => new Date())
+
 	// What narrows the search: a rating, parts of a meal, a site.
-	const [filters, setFilters] = useState<FinderFilters>({ picks: {} })
+	// Kept for this point in history, so back from a recipe finds them on.
+	const [filters, setFilters] = useEntryState(keptFilters, { picks: {} })
 
 	const headline = now.cooking
 		? 'still cooking'
@@ -158,8 +165,7 @@ function StillCooking({
 			</div>
 			{waiting ? (
 				<Link
-					to="/kitchen"
-					search={{ view: 'groceries' }}
+					to="/groceries"
 					className="border-border hover:border-foreground/30 flex min-h-12 items-center justify-between gap-3 rounded-xl border px-4 text-sm font-bold transition-colors"
 				>
 					{waiting} on your list
@@ -174,8 +180,7 @@ function StillCooking({
 function Shopping({ shopping }: { shopping: NonNullable<Now['shopping']> }) {
 	return (
 		<Link
-			to="/kitchen"
-			search={{ view: 'groceries' }}
+			to="/groceries"
 			aria-label={`groceries: ${shopping.inCart} of ${shopping.total} in the cart`}
 			className="bg-kitchen-yolk/15 border-kitchen-yolk/60 hover:border-kitchen-yolk flex min-h-14 items-center gap-3 rounded-xl border px-4 transition-colors"
 		>
@@ -221,10 +226,10 @@ function Finder({
 	filters: FinderFilters
 	onFilters: (filters: FinderFilters) => void
 }) {
-	const { popular } = Route.useLoaderData()
+	const { popular } = useKeptMatch(Route.id).loaderData
 
 	const input = useRef<HTMLInputElement>(null)
-	const { q } = Route.useSearch()
+	const { q } = useKeptMatch(Route.id).search
 
 	return (
 		<div className="bg-card border-border flex flex-col overflow-hidden rounded-xl border">

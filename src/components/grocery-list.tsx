@@ -4,11 +4,12 @@ import {
 	MinusIcon,
 	PencilSimpleIcon,
 	PlusIcon,
+	ShoppingCartIcon,
 	TrashIcon,
 	XIcon,
 } from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useRouter } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import {
 	AnimatePresence,
 	LayoutGroup,
@@ -21,17 +22,18 @@ import {
 	useOptimistic,
 	useRef,
 	useState,
+	useSyncExternalStore,
 } from 'react'
 import { toast } from 'sonner'
 
 import { AmountBar } from '@/components/amount-bar'
-import { ClearCartDialog } from '@/components/clear-cart-dialog'
 import { groceryCountKey } from '@/components/grocery-badge'
 import { useGroceryComposer } from '@/components/grocery-entry'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
 import { PantrySprite } from '@/components/pantry-sprite'
+import { RecipeMenu } from '@/components/recipe-menu'
 import { TickBox } from '@/components/tick-box'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { undoToast } from '@/components/undo-toast'
 import { shoppingUnitsFor, stepShopping } from '@/lib/groceries/amounts'
@@ -42,6 +44,7 @@ import {
 	deleteGrocery,
 	listGroceries,
 	renameGrocery,
+	restoreCart,
 	setGroceryChecked,
 } from '@/lib/groceries/server'
 import { pantryCategoryLabels, type PantryCategory } from '@/lib/pantry/model'
@@ -105,8 +108,7 @@ const draftItem = (text: string): Item => ({
 	userId: '',
 	text,
 	category: ingredientCategory(text),
-	recipeId: null,
-	recipeTitle: null,
+	recipes: [],
 	checkedAt: null,
 	stockedId: null,
 	stockedWas: null,
@@ -122,13 +124,10 @@ const draftItem = (text: string): Item => ({
 // kitchen knows, in rows big enough for a thumb in the shop.
 export function GroceryList({
 	saved,
-	pantry = [],
 	noteOf,
 	children,
 }: {
 	saved: Item[]
-	// What is on hand, so clearing the cart can say what it tops up.
-	pantry?: readonly { name: string }[]
 	noteOf?: (item: Item) => React.ReactNode
 	// What the kitchen adds under the list: food running out, not yet on it.
 	children?: React.ReactNode
@@ -138,6 +137,12 @@ export function GroceryList({
 	const [items, apply] = useOptimistic(saved, applyChange)
 
 	const [editing, setEditing] = useState(false)
+	const reduceMotion = useReducedMotion()
+	const [picked, setSorting] = useSorting()
+	// Sorting by recipe needs a recipe to sort by; until one is on the list,
+	// it's by aisle and there's nothing to switch.
+	const sortable = items.some((item) => item.recipes.length)
+	const sorting = sortable ? picked : 'aisle'
 	// The item whose sheet is open, for its amount in another unit.
 	const [openId, setOpenId] = useState<string>()
 
@@ -208,16 +213,23 @@ export function GroceryList({
 		})
 	}
 
-	// Clearing the cart puts away what the cook picked and empties the rest.
-	const [clearing, setClearing] = useState(false)
-
-	function clear(stock: string[]) {
+	// Putting away is one tap: what is in the cart goes into the kitchen, and
+	// the toast can take it back, the list and the pantry as they were.
+	function putAway() {
 		change({ kind: 'clear' }, async () => {
-			const done = await clearCheckedGroceries({ data: { stock } })
+			const done = await clearCheckedGroceries()
 			const put = done.restocked + done.added
 
-			if (put)
-				toast.success(`put ${count(put, 'item', 'items')} away in on hand`)
+			undoToast(
+				put
+					? `put ${count(put, 'item', 'items')} away in on hand`
+					: 'cleared your cart',
+				() =>
+					change({ kind: 'add', items: inCart }, async () => {
+						await restoreCart({ data: done.undo })
+					}),
+				'put-away',
+			)
 		})
 	}
 
@@ -250,9 +262,8 @@ export function GroceryList({
 		const back: Item = { ...item, id: crypto.randomUUID() }
 		const input: GroceryInput = { id: back.id, text: back.text }
 
-		if (back.recipeId) input.recipeId = back.recipeId
-
-		if (back.recipeTitle) input.recipeTitle = back.recipeTitle
+		if (back.recipes.length)
+			input.recipeIds = back.recipes.map((recipe) => recipe.id)
 
 		change({ kind: 'add', items: [back] }, async () => {
 			await addGroceries({ data: [input] })
@@ -290,38 +301,64 @@ export function GroceryList({
 		.filter(isCompleted)
 		.sort((a, b) => placeOf(b) - placeOf(a))
 
+	// By recipe, a food two recipes share sits under the first, and says the
+	// rest.
+	const also = (item: Item) =>
+		sorting === 'recipe' && item.recipes.length > 1 ? (
+			<span className="text-muted-foreground shrink-0 text-xs font-semibold">
+				also for{' '}
+				{item.recipes
+					.slice(1)
+					.map((recipe) => recipe.title)
+					.join(', ')}
+			</span>
+		) : null
+
 	const row = (item: Item) => (
 		<GroceryRow
 			key={item.id}
 			item={item}
-			note={noteOf?.(item)}
+			note={
+				<>
+					{noteOf?.(item)}
+					{also(item)}
+				</>
+			}
 			fresh={item.id === fresh}
 			onCheck={(checked) => check(item, checked)}
+			onRemove={() => remove(item)}
 		/>
 	)
 
 	// The aisles sit under the list's own heading.
 	const heading = 'h3'
 
-	// Always there, greyed while the list is empty, so the row never shifts.
-	const editButton = (
+	// Changing the list is folded behind "⋯"; while it's being changed, done
+	// takes its place.
+	const editButton = editing ? (
 		<button
 			type="button"
-			disabled={!items.length}
-			aria-pressed={editing}
-			onClick={() => setEditing((now) => !now)}
+			onClick={() => setEditing(false)}
 			className={buttonVariants({
-				variant: editing ? 'saved' : 'outline',
-				className: 'px-3',
+				variant: 'ghost',
+				className: 'min-h-11 px-3',
 			})}
 		>
-			{editing ? (
-				<CheckIcon size={14} weight="bold" aria-hidden />
-			) : (
-				<PencilSimpleIcon size={14} weight="bold" aria-hidden />
-			)}
-			{editing ? 'done' : 'edit'}
+			<CheckIcon size={14} weight="bold" aria-hidden />
+			done
 		</button>
+	) : (
+		<RecipeMenu
+			label="list options"
+			items={[
+				{
+					key: 'edit',
+					label: 'edit list',
+					icon: PencilSimpleIcon,
+					onSelect: () => setEditing(true),
+				},
+			]}
+		/>
 	)
 
 	const list = editing ? (
@@ -334,14 +371,21 @@ export function GroceryList({
 		/>
 	) : (
 		<LayoutGroup>
-			<div className="-mb-5 flex flex-col">
+			<div className="flex flex-col">
 				<AnimatePresence initial={false}>
-					{shelved(toFind).map(({ category, items: aisle }) => (
+					{(sorting === 'recipe'
+						? byRecipe(toFind)
+						: shelved(toFind).map(({ category, items: aisle }) => ({
+								key: category,
+								label: pantryCategoryLabels[category],
+								items: aisle,
+							}))
+					).map((group) => (
 						<ListBox
-							key={category}
-							label={pantryCategoryLabels[category]}
+							key={group.key}
+							label={group.label}
 							heading={heading}
-							items={aisle}
+							items={group.items}
 							row={row}
 						/>
 					))}
@@ -394,80 +438,143 @@ export function GroceryList({
 	) : null
 
 	return (
-		// One panel holds the list, its actions and its rows, so nothing
-		// floats loose on the page.
-		<section
-			aria-labelledby="need"
-			className="bg-card border-border flex flex-col gap-3 rounded-xl border p-4"
-		>
-			<div className="flex min-h-9 flex-wrap items-center gap-2">
+		// The page is the list: its aisles sit straight on the paper, each one
+		// box of rows, with nothing boxed around them.
+		<section aria-labelledby="need" className="flex flex-col gap-3">
+			<div className="flex min-h-10 flex-wrap items-center gap-2">
 				{/* The kitchen's switch names the list; its name is said only. */}
 				<h2 id="need" className="sr-only">
 					groceries
 				</h2>
 				<GroceryProgress done={inCart.length} total={items.length} />
-				{/* The list's actions, always in place so the list never shifts:
-				    changing it, and clearing what is already in the kitchen,
-				    greyed while there is none. */}
-				{editButton}
-				<button
-					type="button"
-					disabled={!inCart.length}
-					onClick={() => setClearing(true)}
-					className={buttonVariants({ variant: 'outline', className: 'px-3' })}
-				>
-					clear
-				</button>
-				<ClearCartDialog
-					open={clearing}
-					onOpenChange={setClearing}
-					lines={inCart}
-					pantry={pantry}
-					onClear={clear}
-				/>
+				{/* Only once there's a list to edit. The row keeps its height
+				    either way: the button reaches past it, as tall as a touch
+				    target, without making it taller. */}
+				{items.length || editing ? (
+					<div className="-my-0.5">{editButton}</div>
+				) : null}
 			</div>
-			{items.length ? list : null}
-			{adding}
+			<GroceryBar done={inCart.length} total={items.length} />
+			{/* The sort switch and the aisles grow in under the title as the
+			    first item, or the first for a recipe, lands, rather than dropping in. They space themselves,
+			    so nothing jumps by a gap as they come. */}
+			{/* The add row follows the aisles with no gap of its own: they
+			    space themselves, so an empty list's add row sits as close under
+			    the title as a full list's first aisle, and the first item's
+			    aisle grows in above it without a jump. */}
+			<div className="flex flex-col">
+				<div className="flex flex-col">
+					<AnimatePresence initial={false}>
+						{sortable ? (
+							<motion.div
+								key="sort"
+								initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+								animate={{ opacity: 1, height: 'auto' }}
+								exit={{ opacity: 0, height: 0 }}
+								transition={{
+									duration: reduceMotion ? 0 : 0.25,
+									ease: 'easeOut',
+								}}
+								className="overflow-hidden"
+							>
+								{/* Editing hides it but keeps its room. */}
+								<SortSwitch
+									sorting={sorting}
+									onSort={setSorting}
+									hidden={editing}
+								/>
+								<div className="h-3" />
+							</motion.div>
+						) : null}
+					</AnimatePresence>
+					{list}
+				</div>
+				{adding}
+			</div>
 			{children}
 			{sheet}
+			<AnimatePresence initial={false}>
+				{inCart.length && !editing ? (
+					<PutAwayBar
+						key="put-away"
+						count={inCart.length}
+						onPutAway={putAway}
+					/>
+				) : null}
+			</AnimatePresence>
 		</section>
 	)
 }
 
-// Where the shop is up to, in the header's left corner: how many items, and
-// once there are any, how many are in the kitchen, with a basil bar filling.
-function GroceryProgress({ done, total }: { done: number; total: number }) {
-	if (!total)
-		return (
-			<p className="text-muted-foreground flex-1 text-sm font-semibold">
-				0 groceries
+// What is in the cart, and the one tap that puts it away: over the tab bar on
+// a phone, in thumb's reach, and at the foot of the list on a desk. Home from
+// the shop, it is the whole of the cook's part; the toast takes it back.
+function PutAwayBar({
+	count: inCart,
+	onPutAway,
+}: {
+	count: number
+	onPutAway: () => void
+}) {
+	const reduceMotion = useReducedMotion()
+
+	return (
+		<motion.div
+			initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+			animate={{ opacity: 1, y: 0 }}
+			exit={
+				reduceMotion
+					? { opacity: 0, transition: { duration: 0 } }
+					: { opacity: 0, y: 16 }
+			}
+			transition={{ duration: 0.2, ease: 'easeOut' }}
+			className="bottom-fab bg-card floating sticky z-10 flex items-center gap-3 p-2 pl-4 md:bottom-4"
+		>
+			<p className="min-w-0 flex-1 text-sm font-semibold tabular-nums">
+				{inCart} in your cart
 			</p>
-		)
+			<Button onClick={onPutAway}>
+				<CheckIcon weight="bold" aria-hidden />
+				put away
+			</Button>
+		</motion.div>
+	)
+}
+
+// The list's name, with the tab's cart beside it. How far the shop is goes
+// unsaid but for the bar under it, and is said for screen readers.
+function GroceryProgress({ done, total }: { done: number; total: number }) {
+	return (
+		<p className="flex flex-1 items-center gap-2 text-lg font-bold">
+			<ShoppingCartIcon size={20} weight="bold" aria-hidden />
+			grocery list
+			{done ? (
+				<span className="sr-only">
+					, {done} of {total} in your cart
+				</span>
+			) : null}
+		</p>
+	)
+}
+
+// How far the shop is, across the list's width, once anything is ticked.
+function GroceryBar({ done, total }: { done: number; total: number }) {
+	if (!done || !total) return null
 
 	const filled: React.CSSProperties & Record<`--${string}`, string> = {
 		'--done': `${(done / total) * 100}%`,
 	}
 
 	return (
-		<div className="flex flex-1 items-center gap-2.5">
-			<p className="text-sm font-semibold tabular-nums">
-				<span aria-hidden>
-					{done}/{total}
-				</span>
-				<span className="sr-only">
-					{done} of {total} in your cart
-				</span>
-			</p>
+		<span
+			aria-hidden
+			className="bg-foreground/10 -mt-1 block h-1.5 w-full overflow-hidden rounded-full"
+		>
 			<span
-				aria-hidden
-				className="bg-foreground/10 h-1.5 w-20 overflow-hidden rounded-full"
-			>
-				<span
-					className="bg-kitchen-basil block h-full w-(--done) rounded-full transition-all duration-300"
-					style={filled}
-				/>
-			</span>
-		</div>
+				className="bg-kitchen-basil block h-full w-(--done) rounded-full transition-all duration-300"
+				style={filled}
+			/>
+		</span>
 	)
 }
 
@@ -493,6 +600,128 @@ function shelved(items: Item[]) {
 
 		return aisle.length ? [{ category, items: aisle }] : []
 	})
+}
+
+// The list sorted the way the shop walks it, by aisle, or by what each item
+// is for, a recipe at a time. Remembered on this device.
+type Sorting = 'aisle' | 'recipe'
+
+const sortingKey = 'groceries-sorting'
+
+const sortingListeners = new Set<() => void>()
+
+function readSorting(): Sorting {
+	try {
+		return localStorage.getItem(sortingKey) === 'recipe' ? 'recipe' : 'aisle'
+	} catch {
+		// No storage: by aisle.
+		return 'aisle'
+	}
+}
+
+// The server draws it by aisle; the browser reads what was picked last.
+function useSorting() {
+	const sorting = useSyncExternalStore(
+		(listener) => {
+			sortingListeners.add(listener)
+
+			return () => sortingListeners.delete(listener)
+		},
+		readSorting,
+		() => 'aisle' as const,
+	)
+
+	const sort = (next: Sorting) => {
+		try {
+			localStorage.setItem(sortingKey, next)
+		} catch {
+			// Not kept; the switch still moves for this visit.
+		}
+
+		sortingListeners.forEach((listener) => listener())
+	}
+
+	return [sorting, sort] as const
+}
+
+// Each recipe the list holds food for, in the order its food came, then
+// what was added by hand. A food for two recipes sits under the first.
+function byRecipe(items: Item[]) {
+	const groups = new Map<
+		string,
+		{ key: string; label: string; items: Item[] }
+	>()
+
+	const byHand: Item[] = []
+
+	for (const item of [...items].sort(
+		(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+	)) {
+		const recipe = item.recipes[0]
+
+		if (!recipe) {
+			byHand.push(item)
+			continue
+		}
+
+		const group = groups.get(recipe.id) ?? {
+			key: recipe.id,
+			label: recipe.title,
+			items: [],
+		}
+
+		group.items.push(item)
+		groups.set(recipe.id, group)
+	}
+
+	return [
+		...groups.values(),
+		...(byHand.length
+			? [{ key: 'other', label: 'no recipe', items: byHand }]
+			: []),
+	]
+}
+
+// The two ways to sort, as the recipe page's steps are: words with a line
+// under the one showing.
+function SortSwitch({
+	sorting,
+	onSort,
+	hidden = false,
+}: {
+	sorting: Sorting
+	onSort: (sorting: Sorting) => void
+	hidden?: boolean
+}) {
+	const option = (value: Sorting, label: string) => (
+		<button
+			type="button"
+			aria-pressed={sorting === value}
+			onClick={() => onSort(value)}
+			className={cn(
+				'-mb-px inline-flex min-h-9 items-center border-b-2 text-sm font-semibold transition-colors',
+				sorting === value
+					? 'border-foreground text-foreground font-bold'
+					: 'text-muted-foreground hover:text-foreground border-transparent',
+			)}
+		>
+			{label}
+		</button>
+	)
+
+	return (
+		<fieldset
+			inert={hidden}
+			className={cn(
+				'flex items-center justify-center gap-6',
+				hidden && 'invisible',
+			)}
+		>
+			<legend className="sr-only">sort by</legend>
+			{option('aisle', 'by aisle')}
+			{option('recipe', 'by recipe')}
+		</fieldset>
+	)
 }
 
 // When an item was ticked, or 0 while it is still to buy.
@@ -545,9 +774,10 @@ function ListBox({
 						type="button"
 						aria-expanded={open}
 						onClick={() => setOpen((now) => !now)}
-						className="hover:text-foreground -mx-1 inline-flex min-h-10 items-center gap-2 rounded-md px-1 transition-colors"
+						className="hover:text-foreground -mx-1 inline-flex min-h-10 min-w-0 items-center gap-2 rounded-md px-1 text-left transition-colors"
 					>
-						{label}
+						{/* A recipe's name can run long: one line, cut short. */}
+						<span className="truncate">{label}</span>
 						{open ? null : (
 							<span className="font-semibold tabular-nums">
 								· {items.length}
@@ -557,7 +787,10 @@ function ListBox({
 							size={12}
 							weight="bold"
 							aria-hidden
-							className={cn('transition-transform', open && 'rotate-180')}
+							className={cn(
+								'shrink-0 transition-transform',
+								open && 'rotate-180',
+							)}
 						/>
 					</button>
 					{action}
@@ -579,7 +812,7 @@ function ListBox({
 							exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
 							transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
 						>
-							<ul className="bg-background border-border divide-border divide-y rounded-xl border">
+							<ul className="bg-card border-border divide-border divide-y rounded-xl border">
 								<AnimatePresence initial={false}>
 									{items.map(row)}
 								</AnimatePresence>
@@ -592,23 +825,32 @@ function ListBox({
 	)
 }
 
+// How far a row slides left before letting go takes it off the list.
+const swipeAway = 96
+
 // A row on the list: all of it ticks, and in the shop it is a target a thumb
-// finds without looking. Changing the item is for edit. The note says why
-// it is wanted, when the kitchen knows.
+// finds without looking. Swiped left, it comes off the list, bought or not,
+// so it never reaches the pantry; the toast brings it back. Changing the
+// item is for edit. The note says why it is wanted, when the kitchen knows.
 function GroceryRow({
 	item,
 	note,
 	fresh,
 	onCheck,
+	onRemove,
 }: {
 	item: Item
 	note: React.ReactNode
 	fresh: boolean
 	onCheck: (checked: boolean) => void
+	onRemove: () => void
 }) {
 	const reduceMotion = useReducedMotion()
 	const checked = !!item.checkedAt
 	const look = ingredientItemLook(item.text)
+	const [swiping, setSwiping] = useState(false)
+	// A swipe ends on the row it started on, which would tick it too.
+	const swiped = useRef(false)
 
 	return (
 		<motion.li
@@ -621,46 +863,82 @@ function GroceryRow({
 			animate={{ opacity: 1 }}
 			exit={{ opacity: 0, x: -24 }}
 			transition={{ duration: reduceMotion ? 0 : 0.3, ease: 'easeInOut' }}
-			className={cn(
-				'scroll-my-6 overflow-hidden transition-colors duration-700 first:rounded-t-xl last:rounded-b-xl',
-				fresh && 'bg-kitchen-yolk/30',
-			)}
+			className="relative scroll-my-6 overflow-hidden first:rounded-t-xl last:rounded-b-xl"
 		>
-			{/* The tick is drawn, not a font's glyph, so it looks the same on
-			    every phone. */}
-			<label
-				htmlFor={`tick-${item.id}`}
-				className={cn(
-					'hover:bg-muted/40 flex cursor-pointer items-center transition-colors',
-					'min-h-15 gap-3.5 px-4',
-				)}
-			>
-				<TickBox
-					id={`tick-${item.id}`}
-					aria-label={item.text}
-					checked={checked}
-					onChange={(event) => onCheck(event.target.checked)}
-				/>
+			{/* What letting go does, under the row as it slides. */}
+			{swiping ? (
 				<span
 					aria-hidden
+					className="bg-kitchen-tomato absolute inset-0 flex items-center justify-end gap-2 pr-5 text-sm font-bold"
+				>
+					<TrashIcon size={18} weight="bold" />
+					remove
+				</span>
+			) : null}
+			<motion.div
+				drag="x"
+				dragDirectionLock
+				dragConstraints={{ left: 0, right: 0 }}
+				dragElastic={{ left: 0.8, right: 0 }}
+				dragSnapToOrigin
+				onDragStart={() => {
+					swiped.current = true
+					setSwiping(true)
+				}}
+				onDragEnd={(_, info) => {
+					setSwiping(false)
+
+					if (info.offset.x < -swipeAway || info.velocity.x < -800) onRemove()
+				}}
+				onClickCapture={(event) => {
+					if (!swiped.current) return
+
+					swiped.current = false
+					event.preventDefault()
+					event.stopPropagation()
+				}}
+				className={cn(
+					// Up and down still scrolls the page.
+					'bg-card relative touch-pan-y transition-colors duration-700',
+					fresh && 'bg-kitchen-yolk/30',
+				)}
+			>
+				{/* The tick is drawn, not a font's glyph, so it looks the same on
+				    every phone. */}
+				<label
+					htmlFor={`tick-${item.id}`}
 					className={cn(
-						'grid size-7 shrink-0 place-items-center transition-opacity',
-						checked && 'opacity-50',
+						'hover:bg-muted/40 flex cursor-pointer items-center transition-colors',
+						'min-h-15 gap-3.5 px-4',
 					)}
 				>
-					{look ? <PantrySprite look={look} className="size-7" /> : null}
-				</span>
-				<span
-					className={cn(
-						'min-w-0 flex-1 py-2',
-						'text-lg',
-						checked && 'text-muted-foreground line-through',
-					)}
-				>
-					{item.text}
-				</span>
-				{checked ? null : note}
-			</label>
+					<TickBox
+						id={`tick-${item.id}`}
+						aria-label={item.text}
+						checked={checked}
+						onChange={(event) => onCheck(event.target.checked)}
+					/>
+					<span
+						aria-hidden
+						className={cn(
+							'grid size-7 shrink-0 place-items-center transition-opacity',
+							checked && 'opacity-50',
+						)}
+					>
+						{look ? <PantrySprite look={look} className="size-7" /> : null}
+					</span>
+					<span
+						className={cn(
+							'min-w-0 flex-1 py-2',
+							'text-lg',
+							checked && 'text-muted-foreground line-through',
+						)}
+					>
+						{item.text}
+					</span>
+					{checked ? null : note}
+				</label>
+			</motion.div>
 		</motion.li>
 	)
 }
@@ -687,13 +965,15 @@ function PlanList({
 	}))
 
 	return (
-		<div className="flex flex-col gap-5">
+		<div className="flex flex-col">
 			{groups.map((group) => (
-				<section key={group.key} aria-label={group.label}>
-					<Heading className="text-muted-foreground pb-1 text-sm font-bold">
+				<section key={group.key} aria-label={group.label} className="pb-5">
+					{/* As tall as the folding headings out of editing, so the list
+					    holds still between the two. */}
+					<Heading className="text-muted-foreground flex min-h-11 items-center pb-1 text-sm font-bold">
 						{group.label}
 					</Heading>
-					<ul className="bg-background border-border divide-border divide-y rounded-xl border">
+					<ul className="bg-card border-border divide-border divide-y rounded-xl border">
 						{group.items.map((item) => (
 							<PlanRow
 								key={item.id}
@@ -762,70 +1042,103 @@ function PlanRow({
 		'grid size-9 shrink-0 place-items-center rounded-md transition-colors hover:bg-muted/60 disabled:opacity-40'
 
 	return (
-		<li
-			data-grocery={item.id}
-			className="flex min-h-14 items-center gap-2 py-1.5 pr-1.5 pl-3"
-		>
-			<span aria-hidden className="grid size-7 shrink-0 place-items-center">
-				{look ? <PantrySprite look={look} className="size-7" /> : null}
-			</span>
-			<input
-				aria-label={`name of ${item.text}`}
-				value={draft}
-				maxLength={200}
-				onChange={(event) => setDraft(event.target.value)}
-				onBlur={commit}
-				onKeyDown={(event) => {
-					if (event.key === 'Enter') event.currentTarget.blur()
+		<li data-grocery={item.id} className="min-h-14 py-1.5 pr-1.5 pl-3">
+			<div className="flex items-center gap-2">
+				<span aria-hidden className="grid size-7 shrink-0 place-items-center">
+					{look ? <PantrySprite look={look} className="size-7" /> : null}
+				</span>
+				<input
+					aria-label={`name of ${item.text}`}
+					value={draft}
+					maxLength={200}
+					onChange={(event) => setDraft(event.target.value)}
+					onBlur={commit}
+					onKeyDown={(event) => {
+						if (event.key === 'Enter') event.currentTarget.blur()
 
-					if (event.key === 'Escape') {
-						cancelled.current = true
-						setDraft(name)
-						event.currentTarget.blur()
-					}
-				}}
-				className={cn(
-					'border-input/60 focus:border-foreground min-w-0 flex-1 border-b border-dashed bg-transparent py-1 text-base outline-none',
-					item.checkedAt && 'text-muted-foreground line-through',
-				)}
-			/>
-			<div className="border-input flex shrink-0 items-center rounded-md border">
+						if (event.key === 'Escape') {
+							cancelled.current = true
+							setDraft(name)
+							event.currentTarget.blur()
+						}
+					}}
+					className={cn(
+						'border-input/60 focus:border-foreground min-w-0 flex-1 border-b border-dashed bg-transparent py-1 text-base outline-none',
+						item.checkedAt && 'text-muted-foreground line-through',
+					)}
+				/>
+				<div className="border-input flex shrink-0 items-center rounded-md border">
+					<button
+						type="button"
+						aria-label={`less ${name}`}
+						disabled={!amount}
+						onClick={() => onChange(stepShopping(item.text, -1))}
+						className={step}
+					>
+						<MinusIcon size={14} weight="bold" aria-hidden />
+					</button>
+					<button
+						type="button"
+						aria-label={`amount of ${name}, change units`}
+						aria-haspopup="dialog"
+						onClick={onUnits}
+						className="hover:bg-muted/60 min-w-10 px-1 text-sm font-bold tabular-nums transition-colors"
+					>
+						{amount ? withAmount(amount.quantity, amount.unit, '').trim() : '–'}
+					</button>
+					<button
+						type="button"
+						aria-label={`more ${name}`}
+						onClick={() => onChange(stepShopping(item.text, 1))}
+						className={step}
+					>
+						<PlusIcon size={14} weight="bold" aria-hidden />
+					</button>
+				</div>
 				<button
 					type="button"
-					aria-label={`less ${name}`}
-					disabled={!amount}
-					onClick={() => onChange(stepShopping(item.text, -1))}
-					className={step}
+					aria-label={`remove ${item.text}`}
+					onClick={onRemove}
+					className="text-muted-foreground hover:text-foreground hover:bg-muted/60 grid size-10 shrink-0 place-items-center rounded-md transition-colors"
 				>
-					<MinusIcon size={14} weight="bold" aria-hidden />
-				</button>
-				<button
-					type="button"
-					aria-label={`amount of ${name}, change units`}
-					aria-haspopup="dialog"
-					onClick={onUnits}
-					className="hover:bg-muted/60 min-w-10 px-1 text-sm font-bold tabular-nums transition-colors"
-				>
-					{amount ? withAmount(amount.quantity, amount.unit, '').trim() : '–'}
-				</button>
-				<button
-					type="button"
-					aria-label={`more ${name}`}
-					onClick={() => onChange(stepShopping(item.text, 1))}
-					className={step}
-				>
-					<PlusIcon size={14} weight="bold" aria-hidden />
+					<XIcon size={16} weight="bold" aria-hidden />
 				</button>
 			</div>
-			<button
-				type="button"
-				aria-label={`remove ${item.text}`}
-				onClick={onRemove}
-				className="text-muted-foreground hover:text-foreground hover:bg-muted/60 grid size-10 shrink-0 place-items-center rounded-md transition-colors"
-			>
-				<XIcon size={16} weight="bold" aria-hidden />
-			</button>
+			<ForRecipes recipes={item.recipes} className="pb-1 pl-9" />
 		</li>
+	)
+}
+
+// The recipes a line is for, each a way back to it. In the shop the row stays
+// the food's name alone; the reason is here, where the list is changed.
+function ForRecipes({
+	recipes,
+	onNavigate,
+	className,
+}: {
+	recipes: Item['recipes']
+	onNavigate?: () => void
+	className?: string
+}) {
+	if (!recipes.length) return null
+
+	return (
+		<p className={cn('text-muted-foreground text-sm font-semibold', className)}>
+			for{' '}
+			{recipes.map((recipe, index) => (
+				<span key={recipe.id}>
+					{index ? ', ' : ''}
+					<Link
+						to="/recipes/$recipeId"
+						params={{ recipeId: recipe.id }}
+						onClick={onNavigate}
+						className="hover:text-foreground underline underline-offset-2 transition-colors"
+					>
+						{recipe.title}
+					</Link>
+				</span>
+			))}
+		</p>
 	)
 }
 
@@ -863,11 +1176,7 @@ function GroceryDetails({
 			// keyboard stays down until the name is tapped.
 			initialFocus={(type) => (type === 'touch' ? done.current : true)}
 		>
-			{item.recipeTitle ? (
-				<p className="text-muted-foreground text-sm font-semibold">
-					for {item.recipeTitle}
-				</p>
-			) : null}
+			<ForRecipes recipes={item.recipes} onNavigate={() => finish()} />
 			<div className="flex flex-col gap-2">
 				<div className="flex items-center gap-3">
 					<span aria-hidden className="grid size-7 shrink-0 place-items-center">

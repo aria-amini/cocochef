@@ -1,7 +1,7 @@
 import { getAuthMocks, setMockSession } from '@tests/support/mocks/browser'
 import { renderRoute } from '@tests/support/render/route'
 import { beforeEach, describe, expect, test, vi } from 'vite-plus/test'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 
 const api = vi.hoisted(() => ({
 	profile: vi.fn(),
@@ -175,10 +175,10 @@ describe('sharing', () => {
 			)
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: 'save', exact: true }))
+			.element(screen.getByRole('button', { name: /^save / }))
 			.toBeVisible()
 		await expect
-			.element(screen.getByRole('button', { name: 'edit', exact: true }))
+			.element(screen.getByRole('button', { name: 'recipe options' }))
 			.toBeVisible()
 		await expect.element(screen.getByText('1 onion')).toBeVisible()
 		await expect.element(screen.getByText('Chop the onion')).toBeVisible()
@@ -218,14 +218,14 @@ describe('sharing', () => {
 		})
 
 		await expect
-			.element(screen.getByRole('button', { name: 'save', exact: true }))
+			.element(screen.getByRole('button', { name: /^save / }))
 			.toBeVisible()
 		getAuthMocks().signUpEmail.mockImplementationOnce(async () => {
 			setMockSession(session)
 
 			return { error: null }
 		})
-		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await screen.getByRole('button', { name: /^save / }).click()
 		const signup = screen.getByRole('dialog', { name: 'create an account' })
 		await signup.getByLabelText('name').fill('Cook')
 		await signup.getByLabelText('email').fill('cook@example.com')
@@ -233,29 +233,49 @@ describe('sharing', () => {
 		await signup
 			.getByRole('button', { name: 'create account', exact: true })
 			.click()
+		await screen.getByRole('button', { name: 'recipe options' }).click()
 		await expect
-			.element(screen.getByRole('link', { name: 'open your recipe' }))
+			.element(page.getByRole('menuitem', { name: 'open your recipe' }))
 			.toBeVisible()
+		await userEvent.keyboard('{Escape}')
 		await expect
-			.element(screen.getByRole('button', { name: 'saved', exact: true }))
+			.element(screen.getByRole('button', { name: /^unsave / }))
 			.not.toBeInTheDocument()
 		expect(api.deleteRecipe).not.toHaveBeenCalled()
 	})
 
-	test('lights up the recipes tab and leads with a way back on a site recipe', async () => {
+	test('lights the tab a site recipe was opened from, and leads with a way back', async () => {
 		api.web.mockResolvedValue(recipe)
 
-		const { screen } = await renderRoute({
+		const { screen, router } = await renderRoute({
 			path: '/sites/example.com/pasta',
 			session,
 		})
 
+		const tab = (name: string) =>
+			screen
+				.getByRole('navigation', { name: 'Primary' })
+				.getByRole('link', { name })
+
+		// Reached straight from a link, a recipe from the web is home's: that
+		// is where recipes are found.
+		await expect.element(tab('home')).toHaveAttribute('aria-current', 'page')
+		await expect.element(tab('my recipes')).not.toHaveAttribute('aria-current')
+
+		// Opened off the shelf, the same address lights my recipes.
+		await router.navigate({ to: '/recipes' })
 		await expect
-			.element(
-				screen
-					.getByRole('navigation', { name: 'Primary' })
-					.getByRole('link', { name: 'my recipes' }),
-			)
+			.element(tab('my recipes'))
+			.toHaveAttribute('aria-current', 'page')
+		await router.navigate({
+			to: '/sites/$site/$slug',
+			params: { site: 'example.com', slug: 'pasta' },
+		})
+		await expect
+			.element(screen.getByRole('main').getByText(recipe.title).first())
+			.toBeVisible()
+		await expect
+			.element(tab('my recipes'))
 			.toHaveAttribute('aria-current', 'page')
 		await expect
 			.element(
@@ -273,7 +293,7 @@ describe('sharing', () => {
 			path: '/sites/example.com/pasta',
 		})
 
-		const save = screen.getByRole('button', { name: 'save', exact: true })
+		const save = screen.getByRole('button', { name: /^save / })
 		await expect.element(save).toBeEnabled()
 		await save.click()
 		await expect
@@ -307,7 +327,7 @@ describe('sharing', () => {
 
 			return { error: null }
 		})
-		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await screen.getByRole('button', { name: /^save / }).click()
 		const signup = screen.getByRole('dialog', { name: 'create an account' })
 		await signup.getByLabelText('name').fill('Cook')
 		await signup.getByLabelText('email').fill('cook@example.com')
@@ -349,7 +369,7 @@ describe('sharing', () => {
 		})
 
 		await expect
-			.element(screen.getByRole('button', { name: 'save', exact: true }))
+			.element(screen.getByRole('button', { name: /^save / }))
 			.toBeVisible()
 		expect(router.state.location.pathname).toBe('/aria-amini/weeknight-pasta')
 	})
@@ -378,9 +398,9 @@ describe('sharing', () => {
 			session,
 		})
 
-		await screen.getByRole('button', { name: 'save', exact: true }).click()
+		await screen.getByRole('button', { name: /^save / }).click()
 		await expect
-			.element(screen.getByRole('button', { name: 'saved', exact: true }))
+			.element(screen.getByRole('button', { name: /^unsave / }))
 			.toBeVisible()
 		expect(api.saveRecipe).toHaveBeenCalledOnce()
 
@@ -427,7 +447,8 @@ describe('sharing', () => {
 			session,
 		})
 
-		await screen.getByRole('button', { name: /share/ }).click()
+		await screen.getByRole('button', { name: 'recipe options' }).click()
+		await page.getByRole('menuitem', { name: 'share' }).click()
 		await screen.getByRole('radio', { name: 'private' }).click()
 
 		await expect
@@ -462,7 +483,7 @@ describe('sharing', () => {
 			session,
 		})
 
-		await screen.getByRole('button', { name: 'saved', exact: true }).click()
+		await screen.getByRole('button', { name: /^unsave / }).click()
 		await page.getByRole('button', { name: 'remove', exact: true }).click()
 
 		await expect
