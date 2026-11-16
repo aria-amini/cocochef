@@ -19,6 +19,7 @@ import {
 	clearCheckedGroceriesForUser,
 	countWaitingGroceriesForUser,
 	deleteGroceryForUser,
+	leaveGroceryForUser,
 	listGroceriesForUser,
 	renameGroceryForUser,
 	restoreCartForUser,
@@ -117,6 +118,55 @@ describe('groceries', () => {
 				(recipe) => recipe.title,
 			),
 		).toEqual(['pasta'])
+	})
+
+	test('marks a line only with recipes that are there and the cook can see', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const other = await seedUser(db)
+		const pasta = await seedRecipe(db, userId, 'pasta')
+		const gone = await seedRecipe(db, userId, 'gone')
+
+		// Written by someone else and never shared.
+		const theirs = await createRecipeForUser(
+			other,
+			{ title: 'secret', ingredients: ['1 onion'], steps: ['Cook'] },
+			db,
+		)
+
+		await db.delete(recipes).where(eq(recipes.id, gone))
+		await addGroceriesForUser(
+			userId,
+			[{ text: '1 onion', recipeIds: [pasta, gone, theirs!.id] }],
+			db,
+		)
+
+		expect((await listGroceriesForUser(userId, db))[0]?.recipes).toEqual([
+			{ id: pasta, title: 'pasta' },
+		])
+	})
+
+	test('takes one recipe off a shared line, leaving the rest', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const pasta = await seedRecipe(db, userId, 'pasta')
+		const soup = await seedRecipe(db, userId, 'soup')
+
+		await addGroceriesForUser(
+			userId,
+			[{ text: '2 onions', recipeIds: [pasta, soup] }],
+			db,
+		)
+
+		const [line] = await listGroceriesForUser(userId, db)
+
+		await leaveGroceryForUser(userId, line!.id, soup, '1 onion', db)
+
+		const [left] = await listGroceriesForUser(userId, db)
+		expect(left?.text).toBe('1 onion')
+		expect(left?.recipes).toEqual([{ id: pasta, title: 'pasta' }])
 	})
 
 	test('keeps the id a list gave an item, so a tick right away lands', async ({

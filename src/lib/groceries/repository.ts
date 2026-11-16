@@ -23,6 +23,7 @@ import {
 	restockPantryForUser,
 } from '@/lib/pantry/repository'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
+import { visibleTo } from '@/lib/recipes/repository'
 
 import {
 	type GroceryInput,
@@ -148,8 +149,7 @@ export async function addGroceriesForUser(
 					.returning()
 			: []
 
-		if (marks.length)
-			await tx.insert(groceryItemRecipes).values(marks).onConflictDoNothing()
+		await markRecipes(tx, userId, marks)
 
 		return added
 	})
@@ -473,20 +473,34 @@ export async function restoreCartForUser(
 				line.recipes.map((recipeId) => ({ itemId: line.id, recipeId })),
 			)
 
-		if (wanted.length) {
-			const alive = await tx
-				.select({ id: recipes.id })
-				.from(recipes)
-				.where(inArray(recipes.id, [...new Set(wanted.map((m) => m.recipeId))]))
-
-			const kept = new Set(alive.map((recipe) => recipe.id))
-
-			const marks = wanted.filter((mark) => kept.has(mark.recipeId))
-
-			if (marks.length)
-				await tx.insert(groceryItemRecipes).values(marks).onConflictDoNothing()
-		}
+		await markRecipes(tx, userId, wanted)
 
 		return back
 	})
+}
+
+// Marks lines with the recipes they're for, only those still there that the
+// cook can see: one deleted since, or another's private recipe, is left off.
+async function markRecipes(
+	tx: Parameters<Parameters<Database['transaction']>[0]>[0],
+	userId: string,
+	marks: { itemId: string; recipeId: string }[],
+) {
+	if (!marks.length) return
+
+	const seen = await tx
+		.select({ id: recipes.id })
+		.from(recipes)
+		.where(
+			and(
+				inArray(recipes.id, [...new Set(marks.map((mark) => mark.recipeId))]),
+				visibleTo(userId, tx),
+			),
+		)
+
+	const kept = new Set(seen.map((recipe) => recipe.id))
+	const allowed = marks.filter((mark) => kept.has(mark.recipeId))
+
+	if (allowed.length)
+		await tx.insert(groceryItemRecipes).values(allowed).onConflictDoNothing()
 }

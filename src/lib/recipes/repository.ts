@@ -37,7 +37,7 @@ type RecipeDatabase =
 	| Parameters<Parameters<Database['transaction']>[0]>[0]
 
 // Shared recipes are everyone's; a written or copied recipe only its writer's.
-function visibleTo(userId: string, database: RecipeDatabase) {
+export function visibleTo(userId: string, database: RecipeDatabase) {
 	return or(
 		isNull(recipes.userId),
 		eq(recipes.userId, userId),
