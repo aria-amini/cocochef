@@ -44,7 +44,16 @@ function AppLayout() {
 
 	if (loaded && !kept.includes(loaded)) setKept([...kept, loaded])
 
-	const waiting = kept.find((route) => keptPaths[route] === asked)
+	// A kept tab whose reload failed gives way to the router's own page,
+	// which says so and offers to try again.
+	const failed = useRouterState({
+		select: (state) => state.matches.at(-1)?.status === 'error',
+	})
+
+	const waiting = failed
+		? undefined
+		: kept.find((route) => keptPaths[route] === asked)
+
 	const shown = waiting ?? loaded
 
 	// The tab on screen notes where it is scrolled to, for its next showing.

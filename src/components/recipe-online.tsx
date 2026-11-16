@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { hasPicks, type MealPicks } from '@/lib/assistant/meal-parts'
+import { authClient } from '@/lib/auth/client'
 import { searchRecipes } from '@/lib/discover/server'
 import { importRecipe } from '@/lib/import/server'
 import { sizedPhoto } from '@/lib/photos/sized'
@@ -45,7 +46,9 @@ const askedOf = (
 // A question answered lately, kept in the query client (one per visit, and
 // one per test), so a search come back to (back from a recipe, or retyped)
 // shows its results at once while it is asked again.
-const answerKey = (asked: string) => ['search-answer', asked] as const
+// Kept per account, since what a search finds depends on who asks.
+const answerKey = (viewer: string, asked: string) =>
+	['search-answer', viewer, asked] as const
 
 // Searches cocochef's recipes for `query` once it settles, or sorted by `sort`,
 // every rated recipe; `picks` (kept in state, so one object while unchanged)
@@ -57,6 +60,7 @@ export function useOnlineRecipes(
 ): OnlineSearch {
 	const asked = query === undefined ? undefined : askedOf(query, sort, picks)
 	const client = useQueryClient()
+	const viewer = authClient.useSession().data?.user.id ?? ''
 
 	const [settled, setSettled] = useState<Settled>({
 		results: [],
@@ -95,7 +99,7 @@ export function useOnlineRecipes(
 					failed: false,
 				}
 
-				client.setQueryData(answerKey(done.asked), done)
+				client.setQueryData(answerKey(viewer, done.asked), done)
 				setSettled(done)
 			} catch {
 				if (!cancelled)
@@ -113,7 +117,7 @@ export function useOnlineRecipes(
 			cancelled = true
 			clearTimeout(timer)
 		}
-	}, [client, query, sort, picks])
+	}, [client, viewer, query, sort, picks])
 
 	// Results belong to the question that fetched them; a new one starts empty.
 	// The last counts stay while the next ones load, so bubbles don't flicker;
@@ -125,7 +129,7 @@ export function useOnlineRecipes(
 			? undefined
 			: settled.asked === asked
 				? settled
-				: client.getQueryData<Settled>(answerKey(asked))
+				: client.getQueryData<Settled>(answerKey(viewer, asked))
 
 	return {
 		results: shown ? shown.results : [],

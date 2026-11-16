@@ -113,6 +113,7 @@ function Shelves() {
 	const { shelf: opened, find } = Route.useSearch()
 	const [query, setQuery] = useState('')
 	const [editing, setEditing] = useState(false)
+	const [stepping, setStepping] = useState(false)
 	const [, startChange] = useTransition()
 
 	// Shelves whose whole catalog shows, the one a link opened among them.
@@ -197,6 +198,10 @@ function Shelves() {
 
 	// The amount on the list, in store steps; at the least, off the list.
 	async function stepLine(line: { id: string; text: string }, by: 1 | -1) {
+		// One step at a time, so a quick second tap doesn't step from the
+		// same amount again.
+		setStepping(true)
+
 		try {
 			await renameGrocery({
 				data: {
@@ -207,6 +212,8 @@ function Shelves() {
 			await refreshList()
 		} catch {
 			toast.error("couldn't change the amount — try again")
+		} finally {
+			setStepping(false)
 		}
 	}
 
@@ -292,14 +299,16 @@ function Shelves() {
 	function remove(item: Item) {
 		show(item.id, false)
 
-		const removed = deletePantryItem({ data: { id: item.id } }).then(() =>
-			router.invalidate(),
-		)
+		// The deletion alone, so undo still runs if only the refresh fails.
+		const removed = deletePantryItem({ data: { id: item.id } })
 
-		removed.catch(() => {
-			show(item.id, true)
-			toast.error(`couldn't remove ${item.name} — try again`)
-		})
+		removed.then(
+			() => router.invalidate(),
+			() => {
+				show(item.id, true)
+				toast.error(`couldn't remove ${item.name} — try again`)
+			},
+		)
 
 		async function restore() {
 			const back = {
@@ -584,6 +593,7 @@ function Shelves() {
 								name={asked.name}
 								level={asked.level}
 								line={lineOf(asked)}
+								disabled={stepping}
 								onLevel={(next) => level(asked, next)}
 								onAdd={(text) => void addToList(asked, text)}
 								onStep={(line, by) => void stepLine(line, by)}

@@ -138,7 +138,8 @@ const pantryState = vi.hoisted(() => {
 	const marked: string[] = []
 	const levels: { id: string; level: string; list?: boolean | undefined }[] = []
 
-	return { items, marked, levels }
+	// The kitchen can't be read.
+	return { items, marked, levels, broken: false }
 })
 
 const kept = (
@@ -179,7 +180,10 @@ vi.mock('@/lib/sharing/server', async (importOriginal) => ({
 vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/pantry/server')>()),
 	// Copies, as the server sends, so a change shows up after a refetch.
-	pantryOnHand: () => Promise.resolve([...pantryState.items]),
+	pantryOnHand: () =>
+		pantryState.broken
+			? Promise.reject(new Error('pantry unavailable'))
+			: Promise.resolve([...pantryState.items]),
 	listPantry: () => Promise.resolve([]),
 	setPantryItemLevel: ({
 		data,
@@ -704,6 +708,22 @@ describe('recipe detail', () => {
 				screen.getByRole('button', { name: 'add short ribs to your cart' }),
 			)
 			.toBeVisible()
+	})
+
+	test('opens on cooking when the kitchen cannot be read', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 cloves garlic']
+		pantryState.broken = true
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect
+			.element(screen.getByRole('checkbox', { name: '2 cloves garlic' }))
+			.toBeVisible()
+		await expect
+			.element(steps(screen))
+			.toHaveAccessibleName('ingredients for cooking')
+		pantryState.broken = false
 	})
 
 	test('counts a food named in two sections once', async () => {

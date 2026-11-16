@@ -228,14 +228,16 @@ function Pantry({
 		// Back to the view it was removed from, so undo shows it there.
 		void navigate({ to: here, search: {}, resetScroll: false })
 
-		const removed = deletePantryItem({ data: { id: item.id } }).then(() =>
-			router.invalidate(),
-		)
+		// The deletion alone, so undo still runs if only the refresh fails.
+		const removed = deletePantryItem({ data: { id: item.id } })
 
-		removed.catch(() => {
-			show(item.id, true)
-			toast.error("couldn't remove that ingredient — try again")
-		})
+		removed.then(
+			() => router.invalidate(),
+			() => {
+				show(item.id, true)
+				toast.error("couldn't remove that ingredient — try again")
+			},
+		)
 
 		async function restore() {
 			const back = {
@@ -283,7 +285,9 @@ function Pantry({
 	const isListed = (item: PantryItem) => adding.has(item.id) || !!lineOf(item)
 
 	const client = useQueryClient()
-	const [, startChange] = useTransition()
+	// While a line changes, its stepper waits, so a quick second tap
+	// doesn't step from the same amount again.
+	const [changing, startChange] = useTransition()
 
 	// A line changed from a row: how much, or off the list.
 	function changeLine(work: () => Promise<void>) {
@@ -301,6 +305,7 @@ function Pantry({
 	const actions: ShortActions = {
 		lineOf,
 		adding: (item) => adding.has(item.id),
+		changing,
 		step(line, by) {
 			changeLine(async () => {
 				await renameGrocery({
@@ -475,6 +480,7 @@ type ListLine = { id: string; text: string }
 type ShortActions = {
 	lineOf: (item: PantryItem) => ListLine | undefined
 	adding: (item: PantryItem) => boolean
+	changing: boolean
 	add: (item: PantryItem) => void
 	step: (line: ListLine, by: 1 | -1) => void
 	takeOff: (line: ListLine) => void
@@ -538,6 +544,7 @@ function ShortList({
 							<CartStepper
 								name={item.name}
 								text={line.text}
+								disabled={actions.changing}
 								onStep={(by) => actions.step(line, by)}
 								onTakeOff={() => actions.takeOff(line)}
 							/>

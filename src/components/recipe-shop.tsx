@@ -83,6 +83,8 @@ export function useRecipeShop(
 	const pantry = usePantry(signedIn && enabled)
 	const waiting = useWaitingGroceries(signedIn && enabled)
 	const known = signedIn && pantry.isSuccess && waiting.isSuccess
+	// The kitchen or the list couldn't be read: nothing to shop by.
+	const failed = signedIn && (pantry.isError || waiting.isError)
 	const kept = pantry.data ?? []
 	const listed = waiting.data ?? []
 
@@ -137,9 +139,10 @@ export function useRecipeShop(
 
 	// Whether who's reading, and what their kitchen and list hold, are read
 	// yet: until then, which step to open on can't be said.
-	const settled = !session.isPending && (!signedIn || known || !enabled)
+	const settled =
+		!session.isPending && (!signedIn || known || failed || !enabled)
 
-	return { signedIn, known, settled, rows, toBuy, inCart, done }
+	return { signedIn, known, failed, settled, rows, toBuy, inCart, done }
 }
 
 export type RecipeShop = ReturnType<typeof useRecipeShop>
@@ -236,7 +239,7 @@ export function useIngredientsStep(shop: RecipeShop) {
 	const [opened, setOpened] = useState<IngredientsStep>()
 
 	if (!opened && shop.settled)
-		setOpened(!shop.signedIn || shop.done ? 'cook' : 'shop')
+		setOpened(!shop.signedIn || shop.done || shop.failed ? 'cook' : 'shop')
 	const [authOpen, setAuthOpen] = useState(false)
 
 	const pathname = useRouterState({
@@ -452,16 +455,31 @@ export function ShopList({
 			.then(() => renameGrocery({ data: { id, text: next } }))
 
 		saves.current.set(id, saved)
-		saved.then(refresh).catch(() => {
-			toast.error("couldn't change that — try again")
-			setTexts((now) => {
-				const back = new Map(now)
+		saved
+			.then(refresh)
+			.then(() => {
+				// Saved and read back: the list says it now, unless a newer tap
+				// is still on its way.
+				if (saves.current.get(id) !== saved) return
 
-				back.delete(id)
+				setTexts((now) => {
+					const back = new Map(now)
 
-				return back
+					back.delete(id)
+
+					return back
+				})
 			})
-		})
+			.catch(() => {
+				toast.error("couldn't change that — try again")
+				setTexts((now) => {
+					const back = new Map(now)
+
+					back.delete(id)
+
+					return back
+				})
+			})
 	}
 
 	// Out of the cart at once, back with what's still to get.
