@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 
 import { type Database, getDb, type Queryable } from '@/db/connection'
 import { cookPlans, pantryItems, recipes } from '@/db/schema'
@@ -166,6 +166,10 @@ export async function finishCookForUser(
 					})
 					.from(pantryItems)
 					.where(mine)
+					// Locked, in one order, so two cooks finishing at once over the
+					// same food take turns: each reads what the other left.
+					.orderBy(asc(pantryItems.id))
+					.for('update')
 			: []
 
 		// Out, as "i'm out" says it: a count kept goes to none.
