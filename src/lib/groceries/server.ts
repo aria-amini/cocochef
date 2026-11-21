@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { getAccountId, requireAccountId } from '@/lib/auth/session'
-import { pantryLevels } from '@/lib/pantry/model'
+import { pantryBrand, pantryLevels } from '@/lib/pantry/model'
 
 import { groceryFields, groceryInputs } from './model'
 import {
@@ -12,8 +12,10 @@ import {
 	deleteGroceryForUser,
 	leaveGroceryForUser,
 	listGroceriesForUser,
+	recipeLinesForUser,
 	renameGroceryForUser,
 	restoreCartForUser,
+	setGroceryBrandForUser,
 	setGroceryCheckedForUser,
 } from './repository'
 
@@ -63,6 +65,16 @@ export const renameGrocery = createServerFn({ method: 'POST' })
 		),
 	)
 
+export const setGroceryBrand = createServerFn({ method: 'POST' })
+	.validator(itemId.extend({ brand: pantryBrand }))
+	.handler(async ({ data }) =>
+		setGroceryBrandForUser(
+			await requireAccountId('keep a grocery list'),
+			data.id,
+			data.brand,
+		),
+	)
+
 export const deleteGrocery = createServerFn({ method: 'POST' })
 	.validator(itemId)
 	.handler(async ({ data }) =>
@@ -99,6 +111,7 @@ const putAway = z.object({
 			z.object({
 				id: z.string().min(1),
 				text: groceryFields.text,
+				brand: pantryBrand.nullish(),
 				recipes: z.array(z.string().min(1)).max(20),
 				checkedAt: z.iso.datetime(),
 				createdAt: z.iso.datetime(),
@@ -114,6 +127,7 @@ const putAway = z.object({
 					quantity: z.number().int().nullable(),
 					confirmedAt: z.iso.datetime(),
 					boughtAt: z.iso.datetime(),
+					brand: pantryBrand.nullish(),
 				}),
 			}),
 		)
@@ -127,3 +141,15 @@ export const restoreCart = createServerFn({ method: 'POST' })
 	.handler(async ({ data }) =>
 		restoreCartForUser(await requireAccountId('keep a grocery list'), data),
 	)
+
+// How many lines letting a recipe go would take off the list. A visitor has
+// none.
+export const recipeLinesGoing = createServerFn({ method: 'GET' })
+	.validator(z.object({ recipeId: z.string().min(1) }))
+	.handler(async ({ data }) => {
+		const accountId = await getAccountId()
+
+		return accountId
+			? (await recipeLinesForUser(accountId, data.recipeId)).going.length
+			: 0
+	})

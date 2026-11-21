@@ -3,9 +3,11 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { z } from 'zod'
 
+import { InProgress } from '@/components/in-progress'
 import { FinderPanel, type FinderFilters } from '@/components/recipe-finder'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { buttonVariants } from '@/components/ui/button'
+import { useInProgress } from '@/components/use-plans'
 import { popularRecipes } from '@/lib/discover/server'
 import { homeNow } from '@/lib/home/server'
 import { useKeptMatch } from '@/lib/kept-match'
@@ -59,9 +61,21 @@ function Home() {
 	// Kept for this point in history, so back from a recipe finds them on.
 	const [filters, setFilters] = useEntryState(keptFilters, { picks: {} })
 
+	// Recipes in progress say what's on the list for each, so the list's own
+	// bar only shows once the shop is under way, or for lines none of them
+	// asks for. Counted with the page, then kept live.
+	const planned = useInProgress(now.signedIn)
+	const inProgress = planned.data?.length ?? now.inProgress
+
+	// The shop under way, as the cat and the bar both say it.
+	const shopping =
+		now.shopping && (!inProgress || now.loose > 0 || now.shopping.inCart > 0)
+			? now.shopping
+			: null
+
 	const headline = now.cooking
 		? 'still cooking'
-		: now.shopping
+		: shopping
 			? 'finish shopping'
 			: 'what are you making?'
 
@@ -87,7 +101,7 @@ function Home() {
 					{/* The cat says it: the day, then what it asks. Mid-shop, it
 					    only says to finish. */}
 					<div className="bg-card border-border before:bg-card before:border-border relative flex min-w-0 flex-col gap-0.5 rounded-xl border px-4 py-3 before:absolute before:top-1/2 before:-left-1.5 before:size-3 before:-translate-y-1/2 before:rotate-45 before:border-b before:border-l">
-						{now.shopping && !now.cooking ? null : (
+						{shopping && !now.cooking ? null : (
 							<p className="text-muted-foreground text-sm font-semibold">
 								it's {weekday.format(today).toLowerCase()}{' '}
 								{partOfDay(today.getHours())},
@@ -98,9 +112,10 @@ function Home() {
 				</header>
 				{now.cooking ? (
 					<StillCooking cooking={now.cooking} waiting={now.waiting} />
-				) : now.shopping ? (
-					<Shopping shopping={now.shopping} />
+				) : shopping ? (
+					<Shopping shopping={shopping} />
 				) : null}
+				{now.signedIn ? <InProgress /> : null}
 				<section aria-label="find a recipe" className="flex flex-col gap-3">
 					<Finder filters={filters} onFilters={setFilters} />
 				</section>

@@ -1,7 +1,11 @@
 import { foodOf } from '@/lib/pantry/foods'
 import type { PantryCategory } from '@/lib/pantry/model'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
-import { amountOf, withAmount } from '@/lib/recipes/ingredient-line'
+import {
+	amountOf,
+	ingredientSubject,
+	withAmount,
+} from '@/lib/recipes/ingredient-line'
 
 import { shoppingLine } from './list'
 
@@ -159,20 +163,76 @@ export function stepShopping(line: string, by: 1 | -1) {
 	return withAmount(Math.max(1, next), unit, rest)
 }
 
+// What a shop sells a food in, between a count and the food, after any size
+// in brackets: "2 (15-ounce) cans beans", "1 jar of salsa".
+const heldIn =
+	/^(?:\([^()]*\)\s*)?(cans?|jars?|bottles?|packages?|boxes|box|bags?|cartons?|tubs?)\s+(?:of\s+)?/i
+
+// The food alone, short enough to name a row: sizes and containers off, and
+// whatever follows a comma left in the kitchen. "(2½-pound) rotisserie
+// chicken, skin and bones discarded" is rotisserie chicken.
+function foodAlone(text: string) {
+	// "1 jar of salsa" leaves "of salsa" once the jar is taken off.
+	const subject = ingredientSubject(text.replace(/^of\s+/i, ''))
+	let depth = 0
+	let end = subject.length
+
+	for (let at = 0; at < subject.length; at++) {
+		const char = subject[at]
+
+		if (char === '(') depth += 1
+		else if (char === ')') depth = Math.max(0, depth - 1)
+		else if (char === ',' && depth === 0) {
+			end = at
+			break
+		}
+	}
+
+	const head = subject
+		.slice(0, end)
+		.replace(/\s*\([^()]*\)$/, '')
+		.trim()
+
+	return head || subject
+}
+
 // A recipe line as a shop sells it, the food and how much to take home, for
 // a list beside the recipe: "1/3 tsp ground cumin" is cumin, 1 jar; "2 lb
 // short ribs" is short ribs, 2 lb; "3 onions" is onions, 3.
 export function buyingAmount(line: string) {
-	const bought = shoppingLine(line)
+	// "1-2 chiles" buys the most it might take.
+	const bought = shoppingLine(line).replace(
+		/^\d+\s*(?:-|–|to)\s*(\d+)\s+/,
+		'$1 ',
+	)
+
 	const amount = amountOf(bought)
 
-	if (amount && !measures.has(amount.unit))
-		return {
-			name: amount.rest,
-			amount: withAmount(amount.quantity, amount.unit, ''),
-		}
+	// Sprigs and leaves are counted in the kitchen, not sold: "10 sprigs
+	// thyme" is bought like a spoonful of it.
+	const kitchenCount =
+		!!amount &&
+		!amount.unit &&
+		/^(?:sprigs?|leaves|stalks?)\s/i.test(amount.rest)
 
-	const name = amount ? amount.rest : bought
+	if (amount && !measures.has(amount.unit) && !kitchenCount) {
+		// "2 (15-ounce) cans beans" is bought as 2 cans.
+		const held = amount.unit ? undefined : heldIn.exec(amount.rest)
+
+		return {
+			name: foodAlone(held ? amount.rest.slice(held[0].length) : amount.rest),
+			amount: withAmount(amount.quantity, amount.unit || (held?.[1] ?? ''), ''),
+		}
+	}
+
+	// "3 leaves basil" is basil.
+	const name = foodAlone(
+		(amount ? amount.rest : bought).replace(
+			/^(?:sprigs?|leaves|stalks?)\s+(?:of\s+)?/i,
+			'',
+		),
+	)
+
 	const unit = shoppingUnitsFor(name)[0] ?? each
 
 	return { name, amount: unit === each ? '1' : withAmount(1, unit, '') }

@@ -2,13 +2,23 @@ import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { readSession, getViewerId, requireAccountId } from '@/lib/auth/session'
+import { dropPlanForUser } from '@/lib/cooking/plans'
+import {
+	leaveRecipeForUser,
+	recipeLinesForUser,
+} from '@/lib/groceries/repository'
 import { resolveStoredImage } from '@/lib/s3'
 import {
 	getWebRecipeLink,
 	reservePrivateRecipeAddress,
 } from '@/lib/sharing/repository'
 
-import { recipeIdInput, recipeInput, recipeUpdateInput } from './model'
+import {
+	recipeIdInput,
+	recipeInput,
+	recipeRemovalInput,
+	recipeUpdateInput,
+} from './model'
 import {
 	createRecipeForUser,
 	deleteRecipeForUser,
@@ -114,11 +124,35 @@ export const saveRecipe = createServerFn({ method: 'POST' })
 		saveRecipeForUser(await requireAccountId('save recipes'), data.id),
 	)
 
+// A recipe let go of is off what's in progress too, and its foods waiting
+// on the list go with it when the cook says so. Its lines are found while
+// the recipe still names them, and only taken off once it's gone.
+async function letGo<Removed>(
+	userId: string,
+	data: { id: string; groceries?: boolean | undefined },
+	remove: () => Promise<Removed>,
+) {
+	const lines = data.groceries
+		? await recipeLinesForUser(userId, data.id)
+		: undefined
+
+	const removed = await remove()
+
+	if (!removed) return removed
+
+	if (lines) await leaveRecipeForUser(userId, data.id, lines)
+	await dropPlanForUser(userId, data.id)
+
+	return removed
+}
+
 export const removeSavedRecipe = createServerFn({ method: 'POST' })
-	.validator(recipeIdInput)
-	.handler(async ({ data }) =>
-		removeSavedRecipeForUser(await requireAccountId('save recipes'), data.id),
-	)
+	.validator(recipeRemovalInput)
+	.handler(async ({ data }) => {
+		const userId = await requireAccountId('save recipes')
+
+		return letGo(userId, data, () => removeSavedRecipeForUser(userId, data.id))
+	})
 
 export const updateRecipe = createServerFn({ method: 'POST' })
 	.validator(recipeUpdateInput)
@@ -127,10 +161,12 @@ export const updateRecipe = createServerFn({ method: 'POST' })
 	)
 
 export const deleteRecipe = createServerFn({ method: 'POST' })
-	.validator(recipeIdInput)
-	.handler(async ({ data }) =>
-		deleteRecipeForUser(await requireAccountId('save recipes'), data.id),
-	)
+	.validator(recipeRemovalInput)
+	.handler(async ({ data }) => {
+		const userId = await requireAccountId('save recipes')
+
+		return letGo(userId, data, () => deleteRecipeForUser(userId, data.id))
+	})
 
 // Clearing several off the shelf at once: each one the cook wrote is deleted,
 // each one they saved comes off their shelf, the same as one at a time.
@@ -141,7 +177,8 @@ export const deleteRecipes = createServerFn({ method: 'POST' })
 		let removed = 0
 
 		for (const id of new Set(data.ids))
-			if (await deleteRecipeForUser(userId, id)) removed++
+			if (await letGo(userId, { id }, () => deleteRecipeForUser(userId, id)))
+				removed++
 
 		return { removed }
 	})

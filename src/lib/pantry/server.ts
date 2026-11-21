@@ -5,15 +5,22 @@ import { getAccountId, requireAccountId } from '@/lib/auth/session'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 
 import { shelfState } from './foods'
-import { pantryCount, pantryItemInput, pantryLevels } from './model'
+import {
+	pantryBrand,
+	pantryCount,
+	pantryItemInput,
+	pantryLevels,
+} from './model'
 import {
 	createPantryItemsForUser,
 	deletePantryItemForUser,
 	keepPantryItemForUser,
+	listBrandsForUser,
 	listPantryForUser,
 	restockPantryForUser,
 	restockPantryItemForUser,
 	restorePantryItemForUser,
+	setPantryItemBrandForUser,
 	setPantryItemFrozenForUser,
 	setPantryItemCountForUser,
 	setPantryItemLevelForUser,
@@ -25,13 +32,17 @@ async function pantryWithShelf(userId: string) {
 	const now = new Date()
 
 	return (await listPantryForUser(userId)).map((item) => {
-		const { state, spoils, daysLeft, boughtDaysAgo } = shelfState(item, now)
+		const { state, spoils, staple, daysLeft, boughtDaysAgo } = shelfState(
+			item,
+			now,
+		)
 
 		return {
 			...item,
 			stale: state === 'stale',
 			expired: state === 'expired',
 			spoils,
+			staple,
 			daysLeft,
 			boughtDaysAgo,
 		}
@@ -119,6 +130,25 @@ export const setPantryItemFrozen = createServerFn({ method: 'POST' })
 			await requireAccountId('keep ingredients'),
 			data.id,
 			data.frozen,
+		),
+	)
+
+// The brands the cook has used, to offer in a brand field.
+export const listBrands = createServerFn({ method: 'GET' }).handler(
+	async () => {
+		const accountId = await getAccountId()
+
+		return accountId ? listBrandsForUser(accountId) : []
+	},
+)
+
+export const setPantryItemBrand = createServerFn({ method: 'POST' })
+	.validator(z.object({ id: z.string().min(1), brand: pantryBrand }))
+	.handler(async ({ data }) =>
+		setPantryItemBrandForUser(
+			await requireAccountId('keep ingredients'),
+			data.id,
+			data.brand,
 		),
 	)
 

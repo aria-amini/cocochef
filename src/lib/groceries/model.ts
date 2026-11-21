@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { pantryBrand } from '@/lib/pantry/model'
+
 const groceryBulkMax = 100
 
 export const groceryFields = {
@@ -9,6 +11,8 @@ export const groceryFields = {
 	text: z.string().trim().min(1).max(200),
 	// The recipes asking for it, so the list can say what each is for.
 	recipeIds: z.array(z.string().min(1)).max(20).optional(),
+	// Left out, the line takes the brand of the pantry item for its food.
+	brand: pantryBrand.nullish(),
 }
 
 const groceryInput = z.object(groceryFields)

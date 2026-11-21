@@ -91,9 +91,14 @@ function RootComponent() {
 							toast:
 								'floating bg-card text-foreground font-sans flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold overflow-hidden',
 							error: 'bg-kitchen-tomato text-foreground',
+							// The words take the room, so the buttons sit together.
+							content: 'min-w-0 flex-1',
 							// Undo is a button to reach for, not a word in the line.
 							actionButton:
 								'border-input hover:bg-muted/60 ml-auto min-h-9 shrink-0 rounded-md border px-3 text-sm font-semibold transition-colors',
+							// A question's other answer sits beside it, quieter.
+							cancelButton:
+								'text-muted-foreground hover:bg-muted/60 hover:text-foreground min-h-9 shrink-0 rounded-md px-3 text-sm font-semibold transition-colors',
 						},
 					}}
 				/>

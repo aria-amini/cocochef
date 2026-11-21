@@ -37,10 +37,12 @@ type RecipeUpdate = Omit<
 const updateCalls = vi.hoisted(() => {
 	const calls: RecipeUpdate[] = []
 	const deleted: string[] = []
+	// Whether each delete took the recipe's foods off the list too.
+	const withGroceries: (boolean | undefined)[] = []
 	const saved: string[] = []
 	const exported: (string | undefined)[] = []
 
-	return { calls, deleted, saved, exported }
+	return { calls, deleted, withGroceries, saved, exported }
 })
 
 vi.mock('@/lib/recipes/server', () => ({
@@ -90,8 +92,13 @@ vi.mock('@/lib/recipes/server', () => ({
 
 		return recipeState.recipe
 	},
-	deleteRecipe: async ({ data }: { data: { id: string } }) => {
+	deleteRecipe: async ({
+		data,
+	}: {
+		data: { id: string; groceries?: boolean }
+	}) => {
 		updateCalls.deleted.push(data.id)
+		updateCalls.withGroceries.push(data.groceries)
 
 		if (recipeState.recipe && !recipeState.recipe.owned)
 			recipeState.recipe = {
@@ -102,6 +109,7 @@ vi.mock('@/lib/recipes/server', () => ({
 }))
 
 type GroceryInput = {
+	id?: string
 	text: string
 	recipeIds?: string[]
 }
@@ -135,6 +143,7 @@ type KeptFood = {
 
 const pantryState = vi.hoisted(() => {
 	const items: KeptFood[] = []
+	// Foods said to be home from the sheet, as typed in the recipe.
 	const marked: string[] = []
 	const levels: { id: string; level: string; list?: boolean | undefined }[] = []
 
@@ -197,51 +206,67 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 
 		return Promise.resolve({ item: null, listed: false })
 	},
+	haveFood: ({ data }: { data: { text: string } }) => {
+		pantryState.marked.push(data.text)
+
+		return Promise.resolve({ addedIds: ['made'], restockedIds: [] })
+	},
+	deletePantryItem: () => Promise.resolve({ id: 'made' }),
 }))
 
-// The switch between the ingredients' two steps, shopping then cooking,
-// named for the step showing.
-const steps = (screen: { getByRole: typeof page.getByRole }) =>
-	screen.getByRole('button', { name: /^ingredients for/ })
+// What's in progress: each recipe's skips, and the ones cooked.
+const planState = vi.hoisted(() => {
+	const plans = new Map<string, { skipped: string[]; plannedAt: Date }>()
+	const cooked: string[] = []
 
-// Another step, picked from the switch's menu.
-const pick = async (
-	screen: { getByRole: typeof page.getByRole },
-	step: 'shopping' | 'cooking',
-) => {
-	await steps(screen).click()
-	await page.getByRole('menuitem', { name: new RegExp(`^${step}`) }).click()
-}
+	return { plans, cooked }
+})
 
-const panel = (screen: { getByRole: typeof page.getByRole }) =>
-	screen.getByRole('region', { name: 'ingredients' })
+vi.mock('@/lib/cooking/server', () => ({
+	getPlan: ({ data }: { data: { recipeId: string } }) =>
+		Promise.resolve(planState.plans.get(data.recipeId) ?? null),
+	planCook: ({
+		data,
+	}: {
+		data: { recipeId: string; skipped: string[]; plannedAt?: Date }
+	}) => {
+		const plan = {
+			skipped: data.skipped,
+			plannedAt: data.plannedAt ?? new Date(),
+		}
 
-// The recipe as written, to cook from, for a reader who has shopping to do.
-const toCook = (screen: { getByRole: typeof page.getByRole }) =>
-	pick(screen, 'cooking')
+		planState.plans.set(data.recipeId, plan)
 
-// The foods a group of the shop step lists, each with what it says.
-const shopRows = (
-	screen: { getByRole: typeof page.getByRole },
-	group: string,
-) =>
-	panel(screen)
-		.getByRole('region', { name: group })
-		.getByRole('listitem')
-		.elements()
-		.map((row) => row.textContent)
+		return Promise.resolve(plan)
+	},
+	dropPlan: ({ data }: { data: { recipeId: string } }) => {
+		const plan = planState.plans.get(data.recipeId) ?? null
 
-// What cooking says beside each line still to get.
-const cookTags = (screen: { getByRole: typeof page.getByRole }) =>
-	screen
-		.getByRole('table', { name: 'ingredients' })
-		.getByRole('row')
-		.elements()
-		.flatMap((row) => {
-			const tag = row.textContent?.match(/(to buy|on list)$/)?.[1]
+		planState.plans.delete(data.recipeId)
 
-			return tag ? [tag] : []
-		})
+		return Promise.resolve(plan)
+	},
+	finishCook: ({ data }: { data: { recipeId: string } }) => {
+		const plan = planState.plans.get(data.recipeId) ?? null
+
+		planState.plans.delete(data.recipeId)
+		planState.cooked.push(data.recipeId)
+
+		return Promise.resolve({ plan, items: [] })
+	},
+	unfinishCook: () => Promise.resolve(),
+	listInProgress: () => Promise.resolve([]),
+}))
+
+// The pill by the ingredients that says whether the recipe can be made.
+const readiness = (screen: { getByRole: typeof page.getByRole }) =>
+	screen.getByRole('button', {
+		name: /^(missing \d+|\d+ on your list|ready)$/,
+	})
+
+// The sheet the pill opens: under it on a wide screen, from the foot on a
+// phone.
+const sheet = () => page.getByRole('dialog')
 
 // Lines taken off the grocery list.
 const deleted = vi.hoisted((): string[] => [])
@@ -258,7 +283,7 @@ vi.mock('@/lib/groceries/server', () => ({
 		groceryWaiting.items = [
 			...groceryWaiting.items,
 			...data.map((line, index) => ({
-				id: `added-${groceryCalls.length}-${index}`,
+				id: line.id ?? `added-${groceryCalls.length}-${index}`,
 				text: line.text,
 				checkedAt: null,
 				recipes: (line.recipeIds ?? []).map((id) => ({ id, title: '' })),
@@ -293,6 +318,13 @@ vi.mock('@/lib/groceries/server', () => ({
 	},
 	clearCheckedGroceries: vi.fn(),
 	restoreCart: vi.fn(),
+	setGroceryBrand: vi.fn(),
+	recipeLinesGoing: ({ data }: { data: { recipeId: string } }) =>
+		Promise.resolve(
+			groceryWaiting.items.filter((item) =>
+				item.recipes?.some((recipe) => recipe.id === data.recipeId),
+			).length,
+		),
 }))
 
 vi.mock('@/lib/s3', async (importOriginal) => ({
@@ -346,10 +378,15 @@ describe('recipe detail', () => {
 	beforeEach(() => {
 		// No kitchen unless a test stocks one.
 		pantryState.items = []
+		pantryState.marked.length = 0
 		groceryWaiting.items = []
+		groceryCalls.length = 0
+		planState.plans.clear()
+		planState.cooked.length = 0
 		recipeState.hang = false
 		updateCalls.calls.length = 0
 		updateCalls.deleted.length = 0
+		updateCalls.withGroceries.length = 0
 		updateCalls.saved.length = 0
 		sessionStorage.removeItem('after-sign-in')
 		updateCalls.exported.length = 0
@@ -441,8 +478,6 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await toCook(screen)
-
 		await expect
 			.element(screen.getByRole('checkbox', { name: '200g pasta' }))
 			.toBeVisible()
@@ -454,7 +489,6 @@ describe('recipe detail', () => {
 		recipeState.recipe.ingredients = ['Salt']
 		recipeState.recipe.steps = []
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await toCook(screen)
 		await expect
 			.element(screen.getByRole('checkbox', { name: 'Salt' }))
 			.toBeVisible()
@@ -501,7 +535,6 @@ describe('recipe detail', () => {
 	test('captures the recipe reader', async () => {
 		fillRecipe()
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await toCook(screen)
 
 		await expect
 			.element(screen.getByRole('checkbox', { name: /Simmer/ }))
@@ -582,23 +615,22 @@ describe('recipe detail', () => {
 			.toBeVisible()
 	})
 
-	test('asks a signed-out reader to sign up before shopping', async () => {
+	test('shows a signed-out reader the recipe alone', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso']
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1' })
 
-		// Signed out, the recipe opens on cooking.
 		await expect
-			.element(steps(screen))
-			.toHaveAccessibleName('ingredients for cooking')
-		await pick(screen, 'shopping')
-		await expect
-			.element(page.getByRole('dialog', { name: 'create an account' }))
+			.element(screen.getByRole('checkbox', { name: '200 g pasta' }))
 			.toBeVisible()
+		expect(readiness(screen).query()).toBeNull()
+		expect(
+			screen.getByRole('button', { name: 'add all to list' }).query(),
+		).toBeNull()
 	})
 
-	test('opens on shopping while anything is missing, with what is home apart', async () => {
+	test('says what is missing, with what is listed and home folded apart', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = [
 			'2 cloves garlic, minced',
@@ -608,109 +640,156 @@ describe('recipe detail', () => {
 			'1 ripe avocado',
 			'1 cup water',
 		]
-		recipeState.recipe.totalMinutes = 80
 		groceryWaiting.items = [
-			{ id: 'ribs', text: '2 lb short ribs', checkedAt: null },
+			{
+				id: 'ribs',
+				text: '2 lb short ribs',
+				checkedAt: null,
+				recipes: [{ id: 'recipe-1', title: 'miso butter pasta' }],
+			},
 		]
 		pantryState.items = [
 			kept('garlic'),
 			kept('milk', 'low'),
 			kept('flour', 'plenty', true),
 		]
-		groceryCalls.length = 0
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
+		// Water is never bought; flour, not seen in a while, is to buy again.
+		await expect.element(readiness(screen)).toHaveTextContent('missing 2')
+		await readiness(screen).click()
 		await expect
-			.element(steps(screen))
-			.toHaveAccessibleName('ingredients for shopping')
-		// Water is never bought; flour, not seen in a while, is to buy, and
-		// what's on the list already stays in its place.
-		await expect
-			.poll(() => shopRows(screen, 'to buy'))
-			.toEqual([
-				'short ribs2 lb on your listhaveadd to cart',
-				'ripe avocadohaveadd to cart',
-				'flourhad it in marchhaveadd to cart',
-			])
-		// What's home, whatever it is, sits apart.
-		expect(shopRows(screen, 'already have')).toEqual(['garlichave', 'milkhave'])
-		await expectIsolatedScreenshot(panel(screen), 'recipe-groceries')
-
-		// Not home after all? Said from its pill, then back with what's to
-		// get, and not put on the list.
-		pantryState.levels.length = 0
-		await panel(screen).getByRole('button', { name: 'garlic is home' }).click()
-		const ask = page.getByRole('dialog', { name: 'need more garlic?' })
-
-		await ask.getByRole('button', { name: 'mark as out' }).click()
-		await expect
-			.poll(() => pantryState.levels)
-			.toEqual([{ id: 'garlic', level: 'out', list: undefined }])
-		await expect
-			.element(screen.getByRole('button', { name: 'add garlic to your cart' }))
-			.toBeVisible()
-
-		// Cooking shows the recipe as written, saying what's still to get.
-		await toCook(screen)
-		await expect
-			.element(screen.getByRole('checkbox', { name: '2 cups flour' }))
+			.element(sheet().getByRole('button', { name: 'more ripe avocado' }))
 			.toBeVisible()
 		await expect
-			.poll(() => cookTags(screen))
-			.toEqual(['to buy', 'to buy', 'on list', 'to buy'])
-		groceryWaiting.items = []
-		pantryState.items = []
+			.element(sheet().getByRole('button', { name: 'more flour' }))
+			.toBeVisible()
+		// What's settled is folded under a line each.
+		await expect
+			.element(sheet().getByRole('button', { name: '1 on your list' }))
+			.toHaveAttribute('aria-expanded', 'false')
+		await expect
+			.element(sheet().getByRole('button', { name: '2 in your pantry' }))
+			.toHaveAttribute('aria-expanded', 'false')
+		await expectIsolatedScreenshot(sheet(), 'recipe-missing')
 	})
 
-	test('adds what the recipe needs to the cart, steps it, and takes it out', async () => {
+	test('adds what is missing in the amount asked, and undo takes it back', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 lb short ribs', '1 tbsp miso']
-		groceryWaiting.items = []
-		groceryCalls.length = 0
-		deleted.length = 0
-		pantryState.marked.length = 0
+		pantryState.items = [kept('salt')]
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		// Added in the amount the recipe needs, for this recipe.
-		await screen
-			.getByRole('button', { name: 'add short ribs to your cart' })
-			.click()
-		await expect
-			.poll(() => groceryCalls)
-			.toEqual([[{ text: '2 lb short ribs', recipeIds: ['recipe-1'] }]])
+		await readiness(screen).click()
+		await sheet().getByRole('button', { name: 'more short ribs' }).click()
+		await sheet().getByRole('button', { name: 'add 2 to list' }).click()
 
-		// Then a stepper in its place, in the shop's steps.
-		await screen.getByRole('button', { name: 'more short ribs' }).click()
+		// In the amount asked, for this recipe, which is now in progress.
 		await expect
-			.poll(() => groceryWaiting.items.map((item) => item.text))
-			.toEqual(['2 ½ lb short ribs'])
-
-		// At its least, the stepper takes it out.
-		await screen.getByRole('button', { name: 'less short ribs' }).click()
-		await expect
-			.poll(() => groceryWaiting.items.map((item) => item.text))
-			.toEqual(['2 lb short ribs'])
-		await screen.getByRole('button', { name: 'less short ribs' }).click()
-		await expect
-			.poll(() => groceryWaiting.items.map((item) => item.text))
-			.toEqual(['1 ½ lb short ribs'])
-		await screen.getByRole('button', { name: 'less short ribs' }).click()
-		await screen.getByRole('button', { name: 'less short ribs' }).click()
-		await screen
-			.getByRole('button', { name: 'take short ribs out of your cart' })
-			.click()
-		await expect.poll(() => groceryWaiting.items).toEqual([])
-		// Back with what's still to get, no questions asked.
-		await expect
-			.element(
-				screen.getByRole('button', { name: 'add short ribs to your cart' }),
+			.poll(() =>
+				groceryCalls.flat().map((line) => [line.text, line.recipeIds]),
 			)
-			.toBeVisible()
+			.toEqual([
+				['2 ½ lb short ribs', ['recipe-1']],
+				['1 bottle miso', ['recipe-1']],
+			])
+		expect(planState.plans.get('recipe-1')?.skipped).toEqual([])
+		await expect.element(readiness(screen)).toHaveTextContent('2 on your list')
+
+		await page.getByRole('button', { name: 'undo' }).click()
+		await expect.poll(() => groceryWaiting.items).toEqual([])
+		await expect.poll(() => planState.plans.has('recipe-1')).toBe(false)
+		await expect.element(readiness(screen)).toHaveTextContent('missing 2')
 	})
 
-	test('opens on cooking when the kitchen cannot be read', async () => {
+	test('keeps a skip until the recipe is cooked', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 lb short ribs', '½ cup cilantro']
+		recipeState.recipe.steps = ['Braise the ribs']
+		pantryState.items = [kept('salt')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await readiness(screen).click()
+		await sheet().getByRole('button', { name: 'skip cilantro' }).click()
+		await sheet().getByRole('button', { name: 'add 1 to list' }).click()
+
+		await expect
+			.poll(() => planState.plans.get('recipe-1')?.skipped)
+			.toEqual(['½ cup cilantro'])
+		await expect.element(readiness(screen)).toHaveTextContent('1 on your list')
+
+		// Cooked, the skip is let go: next time cilantro is missing again.
+		await screen.getByRole('button', { name: 'done cooking' }).click()
+		await expect.poll(() => planState.cooked).toEqual(['recipe-1'])
+		await expect.element(readiness(screen)).toHaveTextContent('missing 1')
+	})
+
+	test('asks before a skipped staple goes in the pantry', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 tsp cumin', '1 avocado']
+		pantryState.items = [kept('flour')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await readiness(screen).click()
+		// Cumin is kept on hand, so a skip offers to say it's home.
+		await sheet().getByRole('button', { name: 'skip cumin' }).click()
+		await sheet().getByRole('button', { name: 'skip avocado' }).click()
+		await expect
+			.element(sheet().getByRole('button', { name: 'already have it' }))
+			.toBeVisible()
+		expect(
+			sheet().getByRole('button', { name: 'already have it' }).elements(),
+		).toHaveLength(1)
+
+		await sheet().getByRole('button', { name: 'already have it' }).click()
+		const ask = page.getByRole('dialog', { name: 'put cumin in your pantry?' })
+
+		await ask.getByRole('button', { name: 'cancel' }).click()
+		await expect.element(ask).not.toBeInTheDocument()
+		await sheet().getByRole('button', { name: 'already have it' }).click()
+		await page
+			.getByRole('dialog', { name: 'put cumin in your pantry?' })
+			.getByRole('button', { name: 'add to pantry' })
+			.click()
+		// Home now, it waits in the pantry group, opened to show it.
+		await expect
+			.element(sheet().getByRole('button', { name: '1 in your pantry' }))
+			.toHaveAttribute('aria-expanded', 'true')
+
+		await sheet().getByRole('button', { name: 'save' }).click()
+		await expect.poll(() => pantryState.marked).toEqual(['2 tsp cumin'])
+	})
+
+	test('asks before closing with changes not saved', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 lb short ribs']
+		pantryState.items = [kept('salt')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await readiness(screen).click()
+		await sheet().getByRole('button', { name: 'more short ribs' }).click()
+		await userEvent.keyboard('{Escape}')
+
+		const leave = page.getByRole('dialog', { name: 'discard your changes?' })
+
+		await leave.getByRole('button', { name: 'keep editing' }).click()
+		await expect
+			.element(page.getByRole('button', { name: 'add 1 to list' }))
+			.toBeVisible()
+		await userEvent.keyboard('{Escape}')
+		await leave.getByRole('button', { name: 'discard' }).click()
+		await expect
+			.element(page.getByRole('button', { name: 'add 1 to list' }))
+			.not.toBeInTheDocument()
+		expect(groceryCalls).toEqual([])
+	})
+
+	test('shows only the recipe when the kitchen cannot be read', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 cloves garlic']
 		pantryState.broken = true
@@ -720,9 +799,7 @@ describe('recipe detail', () => {
 		await expect
 			.element(screen.getByRole('checkbox', { name: '2 cloves garlic' }))
 			.toBeVisible()
-		await expect
-			.element(steps(screen))
-			.toHaveAccessibleName('ingredients for cooking')
+		expect(readiness(screen).query()).toBeNull()
 		pantryState.broken = false
 	})
 
@@ -734,32 +811,39 @@ describe('recipe detail', () => {
 			'## frosting',
 			'3 tbsp butter, softened',
 		]
+		pantryState.items = [kept('flour')]
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		// One row, so one button to add it by.
-		await expect
-			.element(screen.getByRole('button', { name: /^add .* to your cart$/ }))
-			.toHaveAccessibleName('add butter to your cart')
+		await expect.element(readiness(screen)).toHaveTextContent('missing 1')
 	})
 
-	test('opens on cooking when the kitchen has it all', async () => {
+	test('counts what is in the cart for it as on the list', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 lb short ribs']
+		pantryState.items = [kept('salt')]
+		groceryWaiting.items = [
+			{
+				id: 'ribs',
+				text: '2 lb short ribs',
+				checkedAt: new Date(),
+				recipes: [{ id: 'recipe-1', title: 'miso butter pasta' }],
+			},
+		]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await expect.element(readiness(screen)).toHaveTextContent('1 on your list')
+	})
+
+	test('says ready when the kitchen has it all', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 cloves garlic', '1 cup milk']
 		pantryState.items = [kept('garlic'), kept('milk')]
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
 
-		await expect
-			.element(steps(screen))
-			.toHaveAccessibleName('ingredients for cooking')
-		// Shopping, a tap away, says it's done.
-		await steps(screen).click()
-		await expect
-			.element(page.getByRole('menuitem', { name: /^shopping/ }))
-			.toHaveTextContent('shoppingall set')
-		await userEvent.keyboard('{Escape}')
-		pantryState.items = []
+		await expect.element(readiness(screen)).toHaveTextContent('ready')
 	})
 
 	test('shows specific and family icons while leaving unknown ingredients empty', async () => {
@@ -774,7 +858,6 @@ describe('recipe detail', () => {
 			'mystery ingredient',
 		]
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
-		await toCook(screen)
 
 		const rowFor = (name: string) =>
 			screen.getByRole('checkbox', { name }).element().closest('tr')
@@ -1016,8 +1099,6 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await toCook(screen)
-
 		await expect.element(screen.getByText('for the sauce')).toBeVisible()
 		await expect
 			.element(screen.getByText('## for the sauce'))
@@ -1052,8 +1133,6 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await toCook(screen)
-
 		await openEditor(screen)
 		await screen.getByRole('button', { name: 'add ingredient' }).click()
 		await expect
@@ -1067,7 +1146,6 @@ describe('recipe detail', () => {
 			.getByRole('textbox', { name: 'Step 2' })
 			.fill('stir in the butter')
 		await screen.getByRole('button', { name: 'save' }).click()
-		await toCook(screen)
 
 		await expect
 			.element(screen.getByRole('checkbox', { name: '2 tbsp butter' }))
@@ -1849,7 +1927,6 @@ describe('recipe detail', () => {
 		})
 
 		await screen.getByRole('button', { name: 'save' }).click()
-		await toCook(screen)
 
 		await expect
 			.element(screen.getByRole('checkbox', { name: '⅓ cup flour' }))
@@ -1870,8 +1947,6 @@ describe('recipe detail', () => {
 			session,
 		})
 
-		await toCook(screen)
-
 		const ingredient = screen.getByRole('checkbox', { name: '1 carrot' })
 		const step = screen.getByRole('checkbox', { name: /Chop carrot/ })
 		await ingredient.click()
@@ -1883,7 +1958,6 @@ describe('recipe detail', () => {
 			to: '/recipes/$recipeId',
 			params: { recipeId: 'recipe-1' },
 		})
-		await toCook(screen)
 		await expect
 			.element(screen.getByRole('checkbox', { name: '1 carrot' }))
 			.not.toBeChecked()
@@ -1969,6 +2043,33 @@ describe('recipe detail', () => {
 
 		await expect.poll(() => router.state.location.pathname).toBe('/recipes')
 		expect(updateCalls.deleted).toEqual(['recipe-1'])
+		// Nothing of it was on the list, so nothing was offered.
+		expect(updateCalls.withGroceries).toEqual([false])
+	})
+
+	test("offers to take a deleted recipe's foods off the list", async () => {
+		groceryWaiting.items = [
+			{
+				id: 'pasta',
+				text: '200 g pasta',
+				checkedAt: null,
+				recipes: [{ id: 'recipe-1', title: 'miso butter pasta' }],
+			},
+		]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await openEditor(screen)
+		await screen.getByRole('button', { name: 'more' }).click()
+		await page.getByRole('menuitem', { name: 'delete recipe' }).click()
+
+		const offer = page.getByRole('checkbox', {
+			name: 'also take its food off your list',
+		})
+
+		await expect.element(offer).toBeChecked()
+		await page.getByRole('button', { name: 'delete', exact: true }).click()
+		await expect.poll(() => updateCalls.withGroceries).toEqual([true])
 	})
 
 	test('adds a shared recipe to the shelf and takes it back off', async () => {

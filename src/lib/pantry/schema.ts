@@ -14,6 +14,7 @@ export const insertPantryItem = createInsertSchema(
 	quantity: true,
 	category: true,
 	spriteKey: true,
+	brand: true,
 })
 
 export const insertPantryItems = z

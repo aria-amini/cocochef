@@ -292,6 +292,15 @@ const shelfByFood = new Map<string, number>([
 	['vanilla extract', 1825],
 ])
 
+// Whether a kitchen keeps a food on hand, as salt and canned beans are,
+// rather than buying it for a meal. One the catalog doesn't know goes by
+// its section: anything but fresh is kept.
+export function keptOnHand(name: string, category: PantryCategory) {
+	const food = foodOf(name)
+
+	return food ? food.staple : !freshCategories.has(category)
+}
+
 // How long a food keeps, in days, from the day it was bought.
 export function shelfLife(name: string, category: PantryCategory) {
 	// Kept frozen, whatever it is called: "frozen salmon" is not fresh salmon.
@@ -338,8 +347,7 @@ export function shelfState(
 		: shelfLife(item.name, item.category)
 
 	const spoils = keeps <= spoilsWithin
-	const food = foodOf(item.name)
-	const staple = food ? food.staple : !freshCategories.has(item.category)
+	const staple = keptOnHand(item.name, item.category)
 	const bought = (now.getTime() - (frozen ?? item.boughtAt).getTime()) / day
 	const confirmed = (now.getTime() - item.confirmedAt.getTime()) / day
 
@@ -356,6 +364,8 @@ export function shelfState(
 	return {
 		state,
 		spoils,
+		// Kept on hand, rather than bought for a meal.
+		staple,
 		daysLeft: Math.max(0, Math.ceil(keeps - bought)),
 		// Freezing keeps food longer, not bought more recently.
 		boughtDaysAgo: Math.max(
