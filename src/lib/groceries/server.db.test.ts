@@ -435,4 +435,32 @@ describe('letting a recipe go', () => {
 			['1 onion', [soup]],
 		])
 	})
+
+	test('keeps a line another recipe took up after it was found', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const chili = await seedRecipe(db, userId, 'chili')
+		const soup = await seedRecipe(db, userId, 'soup')
+
+		await addGroceriesForUser(
+			userId,
+			[{ text: '1 onion', recipeIds: [chili] }],
+			db,
+		)
+
+		const lines = await recipeLinesForUser(userId, chili, db)
+
+		// Before the chili goes, the soup asks for the onion too.
+		await addGroceriesForUser(
+			userId,
+			[{ text: '1 onion', recipeIds: [soup] }],
+			db,
+		)
+		await leaveRecipeForUser(userId, chili, lines, db)
+
+		const left = await listGroceriesForUser(userId, db)
+
+		expect(left.map((line) => line.recipes.map((r) => r.id))).toEqual([[soup]])
+	})
 })

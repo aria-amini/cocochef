@@ -171,6 +171,8 @@ function useShopTaps(recipeId: string) {
 				await setPantryItemLevel({ data: { id: item.id, level: 'out' } })
 
 			await client.invalidateQueries({ queryKey: ['pantry'] })
+			// Read again, the pantry says it: what it says from here on wins.
+			setGone(withoutLines([row.line]))
 
 			// Home again, at the level it had.
 			return async () => {
@@ -200,6 +202,8 @@ function useShopTaps(recipeId: string) {
 			if (item) {
 				await setPantryItemLevel({ data: { id: item.id, level: 'plenty' } })
 				await client.invalidateQueries({ queryKey: ['pantry'] })
+				// Read again, the pantry says it: what it says from here on wins.
+				setKept(withoutLines([row.line]))
 
 				return async () => {
 					await setPantryItemLevel({
@@ -212,6 +216,7 @@ function useShopTaps(recipeId: string) {
 			const made = await haveFood({ data: { text: row.line.slice(0, 200) } })
 
 			await client.invalidateQueries({ queryKey: ['pantry'] })
+			setKept(withoutLines([row.line]))
 
 			return async () => {
 				await Promise.all(

@@ -198,6 +198,51 @@ describe('recipes in progress', () => {
 		})
 	})
 
+	test('undo leaves a newer plan and food restocked since alone', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const chili = await seedRecipe(db, userId, 'chili')
+
+		const [cilantro] = await createPantryItemsForUser(
+			userId,
+			[{ name: 'cilantro', category: 'vegetables' }],
+			db,
+		)
+
+		if (!cilantro) throw new Error('pantry item was not made')
+
+		await planCookForUser(
+			userId,
+			{ recipeId: chili, skipped: ['1 tsp salt'] },
+			db,
+		)
+
+		const done = await finishCookForUser(
+			userId,
+			{ recipeId: chili, usedUp: [cilantro.id] },
+			db,
+		)
+
+		// Before undo: planned again, and the cilantro bought again.
+		await planCookForUser(userId, { recipeId: chili, skipped: [] }, db)
+		await db
+			.update(pantryItems)
+			.set({ level: 'plenty', quantity: 3 })
+			.where(eq(pantryItems.id, cilantro.id))
+
+		await unfinishCookForUser(userId, { recipeId: chili, ...done }, db)
+
+		expect((await getPlanForUser(userId, chili, db))?.skipped).toEqual([])
+
+		const [after] = await db
+			.select()
+			.from(pantryItems)
+			.where(eq(pantryItems.id, cilantro.id))
+
+		expect(after).toMatchObject({ level: 'plenty', quantity: 3 })
+	})
+
 	test("cooking never touches another cook's pantry", async ({ db }) => {
 		const userId = await seedUser(db)
 		const other = await seedUser(db)

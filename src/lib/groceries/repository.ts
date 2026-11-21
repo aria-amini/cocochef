@@ -8,6 +8,7 @@ import {
 	isNotNull,
 	isNull,
 	ne,
+	notExists,
 } from 'drizzle-orm'
 
 import { type Database, getDb, type Queryable } from '@/db/connection'
@@ -604,22 +605,37 @@ export async function leaveRecipeForUser(
 	database: Database = getDb(),
 ) {
 	await database.transaction(async (tx) => {
+		// Checked again as it goes: a line put in the cart, or taken up by
+		// another recipe, since it was found stays.
 		if (lines.going.length)
-			await tx
-				.delete(groceryItems)
-				.where(
-					and(
-						eq(groceryItems.userId, userId),
-						inArray(groceryItems.id, lines.going),
+			await tx.delete(groceryItems).where(
+				and(
+					eq(groceryItems.userId, userId),
+					inArray(groceryItems.id, lines.going),
+					isNull(groceryItems.checkedAt),
+					notExists(
+						tx
+							.select({ id: groceryItemRecipes.itemId })
+							.from(groceryItemRecipes)
+							.where(
+								and(
+									eq(groceryItemRecipes.itemId, groceryItems.id),
+									ne(groceryItemRecipes.recipeId, recipeId),
+								),
+							),
 					),
-				)
+				),
+			)
 
-		if (lines.staying.length)
+		// Whatever stayed loses this recipe's mark.
+		const kept = [...lines.going, ...lines.staying]
+
+		if (kept.length)
 			await tx
 				.delete(groceryItemRecipes)
 				.where(
 					and(
-						inArray(groceryItemRecipes.itemId, lines.staying),
+						inArray(groceryItemRecipes.itemId, kept),
 						eq(groceryItemRecipes.recipeId, recipeId),
 					),
 				)

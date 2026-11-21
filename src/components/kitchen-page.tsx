@@ -898,7 +898,7 @@ function FoodRow({
 					resetScroll={false}
 					data-pantry={item.id}
 					draggable={false}
-					aria-label={`${item.name}, ${leftOf(item)}${days ? `, ${daysWord(item.daysLeft)}` : ''}`}
+					aria-label={`${item.name}${item.brand ? `, ${item.brand}` : ''}, ${leftOf(item)}${days ? `, ${daysWord(item.daysLeft)}` : ''}`}
 					className="hover:bg-muted/40 flex min-h-13 items-center gap-3 px-4 transition-colors"
 				>
 					<Sprite item={item} className="size-7" />

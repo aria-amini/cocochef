@@ -607,7 +607,11 @@ function KeptTile({
 			<button
 				type="button"
 				data-pantry={item.id}
-				aria-label={editing ? `remove ${item.name}` : `${item.name}, ${status}`}
+				aria-label={
+					editing
+						? `remove ${item.name}`
+						: `${item.name}${item.brand ? `, ${item.brand}` : ''}, ${status}`
+				}
 				onClick={onTap}
 				className={cn(tileClassName, 'border-border bg-card hover:bg-muted/40')}
 			>

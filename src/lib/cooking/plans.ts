@@ -42,7 +42,8 @@ export async function planIdsForUser(
 	const plans = await database
 		.select({ recipeId: cookPlans.recipeId })
 		.from(cookPlans)
-		.where(eq(cookPlans.userId, userId))
+		.innerJoin(recipes, eq(recipes.id, cookPlans.recipeId))
+		.where(and(eq(cookPlans.userId, userId), visibleTo(userId, database)))
 
 	return plans.map((plan) => plan.recipeId)
 }
@@ -192,13 +193,20 @@ export async function unfinishCookForUser(
 		throw new Error('Recipe not found')
 
 	await database.transaction(async (tx) => {
+		// Saved again since, the newer plan stands.
 		if (plan)
-			await putInProgress(tx, userId, {
-				recipeId: data.recipeId,
-				skipped: plan.skipped,
-				plannedAt: plan.plannedAt ?? new Date(),
-			})
+			await tx
+				.insert(cookPlans)
+				.values({
+					userId,
+					recipeId: data.recipeId,
+					skipped: plan.skipped,
+					plannedAt: plan.plannedAt ?? new Date(),
+				})
+				.onConflictDoNothing()
 
+		// Only what finishing changed, and only on food still out as it left
+		// it: one restocked since keeps the cook's newer word.
 		for (const item of data.items)
 			await tx
 				.update(pantryItems)
@@ -206,8 +214,13 @@ export async function unfinishCookForUser(
 					level: item.level,
 					quantity: item.quantity,
 					confirmedAt: item.confirmedAt,
-					boughtAt: item.boughtAt,
 				})
-				.where(and(eq(pantryItems.id, item.id), eq(pantryItems.userId, userId)))
+				.where(
+					and(
+						eq(pantryItems.id, item.id),
+						eq(pantryItems.userId, userId),
+						eq(pantryItems.level, 'out'),
+					),
+				)
 	})
 }

@@ -90,7 +90,7 @@ export function DeleteRecipeDialog({
 					<Button
 						variant="destructive"
 						// Not before it knows whether there's anything to offer.
-						disabled={pending || going.isLoading}
+						disabled={pending || going.isFetching}
 						onClick={() => onConfirm(!!listed && groceries)}
 					>
 						{pending
