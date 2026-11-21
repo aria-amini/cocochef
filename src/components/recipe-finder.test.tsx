@@ -46,6 +46,18 @@ vi.mock('@/lib/groceries/server', () => ({
 	clearCheckedGroceries: vi.fn(),
 	restoreCart: vi.fn(),
 	leaveGrocery: vi.fn(),
+	setGroceryBrand: vi.fn(),
+	recipeLinesGoing: async () => 0,
+}))
+
+// Nothing in progress.
+vi.mock('@/lib/cooking/server', () => ({
+	getPlan: async () => null,
+	listInProgress: async () => [],
+	planCook: vi.fn(),
+	dropPlan: vi.fn(),
+	finishCook: vi.fn(),
+	unfinishCook: vi.fn(),
 }))
 
 // What the reader's kitchen holds, for the preview's have and need.

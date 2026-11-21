@@ -14,15 +14,11 @@ import { RecipeFacts } from '@/components/effort-card'
 import { IngredientText } from '@/components/ingredient-text'
 import { PageTitle } from '@/components/page'
 import { PantrySprite } from '@/components/pantry-sprite'
+import { DoneCooking } from '@/components/recipe-cook'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeRating } from '@/components/recipe-rating'
-import {
-	IngredientsSteps,
-	shopStatusOf,
-	ShopList,
-	useIngredientsStep,
-	useRecipeShop,
-} from '@/components/recipe-shop'
+import { AddAllToList, ReadinessPill } from '@/components/recipe-ready'
+import { useRecipeShop } from '@/components/recipe-shop'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
 import { sizedPhoto } from '@/lib/photos/sized'
@@ -31,7 +27,7 @@ import { ingredientViewRows } from '@/lib/recipes/ingredient-groups'
 import { ingredientHeading } from '@/lib/recipes/ingredient-line'
 import type { IngredientCategories } from '@/lib/recipes/model'
 import { hostOf, isYouTube } from '@/lib/recipes/source'
-import { stepRows } from '@/lib/recipes/step-groups'
+import { checkableStepIndexes, stepRows } from '@/lib/recipes/step-groups'
 import { tileColorFor, tileColors } from '@/lib/recipes/tile-color'
 import { cn } from '@/lib/utils/ui'
 
@@ -89,10 +85,9 @@ export function RecipeReader({
 }) {
 	const [checked, setChecked] = useState<Set<string>>(() => new Set())
 	const shopFor = useRecipeShop(recipe.id, recipe.ingredients, shop)
-	const { step, choose, auth } = useIngredientsStep(shopFor)
-	// Shop, then cook: two steps, unless another view of the ingredients
-	// takes their place.
-	const stepped = shop && !ingredientsView
+	// What's home and on the list speaks up, unless another view of the
+	// ingredients takes their place.
+	const tracked = shop && !ingredientsView
 	const ingredientsId = useId()
 
 	const toggle = (item: string) =>
@@ -112,6 +107,13 @@ export function RecipeReader({
 	)
 
 	const RowBody = 'label'
+
+	// Every step ticked off: the cook is most likely done.
+	const stepIndexes = checkableStepIndexes(recipe.steps)
+
+	const stepsDone =
+		stepIndexes.length > 0 &&
+		stepIndexes.every((index) => checked.has(`s${index}`))
 
 	// The foods it takes, without its section names.
 	const foods = recipe.ingredients.filter(
@@ -261,25 +263,18 @@ export function RecipeReader({
 							ingredients
 						</h2>
 						{ingredientsAction}
-						{stepped ? (
-							// Held in its place, unseen, until the step is known.
-							<div className={cn(!step && 'invisible')}>
-								<IngredientsSteps
-									step={step ?? 'cook'}
-									onStep={choose}
-									shop={shopFor}
-								/>
-							</div>
+						{/* What the kitchen says of the food, by its heading: what's
+						    missing, or with an empty pantry, all of it to the list. */}
+						{tracked ? (
+							<>
+								<ReadinessPill recipeId={recipe.id} shop={shopFor} />
+								<AddAllToList recipeId={recipe.id} shop={shopFor} />
+							</>
 						) : null}
 					</div>
-					{auth}
 
 					{ingredientsView ? (
 						<div className="mt-2">{ingredientsView}</div>
-					) : stepped && step !== 'cook' ? (
-						<div className="mt-1">
-							<ShopList recipeId={recipe.id} shop={shopFor} />
-						</div>
 					) : (
 						<div className="mt-2">
 							<table aria-label="ingredients" className="w-full">
@@ -332,14 +327,6 @@ export function RecipeReader({
 																) : null}
 															</span>
 															<IngredientText text={row.text} done={done} />
-															{/* While cooking, what isn't home yet says so. */}
-															<ShopStatus
-																status={
-																	stepped
-																		? shopStatusOf(shopFor, row.text)
-																		: undefined
-																}
-															/>
 														</label>
 													</td>
 												</tr>
@@ -403,6 +390,13 @@ export function RecipeReader({
 							</li>
 						)}
 					</ol>
+					{tracked ? (
+						<DoneCooking
+							recipeId={recipe.id}
+							shop={shopFor}
+							stepsDone={stepsDone}
+						/>
+					) : null}
 				</section>
 			</div>
 			{recipe.sourceNotes ? (
@@ -556,20 +550,5 @@ function PhotoFullScreen({ src, title }: { src: string; title: string }) {
 				</Dialog.Popup>
 			</Dialog.Portal>
 		</Dialog.Root>
-	)
-}
-
-// A cooking line's word from the shop: still to buy, or on the list.
-function ShopStatus({ status }: { status: 'buy' | 'listed' | undefined }) {
-	if (!status) return null
-
-	return status === 'buy' ? (
-		<span className="bg-kitchen-tomato/15 mt-1.5 shrink-0 rounded-md px-1.5 text-xs leading-5 font-bold">
-			to buy
-		</span>
-	) : (
-		<span className="text-muted-foreground mt-1.5 shrink-0 text-xs leading-5 font-semibold">
-			on list
-		</span>
 	)
 }

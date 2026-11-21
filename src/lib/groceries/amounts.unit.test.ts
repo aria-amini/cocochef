@@ -45,6 +45,12 @@ describe('shopping amounts', () => {
 })
 
 describe('buying amount', () => {
+	test('buys a food counted in the kitchen as the food alone', () => {
+		expect(buyingAmount('3 leaves basil').name).toBe('basil')
+		expect(buyingAmount('10 sprigs of thyme').name).toBe('thyme')
+		expect(buyingAmount('2 stalks celery').name).toBe('celery')
+	})
+
 	test('turns a recipe measure into what a shop sells', () => {
 		expect(buyingAmount('1/3 teaspoon ground cumin')).toEqual({
 			name: 'cumin',

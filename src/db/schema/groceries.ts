@@ -1,4 +1,5 @@
 import {
+	boolean,
 	foreignKey,
 	index,
 	jsonb,
@@ -25,6 +26,8 @@ export type StockedWas = {
 	quantity: number | null
 	confirmedAt: string
 	boughtAt: string
+	// Absent on lines remembered before brands were kept.
+	brand?: string | null | undefined
 }
 
 export const groceryItems = snakeCase.table(
@@ -34,6 +37,9 @@ export const groceryItems = snakeCase.table(
 		userId: text().notNull(),
 		text: text().notNull(),
 		category: text({ enum: pantryCategories }).notNull(),
+		// The brand to buy, if the cook has one: taken from the pantry item for
+		// the food when the line is added, and given back to it when put away.
+		brand: text(),
 		// Retired: the recipes a line is for live in `groceryItemRecipes` now.
 		// Kept, unread and unwritten, so the build before it still runs while a
 		// deploy swaps over; a later migration drops them.
@@ -74,6 +80,10 @@ export const groceryItemRecipes = snakeCase.table(
 	{
 		itemId: text().notNull(),
 		recipeId: text().notNull(),
+		// Whether the line was made for this recipe, rather than one already
+		// there (typed by hand, or another recipe's) that it was added to. A
+		// recipe let go of takes only the lines it made.
+		made: boolean().notNull().default(false),
 	},
 	(table) => [
 		primaryKey({ columns: [table.itemId, table.recipeId] }),

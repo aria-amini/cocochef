@@ -32,3 +32,27 @@ export const cookingProgress = snakeCase.table(
 		}).onDelete('cascade'),
 	],
 )
+
+// The recipes a cook is shopping for and means to make: in progress from the
+// first food sent to the list until it's cooked or dropped. What they skip
+// for one holds while it's there, and is gone with it, so next time's cook
+// starts over.
+export const cookPlans = snakeCase.table(
+	'cook_plans',
+	{
+		userId: text().notNull(),
+		recipeId: text().notNull(),
+		skipped: text().array().notNull(),
+		plannedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.userId, table.recipeId] }),
+		foreignKey({ columns: [table.userId], foreignColumns: [user.id] }).onDelete(
+			'cascade',
+		),
+		foreignKey({
+			columns: [table.recipeId],
+			foreignColumns: [recipes.id],
+		}).onDelete('cascade'),
+	],
+)

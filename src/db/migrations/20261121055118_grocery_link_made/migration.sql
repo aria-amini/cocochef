@@ -1,0 +1,1 @@
+ALTER TABLE "grocery_item_recipes" ADD COLUMN "made" boolean DEFAULT false NOT NULL;

@@ -6,6 +6,7 @@ import {
 	TrashIcon,
 	WarningCircleIcon,
 } from '@phosphor-icons/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useBlocker, useNavigate, useRouter } from '@tanstack/react-router'
 import {
 	useCallback,
@@ -17,6 +18,7 @@ import {
 import { toast } from 'sonner'
 
 import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
+import { groceryCountKey } from '@/components/grocery-badge'
 import { linkFrom } from '@/components/import-link'
 import { IngredientListField } from '@/components/ingredient-list-field'
 import { LeaveEditorDialog } from '@/components/leave-editor-dialog'
@@ -168,6 +170,7 @@ export function RecipeEditor({
 }) {
 	const router = useRouter()
 	const navigate = useNavigate()
+	const client = useQueryClient()
 	const form = useRef<HTMLFormElement>(null)
 	const recipeId = useRef(recipe?.id)
 	const savedId = recipe?.id
@@ -550,12 +553,18 @@ export function RecipeEditor({
 		}
 	}
 
-	const remove = async () => {
+	const remove = async (groceries: boolean) => {
 		setPending(true)
 
 		try {
 			if (recipeId.current) {
-				await deleteRecipe({ data: { id: recipeId.current } })
+				await deleteRecipe({ data: { id: recipeId.current, groceries } })
+				// The list and what's in progress may have changed with it.
+				void Promise.all([
+					client.invalidateQueries({ queryKey: ['groceries'] }),
+					client.invalidateQueries({ queryKey: groceryCountKey }),
+					client.invalidateQueries({ queryKey: ['plans'] }),
+				])
 				toast.success(`${name || 'that recipe'} is off your shelf`)
 			}
 
@@ -829,7 +838,7 @@ export function RecipeEditor({
 								<Menu.Popup className="floating bg-background overflow-hidden py-1 outline-none">
 									<Menu.Item
 										onClick={() =>
-											savedId ? setConfirmingDelete(true) : void remove()
+											savedId ? setConfirmingDelete(true) : void remove(false)
 										}
 										className="data-highlighted:bg-destructive/10 flex cursor-default items-center gap-2.5 px-3 py-2.5 text-sm font-semibold outline-none select-none"
 									>
@@ -883,10 +892,11 @@ export function RecipeEditor({
 			<DeleteRecipeDialog
 				open={confirmingDelete}
 				onOpenChange={setConfirmingDelete}
+				recipeId={savedId}
 				title={name}
 				shared={onShared}
 				pending={pending}
-				onConfirm={() => void remove()}
+				onConfirm={(groceries) => void remove(groceries)}
 			/>
 		</form>
 	)

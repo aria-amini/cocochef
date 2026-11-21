@@ -21,6 +21,8 @@ import {
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { BrandField, WithBrand } from '@/components/brand-field'
+import { FoodPicture } from '@/components/food-picture'
 import { groceryCountKey } from '@/components/grocery-badge'
 import { GroceryList, type GroceryItem } from '@/components/grocery-list'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
@@ -33,6 +35,7 @@ import { SignUpToKeep } from '@/components/sign-up-to-keep'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { undoToast } from '@/components/undo-toast'
+import { groceryLinesKey } from '@/components/use-pantry'
 import { stepShopping } from '@/lib/groceries/amounts'
 import {
 	addGroceries,
@@ -55,6 +58,7 @@ import {
 	keepPantryItem,
 	restockPantryItem,
 	restorePantryItem,
+	setPantryItemBrand,
 	setPantryItemCount,
 	setPantryItemFrozen,
 	setPantryItemLevel,
@@ -244,6 +248,7 @@ function Pantry({
 				id: item.id,
 				name: item.name,
 				category: item.category,
+				brand: item.brand,
 				level: item.level,
 				quantity: item.quantity,
 				createdAt: item.createdAt,
@@ -589,7 +594,9 @@ function ShortList({
 // An item's own picture.
 function Sprite({ item, className }: { item: PantryItem; className?: string }) {
 	return (
-		<PantrySprite
+		<FoodPicture
+			food={item.name}
+			brand={item.brand}
 			look={resolveSpriteLook(item.name, item.spriteKey, item.category)}
 			className={cn(
 				'shrink-0 object-contain [image-rendering:pixelated]',
@@ -896,7 +903,7 @@ function FoodRow({
 				>
 					<Sprite item={item} className="size-7" />
 					<span className="min-w-0 flex-1 truncate py-2 text-base">
-						{item.name}
+						<WithBrand name={item.name} brand={item.brand} />
 					</span>
 					{item.frozenAt ? (
 						<SnowflakeIcon
@@ -1021,7 +1028,7 @@ function leftOf(item: PantryItem) {
 	return item.quantity === null ? 'enough' : `${item.quantity} left`
 }
 
-function DetailPanel({
+export function DetailPanel({
 	item,
 	line,
 	onPatch,
@@ -1062,6 +1069,8 @@ function DetailPanel({
 			// Waits for the fresh read itself (sync), so the change shown stays
 			// until it lands. The change is made; a failed read leaves the page.
 			await router.invalidate({ sync: true }).catch(() => undefined)
+			// Pages that read the list apart from their loader read it again.
+			void client.invalidateQueries({ queryKey: groceryLinesKey })
 		})
 	}
 
@@ -1073,12 +1082,28 @@ function DetailPanel({
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex items-center gap-3">
-				<PantrySprite
+				<FoodPicture
+					food={item.name}
+					brand={item.brand}
 					look={resolveSpriteLook(item.name, item.spriteKey, item.category)}
 					className="size-7 shrink-0 object-contain [image-rendering:pixelated]"
 				/>
 				<p className="min-w-0 flex-1 truncate text-lg font-bold">{item.name}</p>
 			</div>
+			<BrandField
+				food={item.name}
+				brand={item.brand}
+				onBrand={(brand) =>
+					save(
+						async () => {
+							await setPantryItemBrand({
+								data: { id: item.id, brand: brand ?? '' },
+							})
+						},
+						{ brand },
+					)
+				}
+			/>
 			<PantryNeed
 				name={item.name}
 				level={item.level}

@@ -91,6 +91,11 @@ export type RecipeContent = z.infer<typeof recipeContentInput>
 
 export const recipeIdInput = z.object({ id: z.string().min(1) })
 
+// A recipe let go of, and whether its foods waiting on the list go too.
+export const recipeRemovalInput = recipeIdInput.extend({
+	groceries: z.boolean().optional(),
+})
+
 export function formatMinutes(minutes: number) {
 	const hours = Math.floor(minutes / 60)
 	const rest = minutes % 60

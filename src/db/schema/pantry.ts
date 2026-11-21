@@ -23,6 +23,9 @@ export const pantryItems = snakeCase.table(
 		quantity: integer(),
 		category: text({ enum: pantryCategories }).notNull(),
 		spriteKey: text(),
+		// The brand the cook buys, said in their own words ("kikkoman"). Only a
+		// label: recipes and the list match on the food, never the brand.
+		brand: text(),
 		createdAt: timestamp({ withTimezone: true }).notNull(),
 		// When the cook last said how much is left: added it, set its level or
 		// count, put it away, or said they have it. How long that holds depends

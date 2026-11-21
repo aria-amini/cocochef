@@ -489,7 +489,9 @@ describe('sharing', () => {
 		await expect
 			.poll(() => router.state.location.pathname)
 			.toBe('/aria-amini/weeknight-pasta')
-		expect(api.deleteRecipe).toHaveBeenCalledWith({ data: { id: 'pasta' } })
+		expect(api.deleteRecipe).toHaveBeenCalledWith({
+			data: { id: 'pasta', groceries: false },
+		})
 	})
 	test('unlisted recipe can be read without an account and cannot be opened by its database id', async () => {
 		const { screen } = await renderRoute({

@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 
 import { getAccountId } from '@/lib/auth/session'
+import { planIdsForUser } from '@/lib/cooking/plans'
 import { listActiveCookingForUser } from '@/lib/cooking/repository'
 import { listGroceriesForUser } from '@/lib/groceries/repository'
 import { getRecipeForUser } from '@/lib/recipes/repository'
@@ -16,11 +17,19 @@ export const homeNow = createServerFn({ method: 'GET' }).handler(async () => {
 	const accountId = await getAccountId()
 
 	if (!accountId)
-		return { signedIn: false, cooking: null, shopping: null, waiting: 0 }
+		return {
+			signedIn: false,
+			cooking: null,
+			shopping: null,
+			waiting: 0,
+			inProgress: 0,
+			loose: 0,
+		}
 
-	const [sessions, groceries] = await Promise.all([
+	const [sessions, groceries, planned] = await Promise.all([
 		listActiveCookingForUser(accountId),
 		listGroceriesForUser(accountId),
+		planIdsForUser(accountId),
 	])
 
 	const latest = sessions
@@ -65,5 +74,16 @@ export const homeNow = createServerFn({ method: 'GET' }).handler(async () => {
 			}
 		: null
 
-	return { signedIn: true, cooking, shopping, waiting: left.length }
+	return {
+		signedIn: true,
+		cooking,
+		shopping,
+		waiting: left.length,
+		inProgress: planned.length,
+		// Lines no recipe in progress asks for, which only the list's own bar
+		// points to.
+		loose: left.filter(
+			(item) => !item.recipes.some((recipe) => planned.includes(recipe.id)),
+		).length,
+	}
 })

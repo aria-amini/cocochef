@@ -2,6 +2,8 @@ import { Dialog } from '@base-ui/react/dialog'
 import { Popover } from '@base-ui/react/popover'
 import { createContext, useContext, useSyncExternalStore } from 'react'
 
+import { cn } from '@/lib/utils/ui'
+
 const wideQuery = '(min-width: 48rem)'
 
 const subscribeWide = (notify: () => void) => {
@@ -36,10 +38,13 @@ export function ItemSheet({
 	title,
 	onClose,
 	initialFocus,
+	wide: roomy = false,
 	children,
 }: {
 	anchor: () => Element | null
 	title: string
+	// Rows with more on them than a name, such as a stepper, want more room.
+	wide?: boolean
 	onClose: (cancelled: boolean) => void
 	initialFocus?: InitialFocus | undefined
 	children: React.ReactNode
@@ -96,7 +101,12 @@ export function ItemSheet({
 							ref={keepInView}
 							initialFocus={initialFocus}
 							finalFocus={backToRow}
-							className="floating bg-card flex w-80 flex-col gap-4 rounded-xl p-4 outline-none"
+							// No taller than the room beside its row, scrolling past
+							// that, so a long one's foot stays on the screen.
+							className={cn(
+								'floating bg-card flex max-h-(--available-height) flex-col gap-4 overflow-y-auto rounded-xl p-4 outline-none',
+								roomy ? 'w-96' : 'w-80',
+							)}
 						>
 							<Popover.Title className="sr-only">{title}</Popover.Title>
 							<SheetMode value="popover">{children}</SheetMode>

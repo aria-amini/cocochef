@@ -15,6 +15,7 @@ type Now = Awaited<ReturnType<typeof homeNow>>
 
 const home = vi.hoisted(() => ({
 	now: vi.fn(),
+	inProgress: vi.fn(),
 }))
 
 const server = vi.hoisted(() => ({
@@ -28,7 +29,19 @@ vi.mock('@/lib/home/server', () => ({
 	homeNow: home.now,
 }))
 
+// Nothing in progress unless a test says so.
+vi.mock('@/lib/cooking/server', () => ({
+	listInProgress: () => home.inProgress(),
+	getPlan: async () => null,
+	planCook: vi.fn(),
+	dropPlan: vi.fn(),
+	finishCook: vi.fn(),
+	unfinishCook: vi.fn(),
+}))
+
 vi.mock('@/lib/groceries/server', () => ({
+	setGroceryBrand: vi.fn(),
+	recipeLinesGoing: async () => 0,
 	listGroceries: async () => [],
 	countWaitingGroceries: async () => 0,
 	addGroceries: vi.fn(),
@@ -62,7 +75,14 @@ const session = {
 	session: { id: 'session-1', token: 'token' },
 }
 
-const idle: Now = { signedIn: true, cooking: null, shopping: null, waiting: 0 }
+const idle: Now = {
+	signedIn: true,
+	cooking: null,
+	shopping: null,
+	waiting: 0,
+	inProgress: 0,
+	loose: 0,
+}
 
 describe('home', () => {
 	beforeEach(() => {
@@ -71,6 +91,7 @@ describe('home', () => {
 		vi.useFakeTimers({ toFake: ['Date'] })
 		vi.setSystemTime(new Date(2026, 10, 12, 9))
 		home.now.mockReset().mockResolvedValue(idle)
+		home.inProgress.mockReset().mockResolvedValue([])
 		server.search.mockReset().mockResolvedValue({ results: [] })
 		server.popular.mockReset().mockResolvedValue({ results: [] })
 		server.recipe.mockReset().mockResolvedValue(null)
@@ -175,6 +196,59 @@ describe('home', () => {
 			)
 			.toBeVisible()
 		await expect.element(screen.getByText('0 of 2 in the cart')).toBeVisible()
+	})
+
+	test('leaves the list to the recipes in progress until the shop starts', async () => {
+		const chili = {
+			recipeId: 'chili',
+			skipped: [],
+			plannedAt: new Date(),
+			title: 'green chili',
+			imageUrl: null,
+			ingredients: ['1 onion'],
+		}
+
+		home.inProgress.mockResolvedValue([chili])
+		home.now.mockResolvedValue({
+			...idle,
+			waiting: 2,
+			inProgress: 1,
+			loose: 0,
+			shopping: { inCart: 0, total: 2 },
+		})
+
+		const before = await renderRoute({ path: '/', session })
+
+		await expect
+			.element(before.screen.getByRole('heading', { name: /^in progress/ }))
+			.toBeVisible()
+		await expect
+			.element(before.screen.getByText('0 of 2 in the cart'))
+			.not.toBeInTheDocument()
+		// Nor does the cat say to finish a shop that hasn't started.
+		await expect
+			.element(
+				before.screen.getByRole('heading', {
+					level: 1,
+					name: 'what are you making?',
+				}),
+			)
+			.toBeVisible()
+
+		// Once something is in the cart, the list's bar is back.
+		home.now.mockResolvedValue({
+			...idle,
+			waiting: 1,
+			inProgress: 1,
+			loose: 0,
+			shopping: { inCart: 1, total: 2 },
+		})
+
+		const shopping = await renderRoute({ path: '/', session })
+
+		await expect
+			.element(shopping.screen.getByText('1 of 2 in the cart'))
+			.toBeVisible()
 	})
 
 	test('opens on the search when nothing is under way', async () => {

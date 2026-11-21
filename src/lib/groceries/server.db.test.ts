@@ -20,7 +20,9 @@ import {
 	countWaitingGroceriesForUser,
 	deleteGroceryForUser,
 	leaveGroceryForUser,
+	leaveRecipeForUser,
 	listGroceriesForUser,
+	recipeLinesForUser,
 	renameGroceryForUser,
 	restoreCartForUser,
 	setGroceryCheckedForUser,
@@ -377,5 +379,60 @@ describe('groceries', () => {
 				),
 			).toHaveLength(1)
 		})
+	})
+})
+
+describe('letting a recipe go', () => {
+	test('takes only the lines it made that nothing else asks for', async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const chili = await seedRecipe(db, userId, 'chili')
+		const soup = await seedRecipe(db, userId, 'soup')
+
+		// Typed by hand first, then the chili added to it.
+		await addGroceriesForUser(userId, [{ text: '1 can tomatoes' }], db)
+		await addGroceriesForUser(
+			userId,
+			[
+				{ text: '1 bunch cilantro', recipeIds: [chili] },
+				{ text: '1 can tomatoes', recipeIds: [chili] },
+				{ text: '1 onion', recipeIds: [chili] },
+				{ text: '1 lime', recipeIds: [chili] },
+			],
+			db,
+		)
+		// The soup wants an onion too.
+		await addGroceriesForUser(
+			userId,
+			[{ text: '1 onion', recipeIds: [soup] }],
+			db,
+		)
+
+		// The lime is in the cart already.
+		const lime = (await listGroceriesForUser(userId, db)).find(
+			(line) => line.text === '1 lime',
+		)
+
+		if (!lime) throw new Error('lime was not added')
+		await setGroceryCheckedForUser(userId, lime.id, true, db)
+
+		const lines = await recipeLinesForUser(userId, chili, db)
+
+		expect(lines.going).toHaveLength(1)
+
+		await leaveRecipeForUser(userId, chili, lines, db)
+
+		const left = await listGroceriesForUser(userId, db)
+
+		expect(
+			left
+				.map((line) => [line.text, line.recipes.map((r) => r.id)])
+				.sort(([a], [b]) => String(a).localeCompare(String(b))),
+		).toEqual([
+			['1 can tomatoes', []],
+			['1 lime', [chili]],
+			['1 onion', [soup]],
+		])
 	})
 })
