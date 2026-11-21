@@ -228,7 +228,7 @@ describe('recipes in progress', () => {
 		await planCookForUser(userId, { recipeId: chili, skipped: [] }, db)
 		await db
 			.update(pantryItems)
-			.set({ level: 'plenty', quantity: 3 })
+			.set({ level: 'plenty', quantity: 3, confirmedAt: new Date() })
 			.where(eq(pantryItems.id, cilantro.id))
 
 		await unfinishCookForUser(userId, { recipeId: chili, ...done }, db)
@@ -241,6 +241,48 @@ describe('recipes in progress', () => {
 			.where(eq(pantryItems.id, cilantro.id))
 
 		expect(after).toMatchObject({ level: 'plenty', quantity: 3 })
+	})
+
+	test("undo of an earlier cook leaves a later cook's work alone", async ({
+		db,
+	}) => {
+		const userId = await seedUser(db)
+		const chili = await seedRecipe(db, userId, 'chili')
+		const soup = await seedRecipe(db, userId, 'soup')
+
+		const [cilantro] = await createPantryItemsForUser(
+			userId,
+			[{ name: 'cilantro', category: 'vegetables', quantity: 2 }],
+			db,
+		)
+
+		if (!cilantro) throw new Error('pantry item was not made')
+
+		const chiliDone = await finishCookForUser(
+			userId,
+			{ recipeId: chili, usedUp: [cilantro.id] },
+			db,
+		)
+
+		// Bought again, then used up by the soup.
+		await db
+			.update(pantryItems)
+			.set({ level: 'plenty', quantity: 5, confirmedAt: new Date() })
+			.where(eq(pantryItems.id, cilantro.id))
+		await finishCookForUser(
+			userId,
+			{ recipeId: soup, usedUp: [cilantro.id] },
+			db,
+		)
+
+		await unfinishCookForUser(userId, { recipeId: chili, ...chiliDone }, db)
+
+		const [after] = await db
+			.select()
+			.from(pantryItems)
+			.where(eq(pantryItems.id, cilantro.id))
+
+		expect(after).toMatchObject({ level: 'out', quantity: 0 })
 	})
 
 	test("cooking never touches another cook's pantry", async ({ db }) => {

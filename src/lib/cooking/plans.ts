@@ -137,6 +137,10 @@ export async function finishCookForUser(
 ) {
 	const data = finishCookInput.parse(input)
 
+	// When this cook marked its food out: undo only touches food still as
+	// it left it.
+	const finishedAt = new Date()
+
 	return database.transaction(async (tx) => {
 		const [plan] = await tx
 			.delete(cookPlans)
@@ -171,11 +175,11 @@ export async function finishCookForUser(
 				.set({
 					level: 'out',
 					quantity: item.quantity === null ? null : 0,
-					confirmedAt: new Date(),
+					confirmedAt: finishedAt,
 				})
 				.where(and(eq(pantryItems.id, item.id), eq(pantryItems.userId, userId)))
 
-		return { plan: plan ?? null, items }
+		return { plan: plan ?? null, items, finishedAt }
 	})
 }
 
@@ -205,8 +209,8 @@ export async function unfinishCookForUser(
 				})
 				.onConflictDoNothing()
 
-		// Only what finishing changed, and only on food still out as it left
-		// it: one restocked since keeps the cook's newer word.
+		// Only what finishing changed, and only on food no one has touched
+		// since: restocked, or used up by a later cook, keeps the newer word.
 		for (const item of data.items)
 			await tx
 				.update(pantryItems)
@@ -219,7 +223,7 @@ export async function unfinishCookForUser(
 					and(
 						eq(pantryItems.id, item.id),
 						eq(pantryItems.userId, userId),
-						eq(pantryItems.level, 'out'),
+						eq(pantryItems.confirmedAt, data.finishedAt),
 					),
 				)
 	})

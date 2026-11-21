@@ -53,6 +53,8 @@ const usedUpItem = createSelectSchema(pantryItems).pick({
 // What cooking changed, to change it back: the plan as it was, and the
 // food marked out.
 export const unfinishCookInput = cookingId.extend({
+	// When the cook was finished, so only food it left as it was comes back.
+	finishedAt: z.coerce.date(),
 	plan: cookPlanInput.omit({ recipeId: true }).nullable(),
 	items: z
 		.array(
