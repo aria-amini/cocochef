@@ -822,8 +822,9 @@ function FoodRow({
 						{label ?? row.name}
 					</span>
 				</span>
+				{/* Snug, so a row with a note is no taller than one without. */}
 				{note ? (
-					<span className="text-muted-foreground text-sm font-semibold">
+					<span className="text-muted-foreground text-sm leading-4 font-semibold">
 						{note}
 					</span>
 				) : null}
@@ -876,19 +877,18 @@ function ToBuy({
 						row={row}
 						struck={none(row)}
 						label={<ListLine row={row} />}
-						// A staple not bought is most likely home: one tap says so.
+						// A staple not bought is most likely home: one tap says so. The
+						// strike and the 0 already say it's skipped, and one short line
+						// fits the row, so the sheet holds still.
 						note={
 							none(row) && row.staple ? (
-								<>
-									skipped ·{' '}
-									<button
-										type="button"
-										onClick={() => onHome(row)}
-										className="decoration-kitchen-eggplant text-foreground -my-2 py-2 underline underline-offset-4"
-									>
-										already have it
-									</button>
-								</>
+								<button
+									type="button"
+									onClick={() => onHome(row)}
+									className="decoration-kitchen-eggplant text-foreground -my-2 block py-2 text-left underline underline-offset-4"
+								>
+									already have it
+								</button>
 							) : undefined
 						}
 					>
