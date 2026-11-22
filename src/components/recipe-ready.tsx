@@ -759,10 +759,14 @@ const marks = {
 	home: { Icon: CheckIcon, tint: 'text-kitchen-basil' },
 } as const
 
+// A food and what can be done with it. On one line, a long name ends in
+// "…" rather than wrapping, so a note under it fits the row's height and
+// coming or going never moves the sheet.
 function FoodRow({
 	row,
 	mark,
 	label,
+	oneLine = false,
 	note,
 	quiet = false,
 	struck = false,
@@ -771,6 +775,8 @@ function FoodRow({
 	row: Row
 	mark?: keyof typeof marks
 	label?: React.ReactNode
+	oneLine?: boolean
+	// Only a row on one line has room for one.
 	note?: React.ReactNode
 	quiet?: boolean
 	struck?: boolean
@@ -817,13 +823,17 @@ function FoodRow({
 						/>
 					) : null}
 					<span
-						className={cn(struck && 'decoration-foreground/40 line-through')}
+						className={cn(
+							oneLine && 'min-w-0 truncate',
+							struck && 'decoration-foreground/40 line-through',
+						)}
 					>
 						{label ?? row.name}
 					</span>
 				</span>
-				{note ? (
-					<span className="text-muted-foreground text-sm font-semibold">
+				{/* Snug, so a row with a note is no taller than one without. */}
+				{oneLine && note ? (
+					<span className="text-muted-foreground text-sm leading-4 font-semibold">
 						{note}
 					</span>
 				) : null}
@@ -876,19 +886,18 @@ function ToBuy({
 						row={row}
 						struck={none(row)}
 						label={<ListLine row={row} />}
-						// A staple not bought is most likely home: one tap says so.
+						oneLine
+						// A staple not bought is most likely home: one tap says so. The
+						// strike and the 0 already say it's skipped.
 						note={
 							none(row) && row.staple ? (
-								<>
-									skipped ·{' '}
-									<button
-										type="button"
-										onClick={() => onHome(row)}
-										className="decoration-kitchen-eggplant text-foreground -my-2 py-2 underline underline-offset-4"
-									>
-										already have it
-									</button>
-								</>
+								<button
+									type="button"
+									onClick={() => onHome(row)}
+									className="decoration-kitchen-eggplant text-foreground -my-2 block py-2 text-left underline underline-offset-4"
+								>
+									already have it
+								</button>
 							) : undefined
 						}
 					>
@@ -932,9 +941,10 @@ function BuyStepper({
 
 	return (
 		<span
+			// Bordered either way, so a skip doesn't change its size.
 			className={cn(
-				'flex min-h-9 shrink-0 items-center rounded-md',
-				none ? 'border-border border' : 'bg-kitchen-yolk/40',
+				'flex shrink-0 items-center rounded-md border',
+				none ? 'border-border' : 'bg-kitchen-yolk/40 border-transparent',
 			)}
 		>
 			<button

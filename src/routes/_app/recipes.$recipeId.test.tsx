@@ -746,6 +746,33 @@ describe('recipe detail', () => {
 		await expect.element(readiness(screen)).toHaveTextContent('missing 1')
 	})
 
+	test('keeps a skipped staple with a long name as tall as it was', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['1 tbsp worcestershire sauce']
+		pantryState.items = [kept('flour')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		const skip = sheet().getByRole('button', {
+			name: 'skip worcestershire sauce',
+		})
+
+		await readiness(screen).click()
+		await expect.element(skip).toBeVisible()
+
+		const row = skip.element().closest('li')
+
+		if (!row) throw new Error('the sauce has no row')
+		const before = row.getBoundingClientRect().height
+
+		await skip.click()
+		await expect
+			.element(sheet().getByRole('button', { name: 'already have it' }))
+			.toBeVisible()
+		// The name keeps to one line, so the note fits and the sheet holds still.
+		expect(row.getBoundingClientRect().height).toBe(before)
+	})
+
 	test('asks before a skipped staple goes in the pantry', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 tsp cumin', '1 avocado']
