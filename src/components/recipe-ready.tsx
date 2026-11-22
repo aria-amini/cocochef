@@ -404,10 +404,17 @@ export function ReadinessPill({
 		(row) => !taps.listed(row) && !taps.home(row) && !skips.has(row.line),
 	)
 
-	const state = missing.length ? 'missing' : listed.length ? 'listed' : 'ready'
+	// With an empty pantry nothing is known to be home, so nothing is said
+	// to be missing: the pill only offers to shop for it, in the same sheet.
+	const state = missing.length
+		? shop.stocked
+			? 'missing'
+			: 'add'
+		: listed.length
+			? 'listed'
+			: 'ready'
 
-	const shown =
-		shop.known && plan.isSuccess && shop.stocked && shop.rows.length > 0
+	const shown = shop.known && plan.isSuccess && shop.rows.length > 0
 
 	const hint = shown && state === 'missing' && !seen
 
@@ -440,11 +447,13 @@ export function ReadinessPill({
 	if (!shown) return null
 
 	const label =
-		state === 'missing'
-			? `missing ${missing.length}`
-			: state === 'listed'
-				? `${listed.length} on your list`
-				: 'ready'
+		state === 'add'
+			? 'add to list'
+			: state === 'missing'
+				? `missing ${missing.length}`
+				: state === 'listed'
+					? `${listed.length} on your list`
+					: 'ready'
 
 	function openSheet() {
 		const skipped = new Set(
@@ -673,9 +682,11 @@ export function ReadinessPill({
 	)
 }
 
-type Readiness = 'missing' | 'listed' | 'ready'
+// Add is the pill's alone, before the pantry knows anything.
+type Readiness = 'add' | 'missing' | 'listed' | 'ready'
 
 const readinessLooks: Record<Readiness, string> = {
+	add: 'border-border border',
 	missing: 'bg-kitchen-yolk',
 	listed: 'border-foreground/40 border border-dashed',
 	ready: 'border-border border',
@@ -1196,66 +1207,5 @@ function LeaveDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	)
-}
-
-// With an empty pantry nothing is known to be home, so the recipe offers
-// only the one thing that needs no pantry: all of it, on the list.
-export function AddAllToList({
-	recipeId,
-	shop,
-}: {
-	recipeId: string
-	shop: RecipeShop
-}) {
-	const taps = useShopTaps(recipeId)
-	const plan = usePlan(recipeId, shop.signedIn)
-
-	// Waits for the plan, so undo knows what it was.
-	if (!shop.known || !plan.isSuccess || shop.stocked || !shop.rows.length)
-		return null
-
-	const left = shop.rows.filter((row) => !taps.listed(row))
-
-	async function addAll() {
-		const before = plan.data ?? null
-
-		const takeBacks = await Promise.all([
-			taps.send(left),
-			taps.plan(before?.skipped ?? [], before),
-		])
-
-		// What landed can be undone, even if the rest failed and said so.
-		const landed = takeBacks.flatMap((takeBack) => (takeBack ? [takeBack] : []))
-
-		if (landed.length)
-			taps.said(
-				`added ${count(left.length, 'food', 'foods')} to your list`,
-				landed,
-			)
-	}
-
-	if (!left.length)
-		return (
-			<span className="text-muted-foreground inline-flex min-h-11 items-center gap-1 text-sm font-bold">
-				<CheckIcon
-					size={14}
-					weight="bold"
-					aria-hidden
-					className="text-kitchen-basil"
-				/>
-				on your list
-			</span>
-		)
-
-	return (
-		<button
-			type="button"
-			onClick={() => void addAll()}
-			className="text-muted-foreground hover:text-foreground -mr-2 inline-flex min-h-11 items-center gap-1 px-2 text-sm font-bold transition-colors"
-		>
-			<PlusIcon size={14} weight="bold" aria-hidden />
-			add all to list
-		</button>
 	)
 }

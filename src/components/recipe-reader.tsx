@@ -17,7 +17,7 @@ import { PantrySprite } from '@/components/pantry-sprite'
 import { DoneCooking } from '@/components/recipe-cook'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import { RecipeRating } from '@/components/recipe-rating'
-import { AddAllToList, ReadinessPill } from '@/components/recipe-ready'
+import { ReadinessPill } from '@/components/recipe-ready'
 import { useRecipeShop } from '@/components/recipe-shop'
 import { importSiteForUrl, importSiteLogo } from '@/lib/import/sites'
 import { ingredientItemLook } from '@/lib/pantry/sprites'
@@ -264,12 +264,9 @@ export function RecipeReader({
 						</h2>
 						{ingredientsAction}
 						{/* What the kitchen says of the food, by its heading: what's
-						    missing, or with an empty pantry, all of it to the list. */}
+						    missing, or with an empty pantry, an offer to shop for it. */}
 						{tracked ? (
-							<>
-								<ReadinessPill recipeId={recipe.id} shop={shopFor} />
-								<AddAllToList recipeId={recipe.id} shop={shopFor} />
-							</>
+							<ReadinessPill recipeId={recipe.id} shop={shopFor} />
 						) : null}
 					</div>
 

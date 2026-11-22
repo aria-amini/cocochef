@@ -261,7 +261,7 @@ vi.mock('@/lib/cooking/server', () => ({
 // The pill by the ingredients that says whether the recipe can be made.
 const readiness = (screen: { getByRole: typeof page.getByRole }) =>
 	screen.getByRole('button', {
-		name: /^(missing \d+|\d+ on your list|ready)$/,
+		name: /^(add to list|missing \d+|\d+ on your list|ready)$/,
 	})
 
 // The sheet the pill opens: under it on a wide screen, from the foot on a
@@ -625,9 +625,6 @@ describe('recipe detail', () => {
 			.element(screen.getByRole('checkbox', { name: '200 g pasta' }))
 			.toBeVisible()
 		expect(readiness(screen).query()).toBeNull()
-		expect(
-			screen.getByRole('button', { name: 'add all to list' }).query(),
-		).toBeNull()
 	})
 
 	test('says what is missing, with what is listed and home folded apart', async () => {
@@ -702,6 +699,28 @@ describe('recipe detail', () => {
 		await expect.poll(() => groceryWaiting.items).toEqual([])
 		await expect.poll(() => planState.plans.has('recipe-1')).toBe(false)
 		await expect.element(readiness(screen)).toHaveTextContent('missing 2')
+	})
+
+	test('with an empty pantry, offers to shop for all of it in the same sheet', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 lb short ribs', '2 tsp cumin']
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		// Nothing is known home, so nothing is said to be missing.
+		await expect.element(readiness(screen)).toHaveTextContent('add to list')
+		await readiness(screen).click()
+		// Everything is to buy, and a staple can still be left off as home.
+		await sheet().getByRole('button', { name: 'skip cumin' }).click()
+		await expect
+			.element(sheet().getByRole('button', { name: 'already have it' }))
+			.toBeVisible()
+		await sheet().getByRole('button', { name: 'add 1 to list' }).click()
+
+		await expect
+			.poll(() => groceryCalls.flat().map((line) => line.text))
+			.toEqual(['2 lb short ribs'])
+		await expect.element(readiness(screen)).toHaveTextContent('1 on your list')
 	})
 
 	test('keeps a skip until the recipe is cooked', async () => {

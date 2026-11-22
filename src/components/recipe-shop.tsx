@@ -100,7 +100,7 @@ export function useRecipeShop(
 	})
 
 	// Whether the pantry knows anything yet: until it does, a recipe can't
-	// say what's missing, only offer all of it.
+	// say what's missing, only offer to shop for it.
 	const stocked = kept.length > 0
 
 	return { signedIn, known, rows, stocked }
