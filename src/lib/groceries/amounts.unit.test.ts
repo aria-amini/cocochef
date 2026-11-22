@@ -83,9 +83,8 @@ describe('buying amount', () => {
 
 	test('reads past a measure that ends in a comma', () => {
 		expect(
-			buyingAmount('1½ tablespoons, plus 1 cup (5 ounces/142 grams) cornmeal')
-				.name,
-		).toBe('cornmeal')
+			buyingAmount('1½ tablespoons, plus 1 cup (5 ounces/142 grams) cornmeal'),
+		).toEqual({ name: 'cornmeal', amount: '1 bag' })
 	})
 
 	test('keeps what fresh food needs, by weight or by count', () => {
