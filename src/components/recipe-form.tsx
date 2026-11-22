@@ -167,11 +167,9 @@ export function FormActions({
 // The dock's own buttons: round, like the pill they sit in.
 export const dockActionClassName = buttonVariants({
 	variant: 'ghost',
-	className: 'rounded-full',
+	docked: true,
 })
 
-export const dockSaveClassName = buttonVariants({
-	className: 'rounded-full px-6',
-})
+export const dockSaveClassName = buttonVariants({ docked: true })
 
 export const primaryActionClassName = buttonVariants({ size: 'lg' })

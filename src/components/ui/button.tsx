@@ -20,13 +20,32 @@ const buttonStyles = cva(
 			},
 			size: {
 				default: 'min-h-10 px-4 py-2',
-				lg: 'min-h-11 px-6 py-3',
+				// An action inside a row, beside the food it acts on.
+				sm: 'min-h-9 px-3 py-1',
+				// A full finger's reach, for an action that stands on its own.
+				lg: 'min-h-11 px-4 py-2',
+				icon: 'size-10',
 				'icon-sm': 'size-8',
 			},
+			// In the round dock that floats over a page, round like it.
+			docked: {
+				true: 'rounded-full',
+				false: '',
+			},
 		},
+		compoundVariants: [
+			// The dock's one solid action gets more room than the rest.
+			{
+				docked: true,
+				variant: ['default', 'destructive'],
+				size: 'default',
+				className: 'px-6',
+			},
+		],
 		defaultVariants: {
 			variant: 'default',
 			size: 'default',
+			docked: false,
 		},
 	},
 )
@@ -41,6 +60,7 @@ function Button({
 	className,
 	variant = 'default',
 	size = 'default',
+	docked = false,
 	...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonStyles>) {
 	return (
@@ -48,7 +68,7 @@ function Button({
 			data-slot="button"
 			data-variant={variant}
 			data-size={size}
-			className={buttonVariants({ variant, size, className })}
+			className={buttonVariants({ variant, size, docked, className })}
 			{...props}
 		/>
 	)

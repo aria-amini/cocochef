@@ -104,7 +104,7 @@ function DraftRow({
 						type="button"
 						onPointerDown={(event) => event.preventDefault()}
 						onClick={onSubmit}
-						className={buttonVariants({ className: 'min-h-9 shrink-0' })}
+						className={buttonVariants({ size: 'sm', className: 'shrink-0' })}
 					>
 						add
 					</button>

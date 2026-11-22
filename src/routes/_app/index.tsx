@@ -173,7 +173,7 @@ function StillCooking({
 				<Link
 					to="/recipes/$recipeId"
 					params={{ recipeId: cooking.recipeId }}
-					className={buttonVariants({ className: 'min-h-12 text-base' })}
+					className={buttonVariants({ size: 'lg' })}
 				>
 					back to it
 				</Link>

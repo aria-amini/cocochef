@@ -1137,10 +1137,7 @@ function PantryFoods({
 							type="button"
 							aria-label={`${row.name} is out`}
 							onClick={() => onOut(row)}
-							className={cn(
-								buttonVariants({ variant: 'outline' }),
-								'min-h-9 px-3 py-1',
-							)}
+							className={buttonVariants({ variant: 'outline', size: 'sm' })}
 						>
 							i'm out
 						</button>

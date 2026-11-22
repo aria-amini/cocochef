@@ -402,10 +402,7 @@ function SelectionDock({
 				<button
 					type="button"
 					disabled={!chosen.length}
-					className={buttonVariants({
-						variant: 'destructive',
-						className: 'rounded-full px-6',
-					})}
+					className={buttonVariants({ variant: 'destructive', docked: true })}
 					onClick={() => setConfirming(true)}
 				>
 					{removing && chosen.length ? 'remove' : 'delete'}

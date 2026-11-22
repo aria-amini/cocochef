@@ -282,7 +282,7 @@ function Shelves() {
 							onClick={() => setEditing((now) => !now)}
 							className={buttonVariants({
 								variant: 'ghost',
-								className: 'min-h-11 px-3',
+								size: 'lg',
 							})}
 						>
 							{editing ? 'done' : 'edit'}

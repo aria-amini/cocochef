@@ -40,7 +40,7 @@ export function SignUpToKeep({
 			<button
 				type="button"
 				onClick={() => setMode('signup')}
-				className={buttonVariants({ className: 'min-h-11' })}
+				className={buttonVariants({ size: 'lg' })}
 			>
 				create an account
 			</button>

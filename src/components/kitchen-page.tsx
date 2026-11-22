@@ -389,7 +389,7 @@ function Pantry({
 							</div>
 							<Link
 								to="/pantry/staples"
-								className={buttonVariants({ className: 'min-h-11 gap-1.5' })}
+								className={buttonVariants({ size: 'lg' })}
 							>
 								<Plus size={14} weight="bold" aria-hidden />
 								stock up
@@ -970,7 +970,7 @@ function NotSure({
 						onClick={() => void keep(item)}
 						className={buttonVariants({
 							variant: 'outline',
-							className: 'min-h-9 px-3',
+							size: 'sm',
 						})}
 					>
 						still have it
@@ -980,7 +980,7 @@ function NotSure({
 						onClick={() => onRemove(item)}
 						className={buttonVariants({
 							variant: 'ghost',
-							className: 'min-h-9 px-3',
+							size: 'sm',
 						})}
 					>
 						gone
@@ -1170,7 +1170,7 @@ export function DetailPanel({
 						}
 						className={buttonVariants({
 							variant: 'outline',
-							className: 'min-h-11',
+							size: 'lg',
 						})}
 					>
 						<Plus size={16} weight="bold" aria-hidden />
@@ -1197,7 +1197,7 @@ export function DetailPanel({
 						}}
 						className={buttonVariants({
 							variant: 'outline',
-							className: 'min-h-11',
+							size: 'lg',
 						})}
 					>
 						<SnowflakeIcon size={16} weight="bold" aria-hidden />
