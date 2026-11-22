@@ -81,6 +81,13 @@ describe('buying amount', () => {
 		})
 	})
 
+	test('reads past a measure that ends in a comma', () => {
+		expect(
+			buyingAmount('1½ tablespoons, plus 1 cup (5 ounces/142 grams) cornmeal')
+				.name,
+		).toBe('cornmeal')
+	})
+
 	test('keeps what fresh food needs, by weight or by count', () => {
 		expect(buyingAmount('2 lb short ribs')).toEqual({
 			name: 'short ribs',

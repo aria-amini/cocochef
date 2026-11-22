@@ -40,6 +40,11 @@ const unitByAlias = new Map<string, string>(
 	),
 )
 
+// The unit a word names, if any, ignoring its case and a period or comma
+// after it: "1½ tablespoons, plus 1 cup cornmeal" is measured in tbsp.
+const unitNamed = (word: string) =>
+	unitByAlias.get(word.toLowerCase().replace(/[.,]$/, ''))
+
 // The short form each measure is shown in, however the line spells it.
 const abbreviations: [RegExp, string][] = [
 	[/^(?:tablespoons?|tbsps?|tbs|tbl|tb)$/i, 'tbsp'],
@@ -112,7 +117,7 @@ export function parseIngredientLine(line: string): IngredientParts {
 		return { quantity: undefined, unit: '', name: text }
 
 	const [first = '', ...rest] = (match[2] ?? '').split(/\s+/)
-	const unit = unitByAlias.get(first.toLowerCase().replace(/\.$/, ''))
+	const unit = unitNamed(first)
 
 	return unit
 		? { quantity, unit, name: rest.join(' ') }
@@ -128,8 +133,8 @@ const ALTERNATE = new RegExp(
 function takeUnit(text: string) {
 	const [first = '', ...rest] = text.split(/\s+/)
 
-	return unitByAlias.has(first.toLowerCase().replace(/\.$/, ''))
-		? { unit: first, rest: rest.join(' ') }
+	return unitNamed(first)
+		? { unit: first.replace(/,$/, ''), rest: rest.join(' ') }
 		: { unit: '', rest: text }
 }
 
@@ -179,7 +184,7 @@ export function settledAmount(line: string) {
 	const unit = /^(\s*)(\S+)/.exec(after)
 	const word = unit?.[2] ?? ''
 
-	const amount = unitByAlias.has(word.toLowerCase().replace(/\.$/, ''))
+	const amount = unitNamed(word)
 		? quantity + (unit?.[1] ?? '') + word
 		: quantity
 
@@ -249,7 +254,7 @@ export function amountOf(line: string) {
 	if (!match || quantity === undefined) return undefined
 
 	const { unit, rest } = takeUnit((match[2] ?? '').trim())
-	const canonical = unitByAlias.get(unit.toLowerCase().replace(/\.$/, '')) ?? ''
+	const canonical = unitNamed(unit) ?? ''
 
 	return { quantity, unit: canonical, rest }
 }
