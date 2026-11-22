@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vite-plus/test'
 
 import {
+	amountApart,
 	buyingAmount,
 	setShoppingUnit,
 	shoppingUnitsFor,
@@ -32,6 +33,20 @@ describe('shopping amounts', () => {
 
 	test('turns a recipe measure into a way to buy it', () => {
 		expect(stepShopping('2 tbsp butter', 1)).toBe('1 pack butter')
+	})
+
+	test('says how far an amount is from what was asked, in its unit', () => {
+		expect(amountApart('4 limes', '3 limes')).toEqual({ more: true, by: '1' })
+		expect(amountApart('1 ½ lb short ribs', '2 lb short ribs')).toEqual({
+			more: false,
+			by: '½ lb',
+		})
+		expect(amountApart('3 jars cumin', '1 jar cumin')).toEqual({
+			more: true,
+			by: '2 jars',
+		})
+		expect(amountApart('2 lb short ribs', '2 lb short ribs')).toBeUndefined()
+		expect(amountApart('900 g beef', '2 lb beef')).toBeUndefined()
 	})
 
 	test('offers what each food is sold in', () => {

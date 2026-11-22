@@ -701,6 +701,28 @@ describe('recipe detail', () => {
 		await expect.element(readiness(screen)).toHaveTextContent('missing 2')
 	})
 
+	test('says how far an amount to buy is from what the recipe asks', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 lb short ribs', '3 limes']
+		pantryState.items = [kept('salt')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await readiness(screen).click()
+		await sheet().getByRole('button', { name: 'more limes' }).click()
+		await sheet().getByRole('button', { name: 'less short ribs' }).click()
+		// In what's bought, with the stepper's edge tinted for which way.
+		await expect.element(sheet().getByText('1 extra')).toBeVisible()
+		await expect.element(sheet().getByText('½ lb short')).toBeVisible()
+		await expectIsolatedScreenshot(sheet(), 'recipe-apart')
+
+		// Back to what the recipe asks, it says nothing.
+		await sheet().getByRole('button', { name: 'more short ribs' }).click()
+		await expect
+			.element(sheet().getByText('½ lb short'))
+			.not.toBeInTheDocument()
+	})
+
 	test('with an empty pantry, offers to shop for all of it in the same sheet', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 lb short ribs', '2 tsp cumin']

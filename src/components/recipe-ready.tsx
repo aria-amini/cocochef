@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/dialog'
 import { undoToast } from '@/components/undo-toast'
 import { type Plan, usePlan, usePlanWrites } from '@/components/use-plans'
-import { stepShopping } from '@/lib/groceries/amounts'
+import { amountApart, stepShopping } from '@/lib/groceries/amounts'
 import {
 	addGroceries,
 	deleteGrocery,
@@ -880,35 +880,53 @@ function ToBuy({
 	return (
 		<ul className="divide-border border-foreground/40 divide-y rounded-xl border border-dashed px-3">
 			<AnimatePresence initial={false}>
-				{rows.map((row) => (
-					<FoodRow
-						key={row.line}
-						row={row}
-						struck={none(row)}
-						label={<ListLine row={row} />}
-						oneLine
-						// A staple not bought is most likely home: one tap says so. The
-						// strike and the 0 already say it's skipped.
-						note={
-							none(row) && row.staple ? (
-								<button
-									type="button"
-									onClick={() => onHome(row)}
-									className="decoration-kitchen-eggplant text-foreground -my-2 block py-2 text-left underline underline-offset-4"
-								>
-									already have it
-								</button>
-							) : undefined
-						}
-					>
-						<BuyStepper
-							name={row.name}
-							text={amount(row)}
-							none={none(row)}
-							onStep={(by) => onStep(row, by)}
-						/>
-					</FoodRow>
-				))}
+				{rows.map((row) => {
+					// How far it is from what the recipe asks, in what's bought.
+					const apart = none(row)
+						? undefined
+						: amountApart(withAmountSaid(amount(row)), withAmountSaid(row.adds))
+
+					return (
+						<FoodRow
+							key={row.line}
+							row={row}
+							struck={none(row)}
+							label={<ListLine row={row} />}
+							oneLine
+							// A staple not bought is most likely home: one tap says so.
+							// The strike and the 0 already say it's skipped.
+							note={
+								none(row) && row.staple ? (
+									<button
+										type="button"
+										onClick={() => onHome(row)}
+										className="decoration-kitchen-eggplant text-foreground -my-2 block py-2 text-left underline underline-offset-4"
+									>
+										already have it
+									</button>
+								) : undefined
+							}
+						>
+							<span className="flex shrink-0 flex-col items-center gap-0.5">
+								<BuyStepper
+									name={row.name}
+									text={amount(row)}
+									none={none(row)}
+									apart={apart}
+									onStep={(by) => onStep(row, by)}
+								/>
+								{/* Under the amount it's about: "1 extra", "½ lb short".
+								    Its room is kept when there's none, so it coming or
+								    going moves nothing. */}
+								<span className="text-muted-foreground min-h-3 text-xs leading-3 font-semibold">
+									{apart
+										? `${apart.by} ${apart.more ? 'extra' : 'short'}`
+										: null}
+								</span>
+							</span>
+						</FoodRow>
+					)
+				})}
 			</AnimatePresence>
 		</ul>
 	)
@@ -924,16 +942,19 @@ function ListLine({ row }: { row: Row }) {
 }
 
 // How much of a food to buy, on a yolk pill like the list's: less, the
-// amount, more. Below the least is none: skipped.
+// amount, more. Below the least is none: skipped. Away from what the recipe
+// asks, its edge says which way: basil for more, tomato for short.
 function BuyStepper({
 	name,
 	text,
 	none,
+	apart,
 	onStep,
 }: {
 	name: string
 	text: string
 	none: boolean
+	apart: { more: boolean } | undefined
 	onStep: (by: 1 | -1) => void
 }) {
 	const said = withAmountSaid(text)
@@ -941,10 +962,17 @@ function BuyStepper({
 
 	return (
 		<span
-			// Bordered either way, so a skip doesn't change its size.
+			// Bordered either way, so neither a skip nor a change moves it.
 			className={cn(
 				'flex shrink-0 items-center rounded-md border',
-				none ? 'border-border' : 'bg-kitchen-yolk/40 border-transparent',
+				none
+					? 'border-border'
+					: cn(
+							'bg-kitchen-yolk/40',
+							!apart && 'border-transparent',
+							apart?.more && 'border-kitchen-basil',
+							apart && !apart.more && 'border-kitchen-tomato',
+						),
 			)}
 		>
 			<button
