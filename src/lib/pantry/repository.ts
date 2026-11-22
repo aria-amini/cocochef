@@ -1,11 +1,13 @@
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm'
+import { union } from 'drizzle-orm/pg-core'
 
 import { type Database, getDb, type Queryable } from '@/db/connection'
-import { pantryItems } from '@/db/schema'
+import { groceryItems, pantryItems } from '@/db/schema'
 import { pantryNameOf } from '@/lib/groceries/list'
 
 import { findInPantry, foodOf, levelForCount, shelfLife } from './foods'
 import {
+	pantryBrand,
 	pantryCount,
 	pantryQuantityMax,
 	type PantryCategory,
@@ -191,6 +193,44 @@ export async function restockPantryItemForUser(
 	return item ?? null
 }
 
+// Every brand the cook has written down, in the pantry or on the list, with
+// the food it was for, to offer again for that food.
+export async function listBrandsForUser(
+	userId: string,
+	database: Queryable = getDb(),
+) {
+	const rows = await union(
+		database
+			.select({ text: pantryItems.name, brand: pantryItems.brand })
+			.from(pantryItems)
+			.where(and(eq(pantryItems.userId, userId), isNotNull(pantryItems.brand))),
+		database
+			.select({ text: groceryItems.text, brand: groceryItems.brand })
+			.from(groceryItems)
+			.where(
+				and(eq(groceryItems.userId, userId), isNotNull(groceryItems.brand)),
+			),
+	)
+
+	return rows.flatMap(({ text, brand }) => (brand ? [{ text, brand }] : []))
+}
+
+// The brand the cook buys, or none when left blank.
+export async function setPantryItemBrandForUser(
+	userId: string,
+	id: string,
+	brand: string | null,
+	database: Database = getDb(),
+) {
+	const [item] = await database
+		.update(pantryItems)
+		.set({ brand: pantryBrand.nullable().parse(brand) })
+		.where(and(eq(pantryItems.id, id), eq(pantryItems.userId, userId)))
+		.returning()
+
+	return item ?? null
+}
+
 // Food past its days that the cook says is still there: kept, but as food
 // to use soon, two days from its end, not as if just bought.
 export async function keepPantryItemForUser(
@@ -293,32 +333,48 @@ export async function deletePantryItemForUser(
 // Shopping put away: each line bought tops up the pantry item for its food,
 // back to plenty, or becomes a new one named for its food ("2 lb short ribs"
 // is short ribs), shelved where the grocery list had it. Two lines for one
-// food make one item.
+// food make one item. A line that names a brand gives it to the item; one
+// that names none leaves the item's own.
 export async function restockPantryForUser(
 	userId: string,
-	bought: { text: string; category: PantryCategory }[],
+	bought: { text: string; category: PantryCategory; brand?: string | null }[],
 	database: Queryable = getDb(),
 ) {
 	const pantry = await listPantryForUser(userId, database)
 	const restocked = new Set<string>()
+	const branded = new Map<string, string>()
 	const fresh: PantryItemInput[] = []
 
-	for (const { text: line, category } of bought) {
+	for (const { text: line, category, brand } of bought) {
 		const kept = findInPantry(line, pantry)
 
 		if (kept) {
 			restocked.add(kept.id)
+
+			if (brand && brand !== kept.brand) branded.set(kept.id, brand)
 			continue
 		}
 
-		if (findInPantry(line, fresh)) continue
+		const twin = findInPantry(line, fresh)
+
+		if (twin) {
+			if (brand) twin.brand = brand
+			continue
+		}
 
 		fresh.push({
 			// A grocery line may run longer than a pantry name can.
 			name: pantryNameOf(line).slice(0, 80).trim(),
 			category: foodOf(line)?.category ?? category,
+			brand: brand ?? null,
 		})
 	}
+
+	for (const [id, brand] of branded)
+		await database
+			.update(pantryItems)
+			.set({ brand })
+			.where(and(eq(pantryItems.userId, userId), eq(pantryItems.id, id)))
 
 	if (restocked.size)
 		await database

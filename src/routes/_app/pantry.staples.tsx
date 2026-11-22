@@ -12,27 +12,19 @@ import {
 	SnowflakeIcon,
 	X,
 } from '@phosphor-icons/react'
-import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
-import { useEffect, useOptimistic, useState, useTransition } from 'react'
+import { useEffect, useOptimistic, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { groceryCountKey } from '@/components/grocery-badge'
+import { FoodPicture } from '@/components/food-picture'
+import { ItemSheet } from '@/components/item-sheet'
+import { DetailPanel } from '@/components/kitchen-page'
 import { BackLink } from '@/components/page'
-import { PantryNeed } from '@/components/pantry-need'
 import { PantrySprite } from '@/components/pantry-sprite'
-import { withAmountSaid } from '@/components/recipe-shop'
 import { buttonVariants } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { undoToast } from '@/components/undo-toast'
 import { useWaitingGroceries } from '@/components/use-pantry'
-import { stepShopping } from '@/lib/groceries/amounts'
-import {
-	addGroceries,
-	deleteGrocery,
-	renameGrocery,
-} from '@/lib/groceries/server'
 import {
 	catalogSections,
 	categorizeIngredient,
@@ -48,13 +40,12 @@ import {
 	shelfOfItem,
 	type PantryShelf,
 } from '@/lib/pantry/kinds'
-import type { PantryCategory, PantryLevel } from '@/lib/pantry/model'
+import type { PantryCategory } from '@/lib/pantry/model'
 import {
 	createPantryItems,
 	deletePantryItem,
 	listPantry,
 	restorePantryItem,
-	setPantryItemLevel,
 } from '@/lib/pantry/server'
 import { resolveSpriteLook } from '@/lib/pantry/sprites'
 import { cn } from '@/lib/utils/ui'
@@ -108,13 +99,10 @@ const fridgeUsuals = [
 // added at a tap. Editing takes food off.
 function Shelves() {
 	const router = useRouter()
-	const client = useQueryClient()
 	const loaded = Route.useLoaderData()
 	const { shelf: opened, find } = Route.useSearch()
 	const [query, setQuery] = useState('')
 	const [editing, setEditing] = useState(false)
-	const [stepping, setStepping] = useState(false)
-	const [, startChange] = useTransition()
 
 	// Shelves whose whole catalog shows, the one a link opened among them.
 	// Shelves opened to their food, all closed but the one a link named,
@@ -137,10 +125,8 @@ function Shelves() {
 
 	const [shown, change] = useOptimistic(
 		loaded,
-		(now, next: { id: string; level: PantryLevel }) =>
-			now.map((item) =>
-				item.id === next.id ? { ...item, level: next.level } : item,
-			),
+		(now, next: Partial<Item> & { id: string }) =>
+			now.map((item) => (item.id === next.id ? { ...item, ...next } : item)),
 	)
 
 	// Removed at once, and back only once undo says so.
@@ -191,68 +177,9 @@ function Shelves() {
 	const lineOf = (item: Item) =>
 		waiting.find((line) => findInPantry(line.text, [item]))
 
-	const refreshList = async () => {
-		void client.invalidateQueries({ queryKey: groceryCountKey })
-		await client.invalidateQueries({ queryKey: ['groceries', 'waiting'] })
-	}
-
-	// The amount on the list, in store steps; at the least, off the list.
-	async function stepLine(line: { id: string; text: string }, by: 1 | -1) {
-		// One step at a time, so a quick second tap doesn't step from the
-		// same amount again.
-		setStepping(true)
-
-		try {
-			await renameGrocery({
-				data: {
-					id: line.id,
-					text: stepShopping(withAmountSaid(line.text), by).slice(0, 200),
-				},
-			})
-			await refreshList()
-		} catch {
-			toast.error("couldn't change the amount — try again")
-		} finally {
-			setStepping(false)
-		}
-	}
-
-	async function takeOff(line: { id: string; text: string }) {
-		try {
-			await deleteGrocery({ data: { id: line.id } })
-			await refreshList()
-		} catch {
-			toast.error("couldn't take that off your list — try again")
-		}
-	}
-
 	// The food whose sheet is open, read live so a level changed in it shows.
 	const [askedId, setAskedId] = useState<string>()
 	const asked = shown.find((item) => item.id === askedId)
-
-	// A level says what's home; it never lists the food.
-	function level(item: Item, next: PantryLevel) {
-		startChange(async () => {
-			change({ id: item.id, level: next })
-
-			try {
-				await setPantryItemLevel({ data: { id: item.id, level: next } })
-				await router.invalidate()
-			} catch {
-				toast.error(`couldn't change ${item.name} — try again`)
-			}
-		})
-	}
-
-	async function addToList(item: Item, text: string) {
-		try {
-			await addGroceries({ data: [{ text: text.slice(0, 200) }] })
-			toast(`added ${item.name} to your list`)
-			await refreshList()
-		} catch {
-			toast.error(`couldn't add ${item.name} — try again`)
-		}
-	}
 
 	// Kept at a tap; undo takes it back off.
 	async function keep(food: Suggestion) {
@@ -315,6 +242,7 @@ function Shelves() {
 				id: item.id,
 				name: item.name,
 				category: item.category,
+				brand: item.brand,
 				level: item.level,
 				quantity: item.quantity,
 				createdAt: item.createdAt,
@@ -339,7 +267,9 @@ function Shelves() {
 	}
 
 	return (
-		<main className="flex-1">
+		// Its own rows only: the pantry tab, kept alive and hidden, has rows with
+		// the same marks.
+		<main data-staples className="flex-1">
 			<div className="flex max-w-3xl flex-col gap-6 p-6 pb-28 md:p-10 md:pb-28">
 				<div className="flex flex-col gap-1">
 					<BackLink to="/pantry">pantry</BackLink>
@@ -580,43 +510,31 @@ function Shelves() {
 					</button>
 				) : null}
 			</div>
-			<Dialog
-				open={asked !== undefined}
-				onOpenChange={(isOpen) => !isOpen && setAskedId(undefined)}
-			>
-				<DialogContent>
-					{asked ? (
-						<>
-							<DialogTitle>{asked.name}</DialogTitle>
-							<PantryNeed
-								key={asked.id}
-								name={asked.name}
-								level={asked.level}
-								line={lineOf(asked)}
-								disabled={stepping}
-								onLevel={(next) => level(asked, next)}
-								onAdd={(text) => void addToList(asked, text)}
-								onStep={(line, by) => void stepLine(line, by)}
-								onTakeOff={(line) => void takeOff(line)}
-							/>
-							{/* The other case: no longer kept at all. */}
-							<p className="border-border text-muted-foreground border-t pt-3 text-sm font-semibold">
-								stopped buying it?{' '}
-								<button
-									type="button"
-									onClick={() => {
-										setAskedId(undefined)
-										remove(asked)
-									}}
-									className="text-foreground decoration-kitchen-tomato font-bold underline underline-offset-4"
-								>
-									don&rsquo;t keep this
-								</button>
-							</p>
-						</>
-					) : null}
-				</DialogContent>
-			</Dialog>
+			{/* The same sheet the pantry opens, under the tile on a wide screen
+			    and from the bottom on a phone. */}
+			{asked ? (
+				<ItemSheet
+					anchor={() =>
+						document.querySelector(`[data-staples] [data-pantry="${asked.id}"]`)
+					}
+					title={asked.name}
+					initialFocus={() =>
+						document.querySelector<HTMLElement>('[data-sheet-done]')
+					}
+					onClose={() => setAskedId(undefined)}
+				>
+					<DetailPanel
+						key={asked.id}
+						item={asked}
+						line={lineOf(asked)}
+						onPatch={(fields) => change({ id: asked.id, ...fields })}
+						onRemove={() => {
+							setAskedId(undefined)
+							remove(asked)
+						}}
+					/>
+				</ItemSheet>
+			) : null}
 		</main>
 	)
 }
@@ -688,11 +606,18 @@ function KeptTile({
 		<li>
 			<button
 				type="button"
-				aria-label={editing ? `remove ${item.name}` : `${item.name}, ${status}`}
+				data-pantry={item.id}
+				aria-label={
+					editing
+						? `remove ${item.name}`
+						: `${item.name}${item.brand ? `, ${item.brand}` : ''}, ${status}`
+				}
 				onClick={onTap}
 				className={cn(tileClassName, 'border-border bg-card hover:bg-muted/40')}
 			>
-				<PantrySprite
+				<FoodPicture
+					food={item.name}
+					brand={item.brand}
 					look={resolveSpriteLook(item.name, item.spriteKey, item.category)}
 					className="size-9 shrink-0 [image-rendering:pixelated]"
 				/>
@@ -700,8 +625,13 @@ function KeptTile({
 					<span className="line-clamp-2 max-w-full break-words">
 						{item.name}
 					</span>
-					{out || low || listed ? (
-						<span className="flex items-center gap-1.5">
+					{out || low || listed || item.brand ? (
+						<span className="flex max-w-full min-w-0 items-center gap-1.5">
+							{item.brand ? (
+								<span className="text-muted-foreground truncate text-xs font-semibold">
+									{item.brand}
+								</span>
+							) : null}
 							{out || low ? (
 								<span
 									className={cn(

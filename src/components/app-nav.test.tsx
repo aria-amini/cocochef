@@ -43,6 +43,8 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 const groceryWaiting = vi.hoisted(() => ({ count: 0 }))
 
 vi.mock('@/lib/groceries/server', () => ({
+	setGroceryBrand: vi.fn(),
+	recipeLinesGoing: async () => 0,
 	listGroceries: async () => [],
 	countWaitingGroceries: async () => groceryWaiting.count,
 	addGroceries: vi.fn(),

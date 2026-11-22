@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vite-plus/test'
 import {
 	findInPantry,
 	foodOf,
+	keptOnHand,
 	shelfLife,
 	shelfState,
 	levelForCount,
@@ -191,5 +192,18 @@ describe('shelfState', () => {
 		})
 		expect(kept('avocados', 'vegetables', 6).state).toBe('expired')
 		expect(kept('short ribs', 'meat', 6).state).toBe('expired')
+	})
+})
+
+describe('keptOnHand', () => {
+	test('goes by the catalog for a food it knows', () => {
+		expect(keptOnHand('1 tsp salt', 'spices')).toBe(true)
+		expect(keptOnHand('½ cup chopped fresh cilantro', 'vegetables')).toBe(false)
+		expect(keptOnHand('2 limes', 'fruit')).toBe(true)
+	})
+
+	test('goes by its section for a food it does not', () => {
+		expect(keptOnHand('2 cans cannellini beans', 'cans')).toBe(true)
+		expect(keptOnHand('1 bunch tuscan kale', 'vegetables')).toBe(false)
 	})
 })

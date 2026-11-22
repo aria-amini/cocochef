@@ -27,6 +27,8 @@ import {
 import { toast } from 'sonner'
 
 import { AmountBar } from '@/components/amount-bar'
+import { BrandField, WithBrand } from '@/components/brand-field'
+import { FoodPicture } from '@/components/food-picture'
 import { groceryCountKey } from '@/components/grocery-badge'
 import { useGroceryComposer } from '@/components/grocery-entry'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
@@ -37,6 +39,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { undoToast } from '@/components/undo-toast'
 import { shoppingUnitsFor, stepShopping } from '@/lib/groceries/amounts'
+import { pantryNameOf } from '@/lib/groceries/list'
 import { sameItem, type GroceryInput } from '@/lib/groceries/model'
 import {
 	addGroceries,
@@ -45,6 +48,7 @@ import {
 	listGroceries,
 	renameGrocery,
 	restoreCart,
+	setGroceryBrand,
 	setGroceryChecked,
 } from '@/lib/groceries/server'
 import { pantryCategoryLabels, type PantryCategory } from '@/lib/pantry/model'
@@ -64,6 +68,7 @@ type Change =
 	| { kind: 'add'; items: Item[] }
 	| { kind: 'check'; id: string; checked: boolean }
 	| { kind: 'rename'; id: string; text: string }
+	| { kind: 'brand'; id: string; brand: string | null }
 	| { kind: 'remove'; id: string }
 	| { kind: 'clear' }
 
@@ -94,6 +99,10 @@ function applyChange(items: Item[], change: Change): Item[] {
 						}
 					: item,
 			)
+		case 'brand':
+			return items.map((item) =>
+				item.id === change.id ? { ...item, brand: change.brand } : item,
+			)
 		case 'remove':
 			return items.filter((item) => item.id !== change.id)
 		case 'clear':
@@ -108,6 +117,7 @@ const draftItem = (text: string): Item => ({
 	userId: '',
 	text,
 	category: ingredientCategory(text),
+	brand: null,
 	recipes: [],
 	checkedAt: null,
 	stockedId: null,
@@ -260,7 +270,12 @@ export function GroceryList({
 	// Puts a removed item back as it was, from the same recipe.
 	function restore(item: Item) {
 		const back: Item = { ...item, id: crypto.randomUUID() }
-		const input: GroceryInput = { id: back.id, text: back.text }
+
+		const input: GroceryInput = {
+			id: back.id,
+			text: back.text,
+			brand: back.brand,
+		}
 
 		if (back.recipes.length)
 			input.recipeIds = back.recipes.map((recipe) => recipe.id)
@@ -285,6 +300,12 @@ export function GroceryList({
 	function rename(item: Item, text: string) {
 		change({ kind: 'rename', id: item.id, text }, async () => {
 			await renameGrocery({ data: { id: item.id, text } })
+		})
+	}
+
+	function brand(item: Item, next: string | null) {
+		change({ kind: 'brand', id: item.id, brand: next }, async () => {
+			await setGroceryBrand({ data: { id: item.id, brand: next ?? '' } })
 		})
 	}
 
@@ -429,6 +450,7 @@ export function GroceryList({
 			key={sheetItem.id}
 			item={sheetItem}
 			onRename={(text) => rename(sheetItem, text)}
+			onBrand={(next) => brand(sheetItem, next)}
 			onRemove={() => {
 				setOpenId(undefined)
 				remove(sheetItem)
@@ -925,7 +947,14 @@ function GroceryRow({
 							checked && 'opacity-50',
 						)}
 					>
-						{look ? <PantrySprite look={look} className="size-7" /> : null}
+						{look ? (
+							<FoodPicture
+								food={pantryNameOf(item.text)}
+								brand={item.brand}
+								look={look}
+								className="size-7"
+							/>
+						) : null}
 					</span>
 					<span
 						className={cn(
@@ -934,7 +963,7 @@ function GroceryRow({
 							checked && 'text-muted-foreground line-through',
 						)}
 					>
-						{item.text}
+						<WithBrand name={item.text} brand={item.brand} />
 					</span>
 					{checked ? null : note}
 				</label>
@@ -1148,11 +1177,13 @@ function ForRecipes({
 function GroceryDetails({
 	item,
 	onRename,
+	onBrand,
 	onRemove,
 	onClose,
 }: {
 	item: Item
 	onRename: (text: string) => void
+	onBrand: (brand: string | null) => void
 	onRemove: () => void
 	onClose: () => void
 }) {
@@ -1192,6 +1223,12 @@ function GroceryDetails({
 						}}
 					/>
 				</div>
+				<BrandField
+					food={text}
+					brand={item.brand}
+					onBrand={onBrand}
+					className="ml-10 w-auto"
+				/>
 				<AmountBar
 					line={text}
 					onChange={setText}

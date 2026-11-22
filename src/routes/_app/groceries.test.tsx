@@ -58,6 +58,8 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 }))
 
 vi.mock('@/lib/groceries/server', () => ({
+	setGroceryBrand: vi.fn(),
+	recipeLinesGoing: async () => 0,
 	// As the server has it when the read starts, however long it takes.
 	listGroceries: async () => {
 		const items = list.signedOut ? null : list.items

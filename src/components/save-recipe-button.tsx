@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 
 import { AuthDialog } from '@/components/auth-dialog'
 import { DeleteRecipeDialog } from '@/components/delete-recipe-dialog'
+import { groceryCountKey } from '@/components/grocery-badge'
 import { SaveChip } from '@/components/save-chip'
 import { rememberAfterSignIn, takeAfterSignIn } from '@/lib/auth/after-sign-in'
 import { authClient } from '@/lib/auth/client'
@@ -67,7 +68,7 @@ export function SaveRecipeButton({
 		])
 	}
 
-	function update() {
+	function update(groceries = false) {
 		if (owned) return
 
 		setConfirming(false)
@@ -76,9 +77,18 @@ export function SaveRecipeButton({
 
 			try {
 				if (saved) {
-					const removed = await removeSavedRecipe({ data: { id: recipe.id } })
+					const removed = await removeSavedRecipe({
+						data: { id: recipe.id, groceries },
+					})
 
 					if (!removed) throw new Error('recipe could not be removed')
+
+					// The list and what's in progress may have changed with it.
+					void Promise.all([
+						client.invalidateQueries({ queryKey: ['groceries'] }),
+						client.invalidateQueries({ queryKey: groceryCountKey }),
+						client.invalidateQueries({ queryKey: ['plans'] }),
+					])
 				} else await saveRecipe({ data: { id: recipe.id } })
 				toast.success(
 					saved ? 'removed from your recipes' : 'saved to your recipes',
@@ -162,6 +172,7 @@ export function SaveRecipeButton({
 			<DeleteRecipeDialog
 				open={confirming}
 				onOpenChange={setConfirming}
+				recipeId={recipe.id}
 				title={recipe.title}
 				shared
 				pending={false}

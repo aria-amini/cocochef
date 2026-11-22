@@ -14,6 +14,7 @@ import type { PantryItemInput } from '@/lib/pantry/model'
 // how fresh it is.
 type KnownItem = typeof pantryItems.$inferSelect & {
 	spoils: boolean
+	staple: boolean
 	stale: boolean
 	expired: boolean
 	daysLeft: number
@@ -65,7 +66,9 @@ vi.mock('@/lib/pantry/server', async (importOriginal) => ({
 		data.map((input, index) => {
 			const item = {
 				...input,
+				brand: input.brand ?? null,
 				spoils: false,
+				staple: true,
 				stale: false,
 				expired: false,
 				daysLeft: 365,
@@ -162,11 +165,13 @@ const item = (
 	quantity: null,
 	category,
 	spriteKey: null,
+	brand: null,
 	createdAt: new Date('2026-10-19T12:00:00Z'),
 	confirmedAt: new Date('2026-10-19T12:00:00Z'),
 	boughtAt: new Date('2026-10-19T12:00:00Z'),
 	frozenAt: null,
 	spoils: false,
+	staple: true,
 	stale: false,
 	expired: false,
 	daysLeft: 1400,
@@ -512,7 +517,7 @@ describe('pantry and groceries', () => {
 
 		await fridge.getByRole('button', { name: /^fridge/ }).click()
 		await fridge.getByRole('button', { name: /^carrots, / }).click()
-		await page.getByRole('button', { name: 'don’t keep this' }).click()
+		await page.getByRole('button', { name: 'delete' }).click()
 		await expect
 			.element(fridge.getByRole('button', { name: /^carrots, / }))
 			.not.toBeInTheDocument()

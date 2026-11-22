@@ -8,7 +8,7 @@ import { Link, useMatches, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { AccountMenu, tabClassName } from '@/components/account-menu'
-import { GroceryCount } from '@/components/grocery-badge'
+import { GroceryCount, GroceryTabIcon } from '@/components/grocery-badge'
 import { markTabJump } from '@/lib/kept-match'
 import { useScrollHidden } from '@/lib/use-scroll-reveal'
 import { cn } from '@/lib/utils/ui'
@@ -217,12 +217,27 @@ function Sidebar() {
 								: 'border-transparent hover:bg-card focus-visible:border-border',
 						)}
 					>
-						<Icon
-							size={18}
-							weight={active ? 'fill' : 'regular'}
-							aria-hidden
-							className={navIconFeedbackClassName}
-						/>
+						{/* A grid, so the icon sits on no text line and the rows stay even. */}
+						<span
+							className={cn(
+								'grid place-items-center',
+								navIconFeedbackClassName,
+							)}
+						>
+							{label === 'groceries' ? (
+								<GroceryTabIcon
+									icon={Icon}
+									size={18}
+									weight={active ? 'fill' : 'regular'}
+								/>
+							) : (
+								<Icon
+									size={18}
+									weight={active ? 'fill' : 'regular'}
+									aria-hidden
+								/>
+							)}
+						</span>
 						{name}
 						{label === 'groceries' ? <GroceryCount /> : null}
 					</Link>
@@ -323,11 +338,19 @@ function TabBar() {
 									navIconFeedbackClassName,
 								)}
 							>
-								<Icon
-									size={22}
-									weight={active ? 'fill' : 'regular'}
-									aria-hidden
-								/>
+								{label === 'groceries' ? (
+									<GroceryTabIcon
+										icon={Icon}
+										size={22}
+										weight={active ? 'fill' : 'regular'}
+									/>
+								) : (
+									<Icon
+										size={22}
+										weight={active ? 'fill' : 'regular'}
+										aria-hidden
+									/>
+								)}
 							</span>
 							{name}
 							{label === 'groceries' ? <GroceryCount /> : null}

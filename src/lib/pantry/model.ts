@@ -31,12 +31,20 @@ export const pantryBulkMax = 100
 
 export const pantryCount = z.number().int().min(0).max(pantryQuantityMax)
 
+// A brand as the cook types it; left blank, there is none.
+export const pantryBrand = z
+	.string()
+	.trim()
+	.max(60)
+	.transform((brand) => brand || null)
+
 export const pantryFields = {
 	name: z.string().trim().min(1).max(80),
 	level: z.enum(pantryLevels).optional(),
 	quantity: pantryCount.nullish(),
 	category: z.enum(pantryCategories),
 	spriteKey: z.string().trim().min(1).max(60).optional(),
+	brand: pantryBrand.nullish(),
 }
 
 export const pantryItemInput = z.object(pantryFields)
