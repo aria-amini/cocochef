@@ -178,5 +178,9 @@ Screenshot assertions belong in Vitest Browser Mode.
 
 ## Design
 
-The theme in `src/styles.css` and lint enforce the mechanical UI rules;
-`DESIGN.md` holds the judgment calls code can't check. Read it before UI work.
+shadcn is the single source of truth: build UI from `src/components/ui` and the
+theme tokens in `src/styles.css`. Never restyle a component at the call site;
+layout classes (width, margin, alignment) are fine. When a second place needs a
+new look, add a variant named for what it means. Lint enforces the mechanical
+rules. `DESIGN.md` says what the app should feel like; read it before designing
+a screen.
