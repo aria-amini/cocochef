@@ -15,6 +15,13 @@
 // server: dev serves unbundled modules and is many times slower. Lab numbers
 // drift between sessions, so compare two builds in one sitting, not against
 // numbers from another day.
+//
+// To compare a change with its base: build each, one at a time (the base in a
+// scratch `git worktree add --detach`, with `.env.workspace.local` copied in
+// and `vp i` run). Start each on its own port with BASE_URL to match, so
+// sign-in accepts it (`PORT=3101 BASE_URL=http://localhost:3101 vp run
+// start`). Run `vp run bench:seed` before each comparison, since a run clears
+// one spare recipe. Afterwards, stop both and remove the scratch worktree.
 import { chromium, devices } from '@playwright/test'
 import type { BrowserContext, Locator, Page } from '@playwright/test'
 
