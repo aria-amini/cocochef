@@ -17,7 +17,12 @@ function loadWhole(href: string) {
 		// Without storage, a reload still beats a page that never opens.
 	}
 
-	window.location.assign(href)
+	// The same address again, with a #fragment, would only scroll and keep the
+	// old code.
+	const url = new URL(href, window.location.href).href
+
+	if (url === window.location.href) window.location.reload()
+	else window.location.assign(url)
 }
 
 // A deploy replaces the app's code files, and a tab opened before it still
