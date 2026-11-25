@@ -615,16 +615,17 @@ describe('recipe detail', () => {
 			.toBeVisible()
 	})
 
-	test('shows a signed-out reader the recipe alone', async () => {
+	test('offers a signed-out reader to shop, after making an account', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso']
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1' })
 
+		await expect.element(readiness(screen)).toHaveTextContent('add to list')
+		await readiness(screen).click()
 		await expect
-			.element(screen.getByRole('checkbox', { name: '200 g pasta' }))
+			.element(page.getByRole('dialog', { name: 'create an account' }))
 			.toBeVisible()
-		expect(readiness(screen).query()).toBeNull()
 	})
 
 	test('says what is missing, with what is listed and home folded apart', async () => {
@@ -2392,6 +2393,22 @@ describe('recipe detail', () => {
 			// Only editing was asked for: nothing is saved or copied yet.
 			expect(updateCalls.saved).toEqual([])
 			expect(updateCalls.calls).toEqual([])
+		})
+
+		test('opens the shop sheet when the page loads again after google sign-in', async () => {
+			fillRecipe()
+			const first = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await readiness(first.screen).click()
+			// Google sign-in leaves the page and loads it again signed in.
+			await first.screen.unmount()
+
+			await renderRoute({ path: '/recipes/recipe-1', session })
+
+			await expect
+				.element(page.getByRole('dialog', { name: 'add to list' }))
+				.toBeVisible()
+			expect(sessionStorage.getItem('after-sign-in')).toBeNull()
 		})
 	})
 })

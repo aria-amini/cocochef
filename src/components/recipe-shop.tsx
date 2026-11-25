@@ -34,7 +34,8 @@ function foodsOf(lines: string[]) {
 
 // What the kitchen and the list say of a recipe's food: each food, and
 // whether it's home, on the list for this recipe, or on it for another.
-// Signed out, nothing is known.
+// Signed out, nothing is known, and the recipe can only offer to shop once
+// the cook has an account.
 export function useRecipeShop(
 	recipeId: string,
 	lines: string[],
@@ -42,6 +43,7 @@ export function useRecipeShop(
 ) {
 	const session = authClient.useSession()
 	const signedIn = !!session.data?.user
+	const signedOut = !session.isPending && !signedIn
 	const pantry = usePantry(signedIn && enabled)
 	const list = useGroceryLines(signedIn && enabled)
 	const known = signedIn && pantry.isSuccess && list.isSuccess
@@ -103,7 +105,7 @@ export function useRecipeShop(
 	// say what's missing, only offer to shop for it.
 	const stocked = kept.length > 0
 
-	return { signedIn, known, rows, stocked }
+	return { signedIn, signedOut, known, rows, stocked }
 }
 
 export type RecipeShop = ReturnType<typeof useRecipeShop>

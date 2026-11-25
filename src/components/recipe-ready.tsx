@@ -8,7 +8,12 @@ import {
 	XIcon,
 } from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Link, useBlocker } from '@tanstack/react-router'
+import {
+	Link,
+	useBlocker,
+	useRouter,
+	useRouterState,
+} from '@tanstack/react-router'
 import {
 	AnimatePresence,
 	LayoutGroup,
@@ -17,6 +22,7 @@ import {
 } from 'framer-motion'
 import {
 	useEffect,
+	useEffectEvent,
 	useMemo,
 	useRef,
 	useState,
@@ -24,6 +30,7 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 
+import { AuthDialog } from '@/components/auth-dialog'
 import { WithBrand } from '@/components/brand-field'
 import { groceryCountKey, showAdded } from '@/components/grocery-badge'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
@@ -45,6 +52,7 @@ import {
 } from '@/components/ui/dialog'
 import { undoToast } from '@/components/undo-toast'
 import { type Plan, usePlan, usePlanWrites } from '@/components/use-plans'
+import { rememberAfterSignIn, takeAfterSignIn } from '@/lib/auth/after-sign-in'
 import { amountApart, stepShopping } from '@/lib/groceries/amounts'
 import {
 	addGroceries,
@@ -366,8 +374,14 @@ export function ReadinessPill({
 	// A skipped staple the cook says they have, asked about before it goes
 	// in the pantry.
 	const [confirming, setConfirming] = useState<Row>()
+	const [authOpen, setAuthOpen] = useState(false)
 	const taps = useShopTaps(recipeId)
 	const plan = usePlan(recipeId, shop.signedIn)
+	const router = useRouter()
+
+	const pathname = useRouterState({
+		select: (now) => now.location.pathname,
+	})
 
 	const skips = useMemo(
 		() => (plan.data ? new Set(plan.data.skipped) : noSkips),
@@ -406,13 +420,19 @@ export function ReadinessPill({
 
 	// With an empty pantry nothing is known to be home, so nothing is said
 	// to be missing: the pill only offers to shop for it, in the same sheet.
-	const state = missing.length
-		? shop.stocked
-			? 'missing'
-			: 'add'
-		: listed.length
-			? 'listed'
-			: 'ready'
+	// Signed out, the pill still offers to shop, and asks for an account
+	// first, since the list is kept by one.
+	const asking = shop.signedOut && shop.rows.length > 0
+
+	const state = asking
+		? 'add'
+		: missing.length
+			? shop.stocked
+				? 'missing'
+				: 'add'
+			: listed.length
+				? 'listed'
+				: 'ready'
 
 	const shown = shop.known && plan.isSuccess && shop.rows.length > 0
 
@@ -444,17 +464,6 @@ export function ReadinessPill({
 		withResolver: true,
 	})
 
-	if (!shown) return null
-
-	const label =
-		state === 'add'
-			? 'add to list'
-			: state === 'missing'
-				? `missing ${missing.length}`
-				: state === 'listed'
-					? `${listed.length} on your list`
-					: 'ready'
-
 	function openSheet() {
 		const skipped = new Set(
 			toBuy.filter((row) => skips.has(row.line)).map((row) => row.line),
@@ -465,6 +474,34 @@ export function ReadinessPill({
 		setPantryOpen(state === 'ready')
 		setOpen(true)
 	}
+
+	function askToSignIn() {
+		rememberAfterSignIn({ action: 'shop', recipeId })
+		setAuthOpen(true)
+	}
+
+	// Opens the sheet a visitor asked for before signing in, once the kitchen
+	// is known: on the email path once the dialog's sign-in lands, on the
+	// Google path when the page loads again.
+	const finishShop = useEffectEvent(openSheet)
+
+	useEffect(() => {
+		if (shown && takeAfterSignIn({ action: 'shop', recipeId }))
+			// It syncs with session storage and the session, both outside React.
+			// oxlint-disable-next-line react/set-state-in-effect
+			finishShop()
+	}, [shown, recipeId])
+
+	if (!shown && !asking) return null
+
+	const label =
+		state === 'add'
+			? 'add to list'
+			: state === 'missing'
+				? `missing ${missing.length}`
+				: state === 'listed'
+					? `${listed.length} on your list`
+					: 'ready'
 
 	// Less to buy, down to none, which skips it; more, from none, puts it
 	// back as it was. One just said to be out here goes home again instead:
@@ -572,7 +609,7 @@ export function ReadinessPill({
 			<button
 				ref={pill}
 				type="button"
-				onClick={openSheet}
+				onClick={asking ? askToSignIn : openSheet}
 				className={cn(
 					'inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm font-bold transition-transform active:scale-95',
 					readinessLooks[state],
@@ -588,6 +625,15 @@ export function ReadinessPill({
 				>
 					tap to see what's missing
 				</span>
+			) : null}
+			{asking ? (
+				<AuthDialog
+					open={authOpen}
+					onOpenChange={setAuthOpen}
+					redirect={pathname}
+					// Signed in, the page loads again as the account sees it.
+					onSuccess={() => void router.invalidate()}
+				/>
 			) : null}
 			{open ? (
 				<ItemSheet
