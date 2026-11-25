@@ -11,6 +11,7 @@ type Recipe = Awaited<ReturnType<typeof listShelf>>['recipes'][number]
 const shelf = vi.hoisted<{ recipes: Recipe[] }>(() => ({ recipes: [] }))
 
 vi.mock('@/lib/recipes/server', () => ({
+	listShelfReadiness: async () => ({}),
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),

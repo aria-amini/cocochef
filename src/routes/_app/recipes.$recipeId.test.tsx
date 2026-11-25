@@ -46,6 +46,7 @@ const updateCalls = vi.hoisted(() => {
 })
 
 vi.mock('@/lib/recipes/server', () => ({
+	listShelfReadiness: async () => ({}),
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: async ({ data }: { data: { id: string } }) => {
 		updateCalls.deleted.push(data.id)

@@ -7,6 +7,7 @@ import {
 	leaveRecipeForUser,
 	recipeLinesForUser,
 } from '@/lib/groceries/repository'
+import { recipeReadiness } from '@/lib/pantry/stock.server'
 import { resolveStoredImage } from '@/lib/s3'
 import {
 	getWebRecipeLink,
@@ -61,6 +62,22 @@ export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
 		recipes: await Promise.all(shelf.recipes.map(withSignedImage)),
 	}
 })
+
+// How ready each recipe on the shelf is to cook. Read apart from the shelf,
+// so the page never waits on the kitchen to draw.
+export const listShelfReadiness = createServerFn({ method: 'GET' }).handler(
+	async () => {
+		const viewer = await getViewerId()
+
+		if (viewer === 'visitor') return {}
+
+		const shelf = await listShelfForUser(viewer)
+
+		return Object.fromEntries(
+			await recipeReadiness(shelf.recipes.map((recipe) => recipe.id)),
+		)
+	},
+)
 
 // A recipe as the viewer sees it, with the readable address to show it at.
 export const readRecipe = createServerOnlyFn(async (id: string) => {

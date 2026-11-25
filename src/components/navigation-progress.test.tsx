@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vite-plus/test'
 import { page } from 'vitest/browser'
 
 vi.mock('@/lib/recipes/server', () => ({
+	listShelfReadiness: async () => ({}),
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),

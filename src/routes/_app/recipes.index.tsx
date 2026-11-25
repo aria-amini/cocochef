@@ -9,6 +9,7 @@ import {
 	PlusIcon,
 	UserIcon,
 } from '@phosphor-icons/react'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -41,9 +42,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { authClient } from '@/lib/auth/client'
 import { useKeptMatch } from '@/lib/kept-match'
+import type { Readiness } from '@/lib/pantry/readiness'
 import {
 	deleteRecipes,
 	listShelf,
+	listShelfReadiness,
 	removeSavedRecipe,
 	saveRecipe,
 } from '@/lib/recipes/server'
@@ -172,6 +175,15 @@ function Shelf() {
 	const { viewerId } = useKeptMatch(Route.id).loaderData
 	const account = authClient.useSession().data?.user
 	const me = viewerId ?? account?.id
+
+	// Asked after the shelf draws, and again each time it opens, since the
+	// pantry and the list change elsewhere.
+	const readiness = useQuery({
+		queryKey: ['shelf-readiness', me],
+		queryFn: () => listShelfReadiness(),
+		enabled: !!me,
+	}).data
+
 	const [addTile, tileInView] = useInView()
 	const selection = useSelection()
 
@@ -242,6 +254,7 @@ function Shelf() {
 										<RecipeTile
 											key={recipe.id}
 											recipe={recipe}
+											ready={readiness?.[recipe.id]}
 											pick={pickFor(recipe)}
 											saved={id === 'saved-recipes'}
 											color={tileColorFor(recipe.id)}
@@ -551,9 +564,11 @@ function RecipeTile({
 	seenBy,
 	pick,
 	saved = false,
+	ready,
 }: {
 	recipe: Recipe
 	color: TileColor
+	ready?: Readiness | undefined
 	pick?: Pick
 	seenBy?: keyof typeof seenByLabels | undefined
 	// Saved from someone else, it can be taken off from its corner.
@@ -580,7 +595,11 @@ function RecipeTile({
 					selected={pick.selected}
 					className="absolute top-2 left-2 z-10"
 				/>
-				<RecipeTileFace title={recipe.title} imageUrl={recipe.imageUrl} />
+				<RecipeTileFace
+					title={recipe.title}
+					imageUrl={recipe.imageUrl}
+					ready={ready}
+				/>
 			</button>
 		)
 
@@ -604,7 +623,11 @@ function RecipeTile({
 						<seen.icon size={14} weight="bold" aria-hidden />
 					</span>
 				) : null}
-				<RecipeTileFace title={recipe.title} imageUrl={recipe.imageUrl} />
+				<RecipeTileFace
+					title={recipe.title}
+					imageUrl={recipe.imageUrl}
+					ready={ready}
+				/>
 			</Link>
 		</div>
 	)
