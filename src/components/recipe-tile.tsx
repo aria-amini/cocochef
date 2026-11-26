@@ -1,4 +1,6 @@
+import { ReadyBar } from '@/components/ready-bar'
 import { RecipeGlyph } from '@/components/recipe-glyph'
+import type { Readiness } from '@/lib/pantry/readiness'
 import { sizedPhoto } from '@/lib/photos/sized'
 import { tileColors, type TileColor } from '@/lib/recipes/tile-color'
 import { cn } from '@/lib/utils/ui'
@@ -23,16 +25,30 @@ export function recipeTileClassName({
 	)
 }
 
+// How ready a recipe is, in words to follow its name.
+function readyWords({ home, listed, total }: Readiness) {
+	if (home === total) return 'all home'
+
+	return listed
+		? `${home} home · ${listed} on list`
+		: `${home} of ${total} home`
+}
+
 export function RecipeTileFace({
 	title,
 	imageUrl,
 	detail,
+	ready,
 }: {
 	title: string
 	imageUrl: string | null
 	// A short line under the name, such as how long it takes.
 	detail?: string | undefined
+	// What the kitchen has of it, once the pantry knows anything.
+	ready?: Readiness | undefined
 }) {
+	const words = [detail, ready ? readyWords(ready) : undefined].filter(Boolean)
+
 	if (imageUrl)
 		return (
 			<>
@@ -44,13 +60,19 @@ export function RecipeTileFace({
 						className="absolute inset-0 size-full object-cover"
 					/>
 				</div>
-				<div className="border-border bg-card flex shrink-0 flex-col gap-0.5 border-t px-2.5 py-1.5">
+				<div className="border-border bg-card relative flex shrink-0 flex-col gap-0.5 border-t px-2.5 py-1.5">
+					{/* Along the photo's foot, over the line under it. */}
+					{ready ? (
+						<ReadyBar ready={ready} kind="edge" className="-top-px" />
+					) : null}
 					<h3 className="line-clamp-2 text-sm leading-tight font-bold wrap-anywhere">
 						{title}
 					</h3>
-					{detail ? (
-						<p className="text-foreground/70 text-xs font-semibold">{detail}</p>
-					) : null}
+					{words.map((line) => (
+						<p key={line} className="text-foreground/70 text-xs font-semibold">
+							{line}
+						</p>
+					))}
 				</div>
 			</>
 		)
@@ -66,10 +88,16 @@ export function RecipeTileFace({
 				<h3 className="line-clamp-4 text-xl leading-tight font-bold wrap-anywhere">
 					{title}
 				</h3>
-				{detail ? (
-					<p className="text-foreground/70 text-xs font-semibold">{detail}</p>
-				) : null}
+				{words.map((line) => (
+					<p key={line} className="text-foreground/70 text-xs font-semibold">
+						{line}
+					</p>
+				))}
 			</div>
+			{/* Without a photo, along the tile's foot. */}
+			{ready ? (
+				<ReadyBar ready={ready} kind="edge" className="bottom-0" />
+			) : null}
 		</>
 	)
 }

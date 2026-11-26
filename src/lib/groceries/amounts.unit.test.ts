@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vite-plus/test'
 
 import {
+	amountApart,
 	buyingAmount,
 	setShoppingUnit,
 	shoppingUnitsFor,
@@ -34,6 +35,20 @@ describe('shopping amounts', () => {
 		expect(stepShopping('2 tbsp butter', 1)).toBe('1 pack butter')
 	})
 
+	test('says how far an amount is from what was asked, in its unit', () => {
+		expect(amountApart('4 limes', '3 limes')).toEqual({ more: true, by: '1' })
+		expect(amountApart('1 ½ lb short ribs', '2 lb short ribs')).toEqual({
+			more: false,
+			by: '½ lb',
+		})
+		expect(amountApart('3 jars cumin', '1 jar cumin')).toEqual({
+			more: true,
+			by: '2 jars',
+		})
+		expect(amountApart('2 lb short ribs', '2 lb short ribs')).toBeUndefined()
+		expect(amountApart('900 g beef', '2 lb beef')).toBeUndefined()
+	})
+
 	test('offers what each food is sold in', () => {
 		expect(shoppingUnitsFor('eggs')).toEqual(['dozen', 'each'])
 		expect(shoppingUnitsFor('2 limes')[0]).toBe('each')
@@ -64,6 +79,12 @@ describe('buying amount', () => {
 			name: 'garlic',
 			amount: '1 head',
 		})
+	})
+
+	test('reads past a measure that ends in a comma', () => {
+		expect(
+			buyingAmount('1½ tablespoons, plus 1 cup (5 ounces/142 grams) cornmeal'),
+		).toEqual({ name: 'cornmeal', amount: '1 bag' })
 	})
 
 	test('keeps what fresh food needs, by weight or by count', () => {

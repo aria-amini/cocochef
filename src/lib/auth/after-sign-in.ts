@@ -4,7 +4,7 @@
 import { z } from 'zod'
 
 const afterSignIn = z.object({
-	action: z.enum(['save', 'edit']),
+	action: z.enum(['save', 'edit', 'shop']),
 	recipeId: z.string(),
 })
 

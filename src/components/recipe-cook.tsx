@@ -124,7 +124,8 @@ export function DoneCooking({
 					ref={button}
 					variant="outline"
 					onClick={done.start}
-					className="mt-4 min-h-11 w-full"
+					size="lg"
+					className="mt-4 w-full"
 				>
 					<CheckIcon weight="bold" aria-hidden className="text-kitchen-basil" />
 					done cooking

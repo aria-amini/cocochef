@@ -18,6 +18,10 @@ type ShelfState = {
 	viewerId: string | null
 	// The shelf never arrives, so the page stays on its skeleton.
 	hang: boolean
+	// What the kitchen has of each recipe, read after the shelf.
+	readiness: Record<string, { home: number; listed: number; total: number }>
+	// The recipes being shopped for, newest first.
+	inProgress: string[]
 	// The next read of the shelf waits for this.
 	read?: Promise<void> | undefined
 }
@@ -27,6 +31,8 @@ const shelfState = vi.hoisted<ShelfState>(() => ({
 	signedIn: true,
 	viewerId: null,
 	hang: false,
+	readiness: {},
+	inProgress: [],
 }))
 
 const discovery = vi.hoisted(() => ({
@@ -69,8 +75,10 @@ vi.mock('@/lib/recipes/server', () => ({
 			recipes,
 			signedIn: shelfState.signedIn,
 			viewerId: shelfState.viewerId,
+			inProgress: shelfState.inProgress,
 		}
 	},
+	listShelfReadiness: async () => shelfState.readiness,
 	getRecipe: ({ data }: { data: { id: string } }) => {
 		const recipe = shelfState.recipes.find((recipe) => recipe.id === data.id)
 
@@ -139,6 +147,8 @@ describe('recipes shelf', () => {
 		shelfState.viewerId = null
 		shelfState.hang = false
 		shelfState.read = undefined
+		shelfState.readiness = {}
+		shelfState.inProgress = []
 		saves.remove.mockReset().mockResolvedValue(null)
 		saves.save.mockReset().mockResolvedValue(null)
 		saves.removeMany.mockReset().mockResolvedValue({ removed: 0 })
@@ -609,6 +619,77 @@ describe('recipes shelf', () => {
 		expect(photo.getBoundingClientRect().bottom).toBeLessThanOrEqual(
 			title.getBoundingClientRect().top + 1,
 		)
+	})
+
+	test('says how much of each recipe the kitchen has', async () => {
+		shelfState.recipes = [
+			{ ...dal, imageUrl: '/sprites/pantry/apple.png' },
+			{ ...misoButterPasta, id: 'scampi', title: 'shrimp scampi' },
+			{ ...misoButterPasta, id: 'toast', title: 'toast' },
+			{ ...misoButterPasta, id: 'plain', title: 'plain rice' },
+		]
+		shelfState.readiness = {
+			[dal.id]: { home: 7, listed: 0, total: 8 },
+			scampi: { home: 6, listed: 4, total: 10 },
+			toast: { home: 2, listed: 0, total: 2 },
+		}
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		await expect
+			.element(screen.getByRole('link', { name: 'dal 7 of 8 home' }))
+			.toBeVisible()
+		await expect
+			.element(
+				screen.getByRole('link', { name: 'shrimp scampi 6 home · 4 on list' }),
+			)
+			.toBeVisible()
+		await expect
+			.element(screen.getByRole('link', { name: 'toast all home' }))
+			.toBeVisible()
+		// A recipe the kitchen knows nothing of says nothing.
+		await expect
+			.element(screen.getByRole('link', { name: 'plain rice', exact: true }))
+			.toBeVisible()
+	})
+
+	test('leads with what is being shopped for, newest first', async () => {
+		shelfState.recipes = [
+			misoButterPasta,
+			dal,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+		// One not on the shelf stays on home's list alone.
+		shelfState.inProgress = ['shared', 'elsewhere', misoButterPasta.id]
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const shopping = screen.getByRole('region', { name: 'in progress' })
+		await expect.element(shopping).toBeVisible()
+		expect(
+			shopping
+				.getByRole('heading', { level: 3 })
+				.elements()
+				.map((title) => title.textContent),
+		).toEqual(['shared soup', 'miso butter pasta'])
+		// Saved from someone else, it can still be taken off from its corner.
+		await expect
+			.element(shopping.getByRole('button', { name: 'unsave shared soup' }))
+			.toBeVisible()
+		const yours = screen.getByRole('region', { name: 'your recipes' })
+		await expect.element(yours.getByText('dal')).toBeVisible()
+		await expect
+			.element(yours.getByText('miso butter pasta'))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('region', { name: 'saved recipes' }))
+			.not.toBeInTheDocument()
 	})
 
 	test('keeps drafts apart, saying how far each has got', async () => {

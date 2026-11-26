@@ -163,6 +163,25 @@ export function stepShopping(line: string, by: 1 | -1) {
 	return withAmount(Math.max(1, next), unit, rest)
 }
 
+// How far an amount to buy is from what the recipe asks, in the unit being
+// bought: one more lime is "1", half a pound less is "½ lb". Nothing when
+// they're the same, or in units that don't compare.
+export function amountApart(buying: string, asked: string) {
+	const now = amountOf(buying)
+	const was = amountOf(asked)
+
+	if (!now || !was || now.unit !== was.unit) return undefined
+
+	const by = Math.round(Math.abs(now.quantity - was.quantity) * 100) / 100
+
+	if (!by) return undefined
+
+	return {
+		more: now.quantity > was.quantity,
+		by: withAmount(by, now.unit, ''),
+	}
+}
+
 // What a shop sells a food in, between a count and the food, after any size
 // in brackets: "2 (15-ounce) cans beans", "1 jar of salsa".
 const heldIn =

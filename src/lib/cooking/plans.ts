@@ -34,16 +34,26 @@ export async function getPlanForUser(
 	return plan ?? null
 }
 
-// The recipes in progress, for home to know before its list loads.
+// The recipes in progress, newest first, each with what's skipped for it.
+export async function plansForUser(
+	userId: string,
+	database: Database = getDb(),
+) {
+	return database
+		.select({ recipeId: cookPlans.recipeId, skipped: cookPlans.skipped })
+		.from(cookPlans)
+		.innerJoin(recipes, eq(recipes.id, cookPlans.recipeId))
+		.where(and(eq(cookPlans.userId, userId), visibleTo(userId, database)))
+		.orderBy(desc(cookPlans.plannedAt))
+}
+
+// The recipes in progress, newest first: for home to know before its list
+// loads, and the shelf to put them first.
 export async function planIdsForUser(
 	userId: string,
 	database: Database = getDb(),
 ) {
-	const plans = await database
-		.select({ recipeId: cookPlans.recipeId })
-		.from(cookPlans)
-		.innerJoin(recipes, eq(recipes.id, cookPlans.recipeId))
-		.where(and(eq(cookPlans.userId, userId), visibleTo(userId, database)))
+	const plans = await plansForUser(userId, database)
 
 	return plans.map((plan) => plan.recipeId)
 }

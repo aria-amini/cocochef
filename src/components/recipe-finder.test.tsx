@@ -94,7 +94,11 @@ vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: server.remove,
 	listShelf: () =>
-		Promise.resolve({ recipes: shelfState.recipes, signedIn: true }),
+		Promise.resolve({
+			recipes: shelfState.recipes,
+			signedIn: true,
+			inProgress: [],
+		}),
 	getRecipe: server.getRecipe,
 	saveRecipe: server.save,
 	createRecipe: () => Promise.resolve({ id: 'recipe-new' }),

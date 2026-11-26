@@ -3,38 +3,21 @@ import { MinusIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react'
 import { useGroceryLines, usePantry } from '@/components/use-pantry'
 import { authClient } from '@/lib/auth/client'
 import { buyingAmount, stepShopping } from '@/lib/groceries/amounts'
-import { groceryLine, shoppingLine } from '@/lib/groceries/list'
-import { sameItem } from '@/lib/groceries/model'
+import { groceryLine } from '@/lib/groceries/list'
 import { findInPantry, keptOnHand } from '@/lib/pantry/foods'
+import { foodsOf } from '@/lib/pantry/readiness'
 import { lineStatus } from '@/lib/pantry/status'
 import { ingredientCategory } from '@/lib/recipes/ingredient-groups'
 import {
 	amountOf,
-	ingredientHeading,
 	ingredientSubject,
 	withAmount,
 } from '@/lib/recipes/ingredient-line'
 
-// The recipe's food, without its section names, and each food once, as the
-// list would take it: salt in the dough and the filling is one salt.
-function foodsOf(lines: string[]) {
-	const seen = new Set<string>()
-
-	return lines.filter((line) => {
-		if (!line.trim() || ingredientHeading(line) !== undefined) return false
-
-		const key = sameItem(shoppingLine(line))
-
-		if (seen.has(key)) return false
-		seen.add(key)
-
-		return true
-	})
-}
-
 // What the kitchen and the list say of a recipe's food: each food, and
 // whether it's home, on the list for this recipe, or on it for another.
-// Signed out, nothing is known.
+// Signed out, nothing is known, and the recipe can only offer to shop once
+// the cook has an account.
 export function useRecipeShop(
 	recipeId: string,
 	lines: string[],
@@ -42,6 +25,7 @@ export function useRecipeShop(
 ) {
 	const session = authClient.useSession()
 	const signedIn = !!session.data?.user
+	const signedOut = !session.isPending && !signedIn
 	const pantry = usePantry(signedIn && enabled)
 	const list = useGroceryLines(signedIn && enabled)
 	const known = signedIn && pantry.isSuccess && list.isSuccess
@@ -103,7 +87,7 @@ export function useRecipeShop(
 	// say what's missing, only offer to shop for it.
 	const stocked = kept.length > 0
 
-	return { signedIn, known, rows, stocked }
+	return { signedIn, signedOut, known, rows, stocked }
 }
 
 export type RecipeShop = ReturnType<typeof useRecipeShop>

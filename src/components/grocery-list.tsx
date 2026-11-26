@@ -362,7 +362,7 @@ export function GroceryList({
 			onClick={() => setEditing(false)}
 			className={buttonVariants({
 				variant: 'ghost',
-				className: 'min-h-11 px-3',
+				size: 'lg',
 			})}
 		>
 			<CheckIcon size={14} weight="bold" aria-hidden />

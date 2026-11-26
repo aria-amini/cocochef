@@ -824,7 +824,11 @@ export function RecipeEditor({
 						<Menu.Trigger
 							aria-label="more"
 							disabled={pending}
-							className={cn(dockActionClassName, 'px-2.5')}
+							className={buttonVariants({
+								variant: 'ghost',
+								size: 'icon',
+								docked: true,
+							})}
 						>
 							<DotsThreeIcon size={20} weight="bold" aria-hidden />
 						</Menu.Trigger>

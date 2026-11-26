@@ -111,6 +111,7 @@ describe('ingredient subject', () => {
 		['1 (15-ounce) can chickpeas, rinsed', 'chickpeas, rinsed'],
 		['1 large can (28 ounces) diced tomatoes', 'diced tomatoes'],
 		['1 cup plus 2 tbsp. (155g) all-purpose flour', 'all-purpose flour'],
+		['1½ tablespoons, plus 1 cup (5 ounces/142 grams) cornmeal', 'cornmeal'],
 		[
 			'1½ cups (188 g) all-purpose flour, plus more for pan',
 			'all-purpose flour, plus more for pan',

@@ -2,11 +2,12 @@ import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { readSession, getViewerId, requireAccountId } from '@/lib/auth/session'
-import { dropPlanForUser } from '@/lib/cooking/plans'
+import { dropPlanForUser, planIdsForUser } from '@/lib/cooking/plans'
 import {
 	leaveRecipeForUser,
 	recipeLinesForUser,
 } from '@/lib/groceries/repository'
+import { recipeReadiness } from '@/lib/pantry/stock.server'
 import { resolveStoredImage } from '@/lib/s3'
 import {
 	getWebRecipeLink,
@@ -49,10 +50,18 @@ async function withSignedImage<T extends { imageUrl: string | null }>(
 
 export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
 	const viewer = await getViewerId()
-	const shelf = await listShelfForUser(viewer)
+
+	const [shelf, inProgress] = await Promise.all([
+		listShelfForUser(viewer),
+		viewer === 'visitor'
+			? Promise.resolve<string[]>([])
+			: planIdsForUser(viewer),
+	])
 
 	return {
 		...shelf,
+		// The recipes being shopped for, newest first, to lead the shelf.
+		inProgress,
 		// A visitor keeps nothing, so the shelf asks them to sign up instead.
 		signedIn: viewer !== 'visitor',
 		// Who is asking, so the page tells their own recipes from saved ones
@@ -61,6 +70,22 @@ export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
 		recipes: await Promise.all(shelf.recipes.map(withSignedImage)),
 	}
 })
+
+// How ready each recipe on the shelf is to cook. Read apart from the shelf,
+// so the page never waits on the kitchen to draw.
+export const listShelfReadiness = createServerFn({ method: 'GET' }).handler(
+	async () => {
+		const viewer = await getViewerId()
+
+		if (viewer === 'visitor') return {}
+
+		const shelf = await listShelfForUser(viewer)
+
+		return Object.fromEntries(
+			await recipeReadiness(shelf.recipes.map((recipe) => recipe.id)),
+		)
+	},
+)
 
 // A recipe as the viewer sees it, with the readable address to show it at.
 export const readRecipe = createServerOnlyFn(async (id: string) => {

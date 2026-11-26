@@ -46,6 +46,7 @@ const updateCalls = vi.hoisted(() => {
 })
 
 vi.mock('@/lib/recipes/server', () => ({
+	listShelfReadiness: async () => ({}),
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: async ({ data }: { data: { id: string } }) => {
 		updateCalls.deleted.push(data.id)
@@ -55,7 +56,8 @@ vi.mock('@/lib/recipes/server', () => ({
 
 		return { id: data.id }
 	},
-	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
+	listShelf: () =>
+		Promise.resolve({ recipes: [], signedIn: true, inProgress: [] }),
 	getRecipe: () =>
 		recipeState.hang
 			? new Promise(() => {})
@@ -615,16 +617,17 @@ describe('recipe detail', () => {
 			.toBeVisible()
 	})
 
-	test('shows a signed-out reader the recipe alone', async () => {
+	test('offers a signed-out reader to shop, after making an account', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['200 g pasta', '1 tbsp miso']
 
 		const { screen } = await renderRoute({ path: '/recipes/recipe-1' })
 
+		await expect.element(readiness(screen)).toHaveTextContent('add to list')
+		await readiness(screen).click()
 		await expect
-			.element(screen.getByRole('checkbox', { name: '200 g pasta' }))
+			.element(page.getByRole('dialog', { name: 'create an account' }))
 			.toBeVisible()
-		expect(readiness(screen).query()).toBeNull()
 	})
 
 	test('says what is missing, with what is listed and home folded apart', async () => {
@@ -701,6 +704,28 @@ describe('recipe detail', () => {
 		await expect.element(readiness(screen)).toHaveTextContent('missing 2')
 	})
 
+	test('says how far an amount to buy is from what the recipe asks', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['2 lb short ribs', '3 limes']
+		pantryState.items = [kept('salt')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		await readiness(screen).click()
+		await sheet().getByRole('button', { name: 'more limes' }).click()
+		await sheet().getByRole('button', { name: 'less short ribs' }).click()
+		// In what's bought, with the stepper's edge tinted for which way.
+		await expect.element(sheet().getByText('1 extra')).toBeVisible()
+		await expect.element(sheet().getByText('½ lb short')).toBeVisible()
+		await expectIsolatedScreenshot(sheet(), 'recipe-apart')
+
+		// Back to what the recipe asks, it says nothing.
+		await sheet().getByRole('button', { name: 'more short ribs' }).click()
+		await expect
+			.element(sheet().getByText('½ lb short'))
+			.not.toBeInTheDocument()
+	})
+
 	test('with an empty pantry, offers to shop for all of it in the same sheet', async () => {
 		if (!recipeState.recipe) throw new Error('recipe was not seeded')
 		recipeState.recipe.ingredients = ['2 lb short ribs', '2 tsp cumin']
@@ -744,6 +769,33 @@ describe('recipe detail', () => {
 		await screen.getByRole('button', { name: 'done cooking' }).click()
 		await expect.poll(() => planState.cooked).toEqual(['recipe-1'])
 		await expect.element(readiness(screen)).toHaveTextContent('missing 1')
+	})
+
+	test('keeps a skipped staple with a long name as tall as it was', async () => {
+		if (!recipeState.recipe) throw new Error('recipe was not seeded')
+		recipeState.recipe.ingredients = ['1 tbsp worcestershire sauce']
+		pantryState.items = [kept('flour')]
+
+		const { screen } = await renderRoute({ path: '/recipes/recipe-1', session })
+
+		const skip = sheet().getByRole('button', {
+			name: 'skip worcestershire sauce',
+		})
+
+		await readiness(screen).click()
+		await expect.element(skip).toBeVisible()
+
+		const row = skip.element().closest('li')
+
+		if (!row) throw new Error('the sauce has no row')
+		const before = row.getBoundingClientRect().height
+
+		await skip.click()
+		await expect
+			.element(sheet().getByRole('button', { name: 'already have it' }))
+			.toBeVisible()
+		// The name keeps to one line, so the note fits and the sheet holds still.
+		expect(row.getBoundingClientRect().height).toBe(before)
 	})
 
 	test('asks before a skipped staple goes in the pantry', async () => {
@@ -2343,6 +2395,22 @@ describe('recipe detail', () => {
 			// Only editing was asked for: nothing is saved or copied yet.
 			expect(updateCalls.saved).toEqual([])
 			expect(updateCalls.calls).toEqual([])
+		})
+
+		test('opens the shop sheet when the page loads again after google sign-in', async () => {
+			fillRecipe()
+			const first = await renderRoute({ path: '/recipes/recipe-1' })
+
+			await readiness(first.screen).click()
+			// Google sign-in leaves the page and loads it again signed in.
+			await first.screen.unmount()
+
+			await renderRoute({ path: '/recipes/recipe-1', session })
+
+			await expect
+				.element(page.getByRole('dialog', { name: 'add to list' }))
+				.toBeVisible()
+			expect(sessionStorage.getItem('after-sign-in')).toBeNull()
 		})
 	})
 })

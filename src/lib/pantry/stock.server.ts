@@ -1,4 +1,6 @@
 import { getAccountId } from '@/lib/auth/session'
+import { plansForUser } from '@/lib/cooking/plans'
+import { listGroceriesForUser } from '@/lib/groceries/repository'
 import {
 	ingredientHeading,
 	ingredientSubject,
@@ -6,11 +8,59 @@ import {
 import { ingredientLinesFor } from '@/lib/recipes/repository'
 
 import { findInPantry, shelfState } from './foods'
+import { type Readiness, readinessOf } from './readiness'
 import { listPantryForUser } from './repository'
 import { lineStatus } from './status'
 
 // Food that spoils within this many days is worth using first.
 const soonDays = 3
+
+// The pantry's foods a recipe can count on: not past their time, and marked
+// stale once unseen for a while.
+function keptNow(pantry: Awaited<ReturnType<typeof listPantryForUser>>) {
+	const now = new Date()
+
+	return pantry.flatMap((item) => {
+		const shelf = shelfState(item, now)
+
+		return shelf.state === 'expired'
+			? []
+			: [{ ...item, ...shelf, stale: shelf.state === 'stale' }]
+	})
+}
+
+// How ready each recipe is to cook, for the shelf to show at a glance.
+// Nothing for a visitor, or a kitchen with nothing in it yet.
+export async function recipeReadiness(recipeIds: string[]) {
+	const ready = new Map<string, Readiness>()
+	const accountId = await getAccountId()
+
+	if (!accountId || !recipeIds.length) return ready
+
+	const [pantry, list, lines, plans] = await Promise.all([
+		listPantryForUser(accountId),
+		listGroceriesForUser(accountId),
+		ingredientLinesFor(recipeIds),
+		plansForUser(accountId),
+	])
+
+	if (!pantry.length) return ready
+
+	const kept = keptNow(pantry)
+	const skips = new Map(plans.map((plan) => [plan.recipeId, plan.skipped]))
+
+	for (const [id, recipeLines] of lines) {
+		const forIt = list.filter((item) =>
+			item.recipes.some((recipe) => recipe.id === id),
+		)
+
+		const readiness = readinessOf(recipeLines, kept, forIt, skips.get(id))
+
+		if (readiness) ready.set(id, readiness)
+	}
+
+	return ready
+}
 
 // How much of each recipe the signed-in cook's kitchen has, for a list to
 // say at a glance: how many of its foods are home, of how many, and what of
@@ -37,16 +87,7 @@ export async function kitchenStock(recipeIds: string[]) {
 
 	if (!pantry.length) return stock
 
-	const now = new Date()
-
-	const kept = pantry.flatMap((item) => {
-		const shelf = shelfState(item, now)
-
-		return shelf.state === 'expired'
-			? []
-			: [{ ...item, ...shelf, stale: shelf.state === 'stale' }]
-	})
-
+	const kept = keptNow(pantry)
 	const lines = await ingredientLinesFor(recipeIds)
 
 	for (const [id, recipeLines] of lines) {

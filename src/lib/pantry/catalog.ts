@@ -225,6 +225,7 @@ export const catalogSections = [
 		'baking powder',
 		'yeast',
 		'cornstarch',
+		'cornmeal',
 		'cocoa powder',
 		'chocolate chips',
 		'honey',

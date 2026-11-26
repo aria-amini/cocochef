@@ -135,7 +135,7 @@ export function ImportLinkForm({
 					<button
 						type="submit"
 						disabled={busy || !value.trim()}
-						className={cn(primaryActionClassName, 'px-4')}
+						className={primaryActionClassName}
 					>
 						import
 					</button>

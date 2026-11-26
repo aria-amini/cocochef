@@ -144,11 +144,7 @@ export function PantryNeed({
 							<Plus size={16} weight="bold" aria-hidden />
 						</button>
 					</div>
-					<Button
-						disabled={disabled}
-						onClick={() => onAdd(text)}
-						className="min-h-11"
-					>
+					<Button disabled={disabled} onClick={() => onAdd(text)} size="lg">
 						<ShoppingCartIcon weight="bold" aria-hidden />
 						add to list
 					</Button>

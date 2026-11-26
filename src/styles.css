@@ -28,10 +28,13 @@
 	--accent-foreground: #ffffff;
 	--destructive: #ff4b26;
 	--destructive-foreground: #16130e;
+	/* Dashed where something isn't real yet: to add, to buy, or still empty. */
 	--border: rgb(22 19 14 / 0.18);
 	--input: rgb(22 19 14 / 0.46);
 	--ring: #5b3df5;
 
+	/* Each means one thing: tomato a warning, yolk active, basil done or enough,
+	   eggplant focus, links and suggestions. */
 	--kitchen-tomato: #ff4b26;
 	--kitchen-yolk: #ffc21c;
 	--kitchen-basil: #2fa84f;

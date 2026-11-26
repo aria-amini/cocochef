@@ -71,7 +71,8 @@ vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
+	listShelf: () =>
+		Promise.resolve({ recipes: [], signedIn: true, inProgress: [] }),
 	getRecipe: () => Promise.resolve(online.recipe),
 	createRecipe: async ({ data }: { data: Saved }) => {
 		state.created.push(data)
