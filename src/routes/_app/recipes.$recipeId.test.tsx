@@ -56,7 +56,8 @@ vi.mock('@/lib/recipes/server', () => ({
 
 		return { id: data.id }
 	},
-	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
+	listShelf: () =>
+		Promise.resolve({ recipes: [], signedIn: true, inProgress: [] }),
 	getRecipe: () =>
 		recipeState.hang
 			? new Promise(() => {})

@@ -47,7 +47,8 @@ vi.mock('@/lib/sharing/server', async () => {
 
 vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/recipes/server')>()),
-	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
+	listShelf: () =>
+		Promise.resolve({ recipes: [], signedIn: true, inProgress: [] }),
 	// A query's data can't be undefined; an unset recipe is none.
 	getRecipe: async (args: { data: { id: string } }) =>
 		(await api.getRecipe(args)) ?? null,

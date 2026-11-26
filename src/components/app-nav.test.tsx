@@ -15,7 +15,8 @@ vi.mock('@/lib/recipes/server', () => ({
 	deleteRecipes: () => Promise.resolve({ removed: 0 }),
 	removeSavedRecipe: () => Promise.resolve(null),
 	saveRecipe: () => Promise.resolve(null),
-	listShelf: () => Promise.resolve({ recipes: shelf.recipes, signedIn: true }),
+	listShelf: () =>
+		Promise.resolve({ recipes: shelf.recipes, signedIn: true, inProgress: [] }),
 	getRecipe: vi.fn(),
 	createRecipe: vi.fn(),
 	updateRecipe: vi.fn(),

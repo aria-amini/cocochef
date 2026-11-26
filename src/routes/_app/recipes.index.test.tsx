@@ -20,6 +20,8 @@ type ShelfState = {
 	hang: boolean
 	// What the kitchen has of each recipe, read after the shelf.
 	readiness: Record<string, { home: number; listed: number; total: number }>
+	// The recipes being shopped for, newest first.
+	inProgress: string[]
 	// The next read of the shelf waits for this.
 	read?: Promise<void> | undefined
 }
@@ -30,6 +32,7 @@ const shelfState = vi.hoisted<ShelfState>(() => ({
 	viewerId: null,
 	hang: false,
 	readiness: {},
+	inProgress: [],
 }))
 
 const discovery = vi.hoisted(() => ({
@@ -72,6 +75,7 @@ vi.mock('@/lib/recipes/server', () => ({
 			recipes,
 			signedIn: shelfState.signedIn,
 			viewerId: shelfState.viewerId,
+			inProgress: shelfState.inProgress,
 		}
 	},
 	listShelfReadiness: async () => shelfState.readiness,
@@ -144,6 +148,7 @@ describe('recipes shelf', () => {
 		shelfState.hang = false
 		shelfState.read = undefined
 		shelfState.readiness = {}
+		shelfState.inProgress = []
 		saves.remove.mockReset().mockResolvedValue(null)
 		saves.save.mockReset().mockResolvedValue(null)
 		saves.removeMany.mockReset().mockResolvedValue({ removed: 0 })
@@ -649,6 +654,42 @@ describe('recipes shelf', () => {
 		await expect
 			.element(screen.getByRole('link', { name: 'plain rice', exact: true }))
 			.toBeVisible()
+	})
+
+	test('leads with what is being shopped for, newest first', async () => {
+		shelfState.recipes = [
+			misoButterPasta,
+			dal,
+			{ ...dal, id: 'shared', title: 'shared soup', userId: null },
+		]
+		// One not on the shelf stays on home's list alone.
+		shelfState.inProgress = ['shared', 'elsewhere', misoButterPasta.id]
+
+		const { screen } = await renderRoute({
+			path: '/recipes',
+			session: testSession,
+		})
+
+		const shopping = screen.getByRole('region', { name: 'in progress' })
+		await expect.element(shopping).toBeVisible()
+		expect(
+			shopping
+				.getByRole('heading', { level: 3 })
+				.elements()
+				.map((title) => title.textContent),
+		).toEqual(['shared soup', 'miso butter pasta'])
+		// Saved from someone else, it can still be taken off from its corner.
+		await expect
+			.element(shopping.getByRole('button', { name: 'unsave shared soup' }))
+			.toBeVisible()
+		const yours = screen.getByRole('region', { name: 'your recipes' })
+		await expect.element(yours.getByText('dal')).toBeVisible()
+		await expect
+			.element(yours.getByText('miso butter pasta'))
+			.not.toBeInTheDocument()
+		await expect
+			.element(screen.getByRole('region', { name: 'saved recipes' }))
+			.not.toBeInTheDocument()
 	})
 
 	test('keeps drafts apart, saying how far each has got', async () => {

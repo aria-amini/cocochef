@@ -2,7 +2,7 @@ import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { readSession, getViewerId, requireAccountId } from '@/lib/auth/session'
-import { dropPlanForUser } from '@/lib/cooking/plans'
+import { dropPlanForUser, planIdsForUser } from '@/lib/cooking/plans'
 import {
 	leaveRecipeForUser,
 	recipeLinesForUser,
@@ -50,10 +50,18 @@ async function withSignedImage<T extends { imageUrl: string | null }>(
 
 export const listShelf = createServerFn({ method: 'GET' }).handler(async () => {
 	const viewer = await getViewerId()
-	const shelf = await listShelfForUser(viewer)
+
+	const [shelf, inProgress] = await Promise.all([
+		listShelfForUser(viewer),
+		viewer === 'visitor'
+			? Promise.resolve<string[]>([])
+			: planIdsForUser(viewer),
+	])
 
 	return {
 		...shelf,
+		// The recipes being shopped for, newest first, to lead the shelf.
+		inProgress,
 		// A visitor keeps nothing, so the shelf asks them to sign up instead.
 		signedIn: viewer !== 'visitor',
 		// Who is asking, so the page tells their own recipes from saved ones

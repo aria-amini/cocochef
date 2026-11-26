@@ -65,7 +65,8 @@ vi.mock('@/lib/import/server', () => ({
 
 vi.mock('@/lib/recipes/server', async (importOriginal) => ({
 	...(await importOriginal<object>()),
-	listShelf: () => Promise.resolve({ recipes: [], signedIn: true }),
+	listShelf: () =>
+		Promise.resolve({ recipes: [], signedIn: true, inProgress: [] }),
 	getRecipe: server.recipe,
 	saveRecipe: server.save,
 }))

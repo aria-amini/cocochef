@@ -2,6 +2,7 @@ import {
 	ArrowRightIcon,
 	BookmarkSimpleIcon,
 	CheckIcon,
+	CookingPotIcon,
 	GlobeHemisphereWestIcon,
 	LinkSimpleIcon,
 	LockSimpleIcon,
@@ -14,6 +15,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
 	createContext,
+	Fragment,
 	startTransition,
 	useContext,
 	useEffect,
@@ -172,7 +174,7 @@ function Shelf() {
 			recipes.filter((recipe) => !ids.has(recipe.id)),
 	)
 
-	const { viewerId } = useKeptMatch(Route.id).loaderData
+	const { viewerId, inProgress } = useKeptMatch(Route.id).loaderData
 	const account = authClient.useSession().data?.user
 	const me = viewerId ?? account?.id
 
@@ -189,20 +191,55 @@ function Shelf() {
 
 	const mine = (recipe: Recipe) => !!me && recipe.userId === me
 
-	const ownRecipes = shelfRecipes.filter(
-		(recipe) => mine(recipe) && recipe.finalizedAt,
-	)
-
 	// Recipes still being written, kept apart so they are easy to come back to.
 	const drafts = shelfRecipes.filter(
 		(recipe) => mine(recipe) && !recipe.finalizedAt,
 	)
 
-	const savedRecipes = shelfRecipes.filter((recipe) => !mine(recipe))
+	// What's being shopped for leads, newest first, and goes back to its own
+	// shelf once it's cooked or dropped.
+	const shopping = inProgress.flatMap((id) =>
+		shelfRecipes.filter(
+			(recipe) => recipe.id === id && (!mine(recipe) || recipe.finalizedAt),
+		),
+	)
+
+	const shelved = shelfRecipes.filter(
+		(recipe) => !inProgress.includes(recipe.id),
+	)
+
+	const ownRecipes = shelved.filter(
+		(recipe) => mine(recipe) && recipe.finalizedAt,
+	)
+
+	const savedRecipes = shelved.filter((recipe) => !mine(recipe))
 
 	const sections = [
-		{ id: 'your-recipes', title: 'your recipes', recipes: ownRecipes },
-		{ id: 'saved-recipes', title: 'saved recipes', recipes: savedRecipes },
+		{
+			id: 'in-progress',
+			title: 'in progress',
+			icon: <CookingPotIcon size={20} weight="bold" aria-hidden />,
+			recipes: shopping,
+		},
+		{
+			id: 'your-recipes',
+			title: 'your recipes',
+			icon: <UserIcon size={20} weight="bold" aria-hidden />,
+			recipes: ownRecipes,
+		},
+		{
+			id: 'saved-recipes',
+			title: 'saved recipes',
+			icon: (
+				<BookmarkSimpleIcon
+					size={20}
+					weight="fill"
+					aria-hidden
+					className="text-kitchen-eggplant"
+				/>
+			),
+			recipes: savedRecipes,
+		},
 	]
 
 	// Your own recipes open with the tile to add one, so that shelf shows even
@@ -225,50 +262,45 @@ function Shelf() {
 			<main className="min-w-0 flex-1">
 				<div className="flex w-full max-w-3xl min-w-0 flex-col gap-8 p-6 md:p-10">
 					<h1 className="sr-only">my recipes</h1>
-					{drafts.length ? <Drafts drafts={drafts} pickFor={pickFor} /> : null}
-					{sections.map(({ id, title, recipes }) =>
-						recipes.length || id === ownShelf ? (
-							<section
-								key={id}
-								aria-labelledby={id}
-								className="flex min-w-0 flex-col gap-3"
-							>
-								<h2 id={id} className={shelfHeadingClassName}>
-									{id === 'saved-recipes' ? (
-										<BookmarkSimpleIcon
-											size={20}
-											weight="fill"
-											aria-hidden
-											className="text-kitchen-eggplant"
-										/>
-									) : (
-										<UserIcon size={20} weight="bold" aria-hidden />
-									)}
-									{title}
-								</h2>
-								<div className={shelfGridClassName}>
-									{id === ownShelf && !selection.on ? (
-										<AddTile ref={addTile} />
-									) : null}
-									{recipes.map((recipe) => (
-										<RecipeTile
-											key={recipe.id}
-											recipe={recipe}
-											ready={readiness?.[recipe.id]}
-											pick={pickFor(recipe)}
-											saved={id === 'saved-recipes'}
-											color={tileColorFor(recipe.id)}
-											seenBy={
-												mine(recipe)
-													? (recipe.visibility ?? 'private')
-													: undefined
-											}
-										/>
-									))}
-								</div>
-							</section>
-						) : null,
-					)}
+					{sections.map(({ id, title, icon, recipes }) => (
+						<Fragment key={id}>
+							{/* After what's in progress, before the finished ones. */}
+							{id === ownShelf && drafts.length ? (
+								<Drafts drafts={drafts} pickFor={pickFor} />
+							) : null}
+							{recipes.length || id === ownShelf ? (
+								<section
+									aria-labelledby={id}
+									className="flex min-w-0 flex-col gap-3"
+								>
+									<h2 id={id} className={shelfHeadingClassName}>
+										{icon}
+										{title}
+									</h2>
+									<div className={shelfGridClassName}>
+										{id === ownShelf && !selection.on ? (
+											<AddTile ref={addTile} />
+										) : null}
+										{recipes.map((recipe) => (
+											<RecipeTile
+												key={recipe.id}
+												recipe={recipe}
+												ready={readiness?.[recipe.id]}
+												pick={pickFor(recipe)}
+												saved={!mine(recipe)}
+												color={tileColorFor(recipe.id)}
+												seenBy={
+													mine(recipe)
+														? (recipe.visibility ?? 'private')
+														: undefined
+												}
+											/>
+										))}
+									</div>
+								</section>
+							) : null}
+						</Fragment>
+					))}
 					{/* Last in the column, so it sticks above the tab bar the whole way
 				    down and rests under the last recipe. */}
 					{selection.on && account ? (

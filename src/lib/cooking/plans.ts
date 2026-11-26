@@ -47,7 +47,8 @@ export async function plansForUser(
 		.orderBy(desc(cookPlans.plannedAt))
 }
 
-// The recipes in progress, for home to know before its list loads.
+// The recipes in progress, newest first: for home to know before its list
+// loads, and the shelf to put them first.
 export async function planIdsForUser(
 	userId: string,
 	database: Database = getDb(),
