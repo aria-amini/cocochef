@@ -1,5 +1,4 @@
-import type { CSSProperties } from 'react'
-
+import { ReadyBar } from '@/components/ready-bar'
 import { RecipeGlyph } from '@/components/recipe-glyph'
 import type { Readiness } from '@/lib/pantry/readiness'
 import { sizedPhoto } from '@/lib/photos/sized'
@@ -35,36 +34,6 @@ function readyWords({ home, listed, total }: Readiness) {
 		: `${home} of ${total} home`
 }
 
-// How ready a recipe is to cook, seen down a shelf before it's read: basil
-// for what's home, then yolk for what's on the list for it. What's left of
-// the track is still to get.
-function ReadyBar({
-	ready,
-	className,
-}: {
-	ready: Readiness
-	className: string
-}) {
-	const vars: CSSProperties & Record<`--${string}`, string> = {
-		'--home': `${(ready.home / ready.total) * 100}%`,
-		'--listed': `${(ready.listed / ready.total) * 100}%`,
-	}
-
-	return (
-		<span
-			aria-hidden
-			style={vars}
-			className={cn(
-				'bg-foreground/15 absolute inset-x-0 flex h-1.5',
-				className,
-			)}
-		>
-			<span className="bg-kitchen-basil w-(--home)" />
-			<span className="bg-kitchen-yolk w-(--listed)" />
-		</span>
-	)
-}
-
 export function RecipeTileFace({
 	title,
 	imageUrl,
@@ -93,7 +62,9 @@ export function RecipeTileFace({
 				</div>
 				<div className="border-border bg-card relative flex shrink-0 flex-col gap-0.5 border-t px-2.5 py-1.5">
 					{/* Along the photo's foot, over the line under it. */}
-					{ready ? <ReadyBar ready={ready} className="-top-px" /> : null}
+					{ready ? (
+						<ReadyBar ready={ready} kind="edge" className="-top-px" />
+					) : null}
 					<h3 className="line-clamp-2 text-sm leading-tight font-bold wrap-anywhere">
 						{title}
 					</h3>
@@ -124,7 +95,9 @@ export function RecipeTileFace({
 				))}
 			</div>
 			{/* Without a photo, along the tile's foot. */}
-			{ready ? <ReadyBar ready={ready} className="bottom-0" /> : null}
+			{ready ? (
+				<ReadyBar ready={ready} kind="edge" className="bottom-0" />
+			) : null}
 		</>
 	)
 }

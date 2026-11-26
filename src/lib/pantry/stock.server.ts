@@ -1,4 +1,5 @@
 import { getAccountId } from '@/lib/auth/session'
+import { plansForUser } from '@/lib/cooking/plans'
 import { listGroceriesForUser } from '@/lib/groceries/repository'
 import {
 	ingredientHeading,
@@ -36,22 +37,24 @@ export async function recipeReadiness(recipeIds: string[]) {
 
 	if (!accountId || !recipeIds.length) return ready
 
-	const [pantry, list, lines] = await Promise.all([
+	const [pantry, list, lines, plans] = await Promise.all([
 		listPantryForUser(accountId),
 		listGroceriesForUser(accountId),
 		ingredientLinesFor(recipeIds),
+		plansForUser(accountId),
 	])
 
 	if (!pantry.length) return ready
 
 	const kept = keptNow(pantry)
+	const skips = new Map(plans.map((plan) => [plan.recipeId, plan.skipped]))
 
 	for (const [id, recipeLines] of lines) {
 		const forIt = list.filter((item) =>
 			item.recipes.some((recipe) => recipe.id === id),
 		)
 
-		const readiness = readinessOf(recipeLines, kept, forIt)
+		const readiness = readinessOf(recipeLines, kept, forIt, skips.get(id))
 
 		if (readiness) ready.set(id, readiness)
 	}

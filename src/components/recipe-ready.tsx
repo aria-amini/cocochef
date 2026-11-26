@@ -35,6 +35,7 @@ import { WithBrand } from '@/components/brand-field'
 import { groceryCountKey, showAdded } from '@/components/grocery-badge'
 import { ItemSheet, ItemSheetDone } from '@/components/item-sheet'
 import { PantrySprite } from '@/components/pantry-sprite'
+import { ReadyBar } from '@/components/ready-bar'
 import {
 	amountShown,
 	together,
@@ -60,6 +61,7 @@ import {
 	leaveGrocery,
 	renameGrocery,
 } from '@/lib/groceries/server'
+import type { Readiness as ReadyCount } from '@/lib/pantry/readiness'
 import {
 	deletePantryItem,
 	haveFood,
@@ -436,6 +438,22 @@ export function ReadinessPill({
 
 	const shown = shop.known && plan.isSuccess && shop.rows.length > 0
 
+	// Under the heading, the bar counts as the shelf's tiles do: a food
+	// skipped for this recipe isn't needed, unless it's home or listed after
+	// all. With nothing in the pantry, it would say nothing.
+	const needed = shop.rows.filter(
+		(row) => taps.listed(row) || taps.home(row) || !skips.has(row.line),
+	)
+
+	const ready: ReadyCount | undefined =
+		shown && shop.stocked && needed.length
+			? {
+					home: needed.filter(taps.home).length,
+					listed: needed.filter(taps.listed).length,
+					total: needed.length,
+				}
+			: undefined
+
 	const hint = shown && state === 'missing' && !seen
 
 	useEffect(() => {
@@ -605,126 +623,143 @@ export function ReadinessPill({
 	}
 
 	return (
-		<span className={cn('relative inline-flex', className)}>
-			<button
-				ref={pill}
-				type="button"
-				onClick={asking ? askToSignIn : openSheet}
-				className={cn(
-					'inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm font-bold transition-transform active:scale-95',
-					readinessLooks[state],
-				)}
+		<>
+			{/* As tall as the heading's row, so the bar wrapping under it leaves
+			    the heading level with the steps'. */}
+			<span
+				className={cn('relative inline-flex min-h-11 items-center', className)}
 			>
-				<ReadinessIcon state={state} />
-				{label}
-			</button>
-			{hint ? (
-				<span
-					aria-hidden
-					className="bg-foreground text-background before:bg-foreground absolute right-0 bottom-full z-10 mb-2 rounded-md px-2.5 py-1.5 text-xs font-bold whitespace-nowrap before:absolute before:right-5 before:-bottom-1 before:size-2 before:rotate-45"
+				<button
+					ref={pill}
+					type="button"
+					onClick={asking ? askToSignIn : openSheet}
+					className={cn(
+						'inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm font-bold transition-transform active:scale-95',
+						readinessLooks[state],
+					)}
 				>
-					tap to see what's missing
-				</span>
-			) : null}
-			{asking ? (
-				<AuthDialog
-					open={authOpen}
-					onOpenChange={setAuthOpen}
-					redirect={pathname}
-					// Signed in, the page loads again as the account sees it.
-					onSuccess={() => void router.invalidate()}
-				/>
-			) : null}
-			{open ? (
-				<ItemSheet
-					anchor={() => pill.current}
-					title={label}
-					wide
-					// Changes not saved are asked about before they're dropped.
-					onClose={() => (changed ? setLeaving(true) : setOpen(false))}
-				>
-					{/* One group, so a food slides from list to list. */}
-					<LayoutGroup>
-						{/* The sheet grows and shrinks from its foot on a phone, so all
+					<ReadinessIcon state={state} />
+					{label}
+				</button>
+				{hint ? (
+					<span
+						aria-hidden
+						className="bg-foreground text-background before:bg-foreground absolute right-0 bottom-full z-10 mb-2 rounded-md px-2.5 py-1.5 text-xs font-bold whitespace-nowrap before:absolute before:right-5 before:-bottom-1 before:size-2 before:rotate-45"
+					>
+						tap to see what's missing
+					</span>
+				) : null}
+				{asking ? (
+					<AuthDialog
+						open={authOpen}
+						onOpenChange={setAuthOpen}
+						redirect={pathname}
+						// Signed in, the page loads again as the account sees it.
+						onSuccess={() => void router.invalidate()}
+					/>
+				) : null}
+				{open ? (
+					<ItemSheet
+						anchor={() => pill.current}
+						title={label}
+						wide
+						// Changes not saved are asked about before they're dropped.
+						onClose={() => (changed ? setLeaving(true) : setOpen(false))}
+					>
+						{/* One group, so a food slides from list to list. */}
+						<LayoutGroup>
+							{/* The sheet grows and shrinks from its foot on a phone, so all
 						    of it moves as one, and a food slides within it. */}
-						<motion.div
-							layout="position"
-							transition={{
-								duration: reduceMotion ? 0 : 0.3,
-								ease: 'easeInOut',
-							}}
-							className="flex flex-col gap-4"
-						>
-							<SheetHead>{label}</SheetHead>
-							{toBuy.length ? (
-								<ToBuy
-									rows={toBuy}
-									amount={amount}
-									none={none}
-									onStep={step}
-									onHome={setConfirming}
-								/>
-							) : null}
-							{/* The settled groups stack as one list of lines. */}
-							<div className="flex flex-col">
-								{listed.length ? (
-									<OnTheList
-										rows={listed}
-										// Folded while the to-buy box shows, skipped foods
-										// and all; open when it's all there is.
-										folded={toBuy.length > 0}
+							<motion.div
+								layout="position"
+								transition={{
+									duration: reduceMotion ? 0 : 0.3,
+									ease: 'easeInOut',
+								}}
+								className="flex flex-col gap-4"
+							>
+								<SheetHead>{label}</SheetHead>
+								{toBuy.length ? (
+									<ToBuy
+										rows={toBuy}
+										amount={amount}
+										none={none}
+										onStep={step}
+										onHome={setConfirming}
 									/>
 								) : null}
-								<PantryFoods
-									rows={inPantry}
-									open={pantryOpen}
-									onOpenChange={setPantryOpen}
-									// One just said to be home goes back to buy: a slip,
-									// taken back.
-									onOut={(row) =>
-										setDraft((now) =>
-											now.homes.has(row.line)
-												? { ...now, homes: withoutLines([row.line])(now.homes) }
-												: { ...now, outs: withLine(row.line)(now.outs) },
-										)
-									}
-								/>
-							</div>
-							{buying.length || changed ? (
-								// A long list scrolls under the button, which stays in
-								// reach. Its edges meet the sheet's, or the popover's on
-								// a wide screen.
-								<div className="bg-card sticky -bottom-8 -mx-5 -mb-8 px-5 pt-2 pb-8 md:-bottom-4 md:-mx-4 md:-mb-4 md:px-4 md:pb-4">
-									<Button onClick={() => void save()} className="w-full">
-										{buying.length ? (
-											<>
-												<ShoppingCartIcon weight="bold" aria-hidden />
-												add {buying.length} to list
-											</>
-										) : (
-											'save'
-										)}
-									</Button>
+								{/* The settled groups stack as one list of lines. */}
+								<div className="flex flex-col">
+									{listed.length ? (
+										<OnTheList
+											rows={listed}
+											// Folded while the to-buy box shows, skipped foods
+											// and all; open when it's all there is.
+											folded={toBuy.length > 0}
+										/>
+									) : null}
+									<PantryFoods
+										rows={inPantry}
+										open={pantryOpen}
+										onOpenChange={setPantryOpen}
+										// One just said to be home goes back to buy: a slip,
+										// taken back.
+										onOut={(row) =>
+											setDraft((now) =>
+												now.homes.has(row.line)
+													? {
+															...now,
+															homes: withoutLines([row.line])(now.homes),
+														}
+													: { ...now, outs: withLine(row.line)(now.outs) },
+											)
+										}
+									/>
 								</div>
-							) : null}
-						</motion.div>
-					</LayoutGroup>
-					{leaving || blocker.status === 'blocked' ? (
-						<LeaveDialog onStay={stay} onLeave={leave} />
-					) : null}
-					{confirming ? (
-						<PantryConfirm
-							name={confirming.name}
-							onConfirm={() => {
-								homeAfterAll(confirming)
-								setConfirming(undefined)
-							}}
-							onCancel={() => setConfirming(undefined)}
-						/>
-					) : null}
-				</ItemSheet>
+								{buying.length || changed ? (
+									// A long list scrolls under the button, which stays in
+									// reach. Its edges meet the sheet's, or the popover's on
+									// a wide screen.
+									<div className="bg-card sticky -bottom-8 -mx-5 -mb-8 px-5 pt-2 pb-8 md:-bottom-4 md:-mx-4 md:-mb-4 md:px-4 md:pb-4">
+										<Button onClick={() => void save()} className="w-full">
+											{buying.length ? (
+												<>
+													<ShoppingCartIcon weight="bold" aria-hidden />
+													add {buying.length} to list
+												</>
+											) : (
+												'save'
+											)}
+										</Button>
+									</div>
+								) : null}
+							</motion.div>
+						</LayoutGroup>
+						{leaving || blocker.status === 'blocked' ? (
+							<LeaveDialog onStay={stay} onLeave={leave} />
+						) : null}
+						{confirming ? (
+							<PantryConfirm
+								name={confirming.name}
+								onConfirm={() => {
+									homeAfterAll(confirming)
+									setConfirming(undefined)
+								}}
+								onCancel={() => setConfirming(undefined)}
+							/>
+						) : null}
+					</ItemSheet>
+				) : null}
+			</span>
+			{/* A line of its own, under the heading and the pill. */}
+			{ready ? (
+				<ReadyBar
+					ready={ready}
+					kind="track"
+					className="mt-1 mb-1.5 basis-full"
+				/>
 			) : null}
-		</span>
+		</>
 	)
 }
 

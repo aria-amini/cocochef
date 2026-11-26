@@ -45,6 +45,24 @@ describe('readinessOf', () => {
 		})
 	})
 
+	test('counts each food once, as the list takes it', () => {
+		const lines = ['## Dough', '1 tsp salt', '## Filling', '½ tsp salt']
+
+		expect(readinessOf(lines, [kept('salt', 'plenty')], [])).toEqual({
+			home: 1,
+			listed: 0,
+			total: 1,
+		})
+	})
+
+	test('leaves out what the cook is doing without', () => {
+		const lines = ['1 lemon', '2 cloves garlic', '1 bunch parsley']
+
+		expect(
+			readinessOf(lines, [kept('garlic', 'plenty')], [], ['1 bunch parsley']),
+		).toEqual({ home: 1, listed: 0, total: 2 })
+	})
+
 	test('says nothing of a recipe that needs nothing bought', () => {
 		expect(readinessOf(['1 cup water', ''], [], [])).toBeUndefined()
 	})
